@@ -2,6 +2,8 @@ package com.tradej.app.integration;
 
 import com.tradej.app.TradingApplication;
 import com.tradej.app.admin.RuntimeHealthState;
+import com.tradej.broker.dhan.config.DhanAuthMode;
+import com.tradej.broker.dhan.config.DhanConnectionSettings;
 import com.tradej.core.domain.event.CandleDeveloping;
 import com.tradej.core.domain.port.EventBus;
 import org.junit.jupiter.api.Tag;
@@ -24,7 +26,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class DhanRuntimeSmokeIntegrationTest {
     @Test
     void startsSpringRuntimeWithLiveBrokerPreflight() throws Exception {
-        LiveDhanTestSupport.connectionSettingsOrSkip();
+        DhanConnectionSettings settings = LiveDhanTestSupport.liveConnectionSettingsOrSkip();
+        String accessToken = LiveDhanTestSupport.resolveLiveAccessToken(settings);
         String runtimeSymbol = LiveDhanTestSupport.value("DHAN_RUNTIME_SYMBOL", "dhan.runtimeSymbol");
         String runtimeSegment = LiveDhanTestSupport.value("DHAN_RUNTIME_SEGMENT", "dhan.runtimeSegment");
         String symbol = LiveDhanTestSupport.isPresent(runtimeSymbol) ? runtimeSymbol : "NIFTY";
@@ -39,6 +42,9 @@ class DhanRuntimeSmokeIntegrationTest {
         try (ConfigurableApplicationContext context = app.run(
                 "--server.port=0",
                 "--spring.profiles.active=dev-live",
+                "--trade.broker.client-id=" + settings.clientId(),
+                "--trade.broker.access-token=" + accessToken,
+                "--trade.broker.auth-mode=" + DhanAuthMode.STATIC.name(),
                 "--trade.storage.chronicle-path=" + chroniclePath,
                 "--trade.storage.duckdb-path=" + duckdbPath,
                 "--trade.instruments.cache-directory=" + cachePath,
