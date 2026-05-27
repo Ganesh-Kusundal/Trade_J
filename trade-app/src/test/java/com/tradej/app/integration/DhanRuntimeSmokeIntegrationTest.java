@@ -38,8 +38,7 @@ class DhanRuntimeSmokeIntegrationTest {
         SpringApplication app = new SpringApplication(TradingApplication.class);
         try (ConfigurableApplicationContext context = app.run(
                 "--server.port=0",
-                "--trade.broker.client-id=" + LiveDhanTestSupport.value("DHAN_CLIENT_ID", "dhan.clientId"),
-                "--trade.broker.access-token=" + LiveDhanTestSupport.value("DHAN_ACCESS_TOKEN", "dhan.accessToken"),
+                "--spring.profiles.active=dev-live",
                 "--trade.storage.chronicle-path=" + chroniclePath,
                 "--trade.storage.duckdb-path=" + duckdbPath,
                 "--trade.instruments.cache-directory=" + cachePath,

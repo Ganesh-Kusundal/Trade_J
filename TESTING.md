@@ -27,6 +27,18 @@ The project uses a three-layer test pyramid aligned with the trading runtime:
 
 `test` excludes `integration` by default so the regular build stays fast and safe.
 
+## Spring profiles (runtime)
+
+See [CONFIG.md](CONFIG.md) for the full profile matrix. Summary:
+
+| Command | Profile | Broker |
+|---------|---------|--------|
+| `./gradlew :trade-app:bootRun` | `dev` (default) | Sandbox |
+| `./gradlew :trade-app:bootRun --args='--spring.profiles.active=dev-live'` | `dev-live` | Live |
+| `SPRING_PROFILES_ACTIVE=prod ./gradlew :trade-app:bootRun` | `prod` | Live |
+
+Credential files are unchanged: `config/dhan-local.properties` (live) and `config/dhan-sandbox.properties` (sandbox). The `dev` profile imports **both**; default runtime uses sandbox keys for safe local order testing.
+
 ## Full-stack regression
 
 One command runs unit → component → preflight → live broker read paths → sandbox orders → runtime E2E → cross-layer OMS/execution tests:
@@ -139,6 +151,14 @@ Forced TOTP generation drill (live, will mint a new session token):
 ```bash
 ./gradlew :trade-app:brokerRestTest --tests '*DhanTokenForcedGenerationIntegrationTest'
 ```
+
+Refresh production `runtime/dhan-token-state.json` when live preflight fails (clears stale cache, mints via TOTP):
+
+```bash
+./gradlew :trade-app:brokerRestTest --tests '*DhanRefreshProductionTokenIntegrationTest' --no-daemon
+```
+
+Live integration tests and preflight resolve tokens through `DhanTokenManager` when `dhan.authMode=TOTP_GENERATED`; a stale `dhan.accessToken` in properties no longer blocks regeneration.
 
 Token reuse drill (must not rotate when still valid):
 

@@ -2,6 +2,7 @@ package com.tradej.broker.dhan.auth;
 
 import com.tradej.broker.dhan.config.DhanAuthMode;
 import com.tradej.broker.dhan.config.DhanConnectionSettings;
+import com.tradej.broker.dhan.exceptions.DhanHttpException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -130,7 +131,7 @@ public class DhanTokenManager implements DhanTokenProvider {
                 if (info.valid() && !info.refreshRecommended()) {
                     return new DhanTokenState(state.accessToken(), info.expiryEpochMs(), state.issuedAtEpochMs(), state.source());
                 }
-            } catch (DhanAuthenticationException ignored) {
+            } catch (DhanAuthenticationException | DhanHttpException ignored) {
                 return null;
             }
         }
@@ -151,7 +152,7 @@ public class DhanTokenManager implements DhanTokenProvider {
                 return null;
             }
             return new DhanTokenState(bootstrapToken, info.expiryEpochMs(), now, "BOOTSTRAP");
-        } catch (DhanAuthenticationException ignored) {
+        } catch (DhanAuthenticationException | DhanHttpException ignored) {
             return null;
         }
     }

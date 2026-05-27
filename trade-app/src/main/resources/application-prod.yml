@@ -1,0 +1,17 @@
+spring:
+  config:
+    import: optional:file:./config/dhan-local.properties
+
+trade:
+  broker:
+    client-id: ${dhan.clientId:${DHAN_CLIENT_ID:}}
+    access-token: ${dhan.accessToken:${DHAN_ACCESS_TOKEN:}}
+    environment: LIVE
+    rest-base-url: ${dhan.restBaseUrl:}
+    auth-mode: ${dhan.authMode:TOTP_GENERATED}
+    token-state-file: ${dhan.tokenStateFile:runtime-prod/dhan-token-state.json}
+  storage:
+    chronicle-path: runtime-prod/chronicle
+    duckdb-path: runtime-prod/trade.duckdb
+  instruments:
+    cache-directory: runtime-prod/instruments

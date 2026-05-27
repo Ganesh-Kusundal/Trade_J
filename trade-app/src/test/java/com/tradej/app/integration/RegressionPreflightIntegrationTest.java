@@ -1,5 +1,6 @@
 package com.tradej.app.integration;
 
+import com.tradej.broker.dhan.config.DhanConnectionSettings;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
@@ -18,13 +19,10 @@ class RegressionPreflightIntegrationTest {
         if (!Files.exists(liveProps)) {
             fail("Missing live credentials file: " + liveProps + " — copy config/dhan-local.properties.example");
         }
-        String clientId = LiveDhanTestSupport.value("DHAN_CLIENT_ID", "dhan.clientId");
-        String accessToken = LiveDhanTestSupport.value("DHAN_ACCESS_TOKEN", "dhan.accessToken");
-        if (!LiveDhanTestSupport.isPresent(clientId) || !LiveDhanTestSupport.isPresent(accessToken)) {
-            fail("Live profile incomplete: set dhan.clientId and dhan.accessToken in " + liveProps);
-        }
-        assertTrue(preflight(clientId, accessToken, "https://api.dhan.co/v2/fundlimit"),
-                "Live preflight failed for api.dhan.co/v2/fundlimit — token may be expired.");
+        DhanConnectionSettings settings = LiveDhanTestSupport.liveConnectionSettingsWithoutPreflightOrSkip();
+        String accessToken = LiveDhanTestSupport.resolveLiveAccessToken(settings);
+        assertTrue(preflight(settings.clientId(), accessToken, settings.restBaseUrl() + "/fundlimit"),
+                "Live preflight failed after TOTP resolution — check pin/TOTP secret files and Dhan account access.");
     }
 
     @Test

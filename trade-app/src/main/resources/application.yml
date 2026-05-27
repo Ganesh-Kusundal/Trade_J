@@ -1,8 +1,8 @@
 spring:
   application:
     name: trade-j
-  config:
-    import: optional:file:./config/dhan-local.properties
+  profiles:
+    default: dev
 
 management:
   endpoints:
@@ -15,24 +15,15 @@ management:
 
 trade:
   broker:
-    client-id: ${dhan.clientId:${DHAN_CLIENT_ID:}}
-    access-token: ${dhan.accessToken:${DHAN_ACCESS_TOKEN:}}
-    environment: ${dhan.environment:LIVE}
-    rest-base-url: ${dhan.restBaseUrl:}
     logging-enabled: false
     rate-limit-retries: 3
     max-reconnect-attempts: 10
     auto-reconnect-enabled: true
     auto-resubscribe-enabled: true
-    auth-mode: ${dhan.authMode:STATIC}
-    refresh-buffer-minutes: ${dhan.refreshBufferMinutes:10}
     pin-file: ${dhan.pinFile:config/dhan-pin.txt}
     totp-secret-file: ${dhan.totpSecretFile:config/dhan-totp-secret.txt}
-    token-state-file: ${dhan.tokenStateFile:runtime/dhan-token-state.json}
+    refresh-buffer-minutes: ${dhan.refreshBufferMinutes:10}
     option-expiry-cache-ttl-minutes: ${dhan.optionExpiryCacheTtlMinutes:5}
-  storage:
-    chronicle-path: ${TRADE_CHRONICLE_PATH:runtime/chronicle}
-    duckdb-path: ${TRADE_DUCKDB_PATH:runtime/trade.duckdb}
   reconciliation:
     interval-seconds: 300
     initial-delay-seconds: 60
@@ -43,7 +34,6 @@ trade:
     max-open-positions: 3
   instruments:
     csv-path: ${TRADE_INSTRUMENTS_CSV:}
-    cache-directory: ${TRADE_INSTRUMENTS_CACHE_DIR:runtime/instruments}
     auto-download: ${TRADE_INSTRUMENTS_AUTO_DOWNLOAD:true}
   subscriptions: []
   venues:

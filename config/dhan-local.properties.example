@@ -1,0 +1,22 @@
+# Live Dhan credentials (copy to config/dhan-local.properties — gitignored)
+dhan.clientId=your-client-id
+dhan.accessToken=optional-bootstrap-jwt
+dhan.authMode=TOTP_GENERATED
+dhan.environment=LIVE
+dhan.restBaseUrl=
+dhan.pinFile=config/dhan-pin.txt
+dhan.totpSecretFile=config/dhan-totp-secret.txt
+dhan.tokenStateFile=runtime-dev/dhan-token-state.json
+dhan.refreshBufferMinutes=10
+
+# Live integration / runtime smoke symbols
+dhan.testSymbol=NIFTY
+dhan.testExchange=INDEX
+dhan.testSecurityId=13
+dhan.testSegment=IDX_I
+dhan.historicalSymbol=NIFTY
+dhan.historicalSecurityId=13
+dhan.historicalSegment=IDX_I
+dhan.historicalInstrument=INDEX
+dhan.runtimeSymbol=NIFTY
+dhan.runtimeSegment=IDX_I

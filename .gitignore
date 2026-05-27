@@ -7,6 +7,9 @@
 *.duckdb
 *.duckdb.wal
 /runtime/
+**/runtime-dev/
+**/runtime-test/
+**/runtime-prod/
 /data/
 /chronicle/
 /out/

@@ -1,5 +1,6 @@
 package com.tradej.app.integration;
 
+import com.tradej.broker.dhan.auth.DhanTokenManager;
 import com.tradej.broker.dhan.config.DhanAuthMode;
 import com.tradej.broker.dhan.config.DhanApiEnvironment;
 import com.tradej.broker.dhan.config.DhanConfigPaths;
@@ -44,14 +45,27 @@ final class LiveDhanTestSupport {
     }
 
     static DhanConnectionSettings liveConnectionSettingsOrSkip() {
+        DhanConnectionSettings settings = liveConnectionSettingsWithoutPreflightOrSkip();
+        String fundLimitUrl = settings.restBaseUrl() + "/fundlimit";
+        Assumptions.assumeTrue(
+                preflightAuth(settings.clientId(), resolveLiveAccessToken(settings), fundLimitUrl),
+                "Live Dhan credentials are missing, expired, or not visible to the Gradle test worker. "
+                        + "For TOTP_GENERATED, ensure config/dhan-pin.txt and config/dhan-totp-secret.txt are present. "
+                        + "If you are supplying env vars from the shell, rerun with --no-daemon.");
+        return settings;
+    }
+
+    static DhanConnectionSettings liveConnectionSettingsWithoutPreflightOrSkip() {
         String clientId = valueForProfile(Profile.LIVE, "DHAN_CLIENT_ID", CLIENT_ID_PROPERTY, null);
         String accessToken = valueForProfile(Profile.LIVE, "DHAN_ACCESS_TOKEN", ACCESS_TOKEN_PROPERTY, null);
         DhanAuthMode authMode = authMode();
-        Assumptions.assumeTrue(isPresent(clientId) && (isPresent(accessToken) || authMode == DhanAuthMode.TOTP_GENERATED),
+        Assumptions.assumeTrue(isPresent(clientId) && (isPresent(accessToken) || authMode != DhanAuthMode.STATIC),
                 "Set DHAN credentials via config/dhan-local.properties, environment variables, or -Pdhan.clientId/-Pdhan.accessToken to run live Dhan integration tests.");
-        if (isPresent(accessToken)) {
-            Assumptions.assumeTrue(preflightAuth(clientId, accessToken, "https://api.dhan.co/v2/fundlimit"),
-                    "Live Dhan credentials are missing, expired, or not visible to the Gradle test worker. If you are supplying env vars from the shell, rerun with --no-daemon.");
+        if (authMode == DhanAuthMode.TOTP_GENERATED) {
+            Path pinFile = DhanConfigPaths.resolve(value("DHAN_PIN_FILE", PIN_FILE_PROPERTY, "config/dhan-pin.txt"));
+            Path totpFile = DhanConfigPaths.resolve(value("DHAN_TOTP_SECRET_FILE", TOTP_SECRET_FILE_PROPERTY, "config/dhan-totp-secret.txt"));
+            Assumptions.assumeTrue(Files.exists(pinFile) && Files.exists(totpFile),
+                    "TOTP_GENERATED requires pin and TOTP secret files at " + pinFile + " and " + totpFile);
         }
         return DhanConnectionSettings.withDefaults(
                 clientId,
@@ -64,6 +78,30 @@ final class LiveDhanTestSupport {
                 DhanConfigPaths.resolve(value("DHAN_TOKEN_STATE_FILE", TOKEN_STATE_FILE_PROPERTY, "runtime/dhan-token-state.json")),
                 longValue(REFRESH_BUFFER_PROPERTY, 10L)
         );
+    }
+
+    /**
+     * Resolves a live access token. For {@link DhanAuthMode#TOTP_GENERATED}, mints via TOTP when
+     * the cached token state fails broker preflight.
+     */
+    static String resolveLiveAccessToken(DhanConnectionSettings settings) {
+        if (settings.authMode() == DhanAuthMode.STATIC) {
+            return settings.accessToken();
+        }
+        String fundLimitUrl = settings.restBaseUrl() + "/fundlimit";
+        DhanTokenManager manager = new DhanTokenManager(settings);
+        String token = manager.getAccessToken();
+        if (preflightAuth(settings.clientId(), token, fundLimitUrl)) {
+            return token;
+        }
+        Path stateFile = settings.tokenStateFile();
+        try {
+            Files.deleteIfExists(stateFile);
+        } catch (IOException ex) {
+            throw new IllegalStateException("Failed to clear stale Dhan token state at " + stateFile, ex);
+        }
+        DhanTokenManager refreshed = new DhanTokenManager(settings);
+        return refreshed.getAccessToken();
     }
 
     static DhanConnectionSettings sandboxConnectionSettingsOrSkip() {
