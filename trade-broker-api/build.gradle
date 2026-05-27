@@ -1,0 +1,11 @@
+plugins {
+    id 'java-test-fixtures'
+}
+
+dependencies {
+    api project(':trade-core')
+    api 'org.slf4j:slf4j-api'
+
+    testFixturesImplementation platform("org.junit:junit-bom:${versions.junitBom}")
+    testFixturesImplementation 'org.junit.jupiter:junit-jupiter'
+}

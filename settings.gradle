@@ -1,0 +1,10 @@
+rootProject.name = 'trade-j'
+
+include 'trade-core'
+include 'trade-broker-api'
+include 'trade-broker-dhan'
+include 'trade-strategy'
+include 'trade-execution'
+include 'trade-disruptor'
+include 'trade-persistence'
+include 'trade-app'

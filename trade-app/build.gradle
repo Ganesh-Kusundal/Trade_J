@@ -1,0 +1,26 @@
+plugins {
+    id 'org.springframework.boot'
+    id 'io.spring.dependency-management'
+}
+
+dependencies {
+    implementation project(':trade-core')
+    implementation project(':trade-broker-api')
+    implementation project(':trade-broker-dhan')
+    implementation project(':trade-strategy')
+    implementation project(':trade-execution')
+    implementation project(':trade-disruptor')
+    implementation project(':trade-persistence')
+
+    implementation 'org.springframework.boot:spring-boot-starter'
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+    annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
+
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+}
+
+bootJar {
+    archiveFileName = 'trade-j-app.jar'
+}

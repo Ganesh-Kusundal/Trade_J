@@ -1,0 +1,194 @@
+plugins {
+    id 'org.springframework.boot' version '3.4.13' apply false
+    id 'io.spring.dependency-management' version '1.1.7' apply false
+}
+
+ext {
+    versions = [
+        disruptor     : '4.0.0',
+        caffeine      : '3.2.4',
+        chronicleQueue: '2026.2',
+        duckdb        : '1.5.3.0',
+        dhanSdk       : '2.2.0',
+        junitBom      : '5.12.2'
+    ]
+    chronicleJvmArgs = [
+        '--add-opens=java.base/java.lang.reflect=ALL-UNNAMED',
+        '--add-opens=java.base/java.io=ALL-UNNAMED',
+        '--add-opens=java.base/java.nio=ALL-UNNAMED',
+        '--add-opens=java.base/java.nio.channels.spi=ALL-UNNAMED',
+        '--add-opens=java.base/sun.nio.ch=ALL-UNNAMED',
+        '--add-opens=java.base/jdk.internal.ref=ALL-UNNAMED',
+        '--add-exports=java.base/jdk.internal.ref=ALL-UNNAMED',
+        '--add-exports=java.base/sun.nio.ch=ALL-UNNAMED'
+    ]
+}
+
+allprojects {
+    group = 'com.tradej'
+    version = '0.1.0-SNAPSHOT'
+
+    repositories {
+        mavenCentral()
+    }
+}
+
+subprojects {
+    apply plugin: 'java-library'
+    apply plugin: 'io.spring.dependency-management'
+
+    java {
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(21)
+        }
+    }
+
+    dependencyManagement {
+        imports {
+            mavenBom "org.springframework.boot:spring-boot-dependencies:3.4.13"
+        }
+    }
+
+    tasks.withType(Test).configureEach {
+        useJUnitPlatform()
+        jvmArgs rootProject.ext.chronicleJvmArgs
+    }
+
+    tasks.withType(JavaExec).configureEach {
+        jvmArgs rootProject.ext.chronicleJvmArgs
+    }
+
+    tasks.named('test', Test).configure {
+        useJUnitPlatform {
+            excludeTags 'integration'
+        }
+    }
+
+    tasks.register('unitTest', Test) {
+        description = 'Runs unit tests only.'
+        group = 'verification'
+        testClassesDirs = sourceSets.test.output.classesDirs
+        classpath = sourceSets.test.runtimeClasspath
+        useJUnitPlatform {
+            includeTags 'unit'
+        }
+        shouldRunAfter tasks.named('test')
+    }
+
+    tasks.register('componentTest', Test) {
+        description = 'Runs component tests only.'
+        group = 'verification'
+        testClassesDirs = sourceSets.test.output.classesDirs
+        classpath = sourceSets.test.runtimeClasspath
+        useJUnitPlatform {
+            includeTags 'component'
+        }
+        shouldRunAfter tasks.named('unitTest')
+    }
+
+    tasks.register('integrationTest', Test) {
+        description = 'Runs live integration tests only.'
+        group = 'verification'
+        testClassesDirs = sourceSets.test.output.classesDirs
+        classpath = sourceSets.test.runtimeClasspath
+        useJUnitPlatform {
+            includeTags 'integration'
+        }
+        shouldRunAfter tasks.named('componentTest')
+    }
+
+    tasks.register('brokerRestTest', Test) {
+        description = 'Runs live broker REST integration tests.'
+        group = 'verification'
+        testClassesDirs = sourceSets.test.output.classesDirs
+        classpath = sourceSets.test.runtimeClasspath
+        useJUnitPlatform {
+            includeTags 'broker-rest'
+        }
+        shouldRunAfter tasks.named('componentTest')
+    }
+
+    tasks.register('brokerWsTest', Test) {
+        description = 'Runs live broker websocket integration tests.'
+        group = 'verification'
+        testClassesDirs = sourceSets.test.output.classesDirs
+        classpath = sourceSets.test.runtimeClasspath
+        useJUnitPlatform {
+            includeTags 'broker-ws'
+        }
+        shouldRunAfter tasks.named('brokerRestTest')
+    }
+
+    tasks.register('brokerOrderTest', Test) {
+        description = 'Runs live broker order integration tests.'
+        group = 'verification'
+        testClassesDirs = sourceSets.test.output.classesDirs
+        classpath = sourceSets.test.runtimeClasspath
+        useJUnitPlatform {
+            includeTags 'broker-order'
+        }
+        shouldRunAfter tasks.named('brokerWsTest')
+    }
+
+    tasks.register('runtimeE2eTest', Test) {
+        description = 'Runs runtime end-to-end integration tests.'
+        group = 'verification'
+        testClassesDirs = sourceSets.test.output.classesDirs
+        classpath = sourceSets.test.runtimeClasspath
+        useJUnitPlatform {
+            includeTags 'runtime-e2e'
+        }
+        shouldRunAfter tasks.named('brokerOrderTest')
+    }
+
+    tasks.register('regressionPreflightTest', Test) {
+        description = 'Runs regression preflight credential checks.'
+        group = 'verification'
+        testClassesDirs = sourceSets.test.output.classesDirs
+        classpath = sourceSets.test.runtimeClasspath
+        useJUnitPlatform {
+            includeTags 'regression-preflight'
+        }
+        shouldRunAfter tasks.named('componentTest')
+    }
+
+    tasks.register('crossLayerRegressionTest', Test) {
+        description = 'Runs cross-layer OMS and execution integration tests.'
+        group = 'verification'
+        testClassesDirs = sourceSets.test.output.classesDirs
+        classpath = sourceSets.test.runtimeClasspath
+        useJUnitPlatform {
+            includeTags 'cross-layer'
+        }
+        shouldRunAfter tasks.named('brokerOrderTest')
+    }
+
+    tasks.register('brokerParityTest') {
+        description = 'Runs full Tradehull parity verification suite.'
+        group = 'verification'
+        dependsOn tasks.named('brokerRestTest')
+        dependsOn tasks.named('brokerWsTest')
+        dependsOn tasks.named('brokerOrderTest')
+        dependsOn tasks.named('runtimeE2eTest')
+    }
+
+    dependencies {
+        testImplementation platform("org.junit:junit-bom:${versions.junitBom}")
+        testImplementation 'org.junit.jupiter:junit-jupiter'
+        testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    }
+}
+
+tasks.register('fullRegressionTest') {
+    description = 'Runs full-stack regression: unit, component, preflight, broker, runtime, cross-layer.'
+    group = 'verification'
+    dependsOn subprojects.collect { project ->
+        project.tasks.matching { it.name == 'unitTest' || it.name == 'componentTest' }
+    }
+    dependsOn ':trade-app:regressionPreflightTest'
+    dependsOn ':trade-app:brokerRestTest'
+    dependsOn ':trade-app:brokerWsTest'
+    dependsOn ':trade-app:brokerOrderTest'
+    dependsOn ':trade-app:runtimeE2eTest'
+    dependsOn ':trade-app:crossLayerRegressionTest'
+}

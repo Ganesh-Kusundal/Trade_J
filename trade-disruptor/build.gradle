@@ -1,0 +1,7 @@
+dependencies {
+    implementation project(':trade-core')
+    implementation project(':trade-strategy')
+    implementation project(':trade-execution')
+    implementation "com.lmax:disruptor:${versions.disruptor}"
+    implementation 'org.slf4j:slf4j-api'
+}

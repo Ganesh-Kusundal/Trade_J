@@ -1,0 +1,11 @@
+dependencies {
+    implementation project(':trade-core')
+    implementation project(':trade-broker-api')
+    implementation project(':trade-persistence')
+    implementation 'org.springframework:spring-context'
+    implementation "com.github.ben-manes.caffeine:caffeine:${versions.caffeine}"
+    implementation 'org.slf4j:slf4j-api'
+
+    testImplementation 'org.mockito:mockito-junit-jupiter'
+    testImplementation 'ch.qos.logback:logback-classic'
+}

@@ -1,0 +1,17 @@
+/.gradle/
+/**/build/
+/.idea/
+*.iml
+*.log
+*.db
+*.duckdb
+*.duckdb.wal
+/runtime/
+/data/
+/chronicle/
+/out/
+/.DS_Store
+/config/dhan-local.properties
+/config/dhan-sandbox.properties
+/config/dhan-pin.txt
+/config/dhan-totp-secret.txt

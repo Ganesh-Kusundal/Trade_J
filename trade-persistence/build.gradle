@@ -1,0 +1,7 @@
+dependencies {
+    implementation project(':trade-core')
+    implementation "net.openhft:chronicle-queue:${versions.chronicleQueue}"
+    implementation "org.duckdb:duckdb_jdbc:${versions.duckdb}"
+    implementation 'com.fasterxml.jackson.core:jackson-databind'
+    implementation 'org.slf4j:slf4j-api'
+}
