@@ -64,6 +64,11 @@ Maps each verification test to Gradle task, environment, opt-in flags, and archi
 | `OmsToExecutionSandboxIntegrationTest` | crossLayerRegressionTest | sandbox | `DHAN_CROSS_LAYER_TEST_ENABLED` | INV-28 OMS+exec |
 | `DhanRuntimeSmokeIntegrationTest` | runtimeE2eTest | live | — | INV-29 runtime boot |
 | `TradingRuntimeReconciliationIntegrationTest` | runtimeE2eTest | live | — | INV-30 reconcile bean |
+| `PipelineDefinitionUnitTest` | unitTest | none | — | INV-31 immutability |
+| `PipelineVersionUnitTest` | unitTest | none | — | INV-32 version correctness |
+| `PipelineSnapshotUnitTest` | unitTest | none | — | INV-31 immutability |
+| `PipelineGraphComponentTest` | componentTest | none | — | INV-31 immutability |
+| `ModuleDependencyTest` | unitTest | none | — | INV-31 immutability |
 
 ## Architecture phase mapping
 
@@ -72,5 +77,5 @@ Maps each verification test to Gradle task, environment, opt-in flags, and archi
 | A — Foundation | INV-04, INV-10 |
 | B — OMS | INV-02, INV-03, INV-27, INV-28 |
 | C — Risk | INV-09 |
-| D — Replay / pipeline | INV-06, INV-07, INV-29 |
+| D — Replay / pipeline | INV-06, INV-07, INV-29, INV-31, INV-32 |
 | Broker parity | INV-11–INV-26 |

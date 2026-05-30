@@ -8,3 +8,5 @@ include 'trade-execution'
 include 'trade-disruptor'
 include 'trade-persistence'
 include 'trade-app'
+include 'trade-pipeline-platform'
+project(':trade-pipeline-platform').projectDir = file('pipeline/platform/trade-pipeline-platform')

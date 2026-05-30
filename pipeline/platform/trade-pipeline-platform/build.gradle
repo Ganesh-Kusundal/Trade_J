@@ -1,0 +1,5 @@
+dependencies {
+    implementation project(':trade-core')
+
+    testImplementation 'com.tngtech.archunit:archunit-junit5:1.4.0'
+}
