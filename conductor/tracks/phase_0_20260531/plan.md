@@ -13,7 +13,7 @@
     - [x] Refactor `StrategyEngine` and `OMS` to use injected `TradingClock`
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Time Management (TradingClock)' (Protocol in workflow.md)
 
-## Phase 2: Hot Path Optimization & Isolation
+## Phase 2: Hot Path Optimization & Isolation [checkpoint: cae7e77]
 - [x] Task: Decouple Risk from direct correlations (Fix PE-02)
     - [x] Write tests for `EventSourcedNetPositionProvider`
     - [x] Implement/Refactor `RiskHandler` to use event-sourced positions
@@ -30,4 +30,4 @@
         - [x] `ClockConfiguration` verified annotated with `@Profile`
         - [x] `ReplayTradingClock` confirmed in `core` module (not auto-scanned by app)
         - [x] `ReplayClock` confirmed in `persistence` module
-- [ ] Task: Conductor - User Manual Verification 'Phase 2: Hot Path Optimization & Isolation' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 2: Hot Path Optimization & Isolation' (Protocol in workflow.md)
