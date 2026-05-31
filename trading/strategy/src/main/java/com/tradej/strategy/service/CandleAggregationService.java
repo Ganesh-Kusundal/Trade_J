@@ -26,6 +26,11 @@ public final class CandleAggregationService {
     private final List<String> intervals;
     private final Map<String, Candle> currentCandles = new ConcurrentHashMap<>();
 
+    /** Returns the candle intervals configured for this service. */
+    public List<String> intervals() {
+        return intervals;
+    }
+
     /**
      * Creates a service that builds candles at the given intervals from incoming ticks.
      * Each interval produces a separate candle series (e.g., "1s" candles and "5m" candles
@@ -63,6 +68,24 @@ public final class CandleAggregationService {
             default -> { }
         }
     }
+
+    // ── Replay state isolation (AD-02) ──
+
+    /** Captures a snapshot of all open candle buckets for replay isolation. */
+    public StateSnapshot snapshot() {
+        return new StateSnapshot(new ConcurrentHashMap<>(currentCandles));
+    }
+
+    /** Restores candle bucket state from a previously captured snapshot. */
+    public void restore(StateSnapshot snapshot) {
+        currentCandles.clear();
+        currentCandles.putAll(snapshot.currentCandles());
+    }
+
+    /** Immutable snapshot of all open candle buckets for replay isolation. */
+    public record StateSnapshot(Map<String, Candle> currentCandles) {}
+
+    // ── Core tick processing ──
 
     private void onTick(String symbol, long ltpPaisa, long lastTradeQuantity,
                         long exchangeTimestampMs, long sequenceId, String correlationId,

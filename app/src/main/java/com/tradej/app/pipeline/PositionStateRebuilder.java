@@ -39,7 +39,8 @@ public final class PositionStateRebuilder {
      */
     public void rebuild(EventBus eventBus) {
         log.info("Rebuilding position state from historical trade lifecycle events...");
-        var result = replayOrchestrator.replayTradeLifecycle(eventBus);
+        // Use startup variant that does NOT snapshot/restore — we WANT to populate state
+        var result = replayOrchestrator.replayTradeLifecycleStartup(eventBus);
         if (result.totalRead() == 0L) {
             log.info("No historical trade lifecycle events found — position state is empty");
         } else {

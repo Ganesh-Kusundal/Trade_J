@@ -58,6 +58,35 @@ public final class PositionRiskHandler {
         killSwitch.set(false);
     }
 
+    // ── Replay state isolation (AD-02) ──
+
+    /** Captures a snapshot of all mutable risk state for replay isolation. */
+    public StateSnapshot snapshot() {
+        return new StateSnapshot(
+                new ConcurrentHashMap<>(openTrades),
+                killSwitch.get(),
+                realizedLossPaisa.get(),
+                consecutiveLosses.get()
+        );
+    }
+
+    /** Restores risk state from a previously captured snapshot. */
+    public void restore(StateSnapshot snapshot) {
+        openTrades.clear();
+        openTrades.putAll(snapshot.openTrades());
+        killSwitch.set(snapshot.killSwitch());
+        realizedLossPaisa.set(snapshot.realizedLossPaisa());
+        consecutiveLosses.set(snapshot.consecutiveLosses());
+    }
+
+    /** Immutable snapshot of all mutable risk state for replay isolation. */
+    public record StateSnapshot(
+            Map<String, ManagedTrade> openTrades,
+            boolean killSwitch,
+            long realizedLossPaisa,
+            int consecutiveLosses
+    ) {}
+
     public void onDomainEvent(DomainEvent event, Consumer<DomainEvent> downstream) {
         if (event instanceof MarketTickEvent tick) {
             handleMarketTick(tick, downstream);

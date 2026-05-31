@@ -37,7 +37,7 @@ import com.tradej.core.domain.model.InstrumentKey;
 import com.tradej.core.domain.port.EventBus;
 import com.tradej.execution.position.EventSourcedNetPositionProvider;
 import com.tradej.execution.reconcile.ReconciliationAlertLogger;
-import com.tradej.feature.store.DuckDbFeatureStore;
+import com.tradej.feature.store.AsyncDuckDbWriter;
 import com.tradej.hotpath.MarketDataPipeline;
 import com.tradej.hotpath.OrderPipeline;
 import com.tradej.persistence.chronicle.ChronicleAuditLogWriter;
@@ -79,7 +79,7 @@ public final class BrokerStartupOrchestrator {
             EventBus eventBus,
             MarketDataPipeline marketDataPipeline,
             OrderPipeline orderPipeline,
-            DuckDbFeatureStore duckDbFeatureStore,
+            AsyncDuckDbWriter asyncDuckDbWriter,
             ChronicleAuditLogWriter chronicleAuditLogWriter,
             DuckDbEventStore duckDbEventStore,
             ReconciliationAlertLogger reconciliationAlertLogger,
@@ -112,7 +112,7 @@ public final class BrokerStartupOrchestrator {
         }
         runtimeHealthState.markBrokerPreflightPassed();
 
-        subscribeEventHandlers(eventBus, duckDbFeatureStore, chronicleAuditLogWriter,
+        subscribeEventHandlers(eventBus, asyncDuckDbWriter, chronicleAuditLogWriter,
                 duckDbEventStore, brokerErrorTracker, readModelStore,
                 netPositionProvider, reconciliationAlertLogger, dagPipelineIngressBridge);
         setupWebSocketHandlers(brokerConnection, marketDataPipeline, orderPipeline, eventBus);
@@ -341,7 +341,7 @@ public final class BrokerStartupOrchestrator {
 
     private void subscribeEventHandlers(
             EventBus eventBus,
-            DuckDbFeatureStore duckDbFeatureStore,
+            AsyncDuckDbWriter asyncDuckDbWriter,
             ChronicleAuditLogWriter chronicleAuditLogWriter,
             DuckDbEventStore duckDbEventStore,
             BrokerErrorTracker brokerErrorTracker,
@@ -350,7 +350,9 @@ public final class BrokerStartupOrchestrator {
             ReconciliationAlertLogger reconciliationAlertLogger,
             DagPipelineIngressBridge dagPipelineIngressBridge
     ) {
-        eventBus.subscribe(DomainEvent.class, duckDbFeatureStore::feed);
+        // DuckDB feature store writes happen asynchronously on a dedicated thread
+        // to avoid blocking the event dispatch thread with JDBC I/O (fixes FS-01).
+        eventBus.subscribe(DomainEvent.class, asyncDuckDbWriter);
         eventBus.subscribe(DomainEvent.class, chronicleAuditLogWriter::onEvent);
         eventBus.subscribe(DomainEvent.class, duckDbEventStore::onEvent);
         eventBus.subscribe(DomainEvent.class, brokerErrorTracker);

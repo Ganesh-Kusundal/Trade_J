@@ -92,10 +92,12 @@ export function LeftSidebar() {
           Amplitude
           <input
             type="number"
+            name="amplitude"
             min={1}
             max={10}
             value={indicatorParams.amplitude}
             onChange={(e) => setIndicatorParams({amplitude: Number(e.target.value)})}
+            aria-label="Indicator amplitude"
             className="w-12 bg-[#0e0e11] border border-zinc-800 rounded-xs px-1 text-zinc-300"
           />
         </label>
@@ -103,10 +105,12 @@ export function LeftSidebar() {
           Deviation
           <input
             type="number"
+            name="channelDeviation"
             min={1}
             max={10}
             value={indicatorParams.channelDeviation}
             onChange={(e) => setIndicatorParams({channelDeviation: Number(e.target.value)})}
+            aria-label="Indicator deviation"
             className="w-12 bg-[#0e0e11] border border-zinc-800 rounded-xs px-1 text-zinc-300"
           />
         </label>

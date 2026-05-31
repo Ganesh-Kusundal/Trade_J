@@ -158,6 +158,59 @@ public final class ReadModelStore {
         );
     }
 
+    // ── Replay state isolation (AD-02) ──
+
+    /**
+     * Captures a deep-ish snapshot of all mutable read-model state for replay isolation.
+     * Note: listeners are not snapshotted — they are re-registered on restore.
+     */
+    public ReplaySnapshot replaySnapshot() {
+        return new ReplaySnapshot(
+                new ConcurrentHashMap<>(orders),
+                new ConcurrentHashMap<>(positions),
+                new ConcurrentHashMap<>(ticks),
+                new ConcurrentHashMap<>(depths),
+                new ConcurrentHashMap<>(candles),
+                new ConcurrentHashMap<>(signals),
+                pnl,
+                latestScan,
+                version.get()
+        );
+    }
+
+    /** Restores read-model state from a previously captured snapshot. */
+    public void restore(ReplaySnapshot snapshot) {
+        orders.clear();
+        orders.putAll(snapshot.orders());
+        positions.clear();
+        positions.putAll(snapshot.positions());
+        ticks.clear();
+        ticks.putAll(snapshot.ticks());
+        depths.clear();
+        depths.putAll(snapshot.depths());
+        candles.clear();
+        candles.putAll(snapshot.candles());
+        signals.clear();
+        signals.putAll(snapshot.signals());
+        pnl = snapshot.pnl();
+        latestScan = snapshot.latestScan();
+        version.set(snapshot.version());
+        notifyListeners();
+    }
+
+    /** Immutable snapshot of all mutable read-model state for replay isolation. */
+    public record ReplaySnapshot(
+            Map<String, OrderView> orders,
+            Map<String, PositionView> positions,
+            Map<String, TickView> ticks,
+            Map<String, DepthView> depths,
+            Map<String, CandleView> candles,
+            Map<String, SignalView> signals,
+            PnlView pnl,
+            ScanResultView latestScan,
+            long version
+    ) {}
+
     public void subscribe(Consumer<ReadModelSnapshot> listener) {
         listeners.add(listener);
         listener.accept(snapshot());

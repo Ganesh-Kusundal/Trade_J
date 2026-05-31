@@ -41,6 +41,30 @@ public final class EventSourcedNetPositionProvider implements NetPositionProvide
         }
     }
 
+    // ── Replay state isolation (AD-02) ──
+
+    /** Captures a snapshot of all mutable position state for replay isolation. */
+    public StateSnapshot snapshot() {
+        return new StateSnapshot(
+                new ConcurrentHashMap<>(netBySymbol),
+                new ConcurrentHashMap<>(tradeContributions)
+        );
+    }
+
+    /** Restores position state from a previously captured snapshot. */
+    public void restore(StateSnapshot snapshot) {
+        netBySymbol.clear();
+        netBySymbol.putAll(snapshot.netBySymbol());
+        tradeContributions.clear();
+        tradeContributions.putAll(snapshot.tradeContributions());
+    }
+
+    /** Immutable snapshot of all mutable position state for replay isolation. */
+    public record StateSnapshot(
+            Map<String, Long> netBySymbol,
+            Map<String, Long> tradeContributions
+    ) {}
+
     @Override
     public Map<String, Long> getNetPositions() {
         return Collections.unmodifiableMap(netBySymbol);

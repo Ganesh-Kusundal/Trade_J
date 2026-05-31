@@ -5,7 +5,7 @@ import com.tradej.core.domain.event.BrokerAdapterError;
 import com.tradej.core.domain.event.EventMetadata;
 import com.tradej.core.domain.port.EventBus;
 import com.tradej.core.testing.CollectingEventBus;
-import com.tradej.persistence.replay.ReplayRunner.ReplayStateManager;
+import com.tradej.persistence.replay.ReplayStateManager;
 import net.openhft.chronicle.queue.ChronicleQueue;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;

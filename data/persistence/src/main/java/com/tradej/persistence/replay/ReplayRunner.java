@@ -44,23 +44,6 @@ public final class ReplayRunner implements AutoCloseable {
     }
 
     /**
-     * Manager for replay-specific state isolation. Called before and after replay
-     * to snapshot/restore or reset stateful pipeline components, preventing
-     * live/replay state contamination (AD-02).
-     */
-    public interface ReplayStateManager {
-        void beforeReplay();
-        void afterReplay();
-
-        ReplayStateManager NOOP = new ReplayStateManager() {
-            @Override
-            public void beforeReplay() {}
-            @Override
-            public void afterReplay() {}
-        };
-    }
-
-    /**
      * Replay all events of the given type from the Chronicle Queue.
      * Returns a {@link ReplayResult} with observable counters so callers can
      * detect silent data loss (corrupt entries) or unexpected event types.

@@ -41,7 +41,7 @@ public class GatewayWebSocketConfiguration implements WebSocketConfigurer {
         log.info("Gateway WebSocket endpoint registered at {}", properties.websocketPath());
     }
 
-    @Bean
+    @Bean(initMethod = "start", destroyMethod = "stop")
     GatewayTopicRouter gatewayTopicRouter() {
         return new GatewayTopicRouter();
     }
@@ -51,7 +51,7 @@ public class GatewayWebSocketConfiguration implements WebSocketConfigurer {
         return new GatewayWebSocketHandler(router);
     }
 
-    @Bean
+    @Bean(destroyMethod = "close")
     GatewayEventBridge gatewayEventBridge(GatewayTopicRouter router, ObjectMapper objectMapper) {
         return new GatewayEventBridge(router, objectMapper);
     }

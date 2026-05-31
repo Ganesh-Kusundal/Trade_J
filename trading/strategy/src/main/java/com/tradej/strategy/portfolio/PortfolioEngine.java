@@ -168,6 +168,52 @@ public final class PortfolioEngine {
         openTrades.clear();
     }
 
+    // ── Replay state isolation (AD-02) ──
+
+    /**
+     * Captures a snapshot of all mutable portfolio state for replay state isolation.
+     */
+    public StateSnapshot snapshot() {
+        return new StateSnapshot(
+                new ConcurrentHashMap<>(allocations),
+                new ConcurrentHashMap<>(netPositions),
+                new ConcurrentHashMap<>(signalToStrategy),
+                new ConcurrentHashMap<>(signalToEstimatedCapital),
+                new ConcurrentHashMap<>(signalDeltas),
+                new ConcurrentHashMap<>(orderIdToSignalId),
+                new ConcurrentHashMap<>(openTrades)
+        );
+    }
+
+    /** Restores portfolio state from a previously captured snapshot. */
+    public void restore(StateSnapshot snapshot) {
+        allocations.clear();
+        allocations.putAll(snapshot.allocations());
+        netPositions.clear();
+        netPositions.putAll(snapshot.netPositions());
+        signalToStrategy.clear();
+        signalToStrategy.putAll(snapshot.signalToStrategy());
+        signalToEstimatedCapital.clear();
+        signalToEstimatedCapital.putAll(snapshot.signalToEstimatedCapital());
+        signalDeltas.clear();
+        signalDeltas.putAll(snapshot.signalDeltas());
+        orderIdToSignalId.clear();
+        orderIdToSignalId.putAll(snapshot.orderIdToSignalId());
+        openTrades.clear();
+        openTrades.putAll(snapshot.openTrades());
+    }
+
+    /** Immutable snapshot of all mutable portfolio state for replay isolation. */
+    public record StateSnapshot(
+            Map<String, StrategyAllocation> allocations,
+            Map<String, Long> netPositions,
+            Map<String, String> signalToStrategy,
+            Map<String, Long> signalToEstimatedCapital,
+            Map<String, Long> signalDeltas,
+            Map<String, String> orderIdToSignalId,
+            Map<String, TradeInfo> openTrades
+    ) {}
+
     // ── Signal filtering (pass-through) ──
 
     /**

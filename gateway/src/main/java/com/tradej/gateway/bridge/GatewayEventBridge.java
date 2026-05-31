@@ -23,24 +23,57 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Bridges domain events from the event bus to the gateway WebSocket topic router.
- * Each domain event type is mapped to a {@link GatewayTopic} and serialized to JSON.
+ *
+ * <p>Each domain event type is mapped to a {@link GatewayTopic} and serialized to JSON.
+ *
+ * <p>Includes an event-ID dedup cache to prevent duplicate broadcasts during replay
+ * or rapid-fire duplicate delivery. Periodic pruning prevents unbounded cache growth
+ * (fixes GB-01 — reduces unnecessary broadcast volume during high volatility).
  */
-public final class GatewayEventBridge {
+public final class GatewayEventBridge implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(GatewayEventBridge.class);
+
+    /** Maximum entries in the dedup cache before eviction kicks in. */
+    private static final int MAX_DEDUP_ENTRIES = 200_000;
+
+    /** Age-based eviction: run every N calls to avoid O(n) scan on every hot-path event. */
+    private static final int EVICTION_INTERVAL = 1024;
+
+    /** Events older than this TTL are pruned from the dedup cache. */
+    private static final Duration DEDUP_TTL = Duration.ofSeconds(30);
 
     private final GatewayTopicRouter router;
     private final ObjectMapper objectMapper;
 
+    // ── Event-ID dedup cache ──
+    private final ConcurrentHashMap<String, Long> seenEventIds = new ConcurrentHashMap<>();
+    private final AtomicLong bridgeCallCounter = new AtomicLong();
+    private final AtomicLong dedupHitCount = new AtomicLong();
+    private final AtomicLong eventCount = new AtomicLong();
+    private final ScheduledExecutorService dedupPruner = Executors.newSingleThreadScheduledExecutor(r -> {
+        Thread t = new Thread(r, "gateway-dedup-pruner");
+        t.setDaemon(true);
+        return t;
+    });
+
     public GatewayEventBridge(GatewayTopicRouter router, ObjectMapper objectMapper) {
         this.router = router;
         this.objectMapper = objectMapper;
+        // Schedule periodic dedup pruning every 5 minutes
+        dedupPruner.scheduleAtFixedRate(this::pruneDedupCache, 5, 5, TimeUnit.MINUTES);
     }
 
     /**
@@ -51,6 +84,12 @@ public final class GatewayEventBridge {
     }
 
     void onDomainEvent(DomainEvent event) {
+        // Dedup: skip events with recently seen IDs (prevents duplicate broadcasts
+        // during replay or when the same event arrives via multiple paths).
+        if (isDuplicate(event)) {
+            return;
+        }
+
         try {
             Objects.requireNonNull(event);
             switch (event) {
@@ -84,8 +123,73 @@ public final class GatewayEventBridge {
                         router.publish(GatewayTopic.PNL_UPDATE, writeJson(pnlPayload(pnl)));
                 default -> { }
             }
+            eventCount.incrementAndGet();
         } catch (Exception e) {
             log.warn("Gateway bridge failed for {}: {}", event.getClass().getSimpleName(), e.getMessage());
+        }
+    }
+
+    @Override
+    public void close() {
+        dedupPruner.shutdown();
+        try {
+            if (!dedupPruner.awaitTermination(2, TimeUnit.SECONDS)) {
+                dedupPruner.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            dedupPruner.shutdownNow();
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    // ── Metrics ──
+
+    /** Number of events that were skipped due to dedup cache hit. */
+    public long dedupHitCount() {
+        return dedupHitCount.get();
+    }
+
+    /** Number of events successfully bridged to the router. */
+    public long eventCount() {
+        return eventCount.get();
+    }
+
+    /** Current size of the dedup cache. */
+    public int dedupCacheSize() {
+        return seenEventIds.size();
+    }
+
+    // ── Private helpers ──
+
+    /**
+     * Check if an event is a duplicate by its event ID.
+     * When the cache reaches capacity, evicts only entries older than DEDUP_TTL
+     * rather than clearing the entire cache.
+     */
+    private boolean isDuplicate(DomainEvent event) {
+        // Age-based eviction: throttled to run every EVICTION_INTERVAL calls
+        // to avoid O(n) iteration on every hot-path event.
+        if (seenEventIds.size() >= MAX_DEDUP_ENTRIES
+                && (bridgeCallCounter.incrementAndGet() & (EVICTION_INTERVAL - 1)) == 0) {
+            long cutoff = System.currentTimeMillis() - DEDUP_TTL.toMillis();
+            seenEventIds.values().removeIf(ts -> ts < cutoff);
+        }
+        Long previous = seenEventIds.putIfAbsent(event.eventId(), System.currentTimeMillis());
+        if (previous != null) {
+            dedupHitCount.incrementAndGet();
+            return true;
+        }
+        return false;
+    }
+
+    /** Periodic pruner to clean entries older than the TTL. */
+    private void pruneDedupCache() {
+        long cutoff = System.currentTimeMillis() - DEDUP_TTL.toMillis();
+        int before = seenEventIds.size();
+        seenEventIds.values().removeIf(ts -> ts < cutoff);
+        int pruned = before - seenEventIds.size();
+        if (pruned > 0 && log.isTraceEnabled()) {
+            log.trace("Pruned {} stale entries from gateway dedup cache (size={})", pruned, seenEventIds.size());
         }
     }
 

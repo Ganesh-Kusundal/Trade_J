@@ -60,10 +60,12 @@ export default function App() {
               <span className="text-[7.5px] text-[#71717a] font-semibold leading-none mb-1 uppercase tracking-wider">INSTRUMENT</span>
               <select
                 value={selectedSymbol}
+                name="instrument"
                 onChange={(e) => {
                   const sym = symbols.find((s) => s.symbol === e.target.value);
                   if (sym) useStudioStore.getState().selectSymbol(sym.symbol, sym.exchangeSegment);
                 }}
+                aria-label="Select instrument"
                 className="bg-[#0e0e11] border border-zinc-800 h-6 px-1.5 rounded-xs text-zinc-300 font-bold outline-none cursor-pointer hover:border-zinc-700 transition text-[10px]"
               >
                 {startupCandidates.length > 0
@@ -80,7 +82,9 @@ export default function App() {
               <span className="text-[7.5px] text-[#71717a] font-semibold leading-none mb-1 uppercase tracking-wider">TIMEFRAME</span>
               <select
                 value={interval}
+                name="timeframe"
                 onChange={(e) => useStudioStore.getState().setInterval(e.target.value)}
+                aria-label="Select timeframe"
                 className="bg-[#0e0e11] border border-zinc-800 h-6 px-1.5 rounded-xs text-zinc-300 font-bold outline-none cursor-pointer hover:border-zinc-700 transition text-[10px]"
               >
                 {['1m', '3m', '5m', '15m', '30m', '1h', '4h', '1d'].map((tf) => (

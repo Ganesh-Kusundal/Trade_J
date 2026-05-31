@@ -5,6 +5,7 @@ import com.tradej.core.domain.port.EventBus;
 import com.tradej.persistence.replay.HistoricalRangeService;
 import com.tradej.persistence.replay.ReplayResult;
 import com.tradej.persistence.replay.ReplayRunner;
+import com.tradej.persistence.replay.ReplayStateManager;
 import com.tradej.pipeline.clock.EventTimestamps;
 import com.tradej.pipeline.clock.VirtualClock;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -12,7 +13,16 @@ import org.springframework.stereotype.Service;
 
 /**
  * Wraps Chronicle and DuckDB historical replay with virtual clock mode transitions
- * for deterministic pipeline execution.
+ * and pipeline state isolation for deterministic execution (AD-02 fix).
+ *
+ * <p>All replay paths are wrapped in {@link #withReplayMode} which:
+ * <ol>
+ *   <li>Snapshots pipeline state via {@link ReplayStateManager#beforeReplay()}</li>
+ *   <li>Enters virtual clock replay mode</li>
+ *   <li>Executes the replay action</li>
+ *   <li>Restores pipeline state via {@link ReplayStateManager#afterReplay()}</li>
+ *   <li>Returns to live clock mode</li>
+ * </ol>
  */
 @Service
 public final class ReplayOrchestrator {
@@ -20,15 +30,18 @@ public final class ReplayOrchestrator {
     private final ReplayRunner replayRunner;
     private final HistoricalRangeService historicalRangeService;
     private final VirtualClock virtualClock;
+    private final ReplayStateManager replayStateManager;
 
     public ReplayOrchestrator(
             ReplayRunner replayRunner,
             @Qualifier("localHistoricalRangeService") HistoricalRangeService historicalRangeService,
-            VirtualClock virtualClock
+            VirtualClock virtualClock,
+            ReplayStateManager replayStateManager
     ) {
         this.replayRunner = replayRunner;
         this.historicalRangeService = historicalRangeService;
         this.virtualClock = virtualClock;
+        this.replayStateManager = replayStateManager;
     }
 
     public ReplayResult replayChronicle(Class<? extends DomainEvent> eventType) {
@@ -62,11 +75,41 @@ public final class ReplayOrchestrator {
         return replayTradeLifecycle(null, 0L, Long.MAX_VALUE, eventBus);
     }
 
+    /**
+     * Startup-only variant of {@link #replayTradeLifecycle} that replays trade lifecycle events
+     * {@code without} state isolation (snapshot/restore).
+     *
+     * <p>At startup, the pipeline state is empty and we WANT to populate it from historical events.
+     * Using the standard {@link #withReplayMode} path would snapshot the empty state, replay events
+     * to populate it, then restore back to empty — wiping the rebuild. This method skips the
+     * {@link ReplayStateManager} calls so that state is preserved after replay (AD-02 exception).
+     *
+     * <p>Only safe at startup when no live events are flowing. Do NOT use this for runtime replays.
+     */
+    public ReplayResult replayTradeLifecycleStartup(EventBus eventBus) {
+        return withClockModeOnly(() -> historicalRangeService.replayTradeLifecycle(null, 0L, Long.MAX_VALUE, clockSyncedBus(eventBus)));
+    }
+
     public ReplayResult replayOrders(String symbol, long fromMs, long toMs, EventBus eventBus) {
         return withReplayMode(() -> historicalRangeService.replayOrders(symbol, fromMs, toMs, clockSyncedBus(eventBus)));
     }
 
     private ReplayResult withReplayMode(ReplayAction action) {
+        virtualClock.enterReplayMode();
+        replayStateManager.beforeReplay();
+        try {
+            return action.run();
+        } finally {
+            replayStateManager.afterReplay();
+            virtualClock.enterLiveMode();
+        }
+    }
+
+    /**
+     * Clock-only variant: enters replay mode, runs the action, exits replay mode.
+     * Skips state isolation (no snapshot/restore). Used exclusively by startup rebuild.
+     */
+    private ReplayResult withClockModeOnly(ReplayAction action) {
         virtualClock.enterReplayMode();
         try {
             return action.run();

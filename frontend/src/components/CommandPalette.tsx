@@ -102,10 +102,12 @@ export function CommandPalette() {
           <input
             ref={inputRef}
             type="text"
+            name="command"
             value={query}
             onChange={(e) => {setQuery(e.target.value); setSelectedIndex(0)}}
             onKeyDown={handleKeyDown}
             placeholder="Type a command or symbol..."
+            aria-label="Search commands and symbols"
             className="flex-1 h-9 bg-transparent text-zinc-200 text-[11px] font-mono outline-none placeholder:text-zinc-600"
           />
         </div>

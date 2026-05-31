@@ -12,7 +12,14 @@ import com.tradej.persistence.replay.ReplayClock;
 import com.tradej.persistence.replay.ReplayRunner;
 import com.tradej.core.domain.port.EventBus;
 import com.tradej.pipeline.clock.VirtualClock;
+import com.tradej.app.pipeline.IsolatedReplayStateManager;
+import com.tradej.app.readmodel.ReadModelStore;
+import com.tradej.execution.position.EventSourcedNetPositionProvider;
+import com.tradej.execution.risk.PositionRiskHandler;
 import com.tradej.persistence.pipeline.DuckDbPipelineGraphStore;
+import com.tradej.persistence.replay.ReplayStateManager;
+import com.tradej.strategy.portfolio.PortfolioEngine;
+import com.tradej.strategy.service.CandleAggregationService;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -71,6 +78,23 @@ public class PersistenceConfiguration {
     @Bean(destroyMethod = "close")
     ReplayRunner replayRunner(TradingProperties properties, EventBus eventBus, VirtualClock virtualClock) {
         return new ReplayRunner(Path.of(properties.storage().chroniclePath()), eventBus, virtualClock);
+    }
+
+    @Bean
+    ReplayStateManager replayStateManager(
+            PortfolioEngine portfolioEngine,
+            EventSourcedNetPositionProvider netPositionProvider,
+            PositionRiskHandler positionRiskHandler,
+            CandleAggregationService candleAggregationService,
+            ReadModelStore readModelStore
+    ) {
+        return new IsolatedReplayStateManager(
+                portfolioEngine,
+                netPositionProvider,
+                positionRiskHandler,
+                candleAggregationService,
+                readModelStore
+        );
     }
 
     @Bean(destroyMethod = "close")

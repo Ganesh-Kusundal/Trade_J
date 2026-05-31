@@ -13,7 +13,7 @@ import com.tradej.broker.dhan.auth.DhanTokenProvider;
 import com.tradej.core.domain.port.EventBus;
 import com.tradej.execution.position.EventSourcedNetPositionProvider;
 import com.tradej.execution.reconcile.ReconciliationAlertLogger;
-import com.tradej.feature.store.DuckDbFeatureStore;
+import com.tradej.feature.store.AsyncDuckDbWriter;
 import com.tradej.hotpath.MarketDataPipeline;
 import com.tradej.hotpath.OrderPipeline;
 import com.tradej.persistence.chronicle.ChronicleAuditLogWriter;
@@ -45,7 +45,7 @@ public class StartupConfiguration {
             EventBus eventBus,
             MarketDataPipeline marketDataPipeline,
             OrderPipeline orderPipeline,
-            DuckDbFeatureStore duckDbFeatureStore,
+            AsyncDuckDbWriter asyncDuckDbWriter,
             ChronicleAuditLogWriter chronicleAuditLogWriter,
             DuckDbEventStore duckDbEventStore,
             ReconciliationAlertLogger reconciliationAlertLogger,
@@ -67,7 +67,7 @@ public class StartupConfiguration {
                 eventBus,
                 marketDataPipeline,
                 orderPipeline,
-                duckDbFeatureStore,
+                asyncDuckDbWriter,
                 chronicleAuditLogWriter,
                 duckDbEventStore,
                 reconciliationAlertLogger,
