@@ -17,10 +17,10 @@
 - [x] Task: Decouple Risk from direct correlations (Fix PE-02)
     - [x] Write tests for `EventSourcedNetPositionProvider`
     - [x] Implement/Refactor `RiskHandler` to use event-sourced positions
-- [~] Task: Async DuckDB Writes (Fix FS-01)
-    - [ ] Write integration tests for async DuckDB persistence
-    - [ ] Implement `AsyncDuckDbDispatcher` (move off Disruptor hot path)
-- [ ] Task: Isolate Replay DI Context (Fix AD-02)
+- [x] Task: Async DuckDB Writes (Fix FS-01)
+    - [x] Write integration tests for async DuckDB persistence
+    - [x] Implement `AsyncDuckDbDispatcher` (move off Disruptor hot path)
+- [~] Task: Isolate Replay DI Context (Fix AD-02)
     - [ ] Refactor Spring configuration to use profiles or separate contexts for `LIVE` vs `REPLAY`
     - [ ] Write architectural test ensuring no `REPLAY` beans are loaded in `LIVE` profile
 - [ ] Task: Conductor - User Manual Verification 'Phase 2: Hot Path Optimization & Isolation' (Protocol in workflow.md)

@@ -18,7 +18,7 @@ import com.tradej.feature.store.AsyncDuckDbWriter;
 import com.tradej.hotpath.MarketDataPipeline;
 import com.tradej.hotpath.OrderPipeline;
 import com.tradej.persistence.chronicle.ChronicleAuditLogWriter;
-import com.tradej.persistence.duckdb.DuckDbEventStore;
+import com.tradej.persistence.duckdb.AsyncDuckDbEventStore;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.Bean;
@@ -48,7 +48,7 @@ public class StartupConfiguration {
             OrderPipeline orderPipeline,
             AsyncDuckDbWriter asyncDuckDbWriter,
             ChronicleAuditLogWriter chronicleAuditLogWriter,
-            DuckDbEventStore duckDbEventStore,
+            AsyncDuckDbEventStore asyncDuckDbEventStore,
             ReconciliationAlertLogger reconciliationAlertLogger,
             BrokerErrorTracker brokerErrorTracker,
             ReadModelStore readModelStore,
@@ -71,7 +71,7 @@ public class StartupConfiguration {
                 orderPipeline,
                 asyncDuckDbWriter,
                 chronicleAuditLogWriter,
-                duckDbEventStore,
+                asyncDuckDbEventStore,
                 reconciliationAlertLogger,
                 brokerErrorTracker,
                 readModelStore,

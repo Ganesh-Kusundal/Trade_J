@@ -42,7 +42,7 @@ import com.tradej.feature.store.AsyncDuckDbWriter;
 import com.tradej.hotpath.MarketDataPipeline;
 import com.tradej.hotpath.OrderPipeline;
 import com.tradej.persistence.chronicle.ChronicleAuditLogWriter;
-import com.tradej.persistence.duckdb.DuckDbEventStore;
+import com.tradej.persistence.duckdb.AsyncDuckDbEventStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
@@ -406,5 +406,8 @@ public final class BrokerStartupOrchestrator {
                 default -> eventBus.publish(event);
             }
         });
+    }
+}
+;
     }
 }

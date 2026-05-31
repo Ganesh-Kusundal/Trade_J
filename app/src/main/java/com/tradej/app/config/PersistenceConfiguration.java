@@ -16,6 +16,7 @@ import com.tradej.app.pipeline.IsolatedReplayStateManager;
 import com.tradej.app.readmodel.ReadModelStore;
 import com.tradej.execution.position.EventSourcedNetPositionProvider;
 import com.tradej.execution.risk.PositionRiskHandler;
+import com.tradej.execution.service.OrderManagementService;
 import com.tradej.persistence.pipeline.DuckDbPipelineGraphStore;
 import com.tradej.persistence.replay.ReplayStateManager;
 import com.tradej.strategy.portfolio.PortfolioEngine;
@@ -58,6 +59,13 @@ public class PersistenceConfiguration {
         return new DuckDbEventStore(Path.of(properties.storage().duckdbPath()));
     }
 
+    @Bean(destroyMethod = "close")
+    AsyncDuckDbEventStore asyncDuckDbEventStore(DuckDbEventStore duckDbEventStore) {
+        AsyncDuckDbEventStore store = new AsyncDuckDbEventStore(duckDbEventStore);
+        store.start();
+        return store;
+    }
+
     @Bean
     EventSourcedOrderRepository eventSourcedOrderRepository(TradingProperties properties) {
         Path chronicleBase = Path.of(properties.storage().chroniclePath());
@@ -76,8 +84,8 @@ public class PersistenceConfiguration {
     }
 
     @Bean(destroyMethod = "close")
-    ReplayRunner replayRunner(TradingProperties properties, EventBus eventBus, VirtualClock virtualClock) {
-        return new ReplayRunner(Path.of(properties.storage().chroniclePath()), eventBus, virtualClock);
+    ReplayRunner replayRunner(TradingProperties properties, EventBus eventBus, VirtualClock virtualClock, ReplayStateManager replayStateManager) {
+        return new ReplayRunner(Path.of(properties.storage().chroniclePath()), eventBus, virtualClock, replayStateManager);
     }
 
     @Bean
@@ -86,14 +94,16 @@ public class PersistenceConfiguration {
             EventSourcedNetPositionProvider netPositionProvider,
             PositionRiskHandler positionRiskHandler,
             CandleAggregationService candleAggregationService,
-            ReadModelStore readModelStore
+            ReadModelStore readModelStore,
+            OrderManagementService orderManagementService
     ) {
         return new IsolatedReplayStateManager(
                 portfolioEngine,
                 netPositionProvider,
                 positionRiskHandler,
                 candleAggregationService,
-                readModelStore
+                readModelStore,
+                orderManagementService
         );
     }
 
