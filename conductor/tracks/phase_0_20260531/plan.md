@@ -14,10 +14,10 @@
 - [ ] Task: Conductor - User Manual Verification 'Phase 1: Time Management (TradingClock)' (Protocol in workflow.md)
 
 ## Phase 2: Hot Path Optimization & Isolation
-- [ ] Task: Decouple Risk from direct correlations (Fix PE-02)
-    - [ ] Write tests for `EventSourcedNetPositionProvider`
-    - [ ] Implement/Refactor `RiskHandler` to use event-sourced positions
-- [ ] Task: Async DuckDB Writes (Fix FS-01)
+- [x] Task: Decouple Risk from direct correlations (Fix PE-02)
+    - [x] Write tests for `EventSourcedNetPositionProvider`
+    - [x] Implement/Refactor `RiskHandler` to use event-sourced positions
+- [~] Task: Async DuckDB Writes (Fix FS-01)
     - [ ] Write integration tests for async DuckDB persistence
     - [ ] Implement `AsyncDuckDbDispatcher` (move off Disruptor hot path)
 - [ ] Task: Isolate Replay DI Context (Fix AD-02)
