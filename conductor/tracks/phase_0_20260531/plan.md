@@ -1,11 +1,11 @@
 # Implementation Plan: Phase 0: Fix Hot Path and Introduce TradingClock
 
 ## Phase 1: Time Management (TradingClock)
-- [ ] Task: Define `TradingClock` interface in `core` module
-    - [ ] Create `TradingClock.java` interface
-    - [ ] Write unit tests for `LiveTradingClock`
-    - [ ] Implement `LiveTradingClock` (System clock wrapper)
-- [ ] Task: Implement `ReplayTradingClock` for research lane
+- [x] Task: Define `TradingClock` interface in `core` module (66fed19)
+    - [x] Create `TradingClock.java` interface
+    - [x] Write unit tests for `LiveTradingClock`
+    - [x] Implement `LiveTradingClock` (System clock wrapper)
+- [~] Task: Implement `ReplayTradingClock` for research lane
     - [ ] Write unit tests for `ReplayTradingClock` (verify manual advancement)
     - [ ] Implement `ReplayTradingClock` with `advanceTo(Instant)` capability
 - [ ] Task: Inject `TradingClock` into existing services
