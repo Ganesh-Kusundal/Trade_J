@@ -1,26 +1,28 @@
 # Tech Stack
 
 ## Core Language & Runtime
-- **Java 21:** Modern Java features and performance.
-- **Spring Boot 3.4.13:** Dependency injection, configuration management, and application framework.
+- **Java 21:** Primary language for all three lanes.
+- **Spring Boot 3.4.13:** Application framework and dependency injection.
 
-## Build & Dependencies
-- **Gradle:** Build automation and dependency management.
-- **Spring Boot Starter:** Standard Spring Boot dependencies.
+## Build System
+- **Gradle:** Modular build system managing the 30+ subprojects.
 
-## Data & Persistence
-- **DuckDB:** Embedded analytical database for fast queries on trading data.
-- **Chronicle Queue:** Low-latency, persisted off-heap messaging for order and market data audit trails.
+## Lane A: Execution Hot Path
+- **LMAX Disruptor:** High-performance inter-thread messaging.
+- **Chronicle Queue:** Low-latency event journaling for execution parity.
 
-## High Performance & Concurrency
-- **LMAX Disruptor:** High-performance inter-thread messaging library.
-- **Caffeine:** High-performance caching.
+## Lane B: Research & Analytics
+- **DuckDB:** Embedded analytical database for fast queries on strategy runs and scanner hits.
+- **Apache Parquet:** Storage format for historical market data (candles).
+- **Caffeine:** High-performance caching for feature engineering.
 
-## External Integrations
-- **Dhan SDK:** Native integration for Dhan broker.
-- **Upstox API:** Integration for Upstox broker.
+## Lane C: Agent & UI Layer
+- **React (TypeScript):** Frontend framework for the Research Workspace.
+- **Vite:** Modern frontend build tool.
+- **Lightweight Charts:** Financial charting for the Multi-TF Replay Viewer.
+- **Model Context Protocol (MCP):** SSE-based server to expose tools to AI agents.
 
-## Verification & Quality
-- **JUnit 5:** Unit and integration testing.
-- **SpotBugs:** Static analysis for bug detection.
-- **Checkstyle:** Coding standard enforcement.
+## Infrastructure & Testing
+- **JUnit 5:** Core testing framework (Unit, Component, Integration).
+- **SpotBugs / Checkstyle:** Static analysis and code quality enforcement.
+- **Micrometer + Prometheus:** Observability for Disruptor and system health.
