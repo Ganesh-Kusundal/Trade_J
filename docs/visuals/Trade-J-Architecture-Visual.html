@@ -182,8 +182,8 @@ tr:hover td { background: #1a1f35; }
   <rect x="55" y="318" width="260" height="72" rx="6" fill="rgba(251,146,60,0.25)" stroke="#fb923c" stroke-width="1"/>
   <text x="185" y="338" text-anchor="middle" fill="#e2e8f0" font-size="10">Disruptor Event Bus</text>
   <text x="185" y="353" text-anchor="middle" fill="#64748b" font-size="8">runtime/disruptor/</text>
-  <text x="185" y="368" text-anchor="middle" fill="#94a3b8" font-size="7">Config A: GraphPipeline → GraphStrategy → AsyncDispatch</text>
-  <text x="185" y="380" text-anchor="middle" fill="#94a3b8" font-size="7">Config B: Risk → Candle → Feature → Strategy → Exec → Dispatch</text>
+  <text x="185" y="368" text-anchor="middle" fill="#34d399" font-size="7">Config A (Spring default): GraphPipeline → GraphStrategy? → AsyncDispatch</text>
+  <text x="185" y="380" text-anchor="middle" fill="#94a3b8" font-size="7">Config B/C (tests): Risk → Candle → Feature? → Strategy → Exec → Dispatch</text>
   <!-- Hotpath -->
   <rect x="345" y="318" width="200" height="72" rx="6" fill="rgba(251,146,60,0.25)" stroke="#fb923c" stroke-width="1"/>
   <text x="445" y="338" text-anchor="middle" fill="#e2e8f0" font-size="10">Hotpath Pipelines</text>
@@ -599,7 +599,7 @@ tr:hover td { background: #1a1f35; }
 <h2><span>4</span> Runtime Flow Diagrams</h2>
 
 <div class="diagram-card">
-<h3>4a. Market Data Flow — Broker → Disruptor → Trading Pipeline <small>(LIVE Mode, Config B)</small></h3>
+<h3>4a. Market Data Flow — Broker → Disruptor → Trading Pipeline <small>(diagram: Config B legacy; Spring Boot uses Config A)</small></h3>
 <svg width="1300" height="540" viewBox="0 0 1300 540">
   <defs>
     <pattern id="grid4a" width="40" height="40" patternUnits="userSpaceOnUse">
@@ -646,7 +646,7 @@ tr:hover td { background: #1a1f35; }
   <line x1="860" y1="47" x2="920" y2="47" stroke="#475569" stroke-width="2" marker-end="url(#a4-gray)"/>
 
   <!-- Labels for stages -->
-  <text x="650" y="100" text-anchor="middle" fill="#64748b" font-size="9">DISRUPTOR STAGES (Config B — Legacy + FeatureStore)</text>
+  <text x="650" y="100" text-anchor="middle" fill="#64748b" font-size="9">DISRUPTOR STAGES (Config B — legacy/tests; Spring Boot default is Config A below)</text>
 
   <!-- Stage 1: PositionRisk -->
   <rect x="30" y="115" width="170" height="55" rx="6" fill="rgba(244,63,94,0.2)" stroke="#f43f5e" stroke-width="1.5"/>
@@ -725,7 +725,7 @@ tr:hover td { background: #1a1f35; }
   <text x="650" y="285" text-anchor="middle" fill="#64748b" font-size="9">Config A (Graph Runtime) vs Config C (Legacy no-feature) variations</text>
 
   <rect x="60" y="295" width="500" height="65" rx="6" fill="rgba(251,146,60,0.1)" stroke="#fb923c" stroke-width="0.8"/>
-  <text x="310" y="315" text-anchor="middle" fill="#e2e8f0" font-size="11" font-weight="600">Config A — Graph Runtime</text>
+  <text x="310" y="315" text-anchor="middle" fill="#34d399" font-size="11" font-weight="600">Config A — Spring Boot default</text>
   <text x="310" y="332" text-anchor="middle" fill="#94a3b8" font-size="9">MarketDataPipeline → GraphPipelineDisruptorHandler</text>
   <text x="310" y="347" text-anchor="middle" fill="#94a3b8" font-size="9">→ GraphStrategyDisruptorHandler (optional) → AsyncDispatchHandler</text>
   <text x="310" y="356" text-anchor="middle" fill="#64748b" font-size="7">NO risk/candle/feature/strategy/execution stages (pure DAG pipeline)</text>
@@ -1116,11 +1116,11 @@ tr:hover td { background: #1a1f35; }
   <div class="cap-card">
     <h4>Source</h4>
     <ul>
-      <li>857 Java source files</li>
-      <li>711 public type declarations (incl. inner)</li>
-      <li>~399 top-level public types</li>
-      <li>25 Gradle-visible subprojects</li>
-      <li>13 main Gradle subprojects</li>
+      <li>655 main Java files</li>
+      <li>214 test Java files (213 module + 1 architecture-test)</li>
+      <li>29 frontend TS/TSX/CSS files</li>
+      <li>26 Gradle subprojects</li>
+      <li>Leaf index: docs/CODEBASE_LEAF_INDEX.md</li>
     </ul>
   </div>
   <div class="cap-card">

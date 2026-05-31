@@ -1,8 +1,8 @@
 # Trade-J — Architecture, Class, Component & Flow Report
 
-> **Generated:** 2026-05-31 (code audit)  
+> **Generated:** 2026-05-31 (deep code audit, pass 3)  
 > **Project:** Trade-J (`trade-j` 0.1.0-SNAPSHOT)  
-> **Stack:** Java 21 · Spring Boot 3.4.13 · Gradle · React 18 + TypeScript · Vite · picocli  
+> **Stack:** Java 21 · Spring Boot 3.4.13 · Gradle · React 19 + TypeScript · Vite · picocli  
 > **Runtime Modes:** LIVE · REPLAY · BACKTEST  
 > **Visual diagrams:** [docs/visuals/Trade-J-Architecture-Visual.html](visuals/Trade-J-Architecture-Visual.html)  
 > **Testing detail:** [TESTING.md](../TESTING.md) · [REGRESSION_MANIFEST.md](../REGRESSION_MANIFEST.md)
@@ -12,7 +12,8 @@
 | Metric | Value |
 |--------|-------|
 | Gradle subprojects | 26 ([`settings.gradle`](../settings.gradle)) |
-| Java compilation units | **654** main · **212** test (+1 architecture-test) — see [CODEBASE_LEAF_INDEX.md](CODEBASE_LEAF_INDEX.md) |
+| Java compilation units | **655** main · **213** module test · **1** architecture-test (**214** total) — see [CODEBASE_LEAF_INDEX.md](CODEBASE_LEAF_INDEX.md) |
+| React console (`frontend/`) | **29** TS/TSX/CSS files (incl. `vite.config.ts`; synced into `:app` static console) |
 | Leaf file index | [docs/CODEBASE_LEAF_INDEX.md](CODEBASE_LEAF_INDEX.md) (every `src/main/java` class by package) |
 | Brokers | Dhan · Upstox |
 | Active pipeline runtimes | Disruptor hot path (3 configs) + Graph DAG |
@@ -111,7 +112,7 @@ flowchart TB
 
 | Flow | Section | Summary |
 |------|---------|---------|
-| Live tick → signal → order → fill | [§9](#9-event-system--disruptor-bus), [§10](#10-trading-flow--order-lifecycle), [§11](#11-trading-flow--market-data-hot-path) | WS → `MarketDataPipeline` → Disruptor stages → `ExecutionHandler` → broker or simulator |
+| Live tick → signal → order → fill | [§9](#9-event-system--disruptor-bus), [§10](#10-trading-flow--order-lifecycle), [§11](#11-trading-flow--market-data-hot-path) | WS → `MarketDataPipeline` → **Config A** ring (`GraphPipelineDisruptorHandler`) → `AsyncDispatch` → optional `ExecutionHandler` via graph nodes |
 | Order lifecycle & reconciliation | [§10](#10-trading-flow--order-lifecycle) | OMS state machine, `OrderReconciler`, fill replay |
 | Strategy evaluation | [§12](#12-trading-flow--strategy-evaluation) | Plugins / graph sandbox → `PortfolioEngine` → execution queue |
 | Universe & option scan | [§13](#13-scanner--scan-engine-flow) | `ScanEngine`, `OptionLiquidityScanner`, institutional ranking |
@@ -257,7 +258,7 @@ trade-j (root)
 
 | Gradle project | Path | Main · Test | Role |
 |----------------|------|-------------|------|
-| `:core` | `core/` | 159 · 14 | Domain, ports, pipeline graph, OMS |
+| `:core` | `core/` | 160 · 15 | Domain, ports, pipeline graph, OMS |
 | `:broker-api` | `broker/api/` | 28 · 0 | Port contracts (`IBrokerConnection`, …) |
 | `:broker-core` | `broker/core/` | 14 · 0 | Auth, resilience, WebSocket supervisor |
 | `:broker-dhan` | `broker/dhan/` | 69 · 19 | Dhan REST/WS, options, historical, TOTP |
@@ -402,11 +403,15 @@ graph LR
     RT_HOTPATH[":runtime-hotpath<br/>MarketDataPipeline<br/>OrderPipeline"]
     TRADING_STRAT[":trading-strategy<br/>Plugins · Portfolio<br/>Candles · ML"]
     TRADING_EXEC[":trading-execution<br/>OMS · Risk<br/>Execution Handler"]
-    TRADING_SCANNER[":trading-scanner<br/>Scan Engine<br/>Criteria · Options"]
-    TRADING_SIM[":trading-simulation<br/>Matching Engine<br/>PnL Ledger"]
-    DATA_PERSIST[":data-persistence<br/>Chronicle · DuckDB<br/>Replay"]
-    DATA_FEATURE[":data-feature-store<br/>DuckDB Features<br/>Feature Nodes"]
-    APP[":app<br/>Spring Boot<br/>Composition Root"]
+    TRADING_SCANNER[":trading-scanner<br/>Scan Engine"]
+    TRADING_INST[":trading-institutional-scanner"]
+    TRADING_IND[":trading-indicators"]
+    TRADING_SIM[":trading-simulation<br/>Matching Engine"]
+    DATA_PERSIST[":data-persistence"]
+    DATA_FEATURE[":data-feature-store"]
+    DATA_INGEST[":data-historical-ingest"]
+    DATA_ANALYTICS[":data-analytics"]
+    APP[":app<br/>Spring Boot"]
     GATEWAY[":gateway<br/>WebSocket Bridge"]
     CLI_MOD[":cli<br/>Operator CLI"]
 
@@ -420,12 +425,18 @@ graph LR
     CORE --> TRADING_EXEC
     TRADING_EXEC --> TRADING_SIM
     CORE --> TRADING_SCANNER
+    TRADING_SCANNER --> TRADING_INST
+    TRADING_INST --> TRADING_IND
     TRADING_SCANNER -.->|"scan store models"| DATA_PERSIST
     CORE --> DATA_PERSIST
     CORE --> DATA_FEATURE
+    CORE --> DATA_INGEST
+    CORE --> DATA_ANALYTICS
     RT_DISRUPTOR -.->|"stage list"| TRADING_EXEC
     RT_DISRUPTOR -.->|"stage list"| TRADING_STRAT
     DATA_PERSIST --> APP
+    DATA_INGEST --> APP
+    DATA_ANALYTICS --> APP
     GATEWAY --> APP
     CLI_MOD --> APP
     APP --> TRADING_EXEC
@@ -439,36 +450,50 @@ graph LR
 
 ## 5. Dual Pipeline Architecture
 
-Trade-J has **two coexisting pipeline assembly paths**:
+Trade-J has **three related pipeline paths** (not mutually exclusive in Spring):
 
-### Pipeline A — Legacy Hot Path (Production)
+### Spring Boot default — Graph on the Disruptor ring (Config A)
+
+[`EventBusConfiguration`](../../app/src/main/java/com/tradej/app/config/EventBusConfiguration.java) calls `PipelineConfig.create(...)` with:
+
+- `PipelineRuntimeService` (implements `PipelineRuntimeBridge`) → **Config A** in [`DisruptorEventBus`](../../runtime/disruptor/src/main/java/com/tradej/disruptor/DisruptorEventBus.java)
+- `InMemoryFeatureStore` (passed but **not** used on the ring when Config A is active; features persist via `DuckDbFeatureStore` on `AsyncDispatchHandler`)
+- Optional `GraphStrategySandbox` → extra `GraphStrategyDisruptorHandler` stage after graph
+- `shardCount` from `trade.hot-path.shard-count` (0 = single bus, &gt;1 = `ShardedDisruptorEventBus`)
 
 ```mermaid
 graph LR
-    WS["Broker WebSocket"] --> MD["MarketDataPipeline<br/>(hotpath)"]
-    WS --> OD["OrderPipeline<br/>(hotpath)"]
-
-    MD --> RING["Disruptor Ring Buffer<br/>(LMAX)"]
+    WS["Broker WebSocket"] --> MD["MarketDataPipeline"]
+    WS --> OD["OrderPipeline"]
+    MD --> RING["DisruptorEventBus"]
     OD --> RING
-
-    RING --> S1["PositionRiskDisruptorHandler"]
-    S1 --> S2["CandleAggregationDisruptorHandler"]
-    S2 --> S3["FeatureSyncDisruptorHandler<br/>(optional)"]
-    S3 --> S4["StrategyDisruptorHandler"]
-    S4 --> S5["GraphStrategyDisruptorHandler<br/>(optional)"]
-    S5 --> S6["ExecutionDisruptorHandler"]
-    S6 --> S7["AsyncDispatchHandler"]
-
-    S7 --> SUBS["EventBus subscribers<br/>(DuckDB, Chronicle, read model)"]
-
-    style RING fill:#f9f,stroke:#333,stroke-width:2px
+    RING --> GPH["GraphPipelineDisruptorHandler"]
+    GPH --> GR["GraphRuntime.processSequential<br/>(CandleNode, RiskNode, OmsNode, …)"]
+    GR --> GS["GraphStrategyDisruptorHandler<br/>(optional)"]
+    GS --> AD["AsyncDispatchHandler"]
+    AD --> SUBS["Subscribers: DuckDB, Chronicle,<br/>ReadModel, DagPipelineIngressBridge"]
 ```
 
-**Legacy stage ordering (Config B/C):** Risk → Candle → [Feature sync] → Strategy → [Graph strategy] → Execution → Async dispatch.  
-Wired in [`DisruptorEventBus`](../../runtime/disruptor/src/main/java/com/tradej/disruptor/DisruptorEventBus.java) via `PipelineConfig.create()` in `:runtime-hotpath`.  
+`GraphPipelineDisruptorHandler` delegates to the compiled graph inside the ring (replaces the fixed risk→candle→strategy chain for production wiring).
+
+### Legacy fixed-stage Disruptor chain (Config B/C)
+
+Used when `pipelineRuntimeBridge == null` (unit/component tests, minimal `PipelineConfig` overloads):
+
+```mermaid
+graph LR
+    RING["DisruptorEventBus"] --> R1["PositionRisk"]
+    R1 --> R2["Candle"]
+    R2 --> R3["FeatureSync<br/>(if hotPathFeatureStore)"]
+    R3 --> R4["Strategy"]
+    R4 --> R5["GraphStrategy<br/>(optional)"]
+    R5 --> R6["Execution"]
+    R6 --> R7["AsyncDispatch"]
+```
+
 `PortfolioEngine` wraps the downstream `safePublisher` (not a ring-buffer stage). See [§9](#9-event-system--disruptor-bus).
 
-### Pipeline B — Graph Runtime (Target)
+### Studio DAG runtime (separate ingress)
 
 ```mermaid
 graph TB
@@ -505,8 +530,8 @@ graph TB
 | `PipelineNode` | `:core` | Interface: `init()`, `onEvent()`, `destroy()` |
 | `BasePipelineNode` | `:core` | Abstract base with metrics, state, error counting |
 | `PipelineNodeFactory` | `:app` | Creates concrete node instances from definitions |
-| `PipelineRuntimeService` | `:app` | Spring service managing pipeline lifecycle |
-| `DagPipelineIngressBridge` | `:app` | Bridges Disruptor events into graph runtime |
+| `PipelineRuntimeService` | `:app` | Spring service: DAG lifecycle + `PipelineRuntimeBridge` for Disruptor **Config A** |
+| `DagPipelineIngressBridge` | `:app` | Cold ingress: selected events → `DagPipelineRuntimeService` (studio DAG, not HOT_PATH ring) |
 
 ---
 
@@ -928,6 +953,8 @@ Assembly is in [`DisruptorEventBus`](../../runtime/disruptor/src/main/java/com/t
 | **B — Legacy + feature store** | `hotPathFeatureStore != null` | `PositionRisk` → `Candle` → `FeatureSync` → `Strategy` → optional `GraphStrategy` → `Execution` → `AsyncDispatch` |
 | **C — Legacy** | else | `PositionRisk` → `Candle` → `Strategy` → optional `GraphStrategy` → `Execution` → `AsyncDispatch` |
 
+**Spring Boot (`:app`):** [`EventBusConfiguration`](../../app/src/main/java/com/tradej/app/config/EventBusConfiguration.java) always supplies `PipelineRuntimeService`, so the running app uses **Config A** unless tests construct the bus manually. Legacy B/C remain for isolated disruptor tests.
+
 ```mermaid
 flowchart LR
   subgraph configA [ConfigA_GraphRuntime]
@@ -1318,7 +1345,7 @@ Integration: `AnalyticsFederationIntegrationTest` (`@Tag("integration")`).
 | `BACKTEST` | `ParquetHistoricalBarRepository` + in-memory features | `MatchingEngine` + `SimulatedOrderService` |
 | `REPLAY` | `HistoricalRangeService` (DuckDB / Chronicle / broker REST) | `ReplayClock` + simulated orders |
 
-`BrokerStartupOrchestrator` skips live WebSocket when `RuntimeMode != LIVE`; `ReplayOrchestrator` feeds `clockSyncedBus` with virtual time. Admin replay endpoints blocked in LIVE via `rejectIfLiveReplay()`.
+`BrokerStartupOrchestrator` skips broker WebSocket when `BrokerRuntimeMode.expectsWebSocket()` is false (e.g. `UPSTOX_ANALYTICS_REST`). `trade.runtime.mode` (`LIVE` / `REPLAY` / `BACKTEST`) is separate and drives `VirtualClock` + `ReplayOrchestrator`. Admin replay endpoints blocked in LIVE via `rejectIfLiveReplay()`.
 
 ---
 
@@ -1408,60 +1435,51 @@ flowchart TD
 
 ## 17. Frontend Console Architecture
 
+Source tree: [`frontend/`](../../frontend/) (29 TS/TSX/CSS files). Built with Vite 6 and synced into `:app` via `syncFrontend` → `app/src/main/resources/static/console/`.
+
 ```mermaid
 flowchart TD
-    subgraph "React Console (Vite + TypeScript)"
-        MAIN["main.ts"]
-        VIEWS["Views"]
-        COMPONENTS["Components"]
-        STORE["State (Zustand)"]
-        API["API Services"]
-        TYPES["TypeScript Types"]
+    subgraph frontend [frontend_src]
+        MAIN[main.tsx]
+        APP[App.tsx]
+        API[api/client websocket sse]
+        DTO[dto/types.ts]
+        STORE[useStudioStore usePipelineStore]
+        HOOKS[useSSE]
+        CHART[charts/ChartWidget]
+        COMP[components panels]
     end
 
-    subgraph VIEWS
-        PIPELINE_VIEW["Pipeline Inspector View"]
+    subgraph panels [components]
+        LP[LeftSidebar]
+        TP[TradingPanel]
+        SP[ScannerPanel]
+        PP[PipelinePanel]
+        AP[AdminPanel]
+        CP[CommandPalette]
+        EB[ErrorBoundary]
     end
 
-    subgraph COMPONENTS
-        PIPELINE_CANVAS["PipelineCanvas.tsx<br/>(React Flow)"]
-        PIPELINE_TOOLBAR["PipelineToolbar.tsx"]
-        PIPELINE_INSPECTOR["PipelineInspector.tsx"]
-        SYMBOL_TABS["SymbolTabs.ts"]
-        SCAN_PANEL["ScanResultsPanel.ts"]
-        PIPELINE_NODE["PipelineNodeComponent.tsx"]
-    end
-
-    subgraph STORE
-        SYMBOL_STORE["symbolStore.ts"]
-        GRAPH_STORE["graphStore.ts"]
-    end
-
-    subgraph API
-        SYMBOL_SVC["symbolService.ts"]
-        SCAN_SVC["scanService.ts"]
-        REQ_MGR["requestManager.ts"]
-    end
-
-    MAIN --> VIEWS
-    VIEWS --> COMPONENTS
-    COMPONENTS --> STORE
-    COMPONENTS --> API
-
-    PIPELINE_CANVAS -->|"React Flow nodes/edges"| GRAPH_STORE
-    SCAN_PANEL --> SCAN_SVC
+    MAIN --> APP
+    APP --> panels
+    API --> APP
+    STORE --> panels
+    CHART --> APP
 ```
 
-### Frontend Stack
+### Frontend stack (from `frontend/package.json`)
 
 | Library | Version | Purpose |
-|---------|---------|--------|
-| React | 18.3.1 | UI framework |
-| TypeScript | 5.7.3 | Type safety |
-| Vite | 6.2.0 | Build tool |
-| React Flow | 11.11.4 | DAG pipeline visualization |
-| Zustand | 4.5.2 | Lightweight state management |
-| Lightweight Charts | 4.2.2 | Trading charting |
+|---------|---------|---------|
+| React | 19.0.1 | UI framework |
+| TypeScript | 5.8.x | Type safety |
+| Vite | 6.2.x | Build + dev server |
+| Zustand | 5.0.x | `useStudioStore`, `usePipelineStore` |
+| lightweight-charts | 5.2.x | `ChartWidget` candlesticks |
+| Tailwind (Vite plugin) | 4.1.x | Styling |
+| Vitest | 3.2.x | Component tests (`*.test.tsx`) |
+
+REST base URL via `api/client.ts`; live updates via `api/websocket.ts` and `api/sse.ts` (gateway `/ws/gateway`).
 
 ---
 
@@ -1636,18 +1654,22 @@ classDiagram
 | `SchedulingConfiguration` | `:app` | `ScheduledExecutorService` pools |
 | `StartupConfiguration` | `:app` | `BrokerStartupOrchestrator` |
 
-### REST Controllers
+### REST Controllers (12 in `:app`)
 
-| Controller | Endpoint | Purpose |
-|-----------|----------|---------|
-| `MarketDataController` | `/api/v1/market/*` | LTP, historical candles |
-| `ScanController` | `/api/v1/scans/*` | Scan runs, results, triggers |
-| `OptionScanController` | `/api/v1/options/scan` | Options liquidity scan |
-| `PipelineController` | `/api/v1/pipeline/*` | Pipeline CRUD, deploy, status |
-| `SymbolController` | `/api/v1/symbols/*` | Symbol search, tabs |
-| `ReadModelController` | `/api/v1/read-model/*` | Live read model snapshots |
-| `AdminController` | `/admin/*` | Health, runtime, historical |
-| `DashboardRedirectController` | `/` | Redirect to console |
+| Controller | Package | Purpose |
+|-----------|---------|---------|
+| `MarketDataController` | `api` | LTP, historical candles |
+| `ScanController` | `api` | Scan runs, results, triggers |
+| `OptionScanController` | `api` | Options liquidity scan |
+| `PipelineController` | `api` | Pipeline CRUD, deploy, status |
+| `SymbolController` | `api` | Symbol search, tabs |
+| `ReadModelController` | `api` | Live read model snapshots |
+| `StudioController` | `api` | Studio session / chart APIs |
+| `AnalyticsController` | `api` | Federated analytics SQL |
+| `ExpiredOptionsController` | `api` | Expired options metadata |
+| `AdminController` | `admin` | Runtime, historical admin APIs |
+| `HistoricalDownloadController` | `admin` | Historical download jobs |
+| `DashboardRedirectController` | `admin` | `@Controller` — `/` redirect to console |
 
 ---
 
@@ -1704,13 +1726,18 @@ sequenceDiagram
 
     CONFIG->>ORCH: @PostConstruct / ApplicationReadyEvent
     ORCH->>BROKER: loadInstrumentCatalog()
-    ORCH->>BROKER: connect()
     ORCH->>EB: subscribe(eventBus)
     ORCH->>MD: Wire to EventBus
     ORCH->>OD: Wire to EventBus
     ORCH->>GW: register(eventBus)
-    ORCH->>BROKER: websocket().subscribe(marketSubscriptionRequests)
-    Note over ORCH: Start reconciliation scheduler<br/>Start daily risk reset<br/>Start scan scheduler (if enabled)
+    ORCH->>EB: start()
+    alt BrokerRuntimeMode.expectsWebSocket()
+        ORCH->>BROKER: connect()
+        ORCH->>BROKER: websocket().subscribe(marketSubscriptionRequests)
+    else UPSTOX_ANALYTICS_REST etc.
+        Note over ORCH: Skip WebSocket; REST APIs only
+    end
+    Note over ORCH: Reconciliation scheduler,<br/>daily risk reset, scan scheduler (if enabled)
 ```
 
 ---
@@ -1721,13 +1748,14 @@ Two paths share risk rules but differ in wiring:
 
 | Path | Entry | Risk execution |
 |------|-------|----------------|
-| **Disruptor hot path** | `PositionRiskDisruptorHandler` (first ring stage in Config B/C) | `PositionRiskHandler` → `TradingCircuitBreaker` / daily limits |
+| **Disruptor hot path (Config B/C)** | `PositionRiskDisruptorHandler` (first ring stage) | `PositionRiskHandler` → `TradingCircuitBreaker` / daily limits |
+| **Disruptor hot path (Config A)** | `GraphPipelineDisruptorHandler` → graph nodes (`RiskNode`, …) | Risk inside compiled DAG, not legacy ring stages |
 | **DAG graph** | `DagPipelineIngressBridge` | `RiskNode` → `OmsNode` → `OrderPlacementNode` in `DagPipelineRuntimeService` |
 | **Portfolio capital** | Events via `PortfolioEngine`-wrapped publisher | `reserveSignal()` / `freeSignalCapital()` before `SignalPendingExecution` |
 
 ```mermaid
 flowchart TD
-    TICK["Tick / Candle / Signal events"] --> RING["PositionRiskDisruptorHandler<br/>(first stage, legacy path)"]
+    TICK["Tick / Candle / Signal events"] --> RING["PositionRiskDisruptorHandler<br/>(Config B/C ring only)"]
     RING --> PRH["PositionRiskHandler"]
     PRH --> R1{"Daily loss / consecutive losses / order value / max positions?"}
     R1 -->|breach| KILL["KillSwitchEngaged"]
@@ -1848,7 +1876,9 @@ flowchart TB
 | `prod` | Dhan live | LIVE | Production |
 | `upstox-dev` | Upstox | LIVE | Upstox development |
 | `upstox-prod` | Upstox | LIVE | Upstox production |
-| `upstox-analytics` | Upstox | REST-only | No WebSocket, REST market data only |
+| `upstox-analytics` | Upstox | LIVE (REST) | `UPSTOX_ANALYTICS_REST` — no WebSocket connect |
+
+**Broker transport** (`BrokerRuntimeMode`, resolved by `BrokerRuntimeModeResolver`): `DHAN_LIVE_WS`, `DHAN_SANDBOX`, `UPSTOX_TRADING_WS`, `UPSTOX_ANALYTICS_REST`.
 
 ### Key Configuration Properties
 
@@ -1931,9 +1961,9 @@ Tracked in [docs/BACKLOG.md](BACKLOG.md). Summary:
 
 ## 26. Appendix — Module File Counts & Packages
 
-Audit from real `src/main/java` trees (2026-05-31). **654** main + **212** test Java files.
+Audit from real `src/main/java` / `src/test/java` trees (2026-05-31, pass 3). **655** main + **214** test Java files (includes `:architecture-test`).
 
-### `:core` (159 main) — package map
+### `:core` (160 main) — package map
 
 | Package | Files | Leaf classes |
 |---------|-------|----------------|
@@ -1952,12 +1982,12 @@ Audit from real `src/main/java` trees (2026-05-31). **654** main + **212** test 
 |---------|-------|----------------|
 | `config` | 29 | Spring wiring: broker, event bus, risk, scan, persistence, Upstox |
 | `api` | 9 | REST: market, scan, pipeline, studio, analytics, symbols |
-| `pipeline` | 9 | `DagPipelineRuntimeService`, `ReplayOrchestrator`, `PipelineRuntimeService` |
+| `pipeline` | 9 | `PipelineRuntimeService`, `DagPipelineRuntimeService`, `ReplayOrchestrator` |
 | `scanner` | 7 | `ScanService`, `ScanScheduler`, `OptionScanService` |
 | `service/broker` | 5 | Historical, depth, PnL, expired options facades |
-| `health` | 6 | Actuator indicators |
 | `startup` | 1 | `BrokerStartupOrchestrator` |
-| Other | 16 | admin, metrics, readmodel, reactor, studio |
+| `studio` | 1 | `StudioChartService` |
+| Other | 15 | admin, health, metrics, readmodel, reactor, service |
 
 ### `:broker-dhan` (69 main) — top packages
 

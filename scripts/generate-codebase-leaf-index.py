@@ -105,9 +105,11 @@ def main() -> None:
         if len(fe_files) > 50:
             body.append(f"- *… and {len(fe_files) - 50} more*\n")
 
+    from datetime import date
+    audit = date.today().isoformat()
     header = f"""# Trade-J — Leaf File Index (generated from repo)
 
-> **Audit date:** auto-generated on write  
+> **Audit date:** {audit}  
 > **Totals:** {total_main} main Java · {total_test} test Java (+ {len(arch_test)} architecture-test)  
 > **Canonical architecture:** [ARCHITECTURE_REPORT.md](ARCHITECTURE_REPORT.md)
 

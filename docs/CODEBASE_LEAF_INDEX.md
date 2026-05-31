@@ -1,7 +1,7 @@
 # Trade-J — Leaf File Index (generated from repo)
 
-> **Audit date:** auto-generated on write  
-> **Totals:** 654 main Java · 212 test Java (+ 1 architecture-test)  
+> **Audit date:** 2026-05-31  
+> **Totals:** 655 main Java · 213 test Java (+ 1 architecture-test)  
 > **Canonical architecture:** [ARCHITECTURE_REPORT.md](ARCHITECTURE_REPORT.md)
 
 Per-module listing of every `src/main/java` compilation unit, grouped by package.
@@ -13,7 +13,7 @@ python3 scripts/generate-codebase-leaf-index.py
 ```
 
 
-### `:core` — `core/` (159 main · 14 test)
+### `:core` — `core/` (160 main · 15 test)
 - **`com/tradej/core/domain`** (1): SequenceService
 - **`com/tradej/core/domain/event`** (36): BrokerAdapterError, CandleClosed, CandleDeveloping, DepthUpdateEvent, DomainEvent, EventBusBackpressure, EventMetadata, EventMetadataFactory, EventPriority, EventSchemaVersion, KillSwitchEngaged, MarketTickEvent, OrderAccepted, OrderCancelled, OrderFilled, OrderFullyFilled, OrderModified, OrderPartiallyFilled, OrderRejected, OrderUpdateEvent, PnlUpdatedEvent, PositionMismatch, PositionUpdateEvent, ReplayTimeChangedEvent, ScanHitProduced, ScanResultsPublished, SignalGenerated, SignalPendingExecution, SignalSuppressed, StrategyError, StreamHealthChanged, TickReceived, TradeClosed, TradeExecutionEvent, TradeOpened, TradeUpdated
 - **`com/tradej/core/domain/instrument`** (7): ContractSymbolMatcher, ContractSymbolNormalizer, ExpiredOptionContractKey, RollingExpiryKind, RollingExpiryRoll, RollingOptionSeriesKey, StrikeOffset
@@ -31,9 +31,9 @@ python3 scripts/generate-codebase-leaf-index.py
 - **`com/tradej/pipeline/graph`** (6): IngressNodeConfig, PipelineEdgeDef, PipelineExecutionMode, PipelineGraph, PipelineGraphValidator, PipelineNodeDef
 - **`com/tradej/pipeline/reactor`** (1): ReactorBridge
 - **`com/tradej/pipeline/registry`** (2): NodeRegistry, NodeTypeDescriptor
-- **`com/tradej/pipeline/runtime`** (15): BacktestFillModel, BasePipelineNode, ExecutionPlan, GraphCompiler, GraphRuntime, IngressNode, NodeMetrics, NodeState, PartitionedNode, PipelineContext, PipelineNode, PipelineNodeTypes, PipelineRuntime, PipelineRuntimeBridge, ReactivePipelineNode
+- **`com/tradej/pipeline/runtime`** (16): BacktestFillModel, BasePipelineNode, DefaultBacktestFillModel, ExecutionPlan, GraphCompiler, GraphRuntime, IngressNode, NodeMetrics, NodeState, PartitionedNode, PipelineContext, PipelineNode, PipelineNodeTypes, PipelineRuntime, PipelineRuntimeBridge, ReactivePipelineNode
 - **`com/tradej/pipeline/state`** (3): InMemoryStateStore, StateScope, StateStore
-- **tests:** com/tradej/core/architecture/ModuleDependencyTest, com/tradej/core/domain/instrument/ContractSymbolNormalizerTest, com/tradej/core/domain/instrument/RollingOptionSeriesKeyTest, com/tradej/core/domain/instrument/StrikeOffsetTest, com/tradej/core/domain/market/CandleBucketPolicyTest, com/tradej/core/domain/model/FeatureGeneratorTest, com/tradej/core/domain/oms/OrderStateMachineUnitTest, com/tradej/core/domain/value/PriceMathUnitTest, com/tradej/core/infrastructure/WorkspacePathsTest, com/tradej/pipeline/graph/IngressNodeConfigTest, com/tradej/pipeline/graph/PipelineGraphValidatorTest, com/tradej/pipeline/reactor/ReactorBridgeTest, com/tradej/pipeline/runtime/DagGraphRuntimeTest, com/tradej/pipeline/runtime/GraphRuntimeTest
+- **tests:** com/tradej/core/architecture/ModuleDependencyTest, com/tradej/core/domain/instrument/ContractSymbolNormalizerTest, com/tradej/core/domain/instrument/RollingOptionSeriesKeyTest, com/tradej/core/domain/instrument/StrikeOffsetTest, com/tradej/core/domain/market/CandleBucketPolicyTest, com/tradej/core/domain/model/FeatureGeneratorTest, com/tradej/core/domain/oms/OrderStateMachineUnitTest, com/tradej/core/domain/value/PriceMathUnitTest, com/tradej/core/infrastructure/WorkspacePathsTest, com/tradej/pipeline/graph/IngressNodeConfigTest, com/tradej/pipeline/graph/PipelineGraphValidatorTest, com/tradej/pipeline/reactor/ReactorBridgeTest, com/tradej/pipeline/runtime/DagGraphRuntimeTest, com/tradej/pipeline/runtime/DefaultBacktestFillModelTest, com/tradej/pipeline/runtime/GraphRuntimeTest
 
 ### `:broker-api` — `broker/api/` (28 main · 0 test)
 - **`com/tradej/broker/api`** (1): IBrokerConnection
