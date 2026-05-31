@@ -1,0 +1,104 @@
+plugins {
+    id 'org.springframework.boot'
+    id 'io.spring.dependency-management'
+}
+
+dependencies {
+    implementation project(':core')
+    implementation project(':broker-api')
+    implementation project(':broker-dhan')
+    implementation project(':broker-upstox')
+    implementation project(':trading-strategy')
+    implementation project(':trading-execution')
+    implementation project(':runtime-disruptor')
+    implementation project(':data-persistence')
+    implementation project(':runtime-hotpath')
+    implementation project(':data-feature-store')
+    implementation project(':gateway')
+    implementation project(':trading-scanner')
+    implementation project(':trading-institutional-scanner')
+    implementation project(':trading-indicators')
+    implementation project(':trading-simulation')
+    implementation project(':data-historical-ingest')
+    implementation project(':data-analytics')
+
+    implementation 'org.springframework.boot:spring-boot-starter'
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'io.micrometer:micrometer-registry-prometheus'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+    annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
+
+    implementation 'net.logstash.logback:logstash-logback-encoder:8.0'
+
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+}
+
+bootJar {
+    archiveFileName = 'trade-j-app.jar'
+}
+
+// ── Frontend build integration ───────────────────────────────────
+def frontendDir = file("${rootDir}/frontend")
+def consoleStaticDir = file("src/main/resources/static/console")
+
+task installFrontend(type: Exec) {
+    workingDir frontendDir
+    commandLine 'npm', 'install'
+    inputs.file "${frontendDir}/package.json"
+    outputs.dir "${frontendDir}/node_modules"
+}
+
+task buildFrontend(type: Exec) {
+    dependsOn installFrontend
+    workingDir frontendDir
+    commandLine 'npx', 'vite', 'build'
+    inputs.dir "${frontendDir}/src"
+    inputs.file "${frontendDir}/vite.config.ts"
+    outputs.dir "${frontendDir}/dist"
+}
+
+task testFrontend(type: Exec) {
+    dependsOn installFrontend
+    workingDir frontendDir
+    commandLine 'npm', 'test'
+    inputs.dir "${frontendDir}/src"
+    inputs.file "${frontendDir}/vite.config.ts"
+}
+
+task syncFrontend(type: Copy) {
+    dependsOn buildFrontend
+    from "${frontendDir}/dist"
+    into consoleStaticDir
+    doLast {
+        // Remove old assets that no longer exist in the new build
+        def oldAssets = fileTree(consoleStaticDir).matching { exclude 'index.html' }
+        def newAssets = fileTree("${frontendDir}/dist").files.collect { it.name }
+        oldAssets.each { f ->
+            if (!newAssets.contains(f.name)) {
+                f.delete()
+            }
+        }
+    }
+}
+
+task cleanFrontend(type: Delete) {
+    delete "${frontendDir}/dist", consoleStaticDir
+}
+
+// Wire into build lifecycle
+tasks.named('processResources') {
+    dependsOn syncFrontend
+}
+
+tasks.named('check') {
+    dependsOn testFrontend
+}
+
+tasks.named('clean') {
+    dependsOn cleanFrontend
+}
+
+bootRun {
+    workingDir = rootProject.projectDir
+}

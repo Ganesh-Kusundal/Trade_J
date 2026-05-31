@@ -1,0 +1,8 @@
+dependencies {
+    api project(':broker-api')
+    api project(':core')
+
+    implementation 'com.fasterxml.jackson.core:jackson-databind'
+    implementation 'org.slf4j:slf4j-api'
+    implementation 'io.micrometer:micrometer-core'
+}

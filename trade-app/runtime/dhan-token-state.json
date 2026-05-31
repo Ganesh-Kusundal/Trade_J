@@ -1,6 +1,0 @@
-{
-  "accessToken": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzUxMiJ9.eyJpc3MiOiJkaGFuIiwicGFydG5lcklkIjoiIiwiZXhwIjoxNzc5OTQzNjcwLCJpYXQiOjE3Nzk4NTcyNzAsInRva2VuQ29uc3VtZXJUeXBlIjoiQVBQIiwiZGhhbkNsaWVudElkIjoiMTEwNjI1MTIzNyJ9.nM4cCp4ITmOUFhpAwNWG-phKmMJBqI9SiVsj4rEkjIkeRzAl1UlplGqJXuVJgEgLZhXZ1EdcUGPthE1FVKZ_9g",
-  "expiryEpochMs": 1779943670000,
-  "issuedAtEpochMs": 1779857270482,
-  "source": "TOTP_GENERATED"
-}

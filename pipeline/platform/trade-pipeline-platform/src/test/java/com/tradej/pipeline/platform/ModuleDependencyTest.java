@@ -38,6 +38,7 @@ class ModuleDependencyTest {
                 .resideInAnyPackage(
                         PLATFORM_PACKAGE + "..",
                         "com.tradej.core..",
+                        "com.tradej.pipeline..",
                         "java..",
                         "javax.."
                 );

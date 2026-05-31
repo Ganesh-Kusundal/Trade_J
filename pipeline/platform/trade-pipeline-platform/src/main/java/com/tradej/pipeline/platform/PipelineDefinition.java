@@ -1,6 +1,6 @@
 package com.tradej.pipeline.platform;
 
-import com.tradej.core.domain.pipeline.PipelineGraph;
+import com.tradej.pipeline.graph.PipelineGraph;
 
 import java.time.Instant;
 import java.util.Map;
@@ -17,7 +17,7 @@ import java.util.UUID;
  * @param name        human-readable name
  * @param description textual description
  * @param type        classification of the pipeline
- * @param graph       directed graph of pipeline nodes and edges (from trade-core)
+ * @param graph       directed graph of pipeline nodes and edges (from core module)
  * @param version     semantic version
  * @param status      current lifecycle status
  * @param createdAt   creation timestamp (UTC)

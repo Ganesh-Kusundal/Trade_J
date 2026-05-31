@@ -6,15 +6,26 @@
 *.db
 *.duckdb
 *.duckdb.wal
-/runtime/
 **/runtime-dev/
 **/runtime-test/
 **/runtime-prod/
-/data/
+/data/historical-equity/
 /chronicle/
 /out/
 /.DS_Store
+test_output.txt
 /config/dhan-local.properties
+/config/upstox-sandbox.properties
+/config/upstox-live.properties
 /config/dhan-sandbox.properties
 /config/dhan-pin.txt
 /config/dhan-totp-secret.txt
+# Workspace runtime artifacts (not :runtime-disruptor / :runtime-hotpath sources)
+/runtime/dhan-token-state.json
+/runtime/cli-instruments/
+/app/runtime/
+**/runtime/dhan-token-state.json
+**/dhan-token-state.json
+# Reference POC (not part of Trade-J build)
+/REFERANCE/
+/.cline/

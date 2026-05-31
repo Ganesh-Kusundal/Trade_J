@@ -1,0 +1,13 @@
+dependencies {
+    implementation project(':core')
+    implementation project(':data-historical-ingest')
+    implementation "org.duckdb:duckdb_jdbc:${versions.duckdb}"
+    implementation 'org.slf4j:slf4j-api'
+
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testImplementation 'ch.qos.logback:logback-classic'
+}
+
+tasks.withType(Test).configureEach {
+    maxHeapSize = '2g'
+}

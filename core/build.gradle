@@ -1,0 +1,13 @@
+plugins {
+    id 'java-test-fixtures'
+}
+
+dependencies {
+    api 'org.slf4j:slf4j-api'
+    api 'io.projectreactor:reactor-core'
+
+    testFixturesImplementation platform("org.junit:junit-bom:${versions.junitBom}")
+    testFixturesImplementation 'org.junit.jupiter:junit-jupiter'
+
+    testImplementation 'com.tngtech.archunit:archunit-junit5:1.4.0'
+}

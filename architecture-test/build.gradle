@@ -1,0 +1,50 @@
+plugins {
+    id 'java-library'
+}
+
+def scannedModules = [
+        ':core',
+        ':broker-api',
+        ':broker-dhan',
+        ':broker-upstox',
+        ':data-persistence',
+        ':data-historical-ingest',
+        ':trading-scanner',
+        ':trading-execution',
+        ':trading-strategy',
+        ':trading-institutional-scanner',
+        ':trading-indicators',
+        ':runtime-disruptor',
+        ':runtime-hotpath',
+]
+
+dependencies {
+    scannedModules.each { modulePath ->
+        testImplementation project(modulePath)
+    }
+    testImplementation 'com.tngtech.archunit:archunit-junit5:1.4.0'
+}
+
+def moduleClassOutputs = scannedModules.collect { modulePath ->
+    project(modulePath).sourceSets.main.output.classesDirs
+}
+
+tasks.named('test', Test).configure {
+    useJUnitPlatform {
+        includeTags 'architecture'
+    }
+    maxHeapSize = '1g'
+    classpath = files(moduleClassOutputs) + classpath
+}
+
+tasks.register('architectureTest', Test) {
+    description = 'Runs architecture boundary tests.'
+    group = 'verification'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = files(moduleClassOutputs) + sourceSets.test.runtimeClasspath
+    useJUnitPlatform {
+        includeTags 'architecture'
+    }
+    maxHeapSize = '1g'
+    dependsOn scannedModules.collect { project(it).tasks.named('classes') }
+}

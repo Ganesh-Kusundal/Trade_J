@@ -1,6 +1,6 @@
 package com.tradej.pipeline.platform;
 
-import com.tradej.core.domain.pipeline.PipelineGraph;
+import com.tradej.pipeline.graph.PipelineGraph;
 
 import java.time.Instant;
 import java.util.Map;

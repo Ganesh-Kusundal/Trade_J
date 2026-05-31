@@ -1,0 +1,30 @@
+trade:
+  broker-type: upstox
+  upstox:
+    client-id: ${upstox.live.clientId}
+    client-secret: ${upstox.live.clientSecret}
+    redirect-uri: ${upstox.live.redirectUri}
+    access-token: ${upstox.live.accessToken:}
+    analytics-token: ${upstox.live.analyticsToken}
+    analytics-only: true
+    sandbox: false
+    refresh-buffer-ms: 1800000
+    token-expiry-buffer-ms: 600000
+
+  instruments:
+    cache-directory: runtime-dev/upstox-instruments
+    auto-download: true
+
+  subscriptions:
+    - symbol: SBIN
+      exchange-segment: NSE_EQ
+      feed-mode: QUOTE
+
+  storage:
+    chronicle-path: runtime-dev/events
+    duckdb-path: runtime-dev/data.db
+
+spring:
+  config:
+    import:
+      - optional:file:./config/upstox-live.properties

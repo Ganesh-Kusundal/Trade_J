@@ -1,0 +1,15 @@
+dependencies {
+    implementation project(':core')
+    implementation project(':broker-api')
+    implementation project(':runtime-disruptor')
+    implementation project(':trading-execution')
+    implementation project(':trading-strategy')
+
+    implementation "com.lmax:disruptor:${versions.disruptor}"
+    implementation 'org.slf4j:slf4j-api'
+
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testImplementation project(':data-persistence')
+    testImplementation project(':broker-api')
+    testImplementation 'ch.qos.logback:logback-classic'
+}

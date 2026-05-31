@@ -1,0 +1,57 @@
+plugins {
+    id 'java'
+    id 'application'
+}
+
+application {
+    mainClass = 'com.tradej.cli.TradeCli'
+}
+
+dependencies {
+    implementation project(':core')
+    implementation project(':broker-api')
+    implementation project(':broker-dhan')
+    implementation project(':broker-upstox')
+    implementation project(':trading-scanner')
+    implementation project(':data-historical-ingest')
+    implementation project(':data-analytics')
+
+    implementation 'info.picocli:picocli:4.7.6'
+    implementation 'org.jline:jline:3.26.3'
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.18.2'
+    implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.18.2'
+
+    testImplementation platform("org.junit:junit-bom:${rootProject.ext.versions.junitBom}")
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+}
+
+tasks.named('test', Test) {
+    useJUnitPlatform {
+        includeTags 'unit'
+    }
+}
+
+tasks.register('cliUnitTest', Test) {
+    description = 'Runs trade-cli unit tests.'
+    group = 'verification'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform {
+        includeTags 'unit'
+    }
+}
+
+tasks.named('run', JavaExec) {
+    workingDir = rootProject.projectDir
+    standardInput = System.in
+    jvmArgs rootProject.ext.chronicleJvmArgs
+    args = ['interactive']
+}
+
+tasks.register('quietClasspath') {
+    group = 'help'
+    description = 'Prints runtime classpath for scripts/tradej direct java launch.'
+    doLast {
+        println sourceSets.main.runtimeClasspath.asPath
+    }
+}

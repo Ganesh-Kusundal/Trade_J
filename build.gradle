@@ -1,6 +1,8 @@
 plugins {
     id 'org.springframework.boot' version '3.4.13' apply false
     id 'io.spring.dependency-management' version '1.1.7' apply false
+    id 'com.github.spotbugs' version '6.5.5' apply false
+    id 'checkstyle'
 }
 
 ext {
@@ -36,10 +38,26 @@ allprojects {
 subprojects {
     apply plugin: 'java-library'
     apply plugin: 'io.spring.dependency-management'
+    apply plugin: 'com.github.spotbugs'
+    apply plugin: 'checkstyle'
 
     java {
         toolchain {
             languageVersion = JavaLanguageVersion.of(21)
+        }
+    }
+
+    dependencyLocking {
+        lockMode = LockMode.DEFAULT
+        // Lock only the configurations that matter for reproducibility.
+        // Excludes tool configurations like checkstyle/spotbugs which don't need locking.
+        configurations {
+            compileClasspath
+            runtimeClasspath
+            testCompileClasspath
+            testRuntimeClasspath
+            annotationProcessor
+            testAnnotationProcessor
         }
     }
 
@@ -49,9 +67,69 @@ subprojects {
         }
     }
 
+    spotbugs {
+        toolVersion = '4.9.3'
+        ignoreFailures = true
+        showProgress = true
+        effort = 'default'
+        reportLevel = 'medium'
+        excludeFilter = rootProject.file('config/spotbugs/exclude.xml')
+    }
+
+    // Static analysis is wired into the Gradle `check` lifecycle, so
+    // `./gradlew build` runs SpotBugs + Checkstyle on every subproject.
+    // This will slow down the default build. To skip static analysis:
+    //   ./gradlew build -x checkstyleMain -x checkstyleTest -x spotbugsMain -x spotbugsTest
+    // To run static analysis only:
+    //   ./gradlew checkstyleMain spotbugsMain
+
+    spotbugsMain {
+        reports {
+            html {
+                required = true
+                outputLocation = layout.buildDirectory.file("reports/spotbugs/main.html")
+            }
+        }
+    }
+
+    spotbugsTest {
+        reports {
+            html {
+                required = true
+                outputLocation = layout.buildDirectory.file("reports/spotbugs/test.html")
+            }
+        }
+    }
+
+    checkstyle {
+        toolVersion = '13.4.2'
+        ignoreFailures = true
+        showViolations = true
+        configFile = rootProject.file('config/checkstyle/checkstyle.xml')
+    }
+
+    checkstyleMain {
+        reports {
+            html {
+                required = true
+                outputLocation = layout.buildDirectory.file("reports/checkstyle/main.html")
+            }
+        }
+    }
+
+    checkstyleTest {
+        reports {
+            html {
+                required = true
+                outputLocation = layout.buildDirectory.file("reports/checkstyle/test.html")
+            }
+        }
+    }
+
     tasks.withType(Test).configureEach {
         useJUnitPlatform()
         jvmArgs rootProject.ext.chronicleJvmArgs
+        systemProperty 'trade.workspace.root', rootProject.projectDir.absolutePath
     }
 
     tasks.withType(JavaExec).configureEach {
@@ -102,10 +180,22 @@ subprojects {
         group = 'verification'
         testClassesDirs = sourceSets.test.output.classesDirs
         classpath = sourceSets.test.runtimeClasspath
+        maxHeapSize = '4g'
         useJUnitPlatform {
             includeTags 'broker-rest'
+            excludeTags 'broker-auth-drill'
         }
         shouldRunAfter tasks.named('componentTest')
+    }
+
+    tasks.register('brokerAuthDrillTest', Test) {
+        description = 'Manual Dhan TOTP token drill tests (destructive; not part of fullRegressionTest).'
+        group = 'verification'
+        testClassesDirs = sourceSets.test.output.classesDirs
+        classpath = sourceSets.test.runtimeClasspath
+        useJUnitPlatform {
+            includeTags 'broker-auth-drill'
+        }
     }
 
     tasks.register('brokerWsTest', Test) {
@@ -113,6 +203,7 @@ subprojects {
         group = 'verification'
         testClassesDirs = sourceSets.test.output.classesDirs
         classpath = sourceSets.test.runtimeClasspath
+        maxHeapSize = '4g'
         useJUnitPlatform {
             includeTags 'broker-ws'
         }
@@ -124,6 +215,7 @@ subprojects {
         group = 'verification'
         testClassesDirs = sourceSets.test.output.classesDirs
         classpath = sourceSets.test.runtimeClasspath
+        maxHeapSize = '4g'
         useJUnitPlatform {
             includeTags 'broker-order'
         }
@@ -135,6 +227,7 @@ subprojects {
         group = 'verification'
         testClassesDirs = sourceSets.test.output.classesDirs
         classpath = sourceSets.test.runtimeClasspath
+        maxHeapSize = '4g'
         useJUnitPlatform {
             includeTags 'runtime-e2e'
         }
@@ -152,11 +245,23 @@ subprojects {
         shouldRunAfter tasks.named('componentTest')
     }
 
+    tasks.register('upstoxPreflightTest', Test) {
+        description = 'Runs Upstox credential and analytics REST smoke tests (tag: upstox-preflight).'
+        group = 'verification'
+        testClassesDirs = sourceSets.test.output.classesDirs
+        classpath = sourceSets.test.runtimeClasspath
+        useJUnitPlatform {
+            includeTags 'upstox-preflight'
+        }
+        shouldRunAfter tasks.named('componentTest')
+    }
+
     tasks.register('crossLayerRegressionTest', Test) {
         description = 'Runs cross-layer OMS and execution integration tests.'
         group = 'verification'
         testClassesDirs = sourceSets.test.output.classesDirs
         classpath = sourceSets.test.runtimeClasspath
+        maxHeapSize = '4g'
         useJUnitPlatform {
             includeTags 'cross-layer'
         }
@@ -185,10 +290,10 @@ tasks.register('fullRegressionTest') {
     dependsOn subprojects.collect { project ->
         project.tasks.matching { it.name == 'unitTest' || it.name == 'componentTest' }
     }
-    dependsOn ':trade-app:regressionPreflightTest'
-    dependsOn ':trade-app:brokerRestTest'
-    dependsOn ':trade-app:brokerWsTest'
-    dependsOn ':trade-app:brokerOrderTest'
-    dependsOn ':trade-app:runtimeE2eTest'
-    dependsOn ':trade-app:crossLayerRegressionTest'
+    dependsOn ':app:regressionPreflightTest'
+    dependsOn ':app:brokerRestTest'
+    dependsOn ':app:brokerWsTest'
+    dependsOn ':app:brokerOrderTest'
+    dependsOn ':app:runtimeE2eTest'
+    dependsOn ':app:crossLayerRegressionTest'
 }

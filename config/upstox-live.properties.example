@@ -1,0 +1,8 @@
+# Live Upstox credentials — copy to config/upstox-live.properties (gitignored)
+upstox.live.clientId=
+upstox.live.clientSecret=
+upstox.live.redirectUri=http://127.0.0.1:18080/callback
+# Plus algo/access token — OAuth session token; required for expired-instruments APIs (~12h lifetime)
+upstox.live.accessToken=
+# Plus-plan analytics JWT — read-only market data (LTP, historical, option chain; 1-year)
+upstox.live.analyticsToken=

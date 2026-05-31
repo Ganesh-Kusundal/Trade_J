@@ -24,7 +24,7 @@ Maps each verification test to Gradle task, environment, opt-in flags, and archi
 | `RegressionPreflightIntegrationTest` | `DhanSessionRiskIntegrationTest` if sandbox lacks `/pnlExit` |
 | `brokerRestTest` tests without `*_TEST_ENABLED` | `DhanSuperOrderIntegrationTest` / `DhanForeverOrderIntegrationTest` if sandbox 404 |
 | `brokerWsTest` when live WS creds valid | `DhanRuntimeSmokeIntegrationTest` candle assert outside market hours |
-| `brokerOrderTest` with all `*_TEST_ENABLED=true` | |
+| `brokerOrderTest` default tests (skipped without `*_TEST_ENABLED`) | Opt-in order tests: modify, cancel-all, order-query, slice, super, forever, etc. |
 | `runtimeE2eTest` | |
 | `crossLayerRegressionTest` with `DHAN_CROSS_LAYER_TEST_ENABLED=true` | |
 
@@ -47,6 +47,9 @@ Maps each verification test to Gradle task, environment, opt-in flags, and archi
 | `DhanHistoricalDataIntegrationTest` | brokerRestTest | live | — | INV-11 historical |
 | `DhanDerivativesIntegrationTest` | brokerRestTest | live | — | INV-12 options |
 | `DhanBatchQuoteIntegrationTest` | brokerRestTest | live | — | INV-13 quotes |
+| `DhanPortfolioIntegrationTest` | brokerRestTest | live | — | INV-13b portfolio |
+| `DhanMarketDepthIntegrationTest` | brokerRestTest | live | — | INV-13c depth |
+| `DhanStrikeSelectionIntegrationTest` | brokerRestTest | live | — | INV-13d strikes |
 | `LivePnlIntegrationTest` | brokerRestTest | live | — | INV-14 PnL |
 | `HistoricalRangeIntegrationTest` | brokerRestTest | live | — | INV-15 range |
 | `DhanRollingOptionIntegrationTest` | brokerRestTest | live | `DHAN_ROLLING_OPTION_TEST_ENABLED` | INV-16 rolling opt |
@@ -54,6 +57,12 @@ Maps each verification test to Gradle task, environment, opt-in flags, and archi
 | `DhanTokenLifecycleIntegrationTest` | brokerRestTest | live | TOTP config | INV-18 token |
 | `DhanMarketFeedIntegrationTest` | brokerWsTest | live | symbol env | INV-19 WS feed |
 | `DhanOrderLifecycleIntegrationTest` | brokerOrderTest | sandbox | `DHAN_ORDER_TEST_ENABLED` | INV-20 place/cancel |
+| `DhanOrderQueryLiveIntegrationTest` | brokerRestTest | live | — | INV-20b live order query SDK |
+| `DhanOrderQueryIntegrationTest` | brokerOrderTest | sandbox | `DHAN_ORDER_QUERY_TEST_ENABLED` + `DHAN_ORDER_TEST_ENABLED` | INV-20c sandbox order query REST |
+| `DhanOrderModifyIntegrationTest` | brokerOrderTest | sandbox | `DHAN_ORDER_MODIFY_TEST_ENABLED` + `DHAN_ORDER_TEST_ENABLED` | INV-20d modify |
+| `DhanCancelAllIntegrationTest` | brokerOrderTest | sandbox | `DHAN_CANCEL_ALL_TEST_ENABLED` + `DHAN_ORDER_TEST_ENABLED` | INV-20e cancel-all |
+| `DhanKillSwitchIntegrationTest` | brokerRestTest | live | `DHAN_KILL_SWITCH_TEST_ENABLED` | INV-20f kill switch |
+| `StrikeSelectionSupportTest` | unitTest | none | — | INV-13e strike math |
 | `DhanSliceOrderIntegrationTest` | brokerOrderTest | sandbox | `DHAN_SLICE_ORDER_TEST_ENABLED` | INV-21 slice |
 | `DhanSuperOrderIntegrationTest` | brokerOrderTest | sandbox | `DHAN_SUPER_ORDER_TEST_ENABLED` | INV-22 super |
 | `DhanForeverOrderIntegrationTest` | brokerOrderTest | sandbox | `DHAN_FOREVER_ORDER_TEST_ENABLED` | INV-23 forever |
@@ -79,3 +88,12 @@ Maps each verification test to Gradle task, environment, opt-in flags, and archi
 | C — Risk | INV-09 |
 | D — Replay / pipeline | INV-06, INV-07, INV-29, INV-31, INV-32 |
 | Broker parity | INV-11–INV-26 |
+
+## Sign-off checklist (before release)
+
+1. Run `./scripts/run-full-regression.sh` or `./gradlew fullRegressionTest --no-daemon` with credential env flags.
+2. Confirm `config/dhan-local.properties` and `config/dhan-sandbox.properties` exist; preflight passes.
+3. Review [TRADEHULL_PARITY.md](TRADEHULL_PARITY.md) for capability vs environment.
+4. Verify dual-environment routing: sandbox must not call live SDK paths.
+5. Confirm OMS vs broker reconciliation (`ReconciliationScheduler`) and pipeline ordering (risk → candle → strategy → execution).
+6. Review required manifest rows above; document any intentional skips.

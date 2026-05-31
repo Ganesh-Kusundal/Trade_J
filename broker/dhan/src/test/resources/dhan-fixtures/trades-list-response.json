@@ -1,0 +1,12 @@
+[
+  {
+    "exchangeTradeId": "SANDBOX-TRADE-001",
+    "orderId": "SANDBOX-ORDER-001",
+    "tradingSymbol": "TCS",
+    "exchangeSegment": "NSE_EQ",
+    "transactionType": "BUY",
+    "tradedQuantity": 1,
+    "tradedPrice": 3500.5,
+    "exchangeTime": 1710000000000
+  }
+]

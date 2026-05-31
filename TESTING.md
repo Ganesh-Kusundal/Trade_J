@@ -27,15 +27,37 @@ The project uses a three-layer test pyramid aligned with the trading runtime:
 
 `test` excludes `integration` by default so the regular build stays fast and safe.
 
+### Trade-J CLI
+
+Operator CLI module (`trade-cli`). See [CLI.md](CLI.md) for full command reference.
+
+```bash
+./gradlew :cli:cliUnitTest          # AttachClient parsing (in-process HTTP fixture)
+./gradlew :cli:run --args='interactive'
+./scripts/tradej status                   # requires trade-app on :8080 for attach commands
+./scripts/tradej quote NIFTY IDX_I        # standalone Dhan (config/dhan-local.properties)
+```
+
+Attach commands use `TRADEJ_ATTACH_URL` or `--attach`. Broker commands use `--profile live|sandbox`.
+
+### Upstox broker
+
+Sandbox credentials: `config/upstox-sandbox.properties` (see `config/upstox-sandbox.properties.example`).
+
+```bash
+UPSTOX_TEST_ENABLED=true ./gradlew :app:upstoxPreflightTest
+SPRING_PROFILES_ACTIVE=upstox-dev ./gradlew :app:bootRun
+```
+
 ## Spring profiles (runtime)
 
 See [CONFIG.md](CONFIG.md) for the full profile matrix. Summary:
 
 | Command | Profile | Broker |
 |---------|---------|--------|
-| `./gradlew :trade-app:bootRun` | `dev` (default) | Sandbox |
-| `./gradlew :trade-app:bootRun --args='--spring.profiles.active=dev-live'` | `dev-live` | Live |
-| `SPRING_PROFILES_ACTIVE=prod ./gradlew :trade-app:bootRun` | `prod` | Live |
+| `./gradlew :app:bootRun` | `dev` (default) | Sandbox |
+| `./gradlew :app:bootRun --args='--spring.profiles.active=dev-live'` | `dev-live` | Live |
+| `SPRING_PROFILES_ACTIVE=prod ./gradlew :app:bootRun` | `prod` | Live |
 
 Credential files are unchanged: `config/dhan-local.properties` (live) and `config/dhan-sandbox.properties` (sandbox). The `dev` profile imports **both**; default runtime uses sandbox keys for safe local order testing.
 
@@ -55,7 +77,7 @@ Requires both credential files:
 
 The script sets all `*_TEST_ENABLED=true` flags and runs `./gradlew fullRegressionTest --no-daemon`.
 
-Mapping of tests to invariants: [REGRESSION_MANIFEST.md](REGRESSION_MANIFEST.md). Architecture sign-off checklist: [SYSTEM_ANALYSIS_CHECKLIST.md](SYSTEM_ANALYSIS_CHECKLIST.md).
+Mapping of tests to invariants: [REGRESSION_MANIFEST.md](REGRESSION_MANIFEST.md). Architecture overview: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Open findings: [docs/BACKLOG.md](docs/BACKLOG.md).
 
 Cross-layer tests (`DHAN_CROSS_LAYER_TEST_ENABLED=true`):
 
@@ -144,18 +166,20 @@ When `dhan.authMode=TOTP_GENERATED`, keep the secrets in separate gitignored fil
 - `config/dhan-pin.txt`
 - `config/dhan-totp-secret.txt`
 
-The runtime persists the last known token state to `runtime/dhan-token-state.json` (resolved from the repository root even when Gradle starts the JVM from `trade-app/`). If the configured `dhan.accessToken` is still valid, the broker layer reuses it and records its expiry from `GET /profile`. It only calls Dhan's TOTP token generation endpoint when the token is missing, expired, or inside the refresh buffer.
+The runtime persists the last known token state to `runtime/dhan-token-state.json` (resolved from the repository root even when Gradle starts the JVM from `app/`). If the configured `dhan.accessToken` is still valid, the broker layer reuses it and records its expiry from `GET /profile`. It only calls Dhan's TOTP token generation endpoint when the token is missing, expired, or inside the refresh buffer.
 
-Forced TOTP generation drill (live, will mint a new session token):
+Refresh production token once (recommended before `fullRegressionTest`):
 
 ```bash
-./gradlew :trade-app:brokerRestTest --tests '*DhanTokenForcedGenerationIntegrationTest'
+./scripts/refresh-dhan-token.sh
 ```
 
-Refresh production `runtime/dhan-token-state.json` when live preflight fails (clears stale cache, mints via TOTP):
+Wait at least 2 minutes between TOTP mints. Auth drill tests are excluded from `fullRegressionTest`; run manually via `brokerAuthDrillTest`:
 
 ```bash
-./gradlew :trade-app:brokerRestTest --tests '*DhanRefreshProductionTokenIntegrationTest' --no-daemon
+./gradlew :app:brokerAuthDrillTest --no-daemon
+export DHAN_FORCE_TOKEN_REFRESH=true
+./gradlew :app:brokerAuthDrillTest --tests '*DhanRefreshProductionTokenIntegrationTest' --no-daemon
 ```
 
 Live integration tests and preflight resolve tokens through `DhanTokenManager` when `dhan.authMode=TOTP_GENERATED`; a stale `dhan.accessToken` in properties no longer blocks regeneration.
@@ -163,7 +187,7 @@ Live integration tests and preflight resolve tokens through `DhanTokenManager` w
 Token reuse drill (must not rotate when still valid):
 
 ```bash
-./gradlew :trade-app:brokerRestTest --tests '*DhanTokenLifecycleIntegrationTest'
+./gradlew :app:brokerRestTest --tests '*DhanTokenLifecycleIntegrationTest'
 ```
 
 When credentials are exported from the shell, prefer `--no-daemon` for live runs so the Gradle test worker sees the current environment.
@@ -172,8 +196,8 @@ When credentials are exported from the shell, prefer `--no-daemon` for live runs
 
 ```bash
 # Live data and read-only broker flows
-./gradlew :trade-app:brokerRestTest --no-daemon
-./gradlew :trade-app:brokerWsTest --no-daemon
+./gradlew :app:brokerRestTest --no-daemon
+./gradlew :app:brokerWsTest --no-daemon
 
 # Sandbox order mutation flows
 DHAN_ORDER_TEST_ENABLED=true \
@@ -181,7 +205,7 @@ DHAN_SLICE_ORDER_TEST_ENABLED=true \
 DHAN_SUPER_ORDER_TEST_ENABLED=true \
 DHAN_FOREVER_ORDER_TEST_ENABLED=true \
 DHAN_SQUAREOFF_TEST_ENABLED=true \
-./gradlew :trade-app:brokerOrderTest --no-daemon
+./gradlew :app:brokerOrderTest --no-daemon
 ```
 
 Sandbox caveat: fills are simulated and some endpoints (for example `/pnlExit`) may be unavailable. Those tests skip when unsupported.
@@ -197,7 +221,7 @@ Live option endpoints use Dhan REST:
 Broker REST integration (credentials + daily instrument master download):
 
 ```bash
-./gradlew :trade-app:brokerRestTest --tests '*DhanDerivativesIntegrationTest'
+./gradlew :app:brokerRestTest --tests '*DhanDerivativesIntegrationTest'
 ```
 
 **Rate limit:** Dhan option-chain calls share the `OPTION_CHAIN` bucket (~1 request every 3 seconds). Space `getOptionChain` / `getGreeks` calls accordingly; reuse an `OptionChainSnapshot` when reading multiple strikes. Configure cache TTL via `trade.broker.option-expiry-cache-ttl-minutes` (default `5`).
@@ -220,6 +244,10 @@ Additional parity integration tests are credential-gated and opt-in for destruct
 - `DHAN_SUPER_ORDER_TEST_ENABLED=true`
 - `DHAN_FOREVER_ORDER_TEST_ENABLED=true`
 - `DHAN_SQUAREOFF_TEST_ENABLED=true`
+- `DHAN_ORDER_QUERY_TEST_ENABLED=true` (also requires `DHAN_ORDER_TEST_ENABLED=true`)
+- `DHAN_ORDER_MODIFY_TEST_ENABLED=true` (also requires `DHAN_ORDER_TEST_ENABLED=true`)
+- `DHAN_CANCEL_ALL_TEST_ENABLED=true` (also requires `DHAN_ORDER_TEST_ENABLED=true`)
+- `DHAN_KILL_SWITCH_TEST_ENABLED=true` (live only; toggles account kill switch)
 
 Parity-related test classes:
 
@@ -227,10 +255,18 @@ Parity-related test classes:
 - `DhanAlertIntegrationTest`
 - `DhanRollingOptionIntegrationTest`
 - `DhanBatchQuoteIntegrationTest`
+- `DhanPortfolioIntegrationTest`
+- `DhanMarketDepthIntegrationTest`
+- `DhanStrikeSelectionIntegrationTest`
 - `DhanSliceOrderIntegrationTest`
 - `DhanSuperOrderIntegrationTest`
 - `DhanForeverOrderIntegrationTest`
 - `DhanSquareOffIntegrationTest`
 - `DhanSessionRiskIntegrationTest`
+- `DhanOrderQueryLiveIntegrationTest`
+- `DhanOrderQueryIntegrationTest`
+- `DhanOrderModifyIntegrationTest`
+- `DhanCancelAllIntegrationTest`
+- `DhanKillSwitchIntegrationTest`
 - `LivePnlIntegrationTest`
 - `HistoricalRangeIntegrationTest`

@@ -1,0 +1,11 @@
+dependencies {
+    implementation platform('org.springframework.boot:spring-boot-dependencies:3.4.13')
+
+    api project(':broker-api')
+    api project(':broker-core')
+    testImplementation testFixtures(project(':broker-api'))
+    api "io.github.sonicalgo:dhan-java-sdk:${versions.dhanSdk}"
+    implementation 'com.eatthepath:java-otp:0.4.0'
+    implementation 'com.fasterxml.jackson.core:jackson-databind'
+    implementation 'org.slf4j:slf4j-api'
+}

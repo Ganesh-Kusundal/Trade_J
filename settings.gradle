@@ -1,12 +1,65 @@
 rootProject.name = 'trade-j'
 
-include 'trade-core'
-include 'trade-broker-api'
-include 'trade-broker-dhan'
-include 'trade-strategy'
-include 'trade-execution'
-include 'trade-disruptor'
-include 'trade-persistence'
-include 'trade-app'
+include 'core'
+project(':core').projectDir = file('core')
+
+include 'broker-api'
+project(':broker-api').projectDir = file('broker/api')
+include 'broker-core'
+project(':broker-core').projectDir = file('broker/core')
+include 'broker-dhan'
+project(':broker-dhan').projectDir = file('broker/dhan')
+include 'broker-upstox'
+project(':broker-upstox').projectDir = file('broker/upstox')
+
+include 'runtime-disruptor'
+project(':runtime-disruptor').projectDir = file('runtime/disruptor')
+include 'runtime-hotpath'
+project(':runtime-hotpath').projectDir = file('runtime/hotpath')
+
+include 'trading-strategy'
+project(':trading-strategy').projectDir = file('trading/strategy')
+include 'trading-execution'
+project(':trading-execution').projectDir = file('trading/execution')
+include 'trading-scanner'
+project(':trading-scanner').projectDir = file('trading/scanner')
+include 'trading-institutional-scanner'
+project(':trading-institutional-scanner').projectDir = file('trading/institutional-scanner')
+include 'trading-indicators'
+project(':trading-indicators').projectDir = file('trading/indicators')
+include 'trading-simulation'
+project(':trading-simulation').projectDir = file('trading/simulation')
+
+include 'data-persistence'
+project(':data-persistence').projectDir = file('data/persistence')
+include 'data-feature-store'
+project(':data-feature-store').projectDir = file('data/feature-store')
+include 'data-historical-ingest'
+project(':data-historical-ingest').projectDir = file('data/historical-ingest')
+include 'data-analytics'
+project(':data-analytics').projectDir = file('data/analytics')
+
+include 'architecture-test'
+project(':architecture-test').projectDir = file('architecture-test')
+
+include 'app'
+project(':app').projectDir = file('app')
+include 'gateway'
+project(':gateway').projectDir = file('gateway')
+include 'cli'
+project(':cli').projectDir = file('cli')
+
 include 'trade-pipeline-platform'
 project(':trade-pipeline-platform').projectDir = file('pipeline/platform/trade-pipeline-platform')
+
+include 'trade-node-library'
+project(':trade-node-library').projectDir = file('nodes/trade-node-library')
+
+include 'trade-analytics'
+project(':trade-analytics').projectDir = file('pipeline/analytics/trade-analytics')
+
+include 'trade-experiments'
+project(':trade-experiments').projectDir = file('research/experiment/trade-experiments')
+
+include 'trade-optimization'
+project(':trade-optimization').projectDir = file('research/optimizer/trade-optimization')

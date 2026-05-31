@@ -1,0 +1,8 @@
+dependencies {
+    implementation project(':core')
+    implementation 'org.springframework:spring-context'
+    implementation 'org.slf4j:slf4j-api'
+
+    testImplementation testFixtures(project(':core'))
+    testImplementation project(':data-historical-ingest')
+}

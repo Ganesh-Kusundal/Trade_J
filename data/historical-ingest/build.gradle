@@ -1,0 +1,20 @@
+dependencies {
+    implementation project(':core')
+    implementation project(':broker-api')
+    implementation project(':broker-dhan')
+    implementation "org.duckdb:duckdb_jdbc:${versions.duckdb}"
+    implementation 'com.fasterxml.jackson.core:jackson-databind'
+    implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
+    implementation 'org.slf4j:slf4j-api'
+
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testImplementation 'ch.qos.logback:logback-classic'
+}
+
+tasks.withType(Test).configureEach {
+    maxHeapSize = '2g'
+}
+
+tasks.named('test', Test).configure {
+    maxHeapSize = '2g'
+}
