@@ -8,9 +8,9 @@
 - [x] Task: Implement `ReplayTradingClock` for research lane (551cb7c)
     - [x] Write unit tests for `ReplayTradingClock` (verify manual advancement)
     - [x] Implement `ReplayTradingClock` with `advanceTo(Instant)` capability
-- [~] Task: Inject `TradingClock` into existing services
-    - [ ] Identify all usages of `System.currentTimeMillis()` and `Instant.now()`
-    - [ ] Refactor `StrategyEngine` and `OMS` to use injected `TradingClock`
+- [x] Task: Inject `TradingClock` into existing services
+    - [x] Identify all usages of `System.currentTimeMillis()` and `Instant.now()`
+    - [x] Refactor `StrategyEngine` and `OMS` to use injected `TradingClock`
 - [ ] Task: Conductor - User Manual Verification 'Phase 1: Time Management (TradingClock)' (Protocol in workflow.md)
 
 ## Phase 2: Hot Path Optimization & Isolation
