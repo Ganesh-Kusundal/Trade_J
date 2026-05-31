@@ -32,7 +32,11 @@ class LivePnlIntegrationTest {
         );
         brokerConnection.loadDailyInstrumentCatalog(Files.createTempDirectory("dhan-livepnl-cache"), false);
 
-        LivePnlService service = new LivePnlService(brokerConnection.portfolio(), brokerConnection.marketData());
+        LivePnlService service = new LivePnlService(
+                brokerConnection.portfolio(),
+                brokerConnection.marketData(),
+                brokerConnection.instruments()
+        );
         LivePnlSnapshot snapshot = service.getLivePnl();
 
         assertNotNull(snapshot);

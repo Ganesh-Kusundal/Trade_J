@@ -1,0 +1,8 @@
+dependencies {
+    implementation project(':core')
+    implementation 'org.slf4j:slf4j-api'
+    implementation 'com.fasterxml.jackson.core:jackson-databind'
+    implementation 'org.springframework:spring-context'
+
+    testImplementation testFixtures(project(':core'))
+}

@@ -16,6 +16,8 @@ import com.tradej.core.domain.value.OrderType;
 import com.tradej.core.domain.value.ProductType;
 import com.tradej.core.domain.value.Side;
 import com.tradej.core.domain.value.Validity;
+import com.tradej.core.domain.time.LiveTradingClock;
+import com.tradej.core.domain.time.TradingClock;
 import com.tradej.execution.service.CaffeineIdempotencyCache;
 import com.tradej.execution.identity.OrderIdentityRegistry;
 import com.tradej.execution.service.ExecutionHandler;
@@ -117,8 +119,7 @@ class OmsToExecutionSandboxIntegrationTest {
         var runtimeModeHolder = new com.tradej.core.domain.runtime.RuntimeModeHolder();
         TradingClock clock = new LiveTradingClock();
         executionHandler = new ExecutionHandler(
-                omsRepository,
-                new OrderManagementService(brokerConnection, runtimeModeHolder, clock),
+                new OrderManagementService(brokerConnection, runtimeModeHolder, clock, omsRepository),
                 runtimeModeHolder,
                 new TradingCircuitBreaker(),
                 new OrderIdentityRegistry(),

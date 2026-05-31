@@ -5,6 +5,7 @@ import com.tradej.execution.identity.OrderIdentityRehydrator;
 import com.tradej.execution.identity.OrderIdentityRegistry;
 import com.tradej.persistence.chronicle.ChronicleAuditLogWriter;
 import com.tradej.persistence.chronicle.ChronicleDeadLetterQueue;
+import com.tradej.persistence.duckdb.AsyncDuckDbEventStore;
 import com.tradej.persistence.duckdb.DuckDbEventStore;
 import com.tradej.persistence.oms.EventSourcedOrderRepository;
 import com.tradej.persistence.replay.HistoricalRangeService;
@@ -24,6 +25,7 @@ import com.tradej.strategy.service.CandleAggregationService;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 
 import java.nio.file.Path;
 
@@ -108,6 +110,7 @@ public class PersistenceConfiguration {
     }
 
     @Bean(destroyMethod = "close")
+    @Profile("replay")
     ReplayClock replayClock(EventBus eventBus) {
         return new ReplayClock(eventBus);
     }

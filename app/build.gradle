@@ -8,6 +8,7 @@ dependencies {
     implementation project(':broker-api')
     implementation project(':broker-dhan')
     implementation project(':broker-upstox')
+    implementation project(':broker-icici')
     implementation project(':trading-strategy')
     implementation project(':trading-execution')
     implementation project(':runtime-disruptor')

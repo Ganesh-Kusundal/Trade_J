@@ -15,17 +15,13 @@ import com.tradej.broker.api.port.PortfolioProvider;
 import com.tradej.broker.api.port.SessionRiskProvider;
 import com.tradej.broker.api.port.SliceOrderCommand;
 import com.tradej.broker.api.port.WebSocketMultiplexer;
-import com.tradej.core.domain.event.EventMetadata;
-import com.tradej.core.domain.event.StrategyError;
-import com.tradej.core.domain.model.Instrument;
-import com.tradej.core.domain.model.InstrumentKey;
-import com.tradej.core.domain.model.RiskLimits;
-import com.tradej.disruptor.DisruptorEventBus;
-import com.tradej.execution.risk.PositionRiskHandler;
-import com.tradej.execution.identity.OrderIdentityRegistry;
-import com.tradej.execution.service.ExecutionHandler;
 import com.tradej.core.domain.event.EventMetadataFactory;
+import com.tradej.core.domain.event.StrategyError;
+import com.tradej.core.domain.model.RiskLimits;
 import com.tradej.core.domain.time.LiveTradingClock;
+import com.tradej.execution.identity.OrderIdentityRegistry;
+import com.tradej.execution.risk.PositionRiskHandler;
+import com.tradej.execution.service.ExecutionHandler;
 import com.tradej.execution.service.OrderManagementService;
 import com.tradej.execution.service.TradingCircuitBreaker;
 import com.tradej.hotpath.PipelineConfig.PipelineComponents;
@@ -39,6 +35,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -49,17 +46,10 @@ class PipelineConfigTest {
     Path tempDir;
 
     private PositionRiskHandler createRiskHandler() {
-        InstrumentResolver resolver = new InstrumentResolver() {
-            @Override public Instrument resolve(InstrumentKey key) { return null; }
-            @Override public Instrument getBySymbol(InstrumentKey key) { return null; }
-            @Override public List<Instrument> allInstruments() { return List.of(); }
-            @Override public Instrument resolveBySecurityId(String securityId) { return null; }
-            @Override public Instrument requireDefinition(InstrumentKey key) { return null; }
-            @Override public Instrument resolvePayload(Object payload) { return null; }
-            @Override public boolean isLoaded() { return false; }
-            @Override public int catalogSize() { return 0; }
-        };
-        return new PositionRiskHandler(resolver, new RiskLimits(50_000L, 3, 500_000L, 3));
+        return new PositionRiskHandler(
+                new RiskLimits(50_000L, 3, 500_000L, 3),
+                Map::of
+        );
     }
 
     private ExecutionHandler createExecutionHandler() {
@@ -91,9 +81,18 @@ class PipelineConfigTest {
             @Override public void disconnect() {}
             @Override public void loadInstrumentCatalog(Path catalogPath) {}
         };
-        OrderManagementService omsService = new OrderManagementService(broker, new com.tradej.core.domain.runtime.RuntimeModeHolder());
+        OrderManagementService omsService = new OrderManagementService(
+                broker,
+                new com.tradej.core.domain.runtime.RuntimeModeHolder(),
+                new LiveTradingClock(),
+                oms
+        );
         var runtimeModeHolder = new com.tradej.core.domain.runtime.RuntimeModeHolder();
-        return new ExecutionHandler( omsService, runtimeModeHolder, breaker, new OrderIdentityRegistry(), com.tradej.core.domain.port.DeadLetterQueue.noop());
+        return new ExecutionHandler(omsService, runtimeModeHolder, breaker, new OrderIdentityRegistry(), com.tradej.core.domain.port.DeadLetterQueue.noop());
+    }
+
+    private EventMetadataFactory eventMetadataFactory() {
+        return new EventMetadataFactory(new LiveTradingClock());
     }
 
     @Test
@@ -101,7 +100,7 @@ class PipelineConfigTest {
         PipelineComponents components = PipelineConfig.create(
                 createRiskHandler(),
                 new CandleAggregationService(),
-                new StrategyEngine(List.of()),
+                new StrategyEngine(List.of(), eventMetadataFactory()),
                 createExecutionHandler(),
                 new PortfolioEngine()
         );
@@ -116,7 +115,7 @@ class PipelineConfigTest {
         PipelineComponents components = PipelineConfig.create(
                 createRiskHandler(),
                 new CandleAggregationService(),
-                new StrategyEngine(List.of()),
+                new StrategyEngine(List.of(), eventMetadataFactory()),
                 createExecutionHandler(),
                 null
         );
@@ -129,14 +128,14 @@ class PipelineConfigTest {
         PipelineComponents components = PipelineConfig.create(
                 createRiskHandler(),
                 new CandleAggregationService(),
-                new StrategyEngine(List.of()),
+                new StrategyEngine(List.of(), eventMetadataFactory()),
                 createExecutionHandler(),
                 null
         );
         var eventBus = components.eventBus();
         assertDoesNotThrow(() -> eventBus.start());
         assertDoesNotThrow(() -> eventBus.publish(
-                new StrategyError(EventMetadata.root(), "test-pipeline", "test", "unit test")
+                new StrategyError(eventMetadataFactory().root(), "test-pipeline", "test", "unit test")
         ));
         assertDoesNotThrow(() -> eventBus.stop());
     }
@@ -145,14 +144,14 @@ class PipelineConfigTest {
     void nullPositionRiskHandlerThrows() {
         assertThrows(NullPointerException.class,
                 () -> PipelineConfig.create(null, new CandleAggregationService(),
-                        new StrategyEngine(List.of()), createExecutionHandler(), null));
+                        new StrategyEngine(List.of(), eventMetadataFactory()), createExecutionHandler(), null));
     }
 
     @Test
     void nullCandleAggregationServiceThrows() {
         assertThrows(NullPointerException.class,
                 () -> PipelineConfig.create(createRiskHandler(), null,
-                        new StrategyEngine(List.of()), createExecutionHandler(), null));
+                        new StrategyEngine(List.of(), eventMetadataFactory()), createExecutionHandler(), null));
     }
 
     @Test
@@ -166,6 +165,6 @@ class PipelineConfigTest {
     void nullExecutionHandlerThrows() {
         assertThrows(NullPointerException.class,
                 () -> PipelineConfig.create(createRiskHandler(), new CandleAggregationService(),
-                        new StrategyEngine(List.of()), null, null));
+                        new StrategyEngine(List.of(), eventMetadataFactory()), null, null));
     }
 }

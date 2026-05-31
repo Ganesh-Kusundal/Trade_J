@@ -1,6 +1,8 @@
 spring:
   application:
     name: trade-j
+  main:
+    allow-bean-definition-overriding: true
   profiles:
     default: dev
     group:
@@ -145,3 +147,7 @@ tradej:
   gateway:
     enabled: true
     websocket-path: /ws/gateway
+  console:
+    cors:
+      enabled: false
+      # allowed-origins: "http://localhost:5173,https://console.example.com"

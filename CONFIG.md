@@ -11,10 +11,12 @@
 | `upstox-dev` | Upstox sandbox trading | `config/upstox-sandbox.properties` | Upstox sandbox | `runtime-dev/` |
 | `upstox-prod` | Upstox live trading | `config/upstox-live.properties` | Upstox live | `runtime-prod/` |
 | `upstox-analytics` | Upstox read-only data | `config/upstox-live.properties` | Upstox live (analytics token) | `runtime-dev/` |
+| `icici-prod` | ICICI Direct live (read-only by default) | `config/icici-local.properties` | ICICI Breeze live | `runtime-prod/` |
 
 Profile group `dev-live` loads `application-dev.yml` then `application-dev-live.yml` (live broker override plus the same `runtime-dev/` storage paths).
 
 Set `trade.broker-type=upstox` via the Upstox profiles above (not the default Dhan `dev` profile).
+Set `trade.broker-type=icici` via the `icici-prod` profile.
 
 **Note:** Default `dev` (sandbox) starts Spring successfully but startup preflight may fail on portfolio/fund-limit calls that still use the live SDK path. Use `dev-live` for full runtime smoke (market data, WS, historical preflight).
 
@@ -28,8 +30,10 @@ Set `trade.broker-type=upstox` via the Upstox profiles above (not the default Dh
 | [config/dhan-totp-secret.txt](config/dhan-totp-secret.txt) | TOTP live auth |
 | [config/upstox-sandbox.properties](config/upstox-sandbox.properties) | Upstox sandbox OAuth + access token |
 | [config/upstox-live.properties](config/upstox-live.properties) | Upstox live access + analytics tokens |
+| [config/icici-local.properties](config/icici-local.properties) | ICICI Breeze AppKey/Secret |
+| [config/icici-totp-secret.txt](config/icici-totp-secret.txt) | ICICI TOTP auth |
 
-Copy from `config/dhan-local.properties.example`, [config/dhan-sandbox.properties.example](config/dhan-sandbox.properties.example), [config/upstox-sandbox.properties.example](config/upstox-sandbox.properties.example), and [config/upstox-live.properties.example](config/upstox-live.properties.example).
+Copy from `config/dhan-local.properties.example`, [config/dhan-sandbox.properties.example](config/dhan-sandbox.properties.example), [config/upstox-sandbox.properties.example](config/upstox-sandbox.properties.example), [config/upstox-live.properties.example](config/upstox-live.properties.example), and [config/icici-local.properties.example](config/icici-local.properties.example).
 
 ### Upstox analytics token
 

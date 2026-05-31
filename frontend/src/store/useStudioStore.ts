@@ -20,7 +20,7 @@ export interface StudioStore {
   wsConnected: boolean;
   gatewayUrl: string;
 
-  symbols: {symbol: string; exchangeSegment: string; name: string}[];
+  symbols: {symbol: string; canonicalSymbol: string; exchangeSegment: string; name: string}[];
   startupCandidates: StartupCandidate[];
   startupScanDate: string | null;
   startupScanTime: string | null;
@@ -228,6 +228,7 @@ export const useStudioStore = create<StudioStore>((set, get) => {
         const chartFrom = subtractCalendarDays(res.scanDate, lookbackDays - 1);
         const mapped = res.candidates.map((c) => ({
           symbol: c.symbol,
+          canonicalSymbol: c.symbol,
           exchangeSegment: 'NSE_EQ',
           name: c.symbol,
         }));

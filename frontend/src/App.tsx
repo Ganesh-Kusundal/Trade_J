@@ -9,6 +9,8 @@ import {PipelinePanel} from '@/components/PipelinePanel';
 import {AdminPanel} from '@/components/AdminPanel';
 import {useStudioStore} from '@/store/useStudioStore';
 import {Terminal, Wifi, BarChart3, Search, GitBranch, Settings} from 'lucide-react';
+import {ReplayControlPanel} from '@/components/ReplayControlPanel';
+import {AgentChat} from '@/components/AgentChat';
 
 export default function App() {
   const {
@@ -190,6 +192,7 @@ export default function App() {
                   <ErrorBoundary>
                     <ChartWidget />
                   </ErrorBoundary>
+                  <ReplayControlPanel />
                 </div>
               </div>
 
@@ -207,6 +210,7 @@ export default function App() {
       </div>
 
       <CommandPalette />
+      <AgentChat />
     </div>
   );
 }

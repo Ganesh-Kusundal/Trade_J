@@ -1,12 +1,15 @@
 package com.tradej.app.integration;
 
-import com.tradej.broker.dhan.adapter.InMemoryInstrumentResolver;
 import com.tradej.core.domain.event.CandleClosed;
 import com.tradej.core.domain.event.CandleDeveloping;
 import com.tradej.core.domain.event.DomainEvent;
 import com.tradej.core.domain.event.EventMetadata;
+import com.tradej.core.domain.event.EventMetadataFactory;
 import com.tradej.core.domain.event.TickReceived;
+import com.tradej.core.domain.time.LiveTradingClock;
+import com.tradej.core.domain.time.TradingClock;
 import com.tradej.core.domain.model.RiskLimits;
+import com.tradej.core.domain.port.NetPositionProvider;
 import com.tradej.disruptor.DisruptorEventBus;
 import com.tradej.execution.risk.PositionRiskHandler;
 import com.tradej.execution.identity.OrderIdentityRegistry;
@@ -49,7 +52,7 @@ class DisruptorTickToCandleComponentTest {
 
     @Test
     void publishesCandleEventsFromSyntheticTicks() throws Exception {
-        PositionRiskHandler riskHandler = new PositionRiskHandler(new InMemoryInstrumentResolver(), new RiskLimits(10, 10, 10_000_000L, 10));
+        PositionRiskHandler riskHandler = new PositionRiskHandler(new RiskLimits(10, 10, 10_000_000L, 10), NetPositionProvider.empty());
         CandleAggregationService candleService = new CandleAggregationService();
         TradingClock clock = new LiveTradingClock();
         EventMetadataFactory metadataFactory = new EventMetadataFactory(clock);
@@ -58,8 +61,7 @@ class DisruptorTickToCandleComponentTest {
         omsRepository = new EventSourcedOrderRepository(Files.createTempDirectory("disruptor-oms"));
         var runtimeModeHolder = new com.tradej.core.domain.runtime.RuntimeModeHolder();
         executionHandler = new ExecutionHandler(
-                omsRepository,
-                new OrderManagementService(null, runtimeModeHolder, clock),
+                new OrderManagementService(null, runtimeModeHolder, clock, omsRepository),
                 runtimeModeHolder,
                 new TradingCircuitBreaker(),
                 new OrderIdentityRegistry(),

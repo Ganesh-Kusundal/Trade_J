@@ -4,6 +4,8 @@ import com.tradej.core.domain.event.CandleClosed;
 import com.tradej.core.domain.event.EventMetadataFactory;
 import com.tradej.core.domain.event.TickReceived;
 import com.tradej.core.domain.model.Candle;
+import com.tradej.core.domain.time.LiveTradingClock;
+import com.tradej.core.domain.time.TradingClock;
 import com.tradej.strategy.service.CandleAggregationService;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -28,7 +30,8 @@ class ReplayParityHashTest {
 
   @Test
   void liveAndReplayProduceIdenticalCandleCloseHash() {
-    EventMetadataFactory metadata = new EventMetadataFactory(FIXED_CLOCK);
+    TradingClock tradingClock = new LiveTradingClock(FIXED_CLOCK);
+    EventMetadataFactory metadata = new EventMetadataFactory(tradingClock);
     CandleAggregationService live = new CandleAggregationService(List.of("1s"));
     CandleAggregationService replay = new CandleAggregationService(List.of("1s"));
 

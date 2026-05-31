@@ -76,7 +76,13 @@ public final class PositionRiskHandler {
     }
 
     private void handleTradeClosed(TradeClosed closed) {
-        int trades = openTrades.decrementAndGet();
+        int trades = openTrades.updateAndGet(current -> {
+            if (current <= 0) {
+                log.warn("TradeClosed received with no open trades — ignoring symbol={}", closed.symbol());
+                return 0;
+            }
+            return current - 1;
+        });
         long realized = closed.realizedPnlPaisa();
         if (realized < 0) {
             long prev = realizedLossPaisa.addAndGet(-realized);

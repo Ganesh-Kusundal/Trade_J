@@ -24,6 +24,9 @@ public final class BrokerRuntimeModeResolver {
             }
             return BrokerRuntimeMode.UPSTOX_TRADING_WS;
         }
+        if ("icici".equalsIgnoreCase(brokerType)) {
+            return BrokerRuntimeMode.ICICI_TRADING_WS;
+        }
         if (properties.broker() != null && properties.broker().environment() == DhanApiEnvironment.SANDBOX) {
             return BrokerRuntimeMode.DHAN_SANDBOX;
         }

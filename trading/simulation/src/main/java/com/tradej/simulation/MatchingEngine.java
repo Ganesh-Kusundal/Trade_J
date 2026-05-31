@@ -180,23 +180,29 @@ public final class MatchingEngine {
             basePrice = ltp;
         }
 
-        if (slippageConfig.spreadBps() == 0L && slippageConfig.volatilitySlippageBps() == 0L) {
-            return basePrice;
-        }
-
-        long slippagePaisa = computeSlippage(request.symbol(), basePrice);
-        if (slippagePaisa == 0L) {
-            return basePrice;
-        }
+        long slippagePaisa = computeSlippage(request.symbol(), basePrice, request.quantity());
+        long rawFillPrice;
 
         if (request.side() == Side.BUY || request.side() == Side.SHORT) {
-            return basePrice + slippagePaisa;
+            rawFillPrice = basePrice + slippagePaisa;
         } else {
-            return basePrice - slippagePaisa;
+            rawFillPrice = basePrice - slippagePaisa;
         }
+
+        // Apply standard Indian options discrete tick-rounding (5 paisa / 0.05 Rs grid)
+        long tickSizePaisa = 5;
+        long remainder = rawFillPrice % tickSizePaisa;
+        if (remainder != 0) {
+            if (request.side() == Side.BUY || request.side() == Side.SHORT) {
+                return rawFillPrice + (tickSizePaisa - remainder); // Round up for buy slippage
+            } else {
+                return rawFillPrice - remainder; // Round down for sell slippage
+            }
+        }
+        return rawFillPrice;
     }
 
-    private long computeSlippage(String symbol, long basePricePaisa) {
+    private long computeSlippage(String symbol, long basePricePaisa, long quantity) {
         if (basePricePaisa <= 0) {
             return 0L;
         }
@@ -212,6 +218,10 @@ public final class MatchingEngine {
             long volSlippageBps = (variancePaisa * 10000) / Math.max(1, basePricePaisa);
             totalBps += Math.min(volSlippageBps, slippageConfig.volatilitySlippageBps());
         }
+
+        // Volume-aware scaling: 1 basis point of additional slippage for every 50 lots
+        long volumeSlippageBps = (quantity / 50);
+        totalBps += volumeSlippageBps;
 
         if (slippageConfig.maxSlippageBps() > 0) {
             totalBps = Math.min(totalBps, slippageConfig.maxSlippageBps());

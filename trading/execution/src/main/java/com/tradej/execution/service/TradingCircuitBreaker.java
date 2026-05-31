@@ -83,7 +83,15 @@ public final class TradingCircuitBreaker {
     }
 
     public void recordSuccess() {
-        state.compareAndSet(State.HALF_OPEN, State.CLOSED);
+        State current = state.get();
+        if (current == State.HALF_OPEN) {
+            state.compareAndSet(State.HALF_OPEN, State.CLOSED);
+        } else if (current == State.OPEN) {
+            // Rescue the circuit to CLOSED if a successful probe completed from the same window
+            if (halfOpenProbes.get() > 0) {
+                state.compareAndSet(State.OPEN, State.CLOSED);
+            }
+        }
         consecutiveFailures.set(0);
         openUntilMs.set(0L);
         halfOpenProbes.set(0);

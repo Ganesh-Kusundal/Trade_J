@@ -47,7 +47,7 @@ public final class UpstoxBrokerConnection implements IBrokerConnection {
             OrderQuery orderQuery,
             PortfolioProvider portfolioProvider,
             MarginProvider marginProvider,
-            InstrumentResolver instrumentResolver,
+            UpstoxInstrumentResolver instrumentResolver,
             WebSocketMultiplexer webSocketMultiplexer,
             FuturesProvider futuresProvider,
             OptionsProvider optionsProvider,
@@ -63,7 +63,7 @@ public final class UpstoxBrokerConnection implements IBrokerConnection {
         this.futuresProvider = futuresProvider;
         this.optionsProvider = optionsProvider;
         this.instrumentLoader = Objects.requireNonNull(instrumentLoader);
-        this.upstoxInstrumentResolver = (UpstoxInstrumentResolver) instrumentResolver;
+        this.upstoxInstrumentResolver = instrumentResolver;
     }
 
     @Override

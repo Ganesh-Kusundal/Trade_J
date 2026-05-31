@@ -212,6 +212,20 @@ class PositionRiskHandlerComponentTest {
                 emptyPositions()
         );
 
+        // Open a trade first so the subsequent close decrements from a valid count.
+        handler.onDomainEvent(new TradeOpened(
+                EventMetadata.root(),
+                "t-1",
+                "ord-1",
+                "sig-1",
+                "SBIN",
+                Side.BUY,
+                10L,
+                75_000L,
+                74_000L,
+                77_000L
+        ), e -> {});
+
         handler.onDomainEvent(new TradeClosed(
                 EventMetadata.root(),
                 "t-1",

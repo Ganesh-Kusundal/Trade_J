@@ -1,5 +1,6 @@
 package com.tradej.gateway.bridge;
 
+import com.tradej.broker.api.port.InstrumentResolver;
 import com.tradej.core.domain.event.CandleClosed;
 import com.tradej.core.domain.event.CandleDeveloping;
 import com.tradej.core.domain.event.DepthUpdateEvent;
@@ -17,6 +18,7 @@ import com.tradej.core.domain.event.TradeOpened;
 import com.tradej.core.domain.model.Candle;
 import com.tradej.core.domain.model.DepthLevel;
 import com.tradej.core.domain.port.EventBus;
+import com.tradej.core.domain.value.ExchangeSegment;
 import com.tradej.gateway.protocol.GatewayTopic;
 import com.tradej.gateway.router.GatewayTopicRouter;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -56,6 +58,7 @@ public final class GatewayEventBridge implements AutoCloseable {
 
     private final GatewayTopicRouter router;
     private final ObjectMapper objectMapper;
+    private final InstrumentResolver instrumentResolver;
 
     // ── Event-ID dedup cache ──
     private final ConcurrentHashMap<String, Long> seenEventIds = new ConcurrentHashMap<>();
@@ -69,17 +72,36 @@ public final class GatewayEventBridge implements AutoCloseable {
     });
 
     public GatewayEventBridge(GatewayTopicRouter router, ObjectMapper objectMapper) {
+        this(router, objectMapper, null);
+    }
+
+    public GatewayEventBridge(GatewayTopicRouter router, ObjectMapper objectMapper, InstrumentResolver instrumentResolver) {
         this.router = router;
         this.objectMapper = objectMapper;
+        this.instrumentResolver = instrumentResolver;
         // Schedule periodic dedup pruning every 5 minutes
         dedupPruner.scheduleAtFixedRate(this::pruneDedupCache, 5, 5, TimeUnit.MINUTES);
     }
 
     /**
-     * Register this bridge as a subscriber to all domain events on the event bus.
+     * Register this bridge as a subscriber to specific domain events on the event bus.
+     * Narrows subscriptions from {@code DomainEvent.class} to only the types the bridge
+     * actually handles, reducing unnecessary dispatch overhead (ST-02).
      */
     public void register(EventBus eventBus) {
-        eventBus.subscribe(DomainEvent.class, this::onDomainEvent);
+        eventBus.subscribe(MarketTickEvent.class, this::onDomainEvent);
+        eventBus.subscribe(TickReceived.class, this::onDomainEvent);
+        eventBus.subscribe(DepthUpdateEvent.class, this::onDomainEvent);
+        eventBus.subscribe(CandleDeveloping.class, this::onDomainEvent);
+        eventBus.subscribe(CandleClosed.class, this::onDomainEvent);
+        eventBus.subscribe(OrderAccepted.class, this::onDomainEvent);
+        eventBus.subscribe(OrderRejected.class, this::onDomainEvent);
+        eventBus.subscribe(OrderFilled.class, this::onDomainEvent);
+        eventBus.subscribe(TradeOpened.class, this::onDomainEvent);
+        eventBus.subscribe(TradeClosed.class, this::onDomainEvent);
+        eventBus.subscribe(SignalGenerated.class, this::onDomainEvent);
+        eventBus.subscribe(ReplayTimeChangedEvent.class, this::onDomainEvent);
+        eventBus.subscribe(PnlUpdatedEvent.class, this::onDomainEvent);
     }
 
     void onDomainEvent(DomainEvent event) {
@@ -202,9 +224,9 @@ public final class GatewayEventBridge implements AutoCloseable {
 
     // ── Payload builders ──
 
-    private static Map<String, Object> marketTickPayload(MarketTickEvent tick) {
+    private Map<String, Object> marketTickPayload(MarketTickEvent tick) {
         Map<String, Object> map = new LinkedHashMap<>();
-        map.put("symbol", tick.symbol());
+        putSymbolFields(map, tick.symbol(), tick.segment());
         map.put("ltpPaisa", tick.ltpPaisa());
         map.put("lastTradeQuantity", tick.lastTradeQuantity());
         map.put("cumulativeVolume", tick.cumulativeVolume());
@@ -215,9 +237,9 @@ public final class GatewayEventBridge implements AutoCloseable {
         return map;
     }
 
-    private static Map<String, Object> tickPayload(TickReceived tick) {
+    private Map<String, Object> tickPayload(TickReceived tick) {
         Map<String, Object> map = new LinkedHashMap<>();
-        map.put("symbol", tick.symbol());
+        putSymbolFields(map, tick.symbol(), ExchangeSegment.NSE_EQ);
         map.put("ltpPaisa", tick.ltpPaisa());
         map.put("lastTradeQuantity", tick.lastTradeQuantity());
         map.put("cumulativeVolume", tick.cumulativeVolume());
@@ -226,9 +248,9 @@ public final class GatewayEventBridge implements AutoCloseable {
         return map;
     }
 
-    private static Map<String, Object> depthPayload(DepthUpdateEvent depth) {
+    private Map<String, Object> depthPayload(DepthUpdateEvent depth) {
         Map<String, Object> map = new LinkedHashMap<>();
-        map.put("symbol", depth.symbol());
+        putSymbolFields(map, depth.symbol(), depth.segment());
         map.put("segment", depth.segment().name());
         map.put("levels", depth.levels());
         map.put("exchangeTimestampMs", depth.exchangeTimestampMs());
@@ -246,9 +268,11 @@ public final class GatewayEventBridge implements AutoCloseable {
         return m;
     }
 
-    private static Map<String, Object> candlePayload(Candle candle) {
+    private Map<String, Object> candlePayload(Candle candle) {
         Map<String, Object> map = new LinkedHashMap<>();
-        map.put("symbol", candle.symbol());
+        String canonical = canonicalSymbol(candle.symbol(), ExchangeSegment.NSE_EQ);
+        map.put("symbol", canonical);
+        map.put("canonicalSymbol", canonical);
         map.put("interval", candle.interval());
         map.put("startTimeMs", candle.startTimeMs());
         map.put("endTimeMs", candle.endTimeMs());
@@ -260,13 +284,13 @@ public final class GatewayEventBridge implements AutoCloseable {
         return map;
     }
 
-    private static Map<String, Object> orderPayload(DomainEvent event) {
+    private Map<String, Object> orderPayload(DomainEvent event) {
         Map<String, Object> map = new LinkedHashMap<>();
         String type = event.getClass().getSimpleName();
         map.put("type", type);
         if (event instanceof OrderAccepted a) {
             map.put("orderId", a.order().orderId());
-            map.put("symbol", a.order().symbol());
+            putSymbolFields(map, a.order().symbol(), a.order().exchangeSegment());
             map.put("status", a.order().status().name());
             map.put("quantity", a.order().quantity());
             map.put("filledQuantity", a.order().filledQuantity());
@@ -274,16 +298,14 @@ public final class GatewayEventBridge implements AutoCloseable {
             map.put("side", a.order().side().name());
         } else if (event instanceof OrderRejected r) {
             map.put("orderId", r.order().orderId());
-            map.put("symbol", r.order().symbol());
+            putSymbolFields(map, r.order().symbol(), r.order().exchangeSegment());
             map.put("status", r.order().status().name());
             map.put("reason", r.reason());
         } else if (event instanceof OrderFilled f) {
             map.put("orderId", f.order().orderId());
-            map.put("symbol", f.order().symbol());
+            putSymbolFields(map, f.order().symbol(), f.order().exchangeSegment());
             map.put("status", f.order().status().name());
             map.put("filledQuantity", f.order().filledQuantity());
-            // TODO: serialize full fills list; currently only reports first fill
-            // to preserve backward compatibility with the original single-fill schema.
             map.put("fillCount", f.fills().size());
             if (!f.fills().isEmpty()) {
                 var firstFill = f.fills().getFirst();
@@ -294,19 +316,19 @@ public final class GatewayEventBridge implements AutoCloseable {
         return map;
     }
 
-    private static Map<String, Object> positionPayload(String symbol, long size, long entryPricePaisa, String action) {
+    private Map<String, Object> positionPayload(String symbol, long size, long entryPricePaisa, String action) {
         Map<String, Object> map = new LinkedHashMap<>();
-        map.put("symbol", symbol);
+        putSymbolFields(map, symbol, ExchangeSegment.NSE_EQ);
         map.put("size", size);
         map.put("entryPricePaisa", entryPricePaisa);
         map.put("action", action);
         return map;
     }
 
-    private static Map<String, Object> signalPayload(SignalGenerated signal) {
+    private Map<String, Object> signalPayload(SignalGenerated signal) {
         Map<String, Object> map = new LinkedHashMap<>();
         map.put("signalId", signal.signalId());
-        map.put("symbol", signal.symbol());
+        putSymbolFields(map, signal.symbol(), ExchangeSegment.NSE_EQ);
         map.put("side", signal.side().name());
         map.put("setup", signal.setup());
         return map;
@@ -326,5 +348,22 @@ public final class GatewayEventBridge implements AutoCloseable {
         map.put("unrealizedPnlPaisa", pnl.unrealizedPnlPaisa());
         map.put("netExposurePaisa", pnl.netExposurePaisa());
         return map;
+    }
+
+    private void putSymbolFields(Map<String, Object> map, String symbol, ExchangeSegment segment) {
+        String canonical = canonicalSymbol(symbol, segment);
+        map.put("symbol", canonical);
+        map.put("canonicalSymbol", canonical);
+    }
+
+    private String canonicalSymbol(String symbol, ExchangeSegment segment) {
+        if (instrumentResolver == null || symbol == null || symbol.isBlank()) {
+            return symbol;
+        }
+        try {
+            return instrumentResolver.toCanonicalSymbol(symbol, segment);
+        } catch (Exception ex) {
+            return symbol;
+        }
     }
 }

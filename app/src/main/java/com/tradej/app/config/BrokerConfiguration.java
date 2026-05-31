@@ -52,6 +52,7 @@ import com.tradej.core.domain.event.EventMetadataFactory;
 import com.tradej.execution.service.CaffeineIdempotencyCache;
 import com.tradej.app.metrics.ObservableMarketDataProvider;
 import com.tradej.app.metrics.ObservableOrderCommand;
+import com.tradej.broker.api.port.InstrumentResolver;
 import com.tradej.app.service.broker.LivePnlService;
 import com.tradej.app.service.broker.MarketDepthOrchestrator;
 import com.tradej.app.service.broker.OptionStrikeResolver;
@@ -443,8 +444,12 @@ public class BrokerConfiguration {
     }
 
     @Bean
-    LivePnlService livePnlService(PortfolioProvider portfolioProvider, MarketDataProvider marketDataProvider) {
-        return new LivePnlService(portfolioProvider, marketDataProvider);
+    LivePnlService livePnlService(
+            PortfolioProvider portfolioProvider,
+            MarketDataProvider marketDataProvider,
+            InstrumentResolver instrumentResolver
+    ) {
+        return new LivePnlService(portfolioProvider, marketDataProvider, instrumentResolver);
     }
 
     @Bean

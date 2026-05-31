@@ -10,6 +10,7 @@ import com.tradej.app.startup.BrokerStartupOrchestrator;
 import com.tradej.broker.api.IBrokerConnection;
 import com.tradej.broker.api.model.BrokerCapabilities;
 import com.tradej.broker.dhan.auth.DhanTokenProvider;
+import com.tradej.broker.icici.auth.BreezeTokenProvider;
 import com.tradej.core.domain.port.EventBus;
 import com.tradej.execution.position.EventSourcedNetPositionProvider;
 import com.tradej.execution.reconcile.ReconciliationAlertLogger;
@@ -42,6 +43,7 @@ public class StartupConfiguration {
             IBrokerConnection brokerConnection,
             BrokerCapabilities brokerCapabilities,
             ObjectProvider<DhanTokenProvider> dhanTokenProvider,
+            ObjectProvider<BreezeTokenProvider> breezeTokenProvider,
             RuntimeHealthState runtimeHealthState,
             EventBus eventBus,
             MarketDataPipeline marketDataPipeline,
@@ -65,6 +67,7 @@ public class StartupConfiguration {
                 brokerConnection,
                 brokerCapabilities,
                 dhanTokenProvider,
+                breezeTokenProvider,
                 runtimeHealthState,
                 eventBus,
                 marketDataPipeline,

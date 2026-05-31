@@ -13,10 +13,10 @@ import com.tradej.hotpath.MarketDataPipeline;
 import com.tradej.hotpath.OrderPipeline;
 import com.tradej.app.pipeline.ReplayOrchestrator;
 import com.tradej.persistence.replay.HistoricalRangeService;
-import com.tradej.persistence.replay.ReplayRunner;
 import com.tradej.strategy.service.StrategyEngine;
 import org.junit.jupiter.api.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.test.annotation.DirtiesContext;
@@ -74,7 +74,8 @@ abstract class AdminTestBase {
     @MockitoBean
     protected StrategyEngine strategyEngine;
 
-    @MockitoBean
+    @MockitoBean(name = "localHistoricalRangeService")
+    @Qualifier("localHistoricalRangeService")
     protected HistoricalRangeService historicalRangeService;
 
     @MockitoBean
@@ -82,9 +83,6 @@ abstract class AdminTestBase {
 
     @MockitoBean
     protected ReplayOrchestrator replayOrchestrator;
-
-    @MockitoBean
-    protected ReplayRunner replayRunner;
 
     @MockitoBean
     protected WebSocketMultiplexer webSocketMultiplexer;

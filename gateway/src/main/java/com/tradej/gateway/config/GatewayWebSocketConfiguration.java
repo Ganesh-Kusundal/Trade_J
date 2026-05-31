@@ -1,6 +1,7 @@
 package com.tradej.gateway.config;
 
 import com.tradej.core.domain.port.EventBus;
+import com.tradej.broker.api.port.InstrumentResolver;
 import com.tradej.gateway.bridge.GatewayEventBridge;
 import com.tradej.gateway.router.GatewayTopicRouter;
 import com.tradej.gateway.websocket.GatewayWebSocketHandler;
@@ -52,8 +53,12 @@ public class GatewayWebSocketConfiguration implements WebSocketConfigurer {
     }
 
     @Bean(destroyMethod = "close")
-    GatewayEventBridge gatewayEventBridge(GatewayTopicRouter router, ObjectMapper objectMapper) {
-        return new GatewayEventBridge(router, objectMapper);
+    GatewayEventBridge gatewayEventBridge(
+            GatewayTopicRouter router,
+            ObjectMapper objectMapper,
+            @org.springframework.beans.factory.annotation.Autowired(required = false) InstrumentResolver instrumentResolver
+    ) {
+        return new GatewayEventBridge(router, objectMapper, instrumentResolver);
     }
 
     @Bean

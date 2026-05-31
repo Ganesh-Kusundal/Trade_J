@@ -20,7 +20,14 @@
 - [x] Task: Async DuckDB Writes (Fix FS-01)
     - [x] Write integration tests for async DuckDB persistence
     - [x] Implement `AsyncDuckDbDispatcher` (move off Disruptor hot path)
-- [~] Task: Isolate Replay DI Context (Fix AD-02)
-    - [ ] Refactor Spring configuration to use profiles or separate contexts for `LIVE` vs `REPLAY`
-    - [ ] Write architectural test ensuring no `REPLAY` beans are loaded in `LIVE` profile
+- [x] Task: Isolate Replay DI Context (Fix AD-02)
+    - [x] Refactor Spring configuration to use profiles or separate contexts for `LIVE` vs `REPLAY`
+        - [x] `ClockConfiguration` annotated `@Profile("!replay")` to prevent conflicting `TradingClock` beans in replay mode
+        - [x] `TimeConfiguration` provides `@Profile("!replay")` `liveTradingClock()` and `@Profile("replay")` `replayTradingClock()`
+        - [x] `PersistenceConfiguration.replayClock()` annotated `@Profile("replay")` to exclude from LIVE mode
+        - [x] Created `application-replay.yml` profile config with `trade.runtime.mode: REPLAY`
+    - [x] Write architectural test ensuring no `REPLAY` beans are loaded in `LIVE` profile
+        - [x] `ClockConfiguration` verified annotated with `@Profile`
+        - [x] `ReplayTradingClock` confirmed in `core` module (not auto-scanned by app)
+        - [x] `ReplayClock` confirmed in `persistence` module
 - [ ] Task: Conductor - User Manual Verification 'Phase 2: Hot Path Optimization & Isolation' (Protocol in workflow.md)

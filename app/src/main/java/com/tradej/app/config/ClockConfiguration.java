@@ -5,10 +5,12 @@ import com.tradej.core.domain.time.LiveTradingClock;
 import com.tradej.core.domain.time.TradingClock;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 
 import java.time.Clock;
 
 @Configuration
+@Profile("!replay")
 public class ClockConfiguration {
 
     @Bean

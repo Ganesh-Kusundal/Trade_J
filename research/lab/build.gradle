@@ -1,0 +1,15 @@
+dependencies {
+    implementation project(':core')
+    implementation project(':research-core')
+    implementation project(':data-analytics')
+    implementation project(':trading-strategy')
+    implementation project(':trading-execution')
+    implementation project(':trading-scanner')
+    implementation 'org.springframework:spring-context'
+    implementation "org.duckdb:duckdb_jdbc:${versions.duckdb}"
+    implementation 'org.slf4j:slf4j-api'
+
+    testImplementation testFixtures(project(':core'))
+    testImplementation 'org.mockito:mockito-core'
+    testImplementation 'org.mockito:mockito-junit-jupiter'
+}

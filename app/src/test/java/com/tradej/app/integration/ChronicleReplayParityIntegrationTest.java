@@ -4,6 +4,8 @@ import com.tradej.core.domain.event.CandleClosed;
 import com.tradej.core.domain.event.EventMetadataFactory;
 import com.tradej.core.domain.event.TickReceived;
 import com.tradej.core.domain.model.Candle;
+import com.tradej.core.domain.time.LiveTradingClock;
+import com.tradej.core.domain.time.TradingClock;
 import com.tradej.core.domain.event.DomainEvent;
 import com.tradej.core.domain.port.DomainEventHandler;
 import com.tradej.core.domain.port.EventBus;
@@ -59,7 +61,8 @@ class ChronicleReplayParityIntegrationTest {
     @Test
     void chronicleReplayPreservesCandleCloseHash() throws Exception {
         chroniclePath = Files.createTempDirectory("chronicle-parity-");
-        EventMetadataFactory metadata = new EventMetadataFactory(FIXED_CLOCK);
+        TradingClock tradingClock = new LiveTradingClock(FIXED_CLOCK);
+        EventMetadataFactory metadata = new EventMetadataFactory(tradingClock);
         CandleAggregationService aggregation = new CandleAggregationService(List.of("1s"));
         List<Candle> liveCloses = new ArrayList<>();
 

@@ -8,6 +8,7 @@ import com.tradej.core.domain.time.TradingClock;
 import com.tradej.core.domain.event.EventMetadataFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 
 import java.time.Instant;
 
@@ -15,13 +16,16 @@ import java.time.Instant;
 public class TimeConfiguration {
 
     @Bean
-    public TradingClock tradingClock(RuntimeModeHolder runtimeModeHolder) {
-        if (runtimeModeHolder.mode() == RuntimeMode.REPLAY || runtimeModeHolder.mode() == RuntimeMode.BACKTEST) {
-            // Default start time for replay if not explicitly set, 
-            // though in practice the ReplayController will manage this.
-            return new ReplayTradingClock(Instant.EPOCH);
-        }
+    @org.springframework.context.annotation.Primary
+    @Profile("!replay")
+    public TradingClock liveTradingClock() {
         return new LiveTradingClock();
+    }
+
+    @Bean
+    @Profile("replay")
+    public TradingClock replayTradingClock() {
+        return new ReplayTradingClock(Instant.EPOCH);
     }
 
     @Bean

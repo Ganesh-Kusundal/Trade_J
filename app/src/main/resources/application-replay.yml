@@ -1,0 +1,29 @@
+# ─────────────────────────────────────────────────────────────
+# Replay Profile (activated via --spring.profiles.active=replay)
+# Used for research/replay mode where the system runs with
+# a controlled virtual clock instead of wall-clock time.
+# ─────────────────────────────────────────────────────────────
+
+trade:
+  runtime:
+    mode: REPLAY
+
+  # Disable broker connection during replay — no live orders
+  broker:
+    logging-enabled: false
+    max-reconnect-attempts: 0
+    auto-reconnect-enabled: false
+    auto-resubscribe-enabled: false
+
+  # Skip scan scheduling in replay mode
+  scan:
+    enabled: false
+
+  # Skip gateway broadcast in replay mode by default
+  gateway:
+    enabled: false
+
+  # Disable reconciliation during replay
+  reconciliation:
+    interval-seconds: 0
+    initial-delay-seconds: 0

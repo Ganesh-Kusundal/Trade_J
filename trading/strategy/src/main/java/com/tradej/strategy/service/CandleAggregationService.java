@@ -25,6 +25,7 @@ public final class CandleAggregationService {
 
     private final List<String> intervals;
     private final Map<String, Candle> currentCandles = new ConcurrentHashMap<>();
+    private final com.tradej.core.domain.time.TradingClock tradingClock;
 
     /** Returns the candle intervals configured for this service. */
     public List<String> intervals() {
@@ -41,7 +42,15 @@ public final class CandleAggregationService {
      * @throws IllegalArgumentException if any interval is not recognized
      */
     public CandleAggregationService(List<String> intervals) {
+        this(intervals, new com.tradej.core.domain.time.LiveTradingClock());
+    }
+
+    /**
+     * Creates a service with a configurable TradingClock for replay determinism.
+     */
+    public CandleAggregationService(List<String> intervals, com.tradej.core.domain.time.TradingClock tradingClock) {
         this.intervals = List.copyOf(intervals);
+        this.tradingClock = tradingClock;
         for (String interval : intervals) {
             if (!KNOWN_INTERVALS.contains(interval)) {
                 log.warn("Unknown candle interval '{}' — will default to 5-minute buckets. "
@@ -149,7 +158,7 @@ public final class CandleAggregationService {
     }
 
     private long bucketStart(long timestampMs, String interval) {
-        long ts = timestampMs == 0 ? System.currentTimeMillis() : timestampMs;
+        long ts = timestampMs == 0 ? tradingClock.millis() : timestampMs;
         CandleIntervalSpec spec = CandleIntervalSpec.parse(interval);
         return CandleBucketPolicy.bucketStartMs(ts, spec);
     }

@@ -29,6 +29,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -220,6 +221,34 @@ public final class OrderManagementService {
 
     public void activateKillSwitch() {
         brokerConnection.orders().setKillSwitch(true);
+    }
+
+    /**
+     * Captures a snapshot of all in-memory order state machines.
+     * Used by {@link com.tradej.app.pipeline.IsolatedReplayStateManager} for AD-02 isolation.
+     */
+    public StateSnapshot snapshot() {
+        return new StateSnapshot(
+                Map.copyOf(stateMachines),
+                lastSimulatedMatch);
+    }
+
+    /**
+     * Restores in-memory order state machines from a previously captured snapshot.
+     */
+    public void restore(StateSnapshot snapshot) {
+        if (snapshot == null) {
+            return;
+        }
+        stateMachines.clear();
+        stateMachines.putAll(snapshot.stateMachines());
+        this.lastSimulatedMatch = snapshot.lastSimulatedMatch();
+        log.debug("OrderManagementService state restored: {} machines", stateMachines.size());
+    }
+
+    public record StateSnapshot(
+            Map<String, OrderStateMachine> stateMachines,
+            MatchingEngine.MatchResult lastSimulatedMatch) {
     }
 
     // --- Internal helpers ---

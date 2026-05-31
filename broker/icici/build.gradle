@@ -1,0 +1,11 @@
+dependencies {
+    api project(':broker-api')
+    api project(':broker-core')
+    testImplementation testFixtures(project(':broker-api'))
+
+    implementation 'com.eatthepath:java-otp:0.4.0'
+    implementation 'com.fasterxml.jackson.core:jackson-databind'
+    implementation 'io.socket:socket.io-client:2.1.1'
+    implementation 'org.seleniumhq.selenium:selenium-java:4.27.0'
+    implementation 'org.slf4j:slf4j-api'
+}

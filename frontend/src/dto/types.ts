@@ -11,12 +11,14 @@ export interface Candle {
 
 export interface LTPResponse {
   symbol: string;
+  canonicalSymbol?: string;
   exchangeSegment: string;
   ltpPaisa: number;
 }
 
 export interface HistoricalCandlesResponse {
   symbol: string;
+  canonicalSymbol?: string;
   exchangeSegment: string;
   interval: string;
   from: string;
@@ -203,19 +205,27 @@ export interface ReadModelSnapshot {
 
 // ── Admin ────────────────────────────────────────────────────────
 export interface RuntimeInfo {
-  version: string;
-  uptime: string;
-  mode: string;
-  broker: string;
-  gatewayEnabled: boolean;
-  scanEnabled: boolean;
+  websocketConnected: boolean;
+  circuitBreakerOpen: boolean;
+  subscriptions: number;
+  catalogLoaded: boolean;
+  catalogSize: number;
+  brokerPreflightPassed: boolean;
+  startupCompleted: boolean;
 }
 
-export interface StrategySummary {
-  id: string;
+export interface StrategiesResponse {
+  plugins: string[];
+  pluginCount: number;
+}
+
+export interface StrategyPluginRow {
   name: string;
-  status: string;
-  metrics: Record<string, number>;
+}
+
+export interface KillSwitchResponse {
+  enabled: boolean;
+  acknowledged: boolean;
 }
 
 // ── Gateway WebSocket ────────────────────────────────────────────

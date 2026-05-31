@@ -16,6 +16,12 @@ def scannedModules = [
         ':trading-indicators',
         ':runtime-disruptor',
         ':runtime-hotpath',
+        ':app',
+        ':research-core',
+        ':research-lab',
+        ':replay-engine',
+        ':mcp-server',
+        ':research-api',
 ]
 
 dependencies {
@@ -23,6 +29,7 @@ dependencies {
         testImplementation project(modulePath)
     }
     testImplementation 'com.tngtech.archunit:archunit-junit5:1.4.0'
+    testImplementation 'org.springframework:spring-context'
 }
 
 def moduleClassOutputs = scannedModules.collect { modulePath ->

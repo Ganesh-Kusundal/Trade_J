@@ -4,26 +4,28 @@ import com.tradej.broker.api.IBrokerConnection;
 import com.tradej.execution.service.TradingCircuitBreaker;
 import org.springframework.boot.actuate.health.Health;
 import org.springframework.boot.actuate.health.HealthIndicator;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 
 @Component
-@ConditionalOnProperty(name = "trade.broker-type", havingValue = "dhan", matchIfMissing = true)
 public class BrokerHealthIndicator implements HealthIndicator {
     private final IBrokerConnection brokerConnection;
     private final TradingCircuitBreaker tradingCircuitBreaker;
     private final BrokerErrorTracker errorTracker;
+    private final String brokerType;
 
     public BrokerHealthIndicator(
             IBrokerConnection brokerConnection,
             TradingCircuitBreaker tradingCircuitBreaker,
-            BrokerErrorTracker errorTracker
+            BrokerErrorTracker errorTracker,
+            Environment environment
     ) {
         this.brokerConnection = brokerConnection;
         this.tradingCircuitBreaker = tradingCircuitBreaker;
         this.errorTracker = errorTracker;
+        this.brokerType = environment.getProperty("trade.broker-type", "dhan");
     }
 
     @Override
@@ -32,12 +34,11 @@ public class BrokerHealthIndicator implements HealthIndicator {
         Health.Builder builder = isUp ? Health.up() : Health.down();
 
         builder
-                .withDetail("broker", "dhan")
+                .withDetail("broker", brokerType)
                 .withDetail("websocketConnected", brokerConnection.websocket().isConnected())
                 .withDetail("circuitBreakerOpen", tradingCircuitBreaker.isOpen())
                 .withDetail("subscriptions", brokerConnection.websocket().subscriptions().size());
 
-        // Error tracking details
         long totalErrors = errorTracker.totalErrors();
         builder.withDetail("errorCount", totalErrors);
         if (totalErrors > 0) {

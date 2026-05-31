@@ -20,7 +20,7 @@
 - **Anchor:** NSE session open **09:15 IST** (`CandleBucketPolicy.SESSION_OPEN`).
 - **Intraday intervals** (`1m`, `3m`, `5m`, `15m`, `30m`, `1h`, `4h`): bucket start = sessionOpen + n × interval.
 - **Daily (`1d`):** one bucket per IST session date (open 09:15 → close 15:30).
-- **Sub-second (`1s`):** epoch-aligned seconds (live ticks only).
+- **Sub-second (`1s`):** epoch-aligned seconds (live ticks via `CandleAggregationService`). ICICI Breeze `historicalcharts` v1 supports only `minute`, `5minute`, `30minute`, and `day`; sub-second historical is not available via broker REST.
 - Historical (`CandleResampler`) and live (`CandleAggregationService`) **must** use the same `CandleBucketPolicy`.
 
 ## Scan cutoff

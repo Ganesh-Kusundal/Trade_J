@@ -17,7 +17,10 @@ import com.tradej.broker.dhan.DhanBrokerConnection;
 import com.tradej.broker.dhan.auth.DhanTokenProvider;
 import com.tradej.broker.dhan.config.DhanApiEnvironment;
 import com.tradej.broker.dhan.config.DhanBrokerStartup;
+import com.tradej.broker.icici.IciciBrokerConnection;
+import com.tradej.broker.icici.auth.BreezeTokenProvider;
 import com.tradej.broker.upstox.http.UpstoxApiException;
+import com.tradej.core.domain.event.BrokerAdapterError;
 import com.tradej.core.domain.event.CandleClosed;
 import com.tradej.core.domain.event.CandleDeveloping;
 import com.tradej.core.domain.event.DepthUpdateEvent;
@@ -43,6 +46,7 @@ import com.tradej.hotpath.MarketDataPipeline;
 import com.tradej.hotpath.OrderPipeline;
 import com.tradej.persistence.chronicle.ChronicleAuditLogWriter;
 import com.tradej.persistence.duckdb.AsyncDuckDbEventStore;
+import com.tradej.persistence.duckdb.DuckDbEventStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
@@ -76,13 +80,14 @@ public final class BrokerStartupOrchestrator {
             IBrokerConnection brokerConnection,
             BrokerCapabilities brokerCapabilities,
             ObjectProvider<DhanTokenProvider> dhanTokenProvider,
+            ObjectProvider<BreezeTokenProvider> breezeTokenProvider,
             RuntimeHealthState runtimeHealthState,
             EventBus eventBus,
             MarketDataPipeline marketDataPipeline,
             OrderPipeline orderPipeline,
             AsyncDuckDbWriter asyncDuckDbWriter,
             ChronicleAuditLogWriter chronicleAuditLogWriter,
-            DuckDbEventStore duckDbEventStore,
+            AsyncDuckDbEventStore asyncDuckDbEventStore,
             ReconciliationAlertLogger reconciliationAlertLogger,
             BrokerErrorTracker brokerErrorTracker,
             ReadModelStore readModelStore,
@@ -102,6 +107,7 @@ public final class BrokerStartupOrchestrator {
 
         if (mode != BrokerRuntimeMode.UPSTOX_ANALYTICS_REST) {
             dhanTokenProvider.ifAvailable(DhanTokenProvider::ensureValid);
+            breezeTokenProvider.ifAvailable(BreezeTokenProvider::ensureValid);
         }
 
         if (!subscriptions.isEmpty()) {
@@ -115,7 +121,7 @@ public final class BrokerStartupOrchestrator {
         runtimeHealthState.markBrokerPreflightPassed();
 
         subscribeEventHandlers(eventBus, asyncDuckDbWriter, chronicleAuditLogWriter,
-                duckDbEventStore, brokerErrorTracker, readModelStore,
+                asyncDuckDbEventStore, brokerErrorTracker, readModelStore,
                 netPositionProvider, reconciliationAlertLogger, dagPipelineIngressBridge);
         setupWebSocketHandlers(brokerConnection, marketDataPipeline, orderPipeline, eventBus);
 
@@ -184,6 +190,24 @@ public final class BrokerStartupOrchestrator {
             Path cachePath = Path.of(cacheDirectory);
             brokerConnection.loadInstrumentCatalog(cachePath);
             loadedPath = cachePath;
+        } else if (mode.isIcici()) {
+            String cacheDirectory = instruments != null ? instruments.cacheDirectory() : null;
+            if (cacheDirectory == null || cacheDirectory.isBlank()) {
+                cacheDirectory = "runtime/icici-instruments";
+            }
+            Path cachePath = Path.of(cacheDirectory);
+            if (instruments != null && instruments.autoDownload()) {
+                brokerConnection.loadInstrumentCatalog(null);
+                loadedPath = cachePath;
+            } else if (Files.exists(cachePath)) {
+                brokerConnection.loadInstrumentCatalog(cachePath);
+                loadedPath = cachePath;
+            } else if (brokerConnection instanceof IciciBrokerConnection) {
+                brokerConnection.loadInstrumentCatalog(null);
+                loadedPath = cachePath;
+            } else {
+                throw new IllegalStateException("ICICI runtime requires instrument cache at " + cachePath + " or auto-download");
+            }
         } else {
             throw new IllegalStateException("Runtime requires `trade.instruments.csv-path` or instrument auto-download");
         }
@@ -256,6 +280,10 @@ public final class BrokerStartupOrchestrator {
             verifyUpstoxPreflight(brokerConnection, instrumentKey);
             return;
         }
+        if (mode.isIcici()) {
+            verifyIciciPreflight(brokerConnection, instrumentKey);
+            return;
+        }
         if (environment == DhanApiEnvironment.SANDBOX) {
             try {
                 brokerConnection.portfolio().getBalance();
@@ -283,6 +311,39 @@ public final class BrokerStartupOrchestrator {
             }
         } catch (RuntimeException ex) {
             log.warn("Broker preflight candle check failed for {} (expected outside market hours): {}", instrumentKey, ex.getMessage());
+        }
+    }
+
+    private void verifyIciciPreflight(IBrokerConnection brokerConnection, InstrumentKey instrumentKey) {
+        try {
+            brokerConnection.portfolio().getBalance();
+        } catch (RuntimeException ex) {
+            throw new IllegalStateException("ICICI preflight funds check failed", ex);
+        }
+        try {
+            long ltp = brokerConnection.marketData().getLtpPaisa(instrumentKey);
+            if (ltp <= 0) {
+                log.warn("ICICI preflight LTP non-positive for {} (expected outside market hours)", instrumentKey);
+            }
+        } catch (RuntimeException ex) {
+            log.warn("ICICI preflight quote check failed for {} (expected outside market hours): {}",
+                    instrumentKey, ex.getMessage());
+        }
+        LocalDate latestTradingDate = latestTradingDate();
+        try {
+            var candles = brokerConnection.marketData().getCandles(new CandleHistoryRequest(
+                    instrumentKey,
+                    "1d",
+                    latestTradingDate.minusDays(7),
+                    latestTradingDate
+            ));
+            if (candles.isEmpty()) {
+                log.warn("ICICI preflight historical request returned zero candles for {} (expected outside market hours)",
+                        instrumentKey);
+            }
+        } catch (RuntimeException ex) {
+            log.warn("ICICI preflight candle check failed for {} (expected outside market hours): {}",
+                    instrumentKey, ex.getMessage());
         }
     }
 
@@ -346,7 +407,7 @@ public final class BrokerStartupOrchestrator {
             EventBus eventBus,
             AsyncDuckDbWriter asyncDuckDbWriter,
             ChronicleAuditLogWriter chronicleAuditLogWriter,
-            DuckDbEventStore duckDbEventStore,
+            AsyncDuckDbEventStore asyncDuckDbEventStore,
             BrokerErrorTracker brokerErrorTracker,
             ReadModelStore readModelStore,
             EventSourcedNetPositionProvider netPositionProvider,
@@ -357,8 +418,8 @@ public final class BrokerStartupOrchestrator {
         // to avoid blocking the event dispatch thread with JDBC I/O (fixes FS-01).
         eventBus.subscribe(DomainEvent.class, asyncDuckDbWriter);
         eventBus.subscribe(DomainEvent.class, chronicleAuditLogWriter::onEvent);
-        eventBus.subscribe(DomainEvent.class, duckDbEventStore::onEvent);
-        eventBus.subscribe(DomainEvent.class, brokerErrorTracker);
+        eventBus.subscribe(DomainEvent.class, asyncDuckDbEventStore::onEvent);
+        eventBus.subscribe(BrokerAdapterError.class, error -> brokerErrorTracker.onEvent(error));
 
         eventBus.subscribe(OrderAccepted.class, readModelStore::onDomainEvent);
         eventBus.subscribe(OrderRejected.class, readModelStore::onDomainEvent);
@@ -406,8 +467,5 @@ public final class BrokerStartupOrchestrator {
                 default -> eventBus.publish(event);
             }
         });
-    }
-}
-;
     }
 }

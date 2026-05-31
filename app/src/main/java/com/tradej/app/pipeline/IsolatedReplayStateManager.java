@@ -3,6 +3,7 @@ package com.tradej.app.pipeline;
 import com.tradej.app.readmodel.ReadModelStore;
 import com.tradej.execution.position.EventSourcedNetPositionProvider;
 import com.tradej.execution.risk.PositionRiskHandler;
+import com.tradej.execution.service.OrderManagementService;
 import com.tradej.persistence.replay.ReplayStateManager;
 import com.tradej.strategy.portfolio.PortfolioEngine;
 import com.tradej.strategy.service.CandleAggregationService;
@@ -37,6 +38,7 @@ public final class IsolatedReplayStateManager implements ReplayStateManager {
     private final PositionRiskHandler positionRiskHandler;
     private final CandleAggregationService candleAggregationService;
     private final ReadModelStore readModelStore;
+    private final OrderManagementService orderManagementService;
 
     // Captured snapshots
     private PortfolioEngine.StateSnapshot portfolioSnapshot;
@@ -44,19 +46,22 @@ public final class IsolatedReplayStateManager implements ReplayStateManager {
     private PositionRiskHandler.StateSnapshot riskSnapshot;
     private CandleAggregationService.StateSnapshot candleSnapshot;
     private ReadModelStore.ReplaySnapshot readModelSnapshot;
+    private OrderManagementService.StateSnapshot orderSnapshot;
 
     public IsolatedReplayStateManager(
             PortfolioEngine portfolioEngine,
             EventSourcedNetPositionProvider netPositionProvider,
             PositionRiskHandler positionRiskHandler,
             CandleAggregationService candleAggregationService,
-            ReadModelStore readModelStore
+            ReadModelStore readModelStore,
+            OrderManagementService orderManagementService
     ) {
         this.portfolioEngine = Objects.requireNonNull(portfolioEngine, "portfolioEngine");
         this.netPositionProvider = Objects.requireNonNull(netPositionProvider, "netPositionProvider");
         this.positionRiskHandler = Objects.requireNonNull(positionRiskHandler, "positionRiskHandler");
         this.candleAggregationService = Objects.requireNonNull(candleAggregationService, "candleAggregationService");
         this.readModelStore = Objects.requireNonNull(readModelStore, "readModelStore");
+        this.orderManagementService = Objects.requireNonNull(orderManagementService, "orderManagementService");
     }
 
     @Override
@@ -67,6 +72,7 @@ public final class IsolatedReplayStateManager implements ReplayStateManager {
         riskSnapshot = positionRiskHandler.snapshot();
         candleSnapshot = candleAggregationService.snapshot();
         readModelSnapshot = readModelStore.replaySnapshot();
+        orderSnapshot = orderManagementService.snapshot();
         log.info("Pipeline state snapshotted — replay can proceed safely");
     }
 
@@ -92,6 +98,10 @@ public final class IsolatedReplayStateManager implements ReplayStateManager {
         if (readModelSnapshot != null) {
             readModelStore.restore(readModelSnapshot);
             readModelSnapshot = null;
+        }
+        if (orderSnapshot != null) {
+            orderManagementService.restore(orderSnapshot);
+            orderSnapshot = null;
         }
         log.info("Pipeline state restored after replay — AD-02 isolation complete");
     }

@@ -20,6 +20,12 @@ test_output.txt
 /config/dhan-sandbox.properties
 /config/dhan-pin.txt
 /config/dhan-totp-secret.txt
+/config/icici-local.properties
+/config/icici-totp-secret.txt
+/config/icici-username.txt
+/config/icici-password.txt
+/config/icici-api-session.txt
+/runtime/icici-token-state.json
 # Workspace runtime artifacts (not :runtime-disruptor / :runtime-hotpath sources)
 /runtime/dhan-token-state.json
 /runtime/cli-instruments/

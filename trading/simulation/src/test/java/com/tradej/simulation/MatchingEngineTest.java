@@ -32,7 +32,7 @@ class MatchingEngineTest {
     @Test
     void noSlippageByDefault() {
         engine.onTick("SBIN", 750_00L);
-        var result = engine.match(req("SBIN", Side.BUY, 100, 750_00L, OrderType.MARKET), "ORD-1");
+        var result = engine.match(req("SBIN", Side.BUY, 10, 750_00L, OrderType.MARKET), "ORD-1");
         assertFalse(result.rejected());
         assertEquals(1, result.fills().size());
         assertEquals(750_00L, result.fills().get(0).pricePaisa());
@@ -46,7 +46,7 @@ class MatchingEngineTest {
                 .spreadBps(10L)  // 0.10% = 75 paisa on 75000
                 .build();
         var engine = new MatchingEngine(config);
-        var result = engine.match(req("SBIN", Side.BUY, 100, 750_00L, OrderType.LIMIT), "ORD-1");
+        var result = engine.match(req("SBIN", Side.BUY, 10, 750_00L, OrderType.LIMIT), "ORD-1");
         assertFalse(result.rejected());
         assertEquals(750_75L, result.fills().get(0).pricePaisa());
     }
@@ -58,7 +58,7 @@ class MatchingEngineTest {
                 .spreadBps(10L)
                 .build();
         var engine = new MatchingEngine(config);
-        var result = engine.match(req("SBIN", Side.SELL, 100, 750_00L, OrderType.LIMIT), "ORD-1");
+        var result = engine.match(req("SBIN", Side.SELL, 10, 750_00L, OrderType.LIMIT), "ORD-1");
         assertFalse(result.rejected());
         assertEquals(749_25L, result.fills().get(0).pricePaisa());
     }
@@ -68,10 +68,10 @@ class MatchingEngineTest {
         engine.onTick("SBIN", 750_00L);
         var config = MatchingEngine.SlippageConfig.builder().spreadBps(10L).build();
         var engine = new MatchingEngine(config);
-        var result = engine.match(req("SBIN", Side.BUY, 100, 745_00L, OrderType.LIMIT), "ORD-1");
+        var result = engine.match(req("SBIN", Side.BUY, 10, 745_00L, OrderType.LIMIT), "ORD-1");
         assertFalse(result.rejected());
-        // 10 bps on 74500 = 74.5 paisa → integer division truncates to 74
-        assertEquals(745_74L, result.fills().get(0).pricePaisa());
+        // 10 bps on 74500 = 74.5 paisa → integer division truncates to 74 → 745_74L raw → rounded up to 745_75L (5-paisa tick size)
+        assertEquals(745_75L, result.fills().get(0).pricePaisa());
     }
 
     @Test
@@ -110,10 +110,10 @@ class MatchingEngineTest {
                 .maxSlippageBps(20L)
                 .build();
         var engine = new MatchingEngine(config);
-        var result = engine.match(req("SBIN", Side.BUY, 100, 790_00L, OrderType.LIMIT), "ORD-1");
+        var result = engine.match(req("SBIN", Side.BUY, 10, 790_00L, OrderType.LIMIT), "ORD-1");
         assertFalse(result.rejected());
-        // Max 20 bps on 79000 = 158 paisa → total price = 79158 (capped)
-        assertEquals(791_58L, result.fills().get(0).pricePaisa());
+        // Max 20 bps on 79000 = 158 paisa → total price = 79158 raw → rounded up to 791_60L (5-paisa tick size)
+        assertEquals(791_60L, result.fills().get(0).pricePaisa());
     }
 
     @Test
@@ -154,7 +154,8 @@ class MatchingEngineTest {
         var engine2 = new MatchingEngine(MatchingEngine.SlippageConfig.CONSERVATIVE);
         var result = engine2.match(req("SBIN", Side.BUY, 100, 750_00L, OrderType.LIMIT), "ORD-1");
         assertFalse(result.rejected());
-        assertEquals(750_75L, result.fills().get(0).pricePaisa());
+        // 10 bps spread + 2 bps volume scaling = 12 bps total on 750_00L = 90 paisa -> 750_90L
+        assertEquals(750_90L, result.fills().get(0).pricePaisa());
         assertEquals(70, result.fills().get(0).quantity());
         assertNotNull(result.partialFillInfo());
     }

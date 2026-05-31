@@ -1,6 +1,7 @@
 package com.tradej.app.config;
 
 import com.tradej.broker.dhan.config.DhanAuthMode;
+import com.tradej.broker.icici.config.IciciAuthMode;
 import com.tradej.broker.dhan.config.DhanApiEnvironment;
 import com.tradej.core.domain.runtime.RuntimeMode;
 import com.tradej.core.domain.value.ExchangeSegment;
@@ -22,6 +23,7 @@ import java.util.Map;
 public record TradingProperties(
         DhanProperties broker,
         UpstoxProperties upstox,
+        IciciProperties icici,
         StorageProperties storage,
         RiskProperties risk,
         ReconciliationProperties reconciliation,
@@ -153,6 +155,25 @@ public record TradingProperties(
         public boolean hasAnalyticsTokenWhenRequired() {
             return !analyticsOnly || (analyticsToken != null && !analyticsToken.isBlank());
         }
+    }
+
+    public record IciciProperties(
+            @NotBlank String appKey,
+            @NotBlank String secretKey,
+            String sessionToken,
+            @DefaultValue("BROWSER_AUTOMATED") IciciAuthMode authMode,
+            @DefaultValue("config/icici-totp-secret.txt") String totpSecretFile,
+            @DefaultValue("config/icici-username.txt") String usernameFile,
+            @DefaultValue("config/icici-password.txt") String passwordFile,
+            @DefaultValue("config/icici-api-session.txt") String apiSessionFile,
+            @DefaultValue("runtime/icici-token-state.json") String tokenStateFile,
+            @DefaultValue("false") boolean ordersEnabled,
+            @DefaultValue("10") long refreshBufferMinutes,
+            @DefaultValue("9080") int loginRedirectPort,
+            @DefaultValue("/api") String loginRedirectPath,
+            @DefaultValue("true") boolean browserHeadless,
+            @DefaultValue("120") long browserLoginTimeoutSeconds
+    ) {
     }
 
     public record StorageProperties(

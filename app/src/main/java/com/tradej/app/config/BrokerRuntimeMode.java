@@ -7,10 +7,15 @@ public enum BrokerRuntimeMode {
     DHAN_LIVE_WS,
     DHAN_SANDBOX,
     UPSTOX_TRADING_WS,
-    UPSTOX_ANALYTICS_REST;
+    UPSTOX_ANALYTICS_REST,
+    ICICI_TRADING_WS;
 
     public boolean isUpstox() {
         return this == UPSTOX_TRADING_WS || this == UPSTOX_ANALYTICS_REST;
+    }
+
+    public boolean isIcici() {
+        return this == ICICI_TRADING_WS;
     }
 
     public boolean isAnalyticsRest() {
@@ -18,6 +23,6 @@ public enum BrokerRuntimeMode {
     }
 
     public boolean expectsWebSocket() {
-        return this == DHAN_LIVE_WS || this == UPSTOX_TRADING_WS;
+        return this == DHAN_LIVE_WS || this == UPSTOX_TRADING_WS || this == ICICI_TRADING_WS;
     }
 }

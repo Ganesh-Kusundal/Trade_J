@@ -6,12 +6,14 @@ import type {
   ScanRunsResponse,
   ReadModelSnapshot,
   RuntimeInfo,
-  StrategySummary,
+  StrategiesResponse,
+  StrategyPluginRow,
+  KillSwitchResponse,
   StartupCandidatesResponse,
   StudioChartResponse,
 } from '@/dto/types';
 
-const BASE = '';
+const BASE = import.meta.env.VITE_API_BASE ?? '';
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
@@ -119,12 +121,17 @@ export const readModelApi = {
 export const adminApi = {
   runtime: () => request<RuntimeInfo>('/admin/runtime'),
 
-  strategies: () => request<StrategySummary[]>('/admin/strategies'),
+  strategies: async (): Promise<StrategyPluginRow[]> => {
+    const res = await request<StrategiesResponse>('/admin/strategies');
+    return (res.plugins ?? []).map((name) => ({name}));
+  },
+
+  strategiesRaw: () => request<StrategiesResponse>('/admin/strategies'),
 
   summary: () => request<Record<string, unknown>>('/admin/summary'),
 
   killSwitch: (enabled: boolean) =>
-    request<{killSwitch: boolean}>(`/admin/risk/kill-switch/${enabled}`, {method: 'POST'}),
+    request<KillSwitchResponse>(`/admin/risk/kill-switch/${enabled}`, {method: 'POST'}),
 
   reconcile: () =>
     request<{success: boolean; message: string}>('/admin/reconcile', {method: 'POST'}),

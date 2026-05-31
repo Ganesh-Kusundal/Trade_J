@@ -1,8 +1,10 @@
 package com.tradej.app.api;
 
 import com.tradej.app.service.broker.BrokerHistoricalQueryService;
+import com.tradej.broker.api.port.InstrumentResolver;
 import com.tradej.core.domain.model.Candle;
 import com.tradej.core.domain.model.CandleHistoryRequest;
+import com.tradej.core.domain.model.Instrument;
 import com.tradej.core.domain.model.InstrumentKey;
 import com.tradej.core.domain.port.HistoricalAnalyticsService;
 import com.tradej.core.domain.value.ExchangeSegment;
@@ -26,11 +28,14 @@ public class MarketDataController {
 
     private final Optional<BrokerHistoricalQueryService> brokerHistoricalQueryService;
     private final Optional<HistoricalAnalyticsService> historicalAnalyticsService;
+    private final InstrumentResolver instrumentResolver;
 
     public MarketDataController(
+            InstrumentResolver instrumentResolver,
             @Autowired(required = false) BrokerHistoricalQueryService brokerHistoricalQueryService,
             @Autowired(required = false) HistoricalAnalyticsService historicalAnalyticsService
     ) {
+        this.instrumentResolver = instrumentResolver;
         this.brokerHistoricalQueryService = Optional.ofNullable(brokerHistoricalQueryService);
         this.historicalAnalyticsService = Optional.ofNullable(historicalAnalyticsService);
     }
@@ -42,10 +47,11 @@ public class MarketDataController {
     ) {
         BrokerHistoricalQueryService broker = brokerHistoricalQueryService.orElseThrow(() ->
                 new IllegalStateException("Broker market data is not configured"));
-        InstrumentKey key = new InstrumentKey(symbol, exchangeSegment);
-        long ltpPaisa = broker.getLtpPaisa(key);
+        Instrument instrument = instrumentResolver.resolveNormalized(symbol, exchangeSegment);
+        long ltpPaisa = broker.getLtpPaisa(instrument.key());
         return ResponseEntity.ok(Map.of(
-                "symbol", symbol,
+                "symbol", instrument.canonicalSymbol(),
+                "canonicalSymbol", instrument.canonicalSymbol(),
                 "exchangeSegment", exchangeSegment.name(),
                 "ltpPaisa", ltpPaisa
         ));
@@ -63,8 +69,10 @@ public class MarketDataController {
         List<Candle> candles = "parquet".equalsIgnoreCase(source)
                 ? loadParquetCandles(symbol, exchangeSegment, interval, from, to)
                 : loadBrokerCandles(symbol, exchangeSegment, interval, from, to);
+        Instrument instrument = instrumentResolver.resolveNormalized(symbol, exchangeSegment);
         Map<String, Object> body = new LinkedHashMap<>();
-        body.put("symbol", symbol);
+        body.put("symbol", instrument.canonicalSymbol());
+        body.put("canonicalSymbol", instrument.canonicalSymbol());
         body.put("exchangeSegment", exchangeSegment.name());
         body.put("interval", interval);
         body.put("from", from.toString());
@@ -101,12 +109,14 @@ public class MarketDataController {
     ) {
         BrokerHistoricalQueryService broker = brokerHistoricalQueryService.orElseThrow(() ->
                 new IllegalStateException("Broker market data is not configured"));
-        InstrumentKey key = new InstrumentKey(symbol, exchangeSegment);
-        return broker.getCandlesChunked(new CandleHistoryRequest(key, interval, from, to));
+        Instrument instrument = instrumentResolver.resolveNormalized(symbol, exchangeSegment);
+        return broker.getCandlesChunked(new CandleHistoryRequest(instrument.key(), interval, from, to));
     }
 
     private Map<String, Object> candlePayload(Candle candle) {
         Map<String, Object> map = new LinkedHashMap<>();
+        map.put("symbol", candle.symbol());
+        map.put("canonicalSymbol", candle.symbol());
         map.put("startTimeMs", candle.startTimeMs());
         map.put("endTimeMs", candle.endTimeMs());
         map.put("openPaisa", candle.openPaisa());

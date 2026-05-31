@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicLong;
@@ -80,6 +81,8 @@ public final class ReadModelStore {
     private final Map<String, SignalView> signals = new ConcurrentHashMap<>();
     private volatile PnlView pnl = new PnlView(0L, 0L, 0L);
     private volatile ScanResultView latestScan = null;
+    // Tracks active trade IDs to guard against out-of-order TradeClosed.
+    private final Set<String> activeTradeIds = ConcurrentHashMap.newKeySet();
     private final List<Consumer<ReadModelSnapshot>> listeners = new CopyOnWriteArrayList<>();
     private final AtomicLong version = new AtomicLong();
 
@@ -88,16 +91,23 @@ public final class ReadModelStore {
             case OrderAccepted accepted -> putOrder(accepted.order());
             case OrderRejected rejected -> putOrder(rejected.order());
             case OrderFilled filled -> putOrder(filled.order());
-            case TradeOpened opened -> positions.merge(
-                    opened.symbol(),
-                    new PositionView(opened.symbol(), opened.size(), opened.entryPricePaisa()),
-                    (existing, incoming) -> new PositionView(
-                            opened.symbol(),
-                            existing.netQuantity() + incoming.netQuantity(),
-                            incoming.avgPricePaisa()
-                    )
-            );
-            case TradeClosed closed -> positions.remove(closed.symbol());
+            case TradeOpened opened -> {
+                activeTradeIds.add(opened.tradeId());
+                positions.merge(
+                        opened.symbol(),
+                        new PositionView(opened.symbol(), opened.size(), opened.entryPricePaisa()),
+                        (existing, incoming) -> new PositionView(
+                                opened.symbol(),
+                                existing.netQuantity() + incoming.netQuantity(),
+                                incoming.avgPricePaisa()
+                        )
+                );
+            }
+            case TradeClosed closed -> {
+                if (activeTradeIds.remove(closed.tradeId())) {
+                    positions.remove(closed.symbol());
+                }
+            }
             case TickReceived tick -> ticks.put(tick.symbol(), new TickView(
                     tick.symbol(), tick.ltpPaisa(), tick.exchangeTimestampMs()));
             case MarketTickEvent tick -> ticks.put(tick.symbol(), new TickView(
@@ -174,7 +184,8 @@ public final class ReadModelStore {
                 new ConcurrentHashMap<>(signals),
                 pnl,
                 latestScan,
-                version.get()
+                version.get(),
+                Set.copyOf(activeTradeIds)
         );
     }
 
@@ -195,6 +206,8 @@ public final class ReadModelStore {
         pnl = snapshot.pnl();
         latestScan = snapshot.latestScan();
         version.set(snapshot.version());
+        activeTradeIds.clear();
+        activeTradeIds.addAll(snapshot.activeTradeIds());
         notifyListeners();
     }
 
@@ -208,7 +221,8 @@ public final class ReadModelStore {
             Map<String, SignalView> signals,
             PnlView pnl,
             ScanResultView latestScan,
-            long version
+            long version,
+            Set<String> activeTradeIds
     ) {}
 
     public void subscribe(Consumer<ReadModelSnapshot> listener) {

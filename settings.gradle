@@ -11,6 +11,8 @@ include 'broker-dhan'
 project(':broker-dhan').projectDir = file('broker/dhan')
 include 'broker-upstox'
 project(':broker-upstox').projectDir = file('broker/upstox')
+include 'broker-icici'
+project(':broker-icici').projectDir = file('broker/icici')
 
 include 'runtime-disruptor'
 project(':runtime-disruptor').projectDir = file('runtime/disruptor')
@@ -63,3 +65,18 @@ project(':trade-experiments').projectDir = file('research/experiment/trade-exper
 
 include 'trade-optimization'
 project(':trade-optimization').projectDir = file('research/optimizer/trade-optimization')
+
+include 'research-core'
+project(':research-core').projectDir = file('research/core')
+
+include 'research-lab'
+project(':research-lab').projectDir = file('research/lab')
+
+include 'replay-engine'
+project(':replay-engine').projectDir = file('replay/engine')
+
+include 'mcp-server'
+project(':mcp-server').projectDir = file('mcp-server')
+
+include 'research-api'
+project(':research-api').projectDir = file('research/api')

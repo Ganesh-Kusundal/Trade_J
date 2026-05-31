@@ -52,4 +52,17 @@ class ModuleBoundaryArchitectureTest {
                 .allowEmptyShould(false)
                 .check(allClasses);
     }
+
+    @Test
+    void replayEngineMustNotDependOnLiveBrokers() {
+        noClasses()
+                .that().resideInAPackage("com.tradej.replay..")
+                .should().dependOnClassesThat().resideInAnyPackage(
+                        "com.tradej.broker.dhan..",
+                        "com.tradej.broker.upstox..",
+                        "com.tradej.broker.icici.."
+                )
+                .allowEmptyShould(false)
+                .check(allClasses);
+    }
 }

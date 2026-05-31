@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Collections;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -25,10 +26,14 @@ public final class EventSourcedNetPositionProvider implements NetPositionProvide
 
     private static final Logger log = LoggerFactory.getLogger(EventSourcedNetPositionProvider.class);
 
-    // Tracks the long-side quantity opened for each trade.
+    // Tracks the long-side quantity opened per symbol.
     private final ConcurrentHashMap<String, Long> tradeLongs = new ConcurrentHashMap<>();
-    // Tracks the short-side quantity opened for each trade.
+    // Tracks the short-side quantity opened per symbol.
     private final ConcurrentHashMap<String, Long> tradeShorts = new ConcurrentHashMap<>();
+    // Tracks active trade IDs to guard against out-of-order TradeClosed (defensive).
+    private final ConcurrentHashMap.KeySetView<String, Boolean> activeTradeIds = ConcurrentHashMap.newKeySet();
+    // Tracks individual active trade contributions to resolve positions on close (fixes N-01).
+    private final ConcurrentHashMap<String, TradeContribution> tradeContributions = new ConcurrentHashMap<>();
     // Cached net position snapshot to preserve snapshot/restore semantics.
     private final AtomicReference<StateSnapshot> snapshot = new AtomicReference<>();
 
@@ -53,27 +58,46 @@ public final class EventSourcedNetPositionProvider implements NetPositionProvide
     private void handleTradeOpened(TradeOpened opened) {
         String symbol = opened.symbol();
         long size = opened.size();
-        switch (opened.side()) {
-            case BUY -> tradeLongs.merge(symbol, size, Long::sum);
-            case SELL -> tradeShorts.merge(symbol, size, Long::sum);
+        com.tradej.core.domain.value.Side side = opened.side();
+
+        tradeContributions.put(opened.tradeId(), new TradeContribution(symbol, side, size));
+
+        if (side.isBuySide()) {
+            tradeLongs.merge(symbol, size, Long::sum);
+        } else {
+            tradeShorts.merge(symbol, size, Long::sum);
         }
+        activeTradeIds.add(opened.tradeId());
         snapshot.set(null);
         log.debug(
                 "Position opened symbol={} side={} size={} longs={} shorts={}",
                 symbol,
-                opened.side(),
+                side,
                 size,
                 tradeLongs.getOrDefault(symbol, 0L),
                 tradeShorts.getOrDefault(symbol, 0L));
     }
 
     private void handleTradeClosed(TradeClosed closed) {
-        String symbol = closed.symbol();
-        // Close the position recorded at open for this trade.
-        tradeLongs.remove(symbol);
-        tradeShorts.remove(symbol);
+        String tradeId = closed.tradeId();
+        if (!activeTradeIds.remove(tradeId)) {
+            log.warn("TradeClosed received for unknown tradeId={} symbol={} — ignoring", tradeId, closed.symbol());
+            return;
+        }
+        TradeContribution contribution = tradeContributions.remove(tradeId);
+        if (contribution == null) {
+            log.warn("No active trade contribution tracked for tradeId={} symbol={} — closing fallback", tradeId, closed.symbol());
+            return;
+        }
+        String symbol = contribution.symbol();
+        long size = contribution.size();
+        if (contribution.side().isBuySide()) {
+            tradeLongs.computeIfPresent(symbol, (k, v) -> v > size ? v - size : null);
+        } else {
+            tradeShorts.computeIfPresent(symbol, (k, v) -> v > size ? v - size : null);
+        }
         snapshot.set(null);
-        log.debug("Position closed tradeId={} symbol={}", closed.tradeId(), symbol);
+        log.debug("Position closed tradeId={} symbol={} size={}", closed.tradeId(), symbol, size);
     }
 
     private Map<String, Long> recompute() {
@@ -82,7 +106,7 @@ public final class EventSourcedNetPositionProvider implements NetPositionProvide
             combined.merge(entry.getKey(), entry.getValue(), Long::sum);
         }
         for (var entry : tradeShorts.entrySet()) {
-            combined.merge(entry.getKey(), entry.getValue(), (a, b) -> a - b);
+            combined.merge(entry.getKey(), -entry.getValue(), Long::sum);
         }
         return combined;
     }
@@ -94,7 +118,7 @@ public final class EventSourcedNetPositionProvider implements NetPositionProvide
     }
 
     /**
-     * Captures a snapshot of all stored per-trade position contributions.
+     * Captures a snapshot of all stored per-symbol position contributions.
      */
     public StateSnapshot snapshot() {
         StateSnapshot current = snapshot.get();
@@ -103,13 +127,15 @@ public final class EventSourcedNetPositionProvider implements NetPositionProvide
         }
         current = new StateSnapshot(
                 new ConcurrentHashMap<>(tradeLongs),
-                new ConcurrentHashMap<>(tradeShorts));
+                new ConcurrentHashMap<>(tradeShorts),
+                Set.copyOf(activeTradeIds),
+                new ConcurrentHashMap<>(tradeContributions));
         snapshot.compareAndSet(null, current);
         return current;
     }
 
     /**
-     * Restores per-trade position contributions from a previously captured snapshot.
+     * Restores per-symbol position contributions from a previously captured snapshot.
      */
     public void restore(StateSnapshot state) {
         if (state == null) {
@@ -117,16 +143,29 @@ public final class EventSourcedNetPositionProvider implements NetPositionProvide
         }
         tradeLongs.clear();
         tradeShorts.clear();
+        activeTradeIds.clear();
+        tradeContributions.clear();
         tradeLongs.putAll(state.tradeLongs());
         tradeShorts.putAll(state.tradeShorts());
+        activeTradeIds.addAll(state.activeTradeIds());
+        tradeContributions.putAll(state.tradeContributions());
         snapshot.set(null);
         log.debug("Net position state restored from snapshot");
     }
 
-    public record StateSnapshot(Map<String, Long> tradeLongs, Map<String, Long> tradeShorts) {
+    public record TradeContribution(String symbol, com.tradej.core.domain.value.Side side, long size) {}
+
+    public record StateSnapshot(
+            Map<String, Long> tradeLongs,
+            Map<String, Long> tradeShorts,
+            Set<String> activeTradeIds,
+            Map<String, TradeContribution> tradeContributions
+    ) {
         public StateSnapshot {
             tradeLongs = Collections.unmodifiableMap(tradeLongs);
             tradeShorts = Collections.unmodifiableMap(tradeShorts);
+            activeTradeIds = Set.copyOf(activeTradeIds);
+            tradeContributions = Collections.unmodifiableMap(tradeContributions);
         }
     }
 }

@@ -1,0 +1,1525 @@
+openapi: 3.1.0
+info:
+  title: Trade-J API
+  version: 1.0.0
+  description: |
+    Java 21 algorithmic trading platform — live market data, OMS, risk, strategy plugins,
+    and broker adapters (Dhan, Upstox, ICICI Direct).
+  contact:
+    name: Trade-J Team
+  license:
+    name: Proprietary
+
+servers:
+  - url: http://localhost:8080
+    description: Local development
+  - url: https://api.tradej.example.com
+    description: Production
+
+paths:
+  # ──────────────────────────────────────────
+  # MARKET DATA
+  # ──────────────────────────────────────────
+  /api/v1/market/ltp:
+    get:
+      tags: [Market Data]
+      summary: Last Traded Price
+      parameters:
+        - name: symbol
+          in: query
+          required: true
+          schema: { type: string }
+          example: SBIN
+        - name: exchangeSegment
+          in: query
+          required: true
+          schema:
+            $ref: '#/components/schemas/ExchangeSegment'
+      responses:
+        '200':
+          description: LTP response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  symbol: { type: string }
+                  exchangeSegment: { type: string }
+                  ltpPaisa: { type: integer }
+                  exchangeTimestampMs: { type: integer }
+
+  /api/v1/market/historical/candles:
+    get:
+      tags: [Market Data]
+      summary: Historical Candles
+      parameters:
+        - name: symbol
+          in: query
+          required: true
+          schema: { type: string }
+        - name: exchangeSegment
+          in: query
+          required: true
+          schema:
+            $ref: '#/components/schemas/ExchangeSegment'
+        - name: interval
+          in: query
+          schema:
+            type: string
+            default: 1d
+          description: Candle interval (e.g. 1m, 5m, 15m, 1h, 1d)
+        - name: from
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: source
+          in: query
+          schema:
+            type: string
+            default: broker
+            enum: [broker, parquet]
+      responses:
+        '200':
+          description: Candle array
+
+  /api/v1/market/expired-options/expiries:
+    get:
+      tags: [Market Data, Expired Options]
+      summary: List expired option expiries
+      parameters:
+        - name: symbol
+          in: query
+          required: true
+          schema: { type: string }
+        - name: exchangeSegment
+          in: query
+          required: true
+          schema:
+            $ref: '#/components/schemas/ExchangeSegment'
+      responses:
+        '200':
+          description: Expiries list
+
+  /api/v1/market/expired-options/contracts:
+    get:
+      tags: [Market Data, Expired Options]
+      summary: List expired option contracts
+      parameters:
+        - name: symbol
+          in: query
+          required: true
+          schema: { type: string }
+        - name: exchangeSegment
+          in: query
+          required: true
+          schema:
+            $ref: '#/components/schemas/ExchangeSegment'
+        - name: expiry
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Contracts list
+
+  /api/v1/market/expired-options/candles:
+    get:
+      tags: [Market Data, Expired Options]
+      summary: Expired option candles
+      parameters:
+        - name: expiredInstrumentKey
+          in: query
+          required: true
+          schema: { type: string }
+        - name: interval
+          in: query
+          schema:
+            type: string
+            default: 5minute
+        - name: from
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Candle array
+
+  # ──────────────────────────────────────────
+  # ANALYTICS
+  # ──────────────────────────────────────────
+  /api/v1/analytics/catalog:
+    get:
+      tags: [Analytics]
+      summary: Analytics catalog snapshot
+      responses:
+        '200':
+          description: Catalog snapshot
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalyticsCatalogSnapshot'
+
+  /api/v1/analytics/equity/candles:
+    get:
+      tags: [Analytics]
+      summary: Equity candles from parquet warehouse
+      parameters:
+        - name: symbol
+          in: query
+          required: true
+          schema: { type: string }
+        - name: exchangeSegment
+          in: query
+          schema:
+            $ref: '#/components/schemas/ExchangeSegment'
+            default: NSE_EQ
+        - name: interval
+          in: query
+          required: true
+          schema: { type: string }
+        - name: from
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 5000
+      responses:
+        '200':
+          description: Map with candles data
+
+  /api/v1/analytics/equity/universe:
+    get:
+      tags: [Analytics]
+      summary: Nifty 500 universe
+      responses:
+        '200':
+          description: Universe listing
+
+  /api/v1/analytics/options/bars:
+    get:
+      tags: [Analytics]
+      summary: Rolling option bars
+      parameters:
+        - name: underlying
+          in: query
+          required: true
+          schema: { type: string }
+        - name: expiryKind
+          in: query
+          required: true
+          schema: { type: string }
+        - name: expiryCode
+          in: query
+          required: true
+          schema: { type: integer }
+        - name: strikeOffset
+          in: query
+          required: true
+          schema: { type: integer }
+        - name: optionType
+          in: query
+          required: true
+          schema:
+            $ref: '#/components/schemas/OptionType'
+        - name: intervalMin
+          in: query
+          schema:
+            type: integer
+            default: 5
+        - name: from
+          in: query
+          required: true
+          schema:
+            type: integer
+            description: Epoch milliseconds
+        - name: to
+          in: query
+          required: true
+          schema:
+            type: integer
+            description: Epoch milliseconds
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 1000
+      responses:
+        '200':
+          description: Rolling option bars
+
+  /api/v1/analytics/sql:
+    post:
+      tags: [Analytics]
+      summary: Run guarded read-only SQL
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                sql:
+                  type: string
+                  example: "SELECT symbol, count(*) FROM equity_candles WHERE interval = '1d' GROUP BY symbol LIMIT 10"
+                limit:
+                  type: integer
+                  default: 100
+      responses:
+        '200':
+          description: Query result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalyticsQueryResult'
+
+  # ──────────────────────────────────────────
+  # PIPELINE
+  # ──────────────────────────────────────────
+  /api/v1/pipeline/templates:
+    get:
+      tags: [Pipeline]
+      summary: Pipeline graph templates
+      responses:
+        '200':
+          description: Map of template graphs
+
+  /api/v1/pipeline/node-types:
+    get:
+      tags: [Pipeline]
+      summary: All registered node types
+      responses:
+        '200':
+          description: Node types map
+
+  /api/v1/pipeline/node-types/categories:
+    get:
+      tags: [Pipeline]
+      summary: Node type categories
+      responses:
+        '200':
+          description: List of category strings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+
+  /api/v1/pipeline/node-types/category/{category}:
+    get:
+      tags: [Pipeline]
+      summary: Node types by category
+      parameters:
+        - name: category
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Node types in category
+
+  /api/v1/pipeline/graph:
+    get:
+      tags: [Pipeline]
+      summary: Active pipeline graph
+      responses:
+        '200':
+          description: Active pipeline graph
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PipelineGraph'
+
+  /api/v1/pipeline/dag/graphs:
+    get:
+      tags: [Pipeline]
+      summary: Active DAG graphs
+      responses:
+        '200':
+          description: Map of DAG graphs
+
+  /api/v1/pipeline/dag/graph/{graphId}:
+    get:
+      tags: [Pipeline]
+      summary: Specific DAG graph
+      parameters:
+        - name: graphId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: DAG graph
+
+  /api/v1/pipeline/history/{graphId}:
+    get:
+      tags: [Pipeline]
+      summary: Graph version history
+      parameters:
+        - name: graphId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Version list
+
+  /api/v1/pipeline/history/{graphId}/{version}:
+    get:
+      tags: [Pipeline]
+      summary: Specific graph version
+      parameters:
+        - name: graphId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: version
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Pipeline graph at version
+
+  /api/v1/pipeline/persist:
+    post:
+      tags: [Pipeline]
+      summary: Persist active graph
+      responses:
+        '200':
+          description: Persist result
+
+  /api/v1/pipeline/compile:
+    post:
+      tags: [Pipeline]
+      summary: Compile and reload pipeline graph
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PipelineGraph'
+      responses:
+        '200':
+          description: Compile result
+
+  /api/v1/pipeline/dag/compile:
+    post:
+      tags: [Pipeline]
+      summary: Compile DAG graph
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PipelineGraph'
+      responses:
+        '200':
+          description: Compile result
+
+  /api/v1/pipeline/restore/{graphId}/{version}:
+    post:
+      tags: [Pipeline]
+      summary: Restore graph version
+      parameters:
+        - name: graphId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: version
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Restore result
+
+  /api/v1/pipeline/stream/metrics:
+    get:
+      tags: [Pipeline]
+      summary: SSE stream of pipeline metrics
+      responses:
+        '200':
+          description: SSE event stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+
+  # ──────────────────────────────────────────
+  # SCANS
+  # ──────────────────────────────────────────
+  /api/v1/scans/latest:
+    get:
+      tags: [Scans]
+      summary: Latest scan result
+      parameters:
+        - name: profile
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Latest scan result
+
+  /api/v1/scans/{runId}:
+    get:
+      tags: [Scans]
+      summary: Specific scan run
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Scan run detail
+
+  /api/v1/scans:
+    get:
+      tags: [Scans]
+      summary: List recent scan runs
+      parameters:
+        - name: profile
+          in: query
+          required: true
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: Scan runs list
+
+  /api/v1/scans/run:
+    post:
+      tags: [Scans]
+      summary: Trigger a scan run
+      parameters:
+        - name: profile
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: Scan triggered
+
+  # ──────────────────────────────────────────
+  # OPTIONS SCAN
+  # ──────────────────────────────────────────
+  /api/v1/options/scan:
+    post:
+      tags: [Options Scan]
+      summary: Rank option contracts by liquidity
+      parameters:
+        - name: underlying
+          in: query
+          required: true
+          schema: { type: string }
+        - name: segment
+          in: query
+          schema:
+            type: string
+            default: IDX_I
+        - name: expiry
+          in: query
+          schema: { type: string }
+        - name: expiryDate
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: side
+          in: query
+          schema:
+            type: string
+            default: both
+            enum: [CE, PE, both]
+        - name: top
+          in: query
+          schema:
+            type: integer
+            default: 10
+        - name: minOi
+          in: query
+          schema:
+            type: integer
+            default: 1000
+        - name: minVolume
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: maxSpreadBps
+          in: query
+          schema:
+            type: number
+            default: 300
+        - name: strictSpread
+          in: query
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Ranked option contracts
+
+  /api/v1/options/scan/expiries:
+    get:
+      tags: [Options Scan]
+      summary: List available expiries
+      parameters:
+        - name: underlying
+          in: query
+          required: true
+          schema: { type: string }
+        - name: segment
+          in: query
+          schema:
+            type: string
+            default: IDX_I
+      responses:
+        '200':
+          description: Available expiries
+
+  # ──────────────────────────────────────────
+  # STUDIO
+  # ──────────────────────────────────────────
+  /api/v1/studio/startup-candidates:
+    get:
+      tags: [Studio]
+      summary: Startup candidates for charting
+      parameters:
+        - name: date
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: topN
+          in: query
+          schema:
+            type: integer
+            default: 3
+      responses:
+        '200':
+          description: Startup candidates
+
+  /api/v1/studio/chart:
+    get:
+      tags: [Studio]
+      summary: Chart data with optional option overlay
+      parameters:
+        - name: symbol
+          in: query
+          required: true
+          schema: { type: string }
+        - name: exchangeSegment
+          in: query
+          schema:
+            $ref: '#/components/schemas/ExchangeSegment'
+            default: NSE_EQ
+        - name: interval
+          in: query
+          schema:
+            type: string
+            default: 5m
+        - name: from
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: optionUnderlying
+          in: query
+          schema: { type: string }
+        - name: optionExpiryKind
+          in: query
+          schema: { type: string }
+        - name: optionExpiryCode
+          in: query
+          schema: { type: integer }
+        - name: optionStrikeOffset
+          in: query
+          schema: { type: integer }
+        - name: optionType
+          in: query
+          schema: { type: string }
+        - name: optionIntervalMin
+          in: query
+          schema:
+            type: integer
+            default: 5
+      responses:
+        '200':
+          description: Chart data
+
+  # ──────────────────────────────────────────
+  # SYMBOLS
+  # ──────────────────────────────────────────
+  /api/v1/symbols:
+    get:
+      tags: [Symbols]
+      summary: All available trading symbols
+      parameters:
+        - name: refresh
+          in: query
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Symbol list (cached)
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+
+  # ──────────────────────────────────────────
+  # READ MODEL
+  # ──────────────────────────────────────────
+  /api/v1/read-model:
+    get:
+      tags: [Read Model]
+      summary: Snapshot of runtime state
+      responses:
+        '200':
+          description: Orders, positions, ticks, depths, candles, signals, PnL
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadModelSnapshot'
+
+  /api/v1/stream/read-model:
+    get:
+      tags: [Read Model]
+      summary: SSE stream of read model
+      responses:
+        '200':
+          description: SSE event stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+
+  # ──────────────────────────────────────────
+  # ADMIN — Runtime
+  # ──────────────────────────────────────────
+  /admin/runtime:
+    get:
+      tags: [Admin]
+      summary: Runtime status
+      responses:
+        '200':
+          description: WS state, circuit breaker, catalog health
+
+  /admin/risk/kill-switch/{enabled}:
+    post:
+      tags: [Admin]
+      summary: Toggle kill switch
+      parameters:
+        - name: enabled
+          in: path
+          required: true
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Kill switch toggled
+
+  /admin/pipeline:
+    get:
+      tags: [Admin]
+      summary: Pipeline metrics
+      responses:
+        '200':
+          description: Pipeline metrics (disruptor, execution, market data)
+
+  /admin/strategies:
+    get:
+      tags: [Admin]
+      summary: Plugin strategy names
+      responses:
+        '200':
+          description: Strategy plugin names
+
+  /admin/summary:
+    get:
+      tags: [Admin]
+      summary: Aggregated runtime summary
+      responses:
+        '200':
+          description: Combined runtime state
+
+  /admin/rate-limit:
+    get:
+      tags: [Admin]
+      summary: Rate limit metrics
+      responses:
+        '200':
+          description: Rate limit token bucket state
+
+  /admin/reconcile:
+    post:
+      tags: [Admin]
+      summary: Trigger order reconciliation
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties:
+                type: integer
+              example: { "RELIANCE": 5, "SBIN": 10 }
+      responses:
+        '200':
+          description: Reconciliation result
+
+  # ──────────────────────────────────────────
+  # ADMIN — Historical
+  # ──────────────────────────────────────────
+  /admin/historical/candles:
+    get:
+      tags: [Admin, Historical]
+      summary: Historical local candles
+      parameters:
+        - name: symbol
+          in: query
+          required: true
+          schema: { type: string }
+        - name: interval
+          in: query
+          schema:
+            type: string
+            default: 5m
+        - name: from
+          in: query
+          required: true
+          schema:
+            type: integer
+            description: Epoch milliseconds
+        - name: to
+          in: query
+          required: true
+          schema:
+            type: integer
+            description: Epoch milliseconds
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 1000
+      responses:
+        '200':
+          description: Historical candles
+
+  /admin/historical/ticks:
+    get:
+      tags: [Admin, Historical]
+      summary: Historical ticks
+      parameters:
+        - name: symbol
+          in: query
+          required: true
+          schema: { type: string }
+        - name: from
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: to
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 5000
+      responses:
+        '200':
+          description: Historical ticks
+
+  /admin/historical/orders:
+    get:
+      tags: [Admin, Historical]
+      summary: Historical orders
+      parameters:
+        - name: symbol
+          in: query
+          schema:
+            type: string
+            default: ""
+        - name: from
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: to
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 500
+      responses:
+        '200':
+          description: Historical orders
+
+  /admin/historical/fills:
+    get:
+      tags: [Admin, Historical]
+      summary: Historical fills
+      parameters:
+        - name: symbol
+          in: query
+          schema:
+            type: string
+            default: ""
+        - name: from
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: to
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 500
+      responses:
+        '200':
+          description: Historical fills
+
+  /admin/historical/fill-events:
+    get:
+      tags: [Admin, Historical]
+      summary: Historical fill events
+      parameters:
+        - name: symbol
+          in: query
+          schema:
+            type: string
+            default: ""
+        - name: from
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: to
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 500
+      responses:
+        '200':
+          description: Historical fill events
+
+  /admin/historical/stats:
+    get:
+      tags: [Admin, Historical]
+      summary: Historical data stats
+      parameters:
+        - name: symbol
+          in: query
+          required: true
+          schema: { type: string }
+        - name: from
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: to
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Historical stats
+
+  # ──────────────────────────────────────────
+  # ADMIN — Replay
+  # ──────────────────────────────────────────
+  /admin/historical/replay/ticks:
+    post:
+      tags: [Admin, Replay]
+      summary: Replay ticks
+      parameters:
+        - name: symbol
+          in: query
+          required: true
+          schema: { type: string }
+        - name: from
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: to
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Replay started
+
+  /admin/historical/replay/candles:
+    post:
+      tags: [Admin, Replay]
+      summary: Replay candles
+      parameters:
+        - name: symbol
+          in: query
+          required: true
+          schema: { type: string }
+        - name: interval
+          in: query
+          schema:
+            type: string
+            default: 5m
+        - name: from
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: to
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Replay started
+
+  /admin/historical/replay/fills:
+    post:
+      tags: [Admin, Replay]
+      summary: Replay fill events
+      parameters:
+        - name: symbol
+          in: query
+          schema:
+            type: string
+            default: ""
+        - name: from
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: to
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Replay started
+
+  /admin/historical/replay/orders:
+    post:
+      tags: [Admin, Replay]
+      summary: Replay orders
+      parameters:
+        - name: symbol
+          in: query
+          schema:
+            type: string
+            default: ""
+        - name: from
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: to
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Replay started
+
+  /admin/chronicle/replay:
+    post:
+      tags: [Admin, Replay]
+      summary: Replay from Chronicle audit log
+      parameters:
+        - name: eventType
+          in: query
+          required: true
+          schema:
+            type: string
+            description: Fully qualified domain event class name
+      responses:
+        '200':
+          description: Replay started
+
+  # ──────────────────────────────────────────
+  # ADMIN — Download Jobs
+  # ──────────────────────────────────────────
+  /admin/download/jobs:
+    post:
+      tags: [Admin, Download]
+      summary: Start rolling option download job
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RollingOptionJobRequest'
+      responses:
+        '200':
+          description: Job created
+    get:
+      tags: [Admin, Download]
+      summary: List download jobs
+      parameters:
+        - name: source
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [ROLLING_OPTION, EQUITY_INTRADAY]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Job list
+
+  /admin/download/jobs/equity:
+    post:
+      tags: [Admin, Download]
+      summary: Start equity download job
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EquityJobRequest'
+      responses:
+        '200':
+          description: Job created
+
+  /admin/download/jobs/{jobId}:
+    get:
+      tags: [Admin, Download]
+      summary: Download job status
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Job status
+
+  /admin/download/jobs/{jobId}/resume:
+    post:
+      tags: [Admin, Download]
+      summary: Resume download job
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: async
+          in: query
+          schema:
+            type: boolean
+            default: true
+      responses:
+        '200':
+          description: Job resumed
+
+  /admin/universe/nifty500/refresh:
+    post:
+      tags: [Admin, Download]
+      summary: Refresh Nifty 500 universe
+      responses:
+        '200':
+          description: Universe refreshed
+
+  /admin/historical/equity/import-hive:
+    post:
+      tags: [Admin, Download]
+      summary: Import from Hive cache
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ImportHiveRequest'
+      responses:
+        '200':
+          description: Import result
+
+  # ──────────────────────────────────────────
+  # ACTUATOR
+  # ──────────────────────────────────────────
+  /actuator/health:
+    get:
+      tags: [Actuator]
+      summary: Health endpoint
+      responses:
+        '200':
+          description: Health status (liveness + readiness)
+
+  /actuator/info:
+    get:
+      tags: [Actuator]
+      summary: Application info
+      responses:
+        '200':
+          description: App info
+
+  /actuator/prometheus:
+    get:
+      tags: [Actuator]
+      summary: Prometheus metrics
+      responses:
+        '200':
+          description: Prometheus scrape endpoint
+
+  # ──────────────────────────────────────────
+  # DASHBOARD
+  # ──────────────────────────────────────────
+  /:
+    get:
+      tags: [Dashboard]
+      summary: Root redirect to console SPA
+      responses:
+        '302':
+          description: Redirects to /console/index.html
+
+  /console:
+    get:
+      tags: [Dashboard]
+      summary: Console redirect
+      responses:
+        '302':
+          description: Redirects to /console/index.html
+
+  /console/index.html:
+    get:
+      tags: [Dashboard]
+      summary: React SPA
+      responses:
+        '200':
+          description: Single-page application
+
+components:
+  schemas:
+    ExchangeSegment:
+      type: string
+      enum: [NSE_EQ, NSE_FNO, BSE_EQ, BSE_FNO, MCX_COMM, IDX_I, NSE_CURRENCY, BSE_CURRENCY]
+
+    OptionType:
+      type: string
+      enum: [CALL, PUT, UNKNOWN]
+
+    AnalyticsCatalogSnapshot:
+      type: object
+      properties:
+        equityRoot: { type: string }
+        optionsWarehousePath: { type: string }
+        equitySymbolCount: { type: integer }
+        equityBarFileCount: { type: integer }
+        equityMinMonth: { type: string, format: date }
+        equityMaxMonth: { type: string, format: date }
+        universeRowCount: { type: integer }
+        optionsBarCount: { type: integer }
+        optionsMinDate: { type: string, format: date }
+        optionsMaxDate: { type: string, format: date }
+        optionsAttached: { type: boolean }
+        runtimeAttached: { type: boolean }
+        views: { type: object }
+
+    AnalyticsQueryResult:
+      type: object
+      properties:
+        columns:
+          type: array
+          items: { type: string }
+        rows:
+          type: array
+          items:
+            type: object
+        rowCount: { type: integer }
+        elapsedMs: { type: integer }
+
+    Candle:
+      type: object
+      properties:
+        symbol: { type: string }
+        interval: { type: string }
+        startTimeMs: { type: integer }
+        endTimeMs: { type: integer }
+        openPaisa: { type: integer }
+        highPaisa: { type: integer }
+        lowPaisa: { type: integer }
+        closePaisa: { type: integer }
+        volume: { type: integer }
+        closed: { type: boolean }
+
+    PipelineGraph:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        version: { type: integer }
+        nodes:
+          type: array
+          items:
+            $ref: '#/components/schemas/PipelineNodeDef'
+        edges:
+          type: array
+          items:
+            $ref: '#/components/schemas/PipelineEdgeDef'
+        executionMode:
+          $ref: '#/components/schemas/PipelineExecutionMode'
+
+    PipelineNodeDef:
+      type: object
+      properties:
+        id: { type: string }
+        type: { type: string }
+        label: { type: string }
+        config: { type: object }
+
+    PipelineEdgeDef:
+      type: object
+      properties:
+        id: { type: string }
+        source: { type: string }
+        target: { type: string }
+
+    PipelineExecutionMode:
+      type: string
+      enum: [HOT_PATH, DAG]
+
+    ReadModelSnapshot:
+      type: object
+      properties:
+        orders:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderView'
+        positions:
+          type: array
+          items:
+            $ref: '#/components/schemas/PositionView'
+        ticks:
+          type: array
+          items:
+            $ref: '#/components/schemas/TickView'
+        depths:
+          type: array
+          items:
+            $ref: '#/components/schemas/DepthView'
+        candles:
+          type: array
+          items:
+            $ref: '#/components/schemas/CandleView'
+        signals:
+          type: array
+          items:
+            $ref: '#/components/schemas/SignalView'
+        pnl:
+          $ref: '#/components/schemas/PnlView'
+        latestScan:
+          $ref: '#/components/schemas/ScanResultView'
+        version: { type: integer }
+
+    OrderView:
+      type: object
+      properties:
+        orderId: { type: string }
+        symbol: { type: string }
+        status: { type: string }
+        quantity: { type: integer }
+
+    PositionView:
+      type: object
+      properties:
+        symbol: { type: string }
+        netQuantity: { type: integer }
+        avgPricePaisa: { type: integer }
+
+    TickView:
+      type: object
+      properties:
+        symbol: { type: string }
+        ltpPaisa: { type: integer }
+        exchangeTimestampMs: { type: integer }
+
+    DepthView:
+      type: object
+      properties:
+        symbol: { type: string }
+        bids:
+          type: array
+          items:
+            $ref: '#/components/schemas/DepthLevel'
+        asks:
+          type: array
+          items:
+            $ref: '#/components/schemas/DepthLevel'
+        exchangeTimestampMs: { type: integer }
+
+    DepthLevel:
+      type: object
+      properties:
+        pricePaisa: { type: integer }
+        quantity: { type: integer }
+        orderCount: { type: integer }
+
+    CandleView:
+      type: object
+      properties:
+        symbol: { type: string }
+        interval: { type: string }
+        closePaisa: { type: integer }
+        volume: { type: integer }
+        closed: { type: boolean }
+
+    SignalView:
+      type: object
+      properties:
+        signalId: { type: string }
+        symbol: { type: string }
+        side: { type: string }
+        strategy: { type: string }
+
+    PnlView:
+      type: object
+      properties:
+        realizedPnlPaisa: { type: integer }
+        unrealizedPnlPaisa: { type: integer }
+        netExposurePaisa: { type: integer }
+
+    ScanResultView:
+      type: object
+      properties:
+        runId: { type: string }
+        profileId: { type: string }
+        hitCount: { type: integer }
+        hits:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScanHitView'
+
+    ScanHitView:
+      type: object
+      properties:
+        symbol: { type: string }
+        exchangeSegment: { type: string }
+        score: { type: number }
+        reasons:
+          type: array
+          items: { type: string }
+
+    RollingOptionJobRequest:
+      type: object
+      properties:
+        symbols: { type: string }
+        exchangeSegment:
+          $ref: '#/components/schemas/ExchangeSegment'
+        from:
+          type: string
+          format: date
+        to:
+          type: string
+          format: date
+        intervals: { type: string }
+        expiries: { type: string }
+        strikes: { type: string }
+        optionTypes: { type: string }
+        delayMs: { type: integer }
+        resume: { type: boolean }
+        runAsync: { type: boolean }
+
+    EquityJobRequest:
+      type: object
+      properties:
+        universe: { type: string }
+        symbols: { type: string }
+        exchangeSegment:
+          $ref: '#/components/schemas/ExchangeSegment'
+        from:
+          type: string
+          format: date
+        to:
+          type: string
+          format: date
+        interval: { type: string }
+        rootPath: { type: string }
+        delayMs: { type: integer }
+        workers: { type: integer }
+        refreshUniverse: { type: boolean }
+        resume: { type: boolean }
+        runAsync: { type: boolean }
+
+    ImportHiveRequest:
+      type: object
+      properties:
+        sourceHive: { type: string }
+        universeCsv: { type: string }
+        industryParquet: { type: string }
+        rootPath: { type: string }
+        fromMonth: { type: string }
+        toMonth: { type: string }
+        force: { type: boolean }
+        symbols: { type: string }
+        skipUniverseImport: { type: boolean }
+        runAsync: { type: boolean }
