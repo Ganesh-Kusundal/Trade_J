@@ -1,47 +1,90 @@
 package com.tradej.execution.service;
 
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-import com.tradej.core.domain.instrument.ContractSymbolNormalizer;
-import com.tradej.core.domain.runtime.RuntimeModeHolder;
 import com.tradej.broker.api.IBrokerConnection;
+import com.tradej.core.domain.instrument.ContractSymbolNormalizer;
+import com.tradej.core.domain.model.ModifyOrderRequest;
 import com.tradej.core.domain.model.Order;
 import com.tradej.core.domain.model.OrderRequest;
+import com.tradej.core.domain.oms.CancelRequested;
+import com.tradej.core.domain.oms.LifecycleState;
+import com.tradej.core.domain.oms.OrderAcknowledged;
+import com.tradej.core.domain.oms.OrderCancelled;
+import com.tradej.core.domain.oms.OrderEvent;
+import com.tradej.core.domain.oms.OrderExpired;
+import com.tradej.core.domain.oms.OrderFullyFilled;
+import com.tradej.core.domain.oms.OrderPartiallyFilled;
+import com.tradej.core.domain.oms.OrderProjection;
+import com.tradej.core.domain.oms.OrderRejected;
+import com.tradej.core.domain.oms.OrderStateMachine;
+import com.tradej.core.domain.oms.OrderSubmitted;
+import com.tradej.core.domain.runtime.RuntimeModeHolder;
+import com.tradej.core.domain.time.TradingClock;
 import com.tradej.core.domain.value.OrderStatus;
+import com.tradej.persistence.oms.EventSourcedOrderRepository;
 import com.tradej.simulation.MatchingEngine;
 import com.tradej.simulation.SimulatedOrderService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
 
+/**
+ * Manages order lifecycle with state-machine validation.
+ *
+ * <p>All order mutations (place, modify, cancel) validate the current
+ * {@link LifecycleState} before forwarding to the broker. Broker callbacks
+ * drive state transitions via {@link OrderStateMachine}, and every
+ * {@link OrderEvent} is persisted to {@link EventSourcedOrderRepository}.
+ */
 @Service
 public final class OrderManagementService {
+
+    private static final Logger log = LoggerFactory.getLogger(OrderManagementService.class);
+
     private final IBrokerConnection brokerConnection;
     private final RuntimeModeHolder runtimeModeHolder;
     private final SimulatedOrderService simulatedOrderService;
+    private final TradingClock clock;
+    private final EventSourcedOrderRepository orderRepository;
+    private final ConcurrentHashMap<String, OrderStateMachine> stateMachines = new ConcurrentHashMap<>();
     private volatile MatchingEngine.MatchResult lastSimulatedMatch;
 
     public OrderManagementService(
             IBrokerConnection brokerConnection,
-            RuntimeModeHolder runtimeModeHolder
-    ) {
-        this(brokerConnection, runtimeModeHolder, null);
+            RuntimeModeHolder runtimeModeHolder,
+            TradingClock clock,
+            EventSourcedOrderRepository orderRepository) {
+        this(brokerConnection, runtimeModeHolder, null, clock, orderRepository);
     }
 
     @Autowired
     public OrderManagementService(
             IBrokerConnection brokerConnection,
             RuntimeModeHolder runtimeModeHolder,
-            @Autowired(required = false) SimulatedOrderService simulatedOrderService
-    ) {
+            @Autowired(required = false) SimulatedOrderService simulatedOrderService,
+            TradingClock clock,
+            EventSourcedOrderRepository orderRepository) {
         this.brokerConnection = brokerConnection;
         this.runtimeModeHolder = runtimeModeHolder;
         this.simulatedOrderService = simulatedOrderService;
+        this.clock = clock;
+        this.orderRepository = orderRepository;
     }
 
+    /**
+     * Places a new order after normalising the symbol and forwards to the broker
+     * (or simulated matching engine). Does <b>not</b> emit OMS events — the
+     * caller ({@link ExecutionHandler}) is responsible for the full event lifecycle.
+     */
     public Order placeOrder(OrderRequest request) {
         String canonicalSymbol = ContractSymbolNormalizer.normalize(request.symbol());
-        OrderRequest normalizedRequest = new OrderRequest(
+        OrderRequest normalized = new OrderRequest(
                 canonicalSymbol,
                 request.exchangeSegment(),
                 request.side(),
@@ -53,16 +96,122 @@ public final class OrderManagementService {
                 request.validity(),
                 request.correlationId()
         );
+
         if (runtimeModeHolder.mode().usesSimulatedExecution()) {
             if (simulatedOrderService == null) {
-                return legacySimulatedOpenOrder(normalizedRequest);
+                return legacySimulatedOpenOrder(normalized, clock);
             }
-            MatchingEngine.MatchResult match = simulatedOrderService.placeOrder(normalizedRequest);
+            MatchingEngine.MatchResult match = simulatedOrderService.placeOrder(normalized);
             lastSimulatedMatch = match;
             return match.order();
         }
+
         lastSimulatedMatch = null;
-        return brokerConnection.orders().placeOrder(normalizedRequest);
+        return brokerConnection.orders().placeOrder(normalized);
+    }
+
+    /**
+     * Cancels an order if it is in a cancellable state.
+     * Emits {@link CancelRequested} and forwards to the broker.
+     *
+     * @throws IllegalStateException if the order is already in a terminal state
+     */
+    public boolean cancelOrder(String orderId) {
+        OrderStateMachine machine = stateMachines.get(orderId);
+        if (machine == null) {
+            log.warn("Cancel requested for unknown orderId={}", orderId);
+            return brokerConnection.orders().cancelOrder(orderId);
+        }
+
+        LifecycleState state = machine.currentStatus();
+        if (state.isFinal()) {
+            throw new IllegalStateException(
+                    "Cannot cancel order " + orderId + " — already in terminal state " + state);
+        }
+
+        boolean cancelled = brokerConnection.orders().cancelOrder(orderId);
+        if (cancelled) {
+            persistAndApply(orderId, new CancelRequested(orderId));
+        }
+        return cancelled;
+    }
+
+    /**
+     * Modifies an order if it is in a modifiable state ({@code SUBMITTED}
+     * or {@code PARTIALLY_FILLED}).
+     *
+     * @throws IllegalStateException if the order is not modifiable
+     */
+    public Order modifyOrder(ModifyOrderRequest request) {
+        String orderId = request.orderId();
+        OrderStateMachine machine = stateMachines.get(orderId);
+        if (machine == null) {
+            log.warn("Modify requested for unknown orderId={}", orderId);
+            return brokerConnection.orders().modifyOrder(request);
+        }
+
+        LifecycleState state = machine.currentStatus();
+        if (state != LifecycleState.SUBMITTED && state != LifecycleState.PARTIALLY_FILLED) {
+            throw new IllegalStateException(
+                    "Cannot modify order " + orderId + " — must be SUBMITTED or PARTIALLY_FILLED, but was " + state);
+        }
+
+        return brokerConnection.orders().modifyOrder(request);
+    }
+
+    /**
+     * Returns the current projection for an order, or empty if unknown.
+     */
+    public Optional<OrderProjection> getOrderProjection(String orderId) {
+        OrderStateMachine machine = stateMachines.get(orderId);
+        if (machine != null) {
+            return Optional.of(machine.toProjection());
+        }
+        OrderProjection proj = orderRepository.rebuild(orderId);
+        return Optional.ofNullable(proj);
+    }
+
+    /**
+     * Lists all orders that are not in a terminal state.
+     */
+    public List<OrderProjection> getActiveOrders() {
+        return stateMachines.values().stream()
+                .map(OrderStateMachine::toProjection)
+                .filter(p -> !p.status().isFinal())
+                .toList();
+    }
+
+    /**
+     * Lists all orders in a terminal state.
+     */
+    public List<OrderProjection> getCompletedOrders() {
+        return stateMachines.values().stream()
+                .map(OrderStateMachine::toProjection)
+                .filter(p -> p.status().isFinal())
+                .toList();
+    }
+
+    /**
+     * Processes a broker callback event, transitioning the order state machine.
+     * Every event is persisted.
+     */
+    public void onBrokerEvent(OrderEvent event) {
+        persistAndApply(event.orderId(), event);
+    }
+
+    /**
+     * Replays all persisted events into memory. Call on startup to rebuild
+     * the in-memory state-machine cache.
+     */
+    public void replayAll() {
+        stateMachines.clear();
+        for (String orderId : orderRepository.knownOrderIds()) {
+            OrderStateMachine machine = orderRepository.rebuildStateMachine(orderId);
+            if (machine != null) {
+                stateMachines.put(orderId, machine);
+            }
+        }
+        log.info("Rebuilt {} order state machines from repository", stateMachines.size());
     }
 
     public Optional<MatchingEngine.MatchResult> lastSimulatedMatch() {
@@ -73,7 +222,27 @@ public final class OrderManagementService {
         brokerConnection.orders().setKillSwitch(true);
     }
 
-    private static Order legacySimulatedOpenOrder(OrderRequest request) {
+    // --- Internal helpers ---
+
+    private void persistAndApply(String orderId, OrderEvent event) {
+        orderRepository.append(event);
+        stateMachines.compute(orderId, (id, existing) -> {
+            if (existing == null) {
+                if (event instanceof OrderSubmitted submitted) {
+                    OrderStateMachine sm = new OrderStateMachine(
+                            orderId, submitted.symbol(), submitted.totalQuantity());
+                    sm.on(event);
+                    return sm;
+                }
+                log.warn("First event for order {} was not OrderSubmitted: {}", orderId, event.type());
+                return null;
+            }
+            existing.on(event);
+            return existing;
+        });
+    }
+
+    private static Order legacySimulatedOpenOrder(OrderRequest request, TradingClock clock) {
         return new Order(
                 "SIM-" + UUID.randomUUID(),
                 request.correlationId(),
@@ -87,7 +256,7 @@ public final class OrderManagementService {
                 0L,
                 request.pricePaisa(),
                 request.triggerPricePaisa(),
-                System.currentTimeMillis(),
+                clock.millis(),
                 null
         );
     }

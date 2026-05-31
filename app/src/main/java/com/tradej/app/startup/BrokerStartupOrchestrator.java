@@ -37,6 +37,7 @@ import com.tradej.core.domain.model.InstrumentKey;
 import com.tradej.core.domain.port.EventBus;
 import com.tradej.execution.position.EventSourcedNetPositionProvider;
 import com.tradej.execution.reconcile.ReconciliationAlertLogger;
+import com.tradej.execution.service.OrderManagementService;
 import com.tradej.feature.store.AsyncDuckDbWriter;
 import com.tradej.hotpath.MarketDataPipeline;
 import com.tradej.hotpath.OrderPipeline;
@@ -88,7 +89,8 @@ public final class BrokerStartupOrchestrator {
             EventSourcedNetPositionProvider netPositionProvider,
             ObjectProvider<RuntimeSubscriptionManager> subscriptionManagerProvider,
             DagPipelineIngressBridge dagPipelineIngressBridge,
-            PositionStateRebuilder positionStateRebuilder
+            PositionStateRebuilder positionStateRebuilder,
+            OrderManagementService orderManagementService
     ) {
         BrokerRuntimeMode mode = runtimeModeResolver.resolve();
 
@@ -118,6 +120,7 @@ public final class BrokerStartupOrchestrator {
         setupWebSocketHandlers(brokerConnection, marketDataPipeline, orderPipeline, eventBus);
 
         eventBus.start();
+        orderManagementService.replayAll();
         positionStateRebuilder.rebuild(eventBus);
 
         if (!mode.expectsWebSocket()) {

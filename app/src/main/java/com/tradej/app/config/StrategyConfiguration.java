@@ -1,5 +1,6 @@
 package com.tradej.app.config;
 
+import com.tradej.core.domain.event.EventMetadataFactory;
 import com.tradej.core.domain.port.FeatureStore;
 import com.tradej.core.domain.port.ModelRegistry;
 import com.tradej.strategy.api.GraphStrategyPlugin;
@@ -79,7 +80,8 @@ public class StrategyConfiguration {
     @Bean(destroyMethod = "shutdown")
     GraphStrategySandbox graphStrategySandbox(
             List<StrategyPlugin> strategyPlugins,
-            List<GraphStrategyPlugin> graphStrategyPlugins
+            List<GraphStrategyPlugin> graphStrategyPlugins,
+            EventMetadataFactory eventMetadataFactory
     ) {
         List<GraphStrategyPlugin> allPlugins = new ArrayList<>();
         // Wrap legacy candle-only plugins via adapter
@@ -88,7 +90,7 @@ public class StrategyConfiguration {
         }
         // Add native graph strategy plugins (tick, depth, ML)
         allPlugins.addAll(graphStrategyPlugins);
-        return new GraphStrategySandbox(allPlugins);
+        return new GraphStrategySandbox(allPlugins, eventMetadataFactory);
     }
 
     /**
@@ -100,7 +102,7 @@ public class StrategyConfiguration {
      */
     @Deprecated
     @Bean(destroyMethod = "shutdown")
-    StrategyEngine strategyEngine(List<StrategyPlugin> strategyPlugins) {
-        return new StrategyEngine(strategyPlugins);
+    StrategyEngine strategyEngine(List<StrategyPlugin> strategyPlugins, EventMetadataFactory eventMetadataFactory) {
+        return new StrategyEngine(strategyPlugins, eventMetadataFactory);
     }
 }

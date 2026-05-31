@@ -2,6 +2,7 @@ package com.tradej.strategy.service;
 
 import com.tradej.core.domain.event.DomainEvent;
 import com.tradej.core.domain.event.EventMetadata;
+import com.tradej.core.domain.event.EventMetadataFactory;
 import com.tradej.core.domain.event.SignalGenerated;
 import com.tradej.core.domain.event.StrategyError;
 import com.tradej.core.domain.port.PositionSizer;
@@ -44,16 +45,17 @@ public final class GraphStrategySandbox {
     private final ExecutorService executor;
     private final long timeoutMs;
     private final PositionSizer positionSizer;
+    private final EventMetadataFactory eventMetadataFactory;
 
-    public GraphStrategySandbox(List<GraphStrategyPlugin> plugins) {
-        this(plugins, DEFAULT_TIMEOUT_MS, new DefaultPositionSizer());
+    public GraphStrategySandbox(List<GraphStrategyPlugin> plugins, EventMetadataFactory eventMetadataFactory) {
+        this(plugins, DEFAULT_TIMEOUT_MS, new DefaultPositionSizer(), eventMetadataFactory);
     }
 
-    public GraphStrategySandbox(List<GraphStrategyPlugin> plugins, long timeoutMs) {
-        this(plugins, timeoutMs, new DefaultPositionSizer());
+    public GraphStrategySandbox(List<GraphStrategyPlugin> plugins, long timeoutMs, EventMetadataFactory eventMetadataFactory) {
+        this(plugins, timeoutMs, new DefaultPositionSizer(), eventMetadataFactory);
     }
 
-    public GraphStrategySandbox(List<GraphStrategyPlugin> plugins, long timeoutMs, PositionSizer positionSizer) {
+    public GraphStrategySandbox(List<GraphStrategyPlugin> plugins, long timeoutMs, PositionSizer positionSizer, EventMetadataFactory eventMetadataFactory) {
         this.plugins = new ArrayList<>();
         if (plugins != null) {
             this.plugins.addAll(plugins);
@@ -62,6 +64,7 @@ public final class GraphStrategySandbox {
         this.executor = Executors.newVirtualThreadPerTaskExecutor();
         this.timeoutMs = timeoutMs;
         this.positionSizer = positionSizer != null ? positionSizer : new DefaultPositionSizer();
+        this.eventMetadataFactory = eventMetadataFactory;
         this.plugins.forEach(GraphStrategyPlugin::onStart);
     }
 
@@ -129,7 +132,7 @@ public final class GraphStrategySandbox {
                                 log.error("Graph strategy plugin {} failed: {}", pluginName, detail, cause);
                             }
                             downstream.accept(new StrategyError(
-                                    EventMetadata.correlated(correlationId, correlationSeq),
+                                    eventMetadataFactory.correlated(correlationId, correlationSeq),
                                     pluginName, "", detail));
                         }
                         return null;

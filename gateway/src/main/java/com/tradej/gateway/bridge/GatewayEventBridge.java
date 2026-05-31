@@ -26,7 +26,6 @@ import org.slf4j.LoggerFactory;
 import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -84,6 +83,11 @@ public final class GatewayEventBridge implements AutoCloseable {
     }
 
     void onDomainEvent(DomainEvent event) {
+        if (event == null) {
+            log.warn("Null domain event received — skipping");
+            return;
+        }
+
         // Dedup: skip events with recently seen IDs (prevents duplicate broadcasts
         // during replay or when the same event arrives via multiple paths).
         if (isDuplicate(event)) {
@@ -91,7 +95,6 @@ public final class GatewayEventBridge implements AutoCloseable {
         }
 
         try {
-            Objects.requireNonNull(event);
             switch (event) {
                 case MarketTickEvent tick ->
                         router.publish(GatewayTopic.MARKET_TICK, writeJson(marketTickPayload(tick)));

@@ -14,7 +14,7 @@ import com.tradej.core.domain.runtime.RuntimeModeHolder;
 import com.tradej.core.domain.value.FillReconciliation;
 import com.tradej.core.domain.value.Side;
 import com.tradej.execution.identity.OrderIdentityRegistry;
-import com.tradej.persistence.oms.EventSourcedOrderRepository;
+import com.tradej.execution.service.OrderManagementService;
 import com.tradej.pipeline.runtime.BasePipelineNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,7 +47,7 @@ public final class FillReconciliationNode extends BasePipelineNode {
     private static final int MAX_FILL_DEFER_ATTEMPTS = FillReconciliation.MAX_FILL_DEFER_ATTEMPTS;
     private static final long FILL_DEFER_DELAY_MS = FillReconciliation.FILL_DEFER_DELAY_MS;
 
-    private final EventSourcedOrderRepository omsRepo;
+    private final OrderManagementService orderManagementService;
     private final OrderIdentityRegistry identityRegistry;
     private final RuntimeModeHolder runtimeModeHolder;
     private final AtomicLong droppedFillCount = new AtomicLong();
@@ -59,11 +59,11 @@ public final class FillReconciliationNode extends BasePipelineNode {
     });
 
     public FillReconciliationNode(
-            EventSourcedOrderRepository omsRepo,
+            OrderManagementService orderManagementService,
             OrderIdentityRegistry identityRegistry,
             RuntimeModeHolder runtimeModeHolder
     ) {
-        this.omsRepo = omsRepo;
+        this.orderManagementService = orderManagementService;
         this.identityRegistry = identityRegistry;
         this.runtimeModeHolder = runtimeModeHolder;
     }
@@ -112,7 +112,7 @@ public final class FillReconciliationNode extends BasePipelineNode {
             return;
         }
 
-        OrderProjection projection = omsRepo.rebuild(internalOrderId);
+        OrderProjection projection = orderManagementService.getOrderProjection(internalOrderId).orElse(null);
         if (projection == null) {
             log.warn("No OMS projection found for internalOrderId={}", internalOrderId);
             emitTradeEvent(internalOrderId, order, orderFilled, 0L);
@@ -128,13 +128,13 @@ public final class FillReconciliationNode extends BasePipelineNode {
                 : 0L;
 
         if (filledSoFar >= totalQty) {
-            omsRepo.append(com.tradej.core.domain.oms.OrderFullyFilled.event(internalOrderId, totalQty, avgPrice));
+            orderManagementService.onBrokerEvent(com.tradej.core.domain.oms.OrderFullyFilled.event(internalOrderId, totalQty, avgPrice));
             context.publish(new com.tradej.core.domain.event.OrderFullyFilled(
                     EventMetadata.correlated(order.correlationId(), orderFilled.sequenceId()),
                     order, orderFilled.fills()
             ));
         } else {
-            omsRepo.append(com.tradej.core.domain.oms.OrderPartiallyFilled.event(internalOrderId, fillQty, avgPrice));
+            orderManagementService.onBrokerEvent(com.tradej.core.domain.oms.OrderPartiallyFilled.event(internalOrderId, fillQty, avgPrice));
             context.publish(new com.tradej.core.domain.event.OrderPartiallyFilled(
                     EventMetadata.correlated(order.correlationId(), orderFilled.sequenceId()),
                     order, orderFilled.fills()

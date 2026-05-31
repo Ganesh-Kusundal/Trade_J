@@ -103,7 +103,7 @@ public final class DhanWebSocketMultiplexer implements WebSocketMultiplexer {
             DhanInstrumentResolver resolver,
             DhanConnectionSettings settings
     ) {
-        this(clientHolder, resolver, settings, new EventMetadataFactory());
+        this(clientHolder, resolver, settings, new EventMetadataFactory(new com.tradej.core.domain.time.LiveTradingClock()));
     }
 
     public DhanWebSocketMultiplexer(
@@ -342,8 +342,19 @@ public final class DhanWebSocketMultiplexer implements WebSocketMultiplexer {
                     OrderStatus previousStatus = latestOrderStatuses.put(order.orderId(), order.status());
                     if (order.status().isRejected() && previousStatus != OrderStatus.REJECTED) {
                         publishOrder(new OrderRejected(metadataFactory.correlated(order.correlationId(), 0), order, order.rejectionReason()));
-                    } else if (previousStatus == null) {
+                        return;
+                    }
+                    if (previousStatus == null) {
                         publishOrder(new OrderAccepted(metadataFactory.correlated(order.correlationId(), 0), order));
+                    }
+                    // Emit partial/full fill events when the order update itself
+                    // signals a fill transition (DW-03 fix).
+                    if (order.status() == OrderStatus.PART_TRADED && previousStatus != OrderStatus.PART_TRADED) {
+                        publishOrder(new com.tradej.core.domain.event.OrderPartiallyFilled(
+                                metadataFactory.correlated(order.correlationId(), 0), order, List.of()));
+                    } else if (order.status() == OrderStatus.TRADED && previousStatus != OrderStatus.TRADED) {
+                        publishOrder(new com.tradej.core.domain.event.OrderFullyFilled(
+                                metadataFactory.correlated(order.correlationId(), 0), order, List.of()));
                     }
                 } catch (RuntimeException ex) {
                     publishOrder(brokerError("order-normalization", ex.getMessage()));

@@ -3,11 +3,13 @@ package com.tradej.strategy.service;
 import com.tradej.core.domain.event.CandleClosed;
 import com.tradej.core.domain.event.DomainEvent;
 import com.tradej.core.domain.event.EventMetadata;
+import com.tradej.core.domain.event.EventMetadataFactory;
 import com.tradej.core.domain.event.SignalGenerated;
 import com.tradej.core.domain.event.StrategyError;
 import com.tradej.core.domain.event.TickReceived;
 import com.tradej.core.domain.model.Candle;
 import com.tradej.core.domain.port.PositionSizer;
+import com.tradej.core.domain.time.LiveTradingClock;
 import com.tradej.core.domain.value.Side;
 import com.tradej.strategy.api.GraphStrategyPlugin;
 import com.tradej.strategy.position.DefaultPositionSizer;
@@ -30,6 +32,8 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 @Tag("unit")
 class GraphStrategySandboxTest {
+
+    private final EventMetadataFactory eventMetadataFactory = new EventMetadataFactory(new LiveTradingClock());
 
     private static final CandleClosed TEST_CANDLE = new CandleClosed(
             EventMetadata.root(),
@@ -57,7 +61,7 @@ class GraphStrategySandboxTest {
             }
         };
 
-        var sandbox = new GraphStrategySandbox(List.of(plugin), 2_000L);
+        var sandbox = new GraphStrategySandbox(List.of(plugin), 2_000L, eventMetadataFactory);
         var emitted = new ArrayList<DomainEvent>();
 
         sandbox.onDomainEvent(TEST_CANDLE, emitted::add);
@@ -84,7 +88,7 @@ class GraphStrategySandboxTest {
             }
         };
 
-        var sandbox = new GraphStrategySandbox(List.of(plugin), 500L);
+        var sandbox = new GraphStrategySandbox(List.of(plugin), 500L, eventMetadataFactory);
         var emitted = new ArrayList<DomainEvent>();
 
         sandbox.onDomainEvent(TEST_CANDLE, emitted::add);
@@ -122,7 +126,7 @@ class GraphStrategySandboxTest {
             }
         };
 
-        var sandbox = new GraphStrategySandbox(List.of(hangingPlugin, fastPlugin), 100L);
+        var sandbox = new GraphStrategySandbox(List.of(hangingPlugin, fastPlugin), 100L, eventMetadataFactory);
         var emitted = new ArrayList<DomainEvent>();
 
         sandbox.onDomainEvent(TEST_CANDLE, emitted::add);
@@ -150,7 +154,7 @@ class GraphStrategySandboxTest {
             }
         };
 
-        var sandbox = new GraphStrategySandbox(List.of(plugin), 500L);
+        var sandbox = new GraphStrategySandbox(List.of(plugin), 500L, eventMetadataFactory);
         var emitted = new ArrayList<DomainEvent>();
 
         // Send a TickReceived (not subscribed)
@@ -176,7 +180,7 @@ class GraphStrategySandboxTest {
             }
         };
 
-        var sandbox = new GraphStrategySandbox(List.of(plugin), 500L);
+        var sandbox = new GraphStrategySandbox(List.of(plugin), 500L, eventMetadataFactory);
         var emitted = new ArrayList<DomainEvent>();
 
         sandbox.onDomainEvent(TEST_TICK, emitted::add);
@@ -201,7 +205,7 @@ class GraphStrategySandboxTest {
             }
         };
 
-        var sandbox = new GraphStrategySandbox(List.of(plugin), 500L);
+        var sandbox = new GraphStrategySandbox(List.of(plugin), 500L, eventMetadataFactory);
         var emitted = new ArrayList<DomainEvent>();
 
         sandbox.onDomainEvent(TEST_TICK, emitted::add);
@@ -223,7 +227,7 @@ class GraphStrategySandboxTest {
             @Override public List<Class<? extends DomainEvent>> subscribedEventTypes() { return List.of(); }
             @Override public Optional<SignalGenerated> onEvent(DomainEvent event) { return Optional.empty(); }
         };
-        var sandbox = new GraphStrategySandbox(List.of(p1, p2), 500L);
+        var sandbox = new GraphStrategySandbox(List.of(p1, p2), 500L, eventMetadataFactory);
         assertEquals(2, sandbox.pluginCount());
     }
 
@@ -245,7 +249,7 @@ class GraphStrategySandboxTest {
                 return 42L;  // fixed size from sizer
             }
         };
-        var sandbox = new GraphStrategySandbox(List.of(plugin), 2_000L, sizer);
+        var sandbox = new GraphStrategySandbox(List.of(plugin), 2_000L, sizer, eventMetadataFactory);
         var emitted = new ArrayList<DomainEvent>();
 
         sandbox.onDomainEvent(TEST_CANDLE, emitted::add);
@@ -274,7 +278,7 @@ class GraphStrategySandboxTest {
                 return 42L;
             }
         };
-        var sandbox = new GraphStrategySandbox(List.of(plugin), 2_000L, sizer);
+        var sandbox = new GraphStrategySandbox(List.of(plugin), 2_000L, sizer, eventMetadataFactory);
         var emitted = new ArrayList<DomainEvent>();
 
         sandbox.onDomainEvent(TEST_CANDLE, emitted::add);
@@ -298,7 +302,7 @@ class GraphStrategySandboxTest {
                 ));
             }
         };
-        var sandbox = new GraphStrategySandbox(List.of(plugin), 2_000L);  // no explicit sizer
+        var sandbox = new GraphStrategySandbox(List.of(plugin), 2_000L, eventMetadataFactory);  // no explicit sizer
         var emitted = new ArrayList<DomainEvent>();
 
         sandbox.onDomainEvent(TEST_CANDLE, emitted::add);

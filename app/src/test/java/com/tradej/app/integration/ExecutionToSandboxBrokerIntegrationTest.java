@@ -81,9 +81,10 @@ class ExecutionToSandboxBrokerIntegrationTest {
         Path omsPath = Files.createTempDirectory("cross-layer-oms");
         omsRepository = new EventSourcedOrderRepository(omsPath);
         var runtimeModeHolder = new com.tradej.core.domain.runtime.RuntimeModeHolder();
+        TradingClock clock = new LiveTradingClock();
         executionHandler = new ExecutionHandler(
                 omsRepository,
-                new OrderManagementService(brokerConnection, runtimeModeHolder),
+                new OrderManagementService(brokerConnection, runtimeModeHolder, clock),
                 runtimeModeHolder,
                 new TradingCircuitBreaker(),
                 new OrderIdentityRegistry(),

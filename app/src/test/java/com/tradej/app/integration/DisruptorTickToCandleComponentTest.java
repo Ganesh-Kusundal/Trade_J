@@ -51,13 +51,15 @@ class DisruptorTickToCandleComponentTest {
     void publishesCandleEventsFromSyntheticTicks() throws Exception {
         PositionRiskHandler riskHandler = new PositionRiskHandler(new InMemoryInstrumentResolver(), new RiskLimits(10, 10, 10_000_000L, 10));
         CandleAggregationService candleService = new CandleAggregationService();
-        StrategyEngine strategyEngine = new StrategyEngine(List.of());
+        TradingClock clock = new LiveTradingClock();
+        EventMetadataFactory metadataFactory = new EventMetadataFactory(clock);
+        StrategyEngine strategyEngine = new StrategyEngine(List.of(), metadataFactory);
 
         omsRepository = new EventSourcedOrderRepository(Files.createTempDirectory("disruptor-oms"));
         var runtimeModeHolder = new com.tradej.core.domain.runtime.RuntimeModeHolder();
         executionHandler = new ExecutionHandler(
                 omsRepository,
-                new OrderManagementService(null, runtimeModeHolder),
+                new OrderManagementService(null, runtimeModeHolder, clock),
                 runtimeModeHolder,
                 new TradingCircuitBreaker(),
                 new OrderIdentityRegistry(),

@@ -69,7 +69,6 @@ public final class PipelineNodeFactory {
     private final ScanCriterionRegistry criterionRegistry;
     // Decomposed execution node dependencies
     private final TradingCircuitBreaker circuitBreaker;
-    private final EventSourcedOrderRepository omsRepo;
     private final OrderManagementService orderManagementService;
     private final OrderIdentityRegistry identityRegistry;
     private final RuntimeModeHolder runtimeModeHolder;
@@ -86,14 +85,13 @@ public final class PipelineNodeFactory {
             ScanEngine scanEngine,
             Map<String, ScanProfile> scanProfilesById,
             TradingCircuitBreaker circuitBreaker,
-            EventSourcedOrderRepository omsRepo,
             OrderManagementService orderManagementService,
             OrderIdentityRegistry identityRegistry,
             RuntimeModeHolder runtimeModeHolder
     ) {
         this(nodeRegistry, positionRiskHandler, candleAggregationService, strategyEngine, null,
                 executionHandler, portfolioEngine, hotPathFeatureStore, reactorBridge, scanEngine,
-                scanProfilesById, circuitBreaker, omsRepo, orderManagementService,
+                scanProfilesById, circuitBreaker, orderManagementService,
                 identityRegistry, runtimeModeHolder);
     }
 
@@ -110,7 +108,6 @@ public final class PipelineNodeFactory {
             ScanEngine scanEngine,
             Map<String, ScanProfile> scanProfilesById,
             TradingCircuitBreaker circuitBreaker,
-            EventSourcedOrderRepository omsRepo,
             OrderManagementService orderManagementService,
             OrderIdentityRegistry identityRegistry,
             RuntimeModeHolder runtimeModeHolder
@@ -129,7 +126,6 @@ public final class PipelineNodeFactory {
         this.criterionRegistry = new ScanCriterionRegistry();
         registerBuiltinCriteria();
         this.circuitBreaker = circuitBreaker;
-        this.omsRepo = omsRepo;
         this.orderManagementService = orderManagementService;
         this.identityRegistry = identityRegistry;
         this.runtimeModeHolder = runtimeModeHolder;
@@ -153,9 +149,9 @@ public final class PipelineNodeFactory {
                 : noopNode("Scan engine unavailable")));
         nodeRegistry.register(factoryDescriptor(PipelineNodeTypes.SIGNAL_GATE, def -> new SignalGateNode(circuitBreaker, runtimeModeHolder)));
         nodeRegistry.register(factoryDescriptor(PipelineNodeTypes.ORDER_PLACEMENT, def -> new OrderPlacementNode(
-                omsRepo, orderManagementService, runtimeModeHolder, circuitBreaker, identityRegistry)));
+                orderManagementService, runtimeModeHolder, circuitBreaker, identityRegistry)));
         nodeRegistry.register(factoryDescriptor(PipelineNodeTypes.FILL_RECONCILIATION, def -> new FillReconciliationNode(
-                omsRepo, identityRegistry, runtimeModeHolder)));
+                orderManagementService, identityRegistry, runtimeModeHolder)));
         nodeRegistry.register(factoryDescriptor(PipelineNodeTypes.SCAN_CRITERION, def -> {
             String criterionType = stringConfig(def, "criterionType", "volume-spike");
             ScanCriterion criterion = resolveCriterion(criterionType);
@@ -214,9 +210,9 @@ public final class PipelineNodeFactory {
             // Decomposed execution nodes
             case PipelineNodeTypes.SIGNAL_GATE -> new SignalGateNode(circuitBreaker, runtimeModeHolder);
             case PipelineNodeTypes.ORDER_PLACEMENT -> new OrderPlacementNode(
-                    omsRepo, orderManagementService, runtimeModeHolder, circuitBreaker, identityRegistry);
+                    orderManagementService, runtimeModeHolder, circuitBreaker, identityRegistry);
             case PipelineNodeTypes.FILL_RECONCILIATION -> new FillReconciliationNode(
-                    omsRepo, identityRegistry, runtimeModeHolder);
+                    orderManagementService, identityRegistry, runtimeModeHolder);
             // Streaming scanner nodes
             case PipelineNodeTypes.SCAN_CRITERION -> {
                 String criterionType = stringConfig(definition, "criterionType", "volume-spike");

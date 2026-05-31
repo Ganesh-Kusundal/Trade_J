@@ -1,151 +1,235 @@
 package com.tradej.app.integration;
 
-import com.tradej.broker.dhan.adapter.InMemoryInstrumentResolver;
-import com.tradej.broker.dhan.instrument.DhanInstrumentDefinition;
-import com.tradej.core.domain.instrument.ContractSymbolNormalizer;
 import com.tradej.core.domain.event.DomainEvent;
 import com.tradej.core.domain.event.EventMetadata;
-import com.tradej.core.domain.event.SignalGenerated;
 import com.tradej.core.domain.event.SignalPendingExecution;
 import com.tradej.core.domain.event.SignalSuppressed;
+import com.tradej.core.domain.event.TradeClosed;
+import com.tradej.core.domain.event.TradeOpened;
+import com.tradej.core.domain.model.OrderRequest;
 import com.tradej.core.domain.model.RiskLimits;
-import com.tradej.core.domain.value.Exchange;
+import com.tradej.core.domain.port.NetPositionProvider;
 import com.tradej.core.domain.value.ExchangeSegment;
-import com.tradej.core.domain.value.OptionType;
+import com.tradej.core.domain.value.OrderType;
+import com.tradej.core.domain.value.ProductType;
 import com.tradej.core.domain.value.Side;
+import com.tradej.core.domain.value.Validity;
 import com.tradej.execution.risk.PositionRiskHandler;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
-import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @Tag("component")
 class PositionRiskHandlerComponentTest {
-    @Test
-    void qualifiesSignalIntoExecutableOrderRequest() {
-        InMemoryInstrumentResolver resolver = new InMemoryInstrumentResolver();
-        resolver.replaceDefinitions(List.of(testDefinition()));
 
-        PositionRiskHandler handler = new PositionRiskHandler(
-                resolver,
-                new RiskLimits(1_000_000L, 3, 5_000_000L, 3)
-        );
+    private static NetPositionProvider emptyPositions() {
+        return Map::of;
+    }
 
-        List<DomainEvent> emitted = new ArrayList<>();
-        handler.onDomainEvent(new SignalGenerated(
-                EventMetadata.root(),
-                "sig-1",
+    private static OrderRequest sbinBuyOrder(long quantity, long pricePaisa, String correlationId) {
+        return new OrderRequest(
                 "SBIN",
-                "5m",
+                ExchangeSegment.NSE_EQ,
                 Side.BUY,
-                75_000L,
-                74_000L,
-                77_000L,
-                "breakout",
-                Map.of("quantity", 10L)
-        ), emitted::add);
+                quantity,
+                OrderType.LIMIT,
+                pricePaisa,
+                0L,
+                ProductType.INTRADAY,
+                Validity.DAY,
+                correlationId
+        );
+    }
 
-        SignalPendingExecution pendingExecution = assertInstanceOf(SignalPendingExecution.class, emitted.get(0));
-        assertEquals("SBIN", pendingExecution.orderRequest().symbol());
-        assertEquals(ExchangeSegment.NSE_EQ, pendingExecution.orderRequest().exchangeSegment());
-        assertEquals("sig-1", pendingExecution.orderRequest().correlationId());
+    private static SignalPendingExecution sbinSignal(String signalId, OrderRequest order) {
+        return new SignalPendingExecution(
+                EventMetadata.root(),
+                signalId,
+                order,
+                Map.of("test", true)
+        );
     }
 
     @Test
-    void normalizesCompactOptionAliasToCanonicalOrderSymbol() {
-        LocalDate expiry = LocalDate.of(2026, 5, 26);
-        long strikePaisa = 3_075_000L;
-        String canonical = ContractSymbolNormalizer.canonicalOption("NIFTY", expiry, strikePaisa, OptionType.CALL);
-
-        InMemoryInstrumentResolver resolver = new InMemoryInstrumentResolver();
-        resolver.replaceDefinitions(List.of(new DhanInstrumentDefinition(
-                "NIFTY-May2026-30750-CE",
-                canonical,
-                Exchange.NFO,
-                ExchangeSegment.NSE_FNO,
-                "35038",
-                "OPTIDX",
-                "NIFTY",
-                expiry,
-                strikePaisa,
-                OptionType.CALL,
-                1L,
-                50L,
-                null
-        )));
-
+    void qualifiesSignalIntoExecutableOrderRequest() {
         PositionRiskHandler handler = new PositionRiskHandler(
-                resolver,
-                new RiskLimits(1_000_000L, 3, 5_000_000L, 3)
+                new RiskLimits(1_000_000L, 3, 5_000_000L, 3),
+                emptyPositions()
         );
 
         List<DomainEvent> emitted = new ArrayList<>();
-        handler.onDomainEvent(new SignalGenerated(
-                EventMetadata.root(),
-                "sig-opt",
-                "NIFTY26MAY30750CE",
-                "5m",
-                Side.BUY,
-                100_00L,
-                0L,
-                0L,
-                "strike",
-                Map.of("quantity", 50L)
-        ), emitted::add);
+        handler.onDomainEvent(sbinSignal("sig-1",
+                sbinBuyOrder(10L, 75_000L, "correlation-1")), emitted::add);
 
-        SignalPendingExecution pending = assertInstanceOf(SignalPendingExecution.class, emitted.get(0));
-        assertEquals("NIFTY 26 MAY 30750 CALL", pending.orderRequest().symbol());
+        // SignalPendingExecution should pass through without being suppressed
+        assertTrue(emitted.isEmpty(),
+                "Signal should pass risk checks and produce no suppression event");
     }
 
     @Test
     void suppressesSignalWhenOrderValueBreachesRiskLimit() {
-        InMemoryInstrumentResolver resolver = new InMemoryInstrumentResolver();
-        resolver.replaceDefinitions(List.of(testDefinition()));
-
         PositionRiskHandler handler = new PositionRiskHandler(
-                resolver,
-                new RiskLimits(1_000_000L, 3, 100_000L, 3)
+                new RiskLimits(1_000_000L, 3, 100_000L, 3),
+                emptyPositions()
         );
 
         List<DomainEvent> emitted = new ArrayList<>();
-        handler.onDomainEvent(new SignalGenerated(
-                EventMetadata.root(),
-                "sig-2",
-                "SBIN",
-                "5m",
-                Side.BUY,
-                75_000L,
-                74_000L,
-                77_000L,
-                "breakout",
-                Map.of("quantity", 10L)
-        ), emitted::add);
+        handler.onDomainEvent(sbinSignal("sig-2",
+                sbinBuyOrder(10L, 75_000L, "correlation-2")), // 750_000 paisa > 100_000 limit
+                emitted::add);
 
         SignalSuppressed suppressed = assertInstanceOf(SignalSuppressed.class, emitted.get(0));
         assertEquals("sig-2", suppressed.signalId());
+        assertEquals("max_notional_value", suppressed.reason());
     }
 
-    private DhanInstrumentDefinition testDefinition() {
-        return new DhanInstrumentDefinition(
-                "SBIN",
-                "SBIN",
-                Exchange.NSE,
-                ExchangeSegment.NSE_EQ,
-                "3045",
-                "EQUITY",
-                "SBIN",
-                LocalDate.now().plusMonths(1),
-                null,
-                null,
-                1L,
-                5L,
-                ""
+    @Test
+    void suppressesSignalWhenPositionFlipExceedsMaxOrderValue() {
+        // Current position is short 100 — flipping would create a buy of 110
+        NetPositionProvider shortPosition = () -> Map.of("SBIN", -100L);
+
+        PositionRiskHandler handler = new PositionRiskHandler(
+                new RiskLimits(1_000_000L, 3, 50L, 3),
+                shortPosition
         );
+
+        List<DomainEvent> emitted = new ArrayList<>();
+        handler.onDomainEvent(sbinSignal("sig-3",
+                sbinBuyOrder(20L, 75_000L, "correlation-3")), emitted::add);
+
+        SignalSuppressed suppressed = assertInstanceOf(SignalSuppressed.class, emitted.get(0));
+        assertEquals("max_order_value_breach", suppressed.reason());
+    }
+
+    @Test
+    void suppressesSignalWhenOpenPositionLimitReached() {
+        // Already at max open positions and trying to flip
+        NetPositionProvider atLimit = () -> Map.of("SBIN", 3L);
+
+        PositionRiskHandler handler = new PositionRiskHandler(
+                new RiskLimits(1_000_000L, 3, 5_000_000L, 3),
+                atLimit
+        );
+
+        List<DomainEvent> emitted = new ArrayList<>();
+        // Sell order would flip from long 3 to short
+        handler.onDomainEvent(new SignalPendingExecution(
+                EventMetadata.root(),
+                "sig-4",
+                new OrderRequest(
+                        "SBIN",
+                        ExchangeSegment.NSE_EQ,
+                        Side.SELL,
+                        1L,
+                        OrderType.LIMIT,
+                        75_000L,
+                        0L,
+                        ProductType.INTRADAY,
+                        Validity.DAY,
+                        "correlation-4"
+                ),
+                Map.of("test", true)
+        ), emitted::add);
+
+        SignalSuppressed suppressed = assertInstanceOf(SignalSuppressed.class, emitted.get(0));
+        assertEquals("max_open_positions", suppressed.reason());
+    }
+
+    @Test
+    void killSwitchSuppressesAllSignals() {
+        PositionRiskHandler handler = new PositionRiskHandler(
+                new RiskLimits(1_000_000L, 1, 5_000_000L, 3),
+                emptyPositions()
+        );
+
+        // Trigger kill switch via consecutive losses
+        handler.onDomainEvent(new TradeClosed(
+                EventMetadata.root(),
+                "t-1",
+                "SBIN",
+                75_000L,
+                -500L,
+                "stop_loss"
+        ), e -> {});
+
+        assertTrue(handler.isKillSwitchActive(), "Kill switch should be active after loss");
+
+        List<DomainEvent> emitted = new ArrayList<>();
+        handler.onDomainEvent(sbinSignal("sig-kill",
+                sbinBuyOrder(1L, 75_000L, "correlation-kill")), emitted::add);
+
+        SignalSuppressed suppressed = assertInstanceOf(SignalSuppressed.class, emitted.get(0));
+        assertEquals("kill_switch_active", suppressed.reason());
+    }
+
+    @Test
+    void openTradeTrackingIsCorrect() {
+        PositionRiskHandler handler = new PositionRiskHandler(
+                new RiskLimits(1_000_000L, 3, 5_000_000L, 3),
+                emptyPositions()
+        );
+
+        assertEquals(0, handler.getOpenTrades());
+
+        handler.onDomainEvent(new TradeOpened(
+                EventMetadata.root(),
+                "t-1",
+                "ord-1",
+                "sig-1",
+                "SBIN",
+                Side.BUY,
+                10L,
+                75_000L,
+                74_000L,
+                77_000L
+        ), e -> {});
+
+        assertEquals(1, handler.getOpenTrades());
+
+        handler.onDomainEvent(new TradeClosed(
+                EventMetadata.root(),
+                "t-1",
+                "SBIN",
+                75_000L,
+                100L,
+                "take_profit"
+        ), e -> {});
+
+        assertEquals(0, handler.getOpenTrades());
+    }
+
+    @Test
+    void snapshotAndRestorePreservesState() {
+        PositionRiskHandler handler = new PositionRiskHandler(
+                new RiskLimits(1_000_000L, 3, 5_000_000L, 3),
+                emptyPositions()
+        );
+
+        handler.onDomainEvent(new TradeClosed(
+                EventMetadata.root(),
+                "t-1",
+                "SBIN",
+                75_000L,
+                -500L,
+                "stop_loss"
+        ), e -> {});
+
+        PositionRiskHandler.StateSnapshot snapshot = handler.snapshot();
+        assertEquals(500L, snapshot.realizedLossPaisa());
+        assertEquals(1, snapshot.consecutiveLosses());
+
+        handler.resetDailyLimits();
+        assertEquals(0L, handler.getRealizedLossPaisa());
+
+        handler.restore(snapshot);
+        assertEquals(500L, handler.getRealizedLossPaisa());
+        assertEquals(1, handler.getConsecutiveLosses());
     }
 }

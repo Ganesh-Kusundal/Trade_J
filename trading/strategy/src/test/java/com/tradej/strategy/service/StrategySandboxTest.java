@@ -3,9 +3,11 @@ package com.tradej.strategy.service;
 import com.tradej.core.domain.event.CandleClosed;
 import com.tradej.core.domain.event.DomainEvent;
 import com.tradej.core.domain.event.EventMetadata;
+import com.tradej.core.domain.event.EventMetadataFactory;
 import com.tradej.core.domain.event.SignalGenerated;
 import com.tradej.core.domain.event.StrategyError;
 import com.tradej.core.domain.model.Candle;
+import com.tradej.core.domain.time.LiveTradingClock;
 import com.tradej.core.domain.value.Side;
 import com.tradej.strategy.api.StrategyPlugin;
 import org.junit.jupiter.api.Tag;
@@ -22,6 +24,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @Tag("unit")
 class StrategySandboxTest {
+
+    private final EventMetadataFactory eventMetadataFactory = new EventMetadataFactory(new LiveTradingClock());
 
     private static final CandleClosed TEST_CANDLE = new CandleClosed(
             EventMetadata.root(),
@@ -41,7 +45,7 @@ class StrategySandboxTest {
             }
         };
 
-        var sandbox = new StrategySandbox(List.of(plugin), 2_000L);
+        var sandbox = new StrategySandbox(List.of(plugin), 2_000L, eventMetadataFactory);
         var emitted = new ArrayList<DomainEvent>();
 
         sandbox.onDomainEvent(TEST_CANDLE, emitted::add);
@@ -71,7 +75,7 @@ class StrategySandboxTest {
             }
         };
 
-        var sandbox = new StrategySandbox(List.of(failingPlugin, healthyPlugin), 2_000L);
+        var sandbox = new StrategySandbox(List.of(failingPlugin, healthyPlugin), 2_000L, eventMetadataFactory);
         var emitted = new ArrayList<DomainEvent>();
 
         sandbox.onDomainEvent(TEST_CANDLE, emitted::add);
@@ -111,7 +115,7 @@ class StrategySandboxTest {
         };
 
         // Use a very short timeout (100ms) so the test runs quickly
-        var sandbox = new StrategySandbox(List.of(hangingPlugin, healthyPlugin), 100L);
+        var sandbox = new StrategySandbox(List.of(hangingPlugin, healthyPlugin), 100L, eventMetadataFactory);
         var emitted = new ArrayList<DomainEvent>();
 
         sandbox.onDomainEvent(TEST_CANDLE, emitted::add);
@@ -128,7 +132,7 @@ class StrategySandboxTest {
 
     @Test
     void emptyPluginListProducesNoEvents() throws Exception {
-        var sandbox = new StrategySandbox(List.of(), 500L);
+        var sandbox = new StrategySandbox(List.of(), 500L, eventMetadataFactory);
         var emitted = new ArrayList<DomainEvent>();
 
         sandbox.onDomainEvent(TEST_CANDLE, emitted::add);
@@ -150,7 +154,7 @@ class StrategySandboxTest {
             }
         };
 
-        var sandbox = new StrategySandbox(List.of(plugin), 500L);
+        var sandbox = new StrategySandbox(List.of(plugin), 500L, eventMetadataFactory);
         var emitted = new ArrayList<DomainEvent>();
 
         // Send a non-CandleClosed event
@@ -174,7 +178,7 @@ class StrategySandboxTest {
             @Override public String name() { return "b"; }
             @Override public Optional<SignalGenerated> onCandleClosed(CandleClosed c) { return Optional.empty(); }
         };
-        var sandbox = new StrategySandbox(List.of(p1, p2), 500L);
+        var sandbox = new StrategySandbox(List.of(p1, p2), 500L, eventMetadataFactory);
         assertEquals(2, sandbox.pluginCount());
     }
 
@@ -215,7 +219,7 @@ class StrategySandboxTest {
             }
         };
 
-        var sandbox = new StrategySandbox(List.of(fastPlugin, hangingPlugin, failingPlugin), 100L);
+        var sandbox = new StrategySandbox(List.of(fastPlugin, hangingPlugin, failingPlugin), 100L, eventMetadataFactory);
         var emitted = new ArrayList<DomainEvent>();
 
         // Fire 10 concurrent candle evaluations

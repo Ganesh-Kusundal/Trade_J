@@ -13,6 +13,7 @@ import com.tradej.broker.dhan.auth.DhanTokenProvider;
 import com.tradej.core.domain.port.EventBus;
 import com.tradej.execution.position.EventSourcedNetPositionProvider;
 import com.tradej.execution.reconcile.ReconciliationAlertLogger;
+import com.tradej.execution.service.OrderManagementService;
 import com.tradej.feature.store.AsyncDuckDbWriter;
 import com.tradej.hotpath.MarketDataPipeline;
 import com.tradej.hotpath.OrderPipeline;
@@ -55,6 +56,7 @@ public class StartupConfiguration {
             ObjectProvider<RuntimeSubscriptionManager> subscriptionManagerProvider,
             DagPipelineIngressBridge dagPipelineIngressBridge,
             PositionStateRebuilder positionStateRebuilder,
+            OrderManagementService orderManagementService,
             BrokerStartupOrchestrator brokerStartupOrchestrator
     ) {
         return args -> brokerStartupOrchestrator.runStartup(
@@ -76,7 +78,8 @@ public class StartupConfiguration {
                 netPositionProvider,
                 subscriptionManagerProvider,
                 dagPipelineIngressBridge,
-                positionStateRebuilder
+                positionStateRebuilder,
+                orderManagementService
         );
     }
 }

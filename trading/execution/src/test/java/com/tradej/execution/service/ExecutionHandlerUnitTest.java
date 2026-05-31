@@ -68,8 +68,20 @@ class ExecutionHandlerUnitTest {
     void setUp() throws IOException {
         tempDir = Files.createTempDirectory("exec-handler-test-");
         omsRepo = new EventSourcedOrderRepository(tempDir);
-        handler = new ExecutionHandler(omsRepo, orderManagementService, new RuntimeModeHolder(), circuitBreaker, new OrderIdentityRegistry(), DeadLetterQueue.noop());
+        handler = new ExecutionHandler(orderManagementService, new RuntimeModeHolder(), circuitBreaker, new OrderIdentityRegistry(), DeadLetterQueue.noop());
         emitted.clear();
+
+        // Wire mock OrderManagementService to delegate state operations to real omsRepo
+        lenient().doAnswer(inv -> {
+            com.tradej.core.domain.oms.OrderEvent event = inv.getArgument(0);
+            omsRepo.append(event);
+            return null;
+        }).when(orderManagementService).onBrokerEvent(any());
+
+        lenient().doAnswer(inv -> {
+            String orderId = inv.getArgument(0);
+            return java.util.Optional.ofNullable(omsRepo.rebuild(orderId));
+        }).when(orderManagementService).getOrderProjection(any());
     }
 
     @AfterEach

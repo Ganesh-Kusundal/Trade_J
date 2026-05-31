@@ -18,6 +18,7 @@ import com.tradej.core.domain.model.Order;
 import com.tradej.core.domain.model.OrderRequest;
 import com.tradej.core.domain.model.Trade;
 import com.tradej.core.domain.oms.OrderAcknowledged;
+import com.tradej.core.domain.oms.OrderEvent;
 import com.tradej.core.domain.oms.OrderFullyFilled;
 import com.tradej.core.domain.oms.OrderPartiallyFilled;
 import com.tradej.core.domain.oms.OrderProjection;
@@ -29,8 +30,6 @@ import com.tradej.core.domain.value.OrderStatus;
 import com.tradej.core.domain.value.Side;
 import com.tradej.core.support.MdcHelper;
 import com.tradej.execution.identity.OrderIdentityRegistry;
-import com.tradej.persistence.oms.EventSourcedOrderRepository;
-
 import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
@@ -69,7 +68,6 @@ public final class ExecutionHandler {
         thread.setDaemon(true);
         return thread;
     });
-    private final EventSourcedOrderRepository omsRepo;
     private final OrderManagementService orderManagementService;
     private final RuntimeModeHolder runtimeModeHolder;
     private final TradingCircuitBreaker circuitBreaker;
@@ -87,14 +85,13 @@ public final class ExecutionHandler {
      */
     @Autowired
     public ExecutionHandler(
-            EventSourcedOrderRepository omsRepo,
             OrderManagementService orderManagementService,
             RuntimeModeHolder runtimeModeHolder,
             TradingCircuitBreaker circuitBreaker,
             OrderIdentityRegistry identityRegistry,
             DeadLetterQueue deadLetterQueue
     ) {
-        this(omsRepo, orderManagementService, runtimeModeHolder, circuitBreaker, identityRegistry, deadLetterQueue, DEFAULT_QUEUE_CAPACITY);
+        this(orderManagementService, runtimeModeHolder, circuitBreaker, identityRegistry, deadLetterQueue, DEFAULT_QUEUE_CAPACITY);
     }
 
     /**
@@ -103,7 +100,6 @@ public final class ExecutionHandler {
      * @param queueCapacity maximum pending commands before signals are suppressed
      */
     public ExecutionHandler(
-            EventSourcedOrderRepository omsRepo,
             OrderManagementService orderManagementService,
             RuntimeModeHolder runtimeModeHolder,
             TradingCircuitBreaker circuitBreaker,
@@ -111,7 +107,6 @@ public final class ExecutionHandler {
             DeadLetterQueue deadLetterQueue,
             int queueCapacity
     ) {
-        this.omsRepo = omsRepo;
         this.orderManagementService = orderManagementService;
         this.runtimeModeHolder = runtimeModeHolder;
         this.circuitBreaker = circuitBreaker;
@@ -237,7 +232,7 @@ public final class ExecutionHandler {
 
             String orderId = generateOrderId();
             var orderRequest = pendingExecution.orderRequest();
-            omsRepo.append(OrderSubmitted.create(
+            orderManagementService.onBrokerEvent(OrderSubmitted.create(
                     orderId,
                     pendingExecution.signalId(),
                     orderRequest.symbol(),
@@ -252,18 +247,18 @@ public final class ExecutionHandler {
 
                 if (order.status().isRejected()) {
                     log.warn("Order rejected by broker orderId={} reason={}", orderId, order.rejectionReason());
-                    var rejected = new OrderRejected(
+                    var rejected = new com.tradej.core.domain.event.OrderRejected(
                             EventMetadata.correlated(order.correlationId(), pendingExecution.sequenceId()),
                             order,
                             order.rejectionReason()
                     );
-                    omsRepo.append(rejected.toOsmEvent(orderId));
+                    orderManagementService.onBrokerEvent(rejected.toOsmEvent(orderId));
                     identityRegistry.remove(orderId);
                     downstream.accept(rejected);
                 } else {
                     log.info("Order accepted by broker orderId={} brokerOrderId={} symbol={} qty={}",
                             orderId, order.orderId(), order.symbol(), order.quantity());
-                    omsRepo.append(OrderAcknowledged.event(orderId, order.orderId()));
+                    orderManagementService.onBrokerEvent(OrderAcknowledged.event(orderId, order.orderId()));
                     identityRegistry.acknowledge(orderId, order.orderId());
                     downstream.accept(new OrderAccepted(
                             EventMetadata.correlated(order.correlationId(), pendingExecution.sequenceId()),
@@ -274,7 +269,7 @@ public final class ExecutionHandler {
             } catch (Exception exception) {
                 log.error("Order placement failed signalId={} error={}", pendingExecution.signalId(), exception.getMessage(), exception);
                 circuitBreaker.recordFailure();
-                omsRepo.append(new com.tradej.core.domain.oms.OrderRejected(
+                orderManagementService.onBrokerEvent(new com.tradej.core.domain.oms.OrderRejected(
                         orderId,
                         "Order placement failed: " + exception.getMessage()
                 ));
@@ -318,7 +313,7 @@ public final class ExecutionHandler {
                 return;
             }
 
-            OrderProjection projection = omsRepo.rebuild(internalOrderId);
+            OrderProjection projection = orderManagementService.getOrderProjection(internalOrderId).orElse(null);
             if (projection == null) {
                 log.warn("No OSM projection found for internalOrderId={} brokerOrderId={}", internalOrderId, order.orderId());
                 emitTradeOpened(internalOrderId, order, orderFilled, downstream);
@@ -336,14 +331,14 @@ public final class ExecutionHandler {
             if (filledSoFar >= totalQty) {
                 // Use >= to handle the case where the broker reports a cumulative fill
                 // that matches or exceeds the full order quantity
-                omsRepo.append(OrderFullyFilled.event(internalOrderId, totalQty, avgPrice));
+                orderManagementService.onBrokerEvent(OrderFullyFilled.event(internalOrderId, totalQty, avgPrice));
                 downstream.accept(new com.tradej.core.domain.event.OrderFullyFilled(
                         EventMetadata.correlated(order.correlationId(), orderFilled.sequenceId()),
                         order,
                         orderFilled.fills()
                 ));
             } else {
-                omsRepo.append(OrderPartiallyFilled.event(internalOrderId, fillQty, avgPrice));
+                orderManagementService.onBrokerEvent(OrderPartiallyFilled.event(internalOrderId, fillQty, avgPrice));
                 downstream.accept(new com.tradej.core.domain.event.OrderPartiallyFilled(
                         EventMetadata.correlated(order.correlationId(), orderFilled.sequenceId()),
                         order,

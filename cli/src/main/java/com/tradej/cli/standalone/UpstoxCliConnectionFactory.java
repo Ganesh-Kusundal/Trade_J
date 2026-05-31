@@ -78,7 +78,7 @@ public final class UpstoxCliConnectionFactory {
         UpstoxInstrumentResolver instrumentResolver = new UpstoxInstrumentResolver();
         UpstoxInstrumentLoader instrumentLoader = new UpstoxInstrumentLoader(httpClient);
         UpstoxDomainMapper mapper = new UpstoxDomainMapper();
-        EventMetadataFactory metadataFactory = new EventMetadataFactory();
+        EventMetadataFactory metadataFactory = new EventMetadataFactory(new com.tradej.core.domain.time.LiveTradingClock());
 
         MarketDataProvider marketData = new UpstoxMarketDataProvider(
                 new UpstoxMarketDataRestClient(jsonClient),

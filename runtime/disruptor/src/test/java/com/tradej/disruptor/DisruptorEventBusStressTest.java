@@ -223,11 +223,11 @@ class DisruptorEventBusStressTest {
     private static EventBus createBusWithDlq(DeadLetterQueue deadLetterQueue) {
         var candleAgg = new CandleAggregationService(List.of("5m"));
         var portfolio = new PortfolioEngine(1_000_000L, 10_000_000L);
-        var strategy = new StrategyEngine(List.of());
+        var strategy = new StrategyEngine(List.of(), new com.tradej.core.domain.event.EventMetadataFactory(new com.tradej.core.domain.time.LiveTradingClock()));
         var cb = new TradingCircuitBreaker();
         var idReg = new OrderIdentityRegistry();
         var runtimeModeHolder = new com.tradej.core.domain.runtime.RuntimeModeHolder();
-        var execHandler = new ExecutionHandler(null, null, runtimeModeHolder, cb, idReg, DeadLetterQueue.noop());
+        var execHandler = new ExecutionHandler(null, runtimeModeHolder, cb, idReg, DeadLetterQueue.noop());
 
         InstrumentResolver noopResolver = new InstrumentResolver() {
             public Instrument resolve(InstrumentKey key) { throw new UnsupportedOperationException(); }
@@ -240,7 +240,7 @@ class DisruptorEventBusStressTest {
             public int catalogSize() { return 0; }
         };
 
-        var riskHandler = new PositionRiskHandler(noopResolver, RiskLimits.conservative(), portfolio);
+        var riskHandler = new PositionRiskHandler(RiskLimits.conservative(), () -> java.util.Collections.emptyMap());
 
         return new DisruptorEventBus(
                 riskHandler, candleAgg, strategy, execHandler,
@@ -251,11 +251,11 @@ class DisruptorEventBusStressTest {
     private static EventBus createMinimalBus() {
         var candleAgg = new CandleAggregationService(List.of("5m"));
         var portfolio = new PortfolioEngine(1_000_000L, 10_000_000L);
-        var strategy = new StrategyEngine(List.of());
+        var strategy = new StrategyEngine(List.of(), new com.tradej.core.domain.event.EventMetadataFactory(new com.tradej.core.domain.time.LiveTradingClock()));
         var cb = new TradingCircuitBreaker();
         var idReg = new OrderIdentityRegistry();
         var runtimeModeHolder = new com.tradej.core.domain.runtime.RuntimeModeHolder();
-        var execHandler = new ExecutionHandler(null, null, runtimeModeHolder, cb, idReg, DeadLetterQueue.noop());
+        var execHandler = new ExecutionHandler(null, runtimeModeHolder, cb, idReg, DeadLetterQueue.noop());
 
         InstrumentResolver noopResolver = new InstrumentResolver() {
             public Instrument resolve(InstrumentKey key) { throw new UnsupportedOperationException(); }
@@ -268,7 +268,7 @@ class DisruptorEventBusStressTest {
             public int catalogSize() { return 0; }
         };
 
-        var riskHandler = new PositionRiskHandler(noopResolver, RiskLimits.conservative(), portfolio);
+        var riskHandler = new PositionRiskHandler(RiskLimits.conservative(), () -> java.util.Collections.emptyMap());
 
         return new DisruptorEventBus(
                 riskHandler, candleAgg, strategy, execHandler,

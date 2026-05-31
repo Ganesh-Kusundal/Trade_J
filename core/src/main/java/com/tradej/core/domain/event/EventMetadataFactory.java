@@ -1,20 +1,16 @@
 package com.tradej.core.domain.event;
 
-import java.time.Clock;
+import com.tradej.core.domain.time.TradingClock;
 import java.util.UUID;
 
 /**
- * Creates {@link EventMetadata} using an injectable {@link Clock} for deterministic replay/backtest.
+ * Creates {@link EventMetadata} using an injectable {@link TradingClock} for deterministic replay/backtest.
  */
 public final class EventMetadataFactory {
 
-    private final Clock clock;
+    private final TradingClock clock;
 
-    public EventMetadataFactory() {
-        this(Clock.systemDefaultZone());
-    }
-
-    public EventMetadataFactory(Clock clock) {
+    public EventMetadataFactory(TradingClock clock) {
         this.clock = clock;
     }
 

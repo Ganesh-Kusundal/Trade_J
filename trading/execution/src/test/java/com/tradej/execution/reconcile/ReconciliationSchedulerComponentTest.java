@@ -67,7 +67,7 @@ class ReconciliationSchedulerComponentTest {
         when(brokerConnection.portfolio()).thenReturn(portfolioProvider);
 
         // Real reconciler (shared across tests)
-        reconciler = new OrderReconciler(omsRepo, brokerConnection, new com.tradej.core.domain.event.EventMetadataFactory());
+        reconciler = new OrderReconciler(omsRepo, brokerConnection, new com.tradej.core.domain.event.EventMetadataFactory(new com.tradej.core.domain.time.LiveTradingClock()));
     }
 
     @AfterEach
@@ -199,7 +199,7 @@ class ReconciliationSchedulerComponentTest {
         omsRepo.close();
         EventSourcedOrderRepository freshRepo = new EventSourcedOrderRepository(tempDir.resolve("oms"));
 
-        OrderReconciler freshReconciler = new OrderReconciler(freshRepo, brokerConnection, new com.tradej.core.domain.event.EventMetadataFactory());
+        OrderReconciler freshReconciler = new OrderReconciler(freshRepo, brokerConnection, new com.tradej.core.domain.event.EventMetadataFactory(new com.tradej.core.domain.time.LiveTradingClock()));
 
         when(portfolioProvider.getPositions()).thenReturn(List.of(
                 new Position("SBIN", ExchangeSegment.NSE_EQ, Side.LONG, 80, 150_00L, 151_00L, 100_00L)

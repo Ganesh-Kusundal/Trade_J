@@ -118,7 +118,7 @@ class DisruptorGraphReplayParityTest {
         CandleAggregationService candleService = new CandleAggregationService(List.of("1s"));
         PositionRiskHandler riskHandler = riskHandler();
         PortfolioEngine portfolioEngine = new PortfolioEngine(1_000_000L, 10_000_000L);
-        StrategyEngine strategyEngine = new StrategyEngine(List.of());
+        StrategyEngine strategyEngine = new StrategyEngine(List.of(), new com.tradej.core.domain.event.EventMetadataFactory(new com.tradej.core.domain.time.LiveTradingClock()));
         ExecutionHandler executionHandler = executionHandler();
 
         TestPipelineRuntimeBridge bridge = new TestPipelineRuntimeBridge(
@@ -211,12 +211,11 @@ class DisruptorGraphReplayParityTest {
                 return 0;
             }
         };
-        return new PositionRiskHandler(noopResolver, RiskLimits.conservative(), portfolioEngine);
+        return new PositionRiskHandler(RiskLimits.conservative(), () -> java.util.Collections.emptyMap());
     }
 
     private static ExecutionHandler executionHandler() {
         return new ExecutionHandler(
-                null,
                 null,
                 new RuntimeModeHolder(),
                 new TradingCircuitBreaker(),

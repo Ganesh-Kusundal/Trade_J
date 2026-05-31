@@ -206,7 +206,6 @@ public class PipelineConfiguration {
             @Autowired(required = false) ScanEngine scanEngine,
             ScanProperties scanProperties,
             TradingCircuitBreaker circuitBreaker,
-            EventSourcedOrderRepository omsRepo,
             OrderManagementService orderManagementService,
             OrderIdentityRegistry identityRegistry,
             RuntimeModeHolder runtimeModeHolder
@@ -228,7 +227,6 @@ public class PipelineConfiguration {
                 scanEngine,
                 scanProfilesById,
                 circuitBreaker,
-                omsRepo,
                 orderManagementService,
                 identityRegistry,
                 runtimeModeHolder

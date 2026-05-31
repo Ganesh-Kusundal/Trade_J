@@ -20,7 +20,7 @@ public final class DhanPayloadNormalizer {
     private final EventMetadataFactory metadataFactory;
 
     public DhanPayloadNormalizer() {
-        this(new EventMetadataFactory());
+        this(new EventMetadataFactory(new com.tradej.core.domain.time.LiveTradingClock()));
     }
 
     public DhanPayloadNormalizer(EventMetadataFactory metadataFactory) {

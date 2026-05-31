@@ -52,7 +52,7 @@ class OrderReconcilerUnitTest {
         tempDir = Files.createTempDirectory("reconciler-test-");
         omsRepo = new EventSourcedOrderRepository(tempDir);
         lenient().when(brokerConnection.portfolio()).thenReturn(portfolioProvider);
-        reconciler = new OrderReconciler(omsRepo, brokerConnection, new com.tradej.core.domain.event.EventMetadataFactory());
+        reconciler = new OrderReconciler(omsRepo, brokerConnection, new com.tradej.core.domain.event.EventMetadataFactory(new com.tradej.core.domain.time.LiveTradingClock()));
         emitted.clear();
     }
 

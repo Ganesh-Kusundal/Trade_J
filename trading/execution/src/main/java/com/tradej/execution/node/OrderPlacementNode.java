@@ -16,7 +16,6 @@ import com.tradej.core.domain.value.OrderStatus;
 import com.tradej.execution.identity.OrderIdentityRegistry;
 import com.tradej.execution.service.OrderManagementService;
 import com.tradej.execution.service.TradingCircuitBreaker;
-import com.tradej.persistence.oms.EventSourcedOrderRepository;
 import com.tradej.pipeline.runtime.BasePipelineNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,7 +31,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * <p>
  * Handles:
  * <ul>
- *   <li>OMS event sourcing ({@link OrderSubmitted})</li>
+ *   <li>OMS event sourcing ({@link OrderSubmitted}) via {@link OrderManagementService}</li>
  *   <li>Identity mapping registration</li>
  *   <li>Broker order placement with timeout</li>
  *   <li>Simulated fill emission in REPLAY/BACKTEST modes</li>
@@ -47,7 +46,6 @@ public final class OrderPlacementNode extends BasePipelineNode {
     private static final Logger log = LoggerFactory.getLogger(OrderPlacementNode.class);
     private static final long ORDER_PLACEMENT_TIMEOUT_MS = 10_000L;
 
-    private final EventSourcedOrderRepository omsRepo;
     private final OrderManagementService orderManagementService;
     private final RuntimeModeHolder runtimeModeHolder;
     private final TradingCircuitBreaker circuitBreaker;
@@ -55,13 +53,11 @@ public final class OrderPlacementNode extends BasePipelineNode {
     private final AtomicLong orderIdCounter = new AtomicLong(0);
 
     public OrderPlacementNode(
-            EventSourcedOrderRepository omsRepo,
             OrderManagementService orderManagementService,
             RuntimeModeHolder runtimeModeHolder,
             TradingCircuitBreaker circuitBreaker,
             OrderIdentityRegistry identityRegistry
     ) {
-        this.omsRepo = omsRepo;
         this.orderManagementService = orderManagementService;
         this.runtimeModeHolder = runtimeModeHolder;
         this.circuitBreaker = circuitBreaker;
@@ -83,7 +79,7 @@ public final class OrderPlacementNode extends BasePipelineNode {
         OrderRequest request = pending.orderRequest();
 
         // 1. OMS event sourcing
-        omsRepo.append(OrderSubmitted.create(
+        orderManagementService.onBrokerEvent(OrderSubmitted.create(
                 orderId, pending.signalId(), request.symbol(), request.quantity()
         ));
         identityRegistry.register(orderId, null, pending.signalId());
@@ -97,7 +93,7 @@ public final class OrderPlacementNode extends BasePipelineNode {
 
             if (order.status().isRejected()) {
                 log.warn("Order rejected by broker orderId={} reason={}", orderId, order.rejectionReason());
-                omsRepo.append(new com.tradej.core.domain.oms.OrderRejected(orderId, order.rejectionReason()));
+                orderManagementService.onBrokerEvent(new com.tradej.core.domain.oms.OrderRejected(orderId, order.rejectionReason()));
                 identityRegistry.remove(orderId);
                 context.publish(new OrderRejected(
                         EventMetadata.correlated(order.correlationId(), pending.sequenceId()),
@@ -106,7 +102,7 @@ public final class OrderPlacementNode extends BasePipelineNode {
             } else {
                 log.info("Order accepted orderId={} brokerOrderId={} symbol={} qty={}",
                         orderId, order.orderId(), order.symbol(), order.quantity());
-                omsRepo.append(OrderAcknowledged.event(orderId, order.orderId()));
+                orderManagementService.onBrokerEvent(OrderAcknowledged.event(orderId, order.orderId()));
                 identityRegistry.acknowledge(orderId, order.orderId());
                 context.publish(new OrderAccepted(
                         EventMetadata.correlated(order.correlationId(), pending.sequenceId()),
@@ -119,7 +115,7 @@ public final class OrderPlacementNode extends BasePipelineNode {
             if (circuitBreaker != null) {
                 circuitBreaker.recordFailure();
             }
-            omsRepo.append(new com.tradej.core.domain.oms.OrderRejected(
+            orderManagementService.onBrokerEvent(new com.tradej.core.domain.oms.OrderRejected(
                     orderId, "Order placement failed: " + e.getMessage()));
             identityRegistry.remove(orderId);
             context.publish(new SignalSuppressed(

@@ -24,6 +24,8 @@ import com.tradej.disruptor.DisruptorEventBus;
 import com.tradej.execution.risk.PositionRiskHandler;
 import com.tradej.execution.identity.OrderIdentityRegistry;
 import com.tradej.execution.service.ExecutionHandler;
+import com.tradej.core.domain.event.EventMetadataFactory;
+import com.tradej.core.domain.time.LiveTradingClock;
 import com.tradej.execution.service.OrderManagementService;
 import com.tradej.execution.service.TradingCircuitBreaker;
 import com.tradej.hotpath.PipelineConfig.PipelineComponents;
@@ -91,7 +93,7 @@ class PipelineConfigTest {
         };
         OrderManagementService omsService = new OrderManagementService(broker, new com.tradej.core.domain.runtime.RuntimeModeHolder());
         var runtimeModeHolder = new com.tradej.core.domain.runtime.RuntimeModeHolder();
-        return new ExecutionHandler(oms, omsService, runtimeModeHolder, breaker, new OrderIdentityRegistry(), com.tradej.core.domain.port.DeadLetterQueue.noop());
+        return new ExecutionHandler( omsService, runtimeModeHolder, breaker, new OrderIdentityRegistry(), com.tradej.core.domain.port.DeadLetterQueue.noop());
     }
 
     @Test

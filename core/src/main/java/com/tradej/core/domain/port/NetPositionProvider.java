@@ -27,6 +27,19 @@ public interface NetPositionProvider {
     Map<String, Long> getNetPositions();
 
     /**
+     * Returns the net position for a specific symbol.
+     *
+     * <p>Delegates to {@link #getNetPositions()} and returns {@code 0}
+     * if the symbol is absent. Implementations may override for efficiency.
+     *
+     * @param symbol the symbol to query (e.g. {@code "SBIN"} or {@code "NSE_EQ::SBIN"})
+     * @return expected net quantity, or {@code 0} if no position is held
+     */
+    default long getNetPosition(String symbol) {
+        return getNetPositions().getOrDefault(symbol, 0L);
+    }
+
+    /**
      * Returns a {@link NetPositionProvider} that always returns an empty map.
      * Suitable as a default when no strategy engine is wired.
      */

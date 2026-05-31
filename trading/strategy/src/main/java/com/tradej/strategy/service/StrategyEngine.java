@@ -1,6 +1,7 @@
 package com.tradej.strategy.service;
 
 import com.tradej.core.domain.event.DomainEvent;
+import com.tradej.core.domain.event.EventMetadataFactory;
 import com.tradej.strategy.api.StrategyPlugin;
 
 import java.util.List;
@@ -27,8 +28,8 @@ public final class StrategyEngine {
      * Creates a strategy engine backed by a sandbox with the given plugins.
      * Plugins loaded via {@link java.util.ServiceLoader} are also included.
      */
-    public StrategyEngine(List<StrategyPlugin> plugins) {
-        this.sandbox = new StrategySandbox(plugins);
+    public StrategyEngine(List<StrategyPlugin> plugins, EventMetadataFactory eventMetadataFactory) {
+        this.sandbox = new StrategySandbox(plugins, eventMetadataFactory);
     }
 
     /**

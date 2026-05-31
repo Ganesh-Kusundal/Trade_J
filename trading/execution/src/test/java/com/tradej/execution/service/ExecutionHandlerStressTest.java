@@ -48,7 +48,7 @@ class ExecutionHandlerStressTest {
     void setUp() throws IOException {
         tempDir = Files.createTempDirectory("exec-stress-");
         omsRepo = new EventSourcedOrderRepository(tempDir);
-        handler = new ExecutionHandler(omsRepo, null, new com.tradej.core.domain.runtime.RuntimeModeHolder(),
+        handler = new ExecutionHandler(null, new com.tradej.core.domain.runtime.RuntimeModeHolder(),
                 new TradingCircuitBreaker(10, 30_000),
                 new OrderIdentityRegistry(), DeadLetterQueue.noop());
         emitted = new CopyOnWriteArrayList<>();

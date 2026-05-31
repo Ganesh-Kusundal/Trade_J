@@ -1,6 +1,7 @@
 package com.tradej.persistence.replay;
 
 import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tradej.core.domain.event.DomainEvent;
 import com.tradej.core.domain.port.EventBus;
@@ -48,13 +49,17 @@ public final class ReplayRunner implements AutoCloseable {
      * Returns a {@link ReplayResult} with observable counters so callers can
      * detect silent data loss (corrupt entries) or unexpected event types.
      *
+     * <p>Entries are filtered by the type-discriminator envelope
+     * ({@code eventType} field) so that only matching events are replayed.
+     *
      * @param eventType the specific DomainEvent subclass to deserialize
-     * @return result summary with counters for total, replayed, and failed entries
+     * @return result summary with counters for total, replayed, skipped, and failed entries
      */
     public ReplayResult replayAll(Class<? extends DomainEvent> eventType) {
         stateManager.beforeReplay();
         long totalRead = 0L;
         long replayed = 0L;
+        long skipped = 0L;
         long failed = 0L;
 
         String raw;
@@ -62,7 +67,35 @@ public final class ReplayRunner implements AutoCloseable {
             totalRead++;
             entriesRead.incrementAndGet();
             try {
-                DomainEvent event = objectMapper.readValue(raw, eventType);
+                JsonNode envelope = objectMapper.readTree(raw);
+                String storedType = envelope.path("eventType").asText(null);
+                String expectedType = eventType.getSimpleName();
+
+                if (storedType == null) {
+                    // Legacy format without envelope — try direct deserialization
+                    DomainEvent event = objectMapper.readValue(raw, eventType);
+                    syncReplayClock(event);
+                    eventBus.publish(event);
+                    replayed++;
+                    continue;
+                }
+
+                if (!storedType.equals(expectedType)) {
+                    skipped++;
+                    if (log.isDebugEnabled()) {
+                        log.debug("Skipping entry of type {} (looking for {})", storedType, expectedType);
+                    }
+                    continue;
+                }
+
+                JsonNode eventNode = envelope.get("event");
+                if (eventNode == null) {
+                    failed++;
+                    log.warn("Envelope missing 'event' field for type {}", storedType);
+                    continue;
+                }
+
+                DomainEvent event = objectMapper.treeToValue(eventNode, eventType);
                 syncReplayClock(event);
                 eventBus.publish(event);
                 replayed++;
@@ -75,7 +108,7 @@ public final class ReplayRunner implements AutoCloseable {
         }
 
         stateManager.afterReplay();
-        ReplayResult result = new ReplayResult(totalRead, replayed, failed);
+        ReplayResult result = new ReplayResult(totalRead, replayed, skipped, failed);
         log.info("Replay complete: {}", result.summary());
         return result;
     }
