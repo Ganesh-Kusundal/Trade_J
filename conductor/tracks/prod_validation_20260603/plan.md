@@ -1,7 +1,7 @@
 # Implementation Plan
 
 ## Phase 1: Full Session Soak Tests
-- [ ] Task: Write harness to poll and log JMX/Micrometer metrics (heap, GC, threads, ring buffer depth) during live sessions
+- [x] Task: Write harness to poll and log JMX/Micrometer metrics (heap, GC, threads, ring buffer depth) during live sessions
 - [ ] Task: Execute NSE full session soak test and archive logs
 - [ ] Task: Execute MCX full session soak test and archive logs
 - [ ] Task: Conductor - User Manual Verification 'Phase 1: Full Session Soak Tests' (Protocol in workflow.md)
