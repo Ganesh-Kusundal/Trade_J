@@ -1,4 +1,4 @@
-# Implementation Plan
+# Implementation Plan [checkpoint: aa800e1]
 
 ## Phase 1: Full Session Soak Tests
 - [x] Task: Write harness to poll and log JMX/Micrometer metrics (heap, GC, threads, ring buffer depth) during live sessions (177b4f7)
