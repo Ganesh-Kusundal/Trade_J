@@ -7,11 +7,13 @@ import com.tradej.core.domain.model.InstrumentKey;
 import com.tradej.broker.upstox.auth.UpstoxBearerTokenSource;
 import com.tradej.broker.upstox.http.UpstoxApiException;
 import com.tradej.core.domain.value.ExchangeSegment;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.actuate.health.Health;
 import org.springframework.boot.actuate.health.HealthIndicator;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.stereotype.Component;
 
+import java.time.Clock;
 import java.time.Instant;
 
 @Component("upstox")
@@ -22,26 +24,28 @@ public class UpstoxHealthIndicator implements HealthIndicator {
     private final UpstoxBearerTokenSource tokenSource;
     private final BrokerTransportCapabilities transportCapabilities;
     private final MarketDataProvider marketDataProvider;
+    private final Clock clock;
 
     public UpstoxHealthIndicator(
             IBrokerConnection brokerConnection,
             UpstoxBearerTokenSource tokenSource,
-            BrokerTransportCapabilities transportCapabilities,
+            ObjectProvider<BrokerTransportCapabilities> transportCapabilitiesProvider,
             MarketDataProvider marketDataProvider
     ) {
         this.brokerConnection = brokerConnection;
         this.tokenSource = tokenSource;
-        this.transportCapabilities = transportCapabilities;
+        this.transportCapabilities = transportCapabilitiesProvider.getIfUnique();
         this.marketDataProvider = marketDataProvider;
+        this.clock = Clock.systemUTC();
     }
 
     @Override
     public Health health() {
-        boolean analyticsOnly = transportCapabilities.analyticsOnly();
         boolean wsConnected = brokerConnection.websocket() != null && brokerConnection.websocket().isConnected();
         long expiryEpochMs = tokenSource.expiryEpochMs();
-        boolean tokenValid = expiryEpochMs <= 0 || expiryEpochMs > System.currentTimeMillis();
+        boolean tokenValid = expiryEpochMs <= 0 || expiryEpochMs > clock.millis();
         boolean restOk = probeRestMarketData();
+        boolean analyticsOnly = transportCapabilities != null && transportCapabilities.analyticsOnly();
         boolean healthy = analyticsOnly ? (tokenValid && restOk) : wsConnected;
 
         Health.Builder builder = healthy ? Health.up() : Health.down();
@@ -50,7 +54,8 @@ public class UpstoxHealthIndicator implements HealthIndicator {
                 .withDetail("analyticsOnly", analyticsOnly)
                 .withDetail("tokenValid", tokenValid)
                 .withDetail("restMarketDataOk", restOk)
-                .withDetail("websocketExpected", transportCapabilities.supportsWebSocket())
+                .withDetail("websocketExpected",
+                        transportCapabilities != null && transportCapabilities.supportsWebSocket())
                 .withDetail("websocketConnected", wsConnected)
                 .withDetail("subscriptions",
                         brokerConnection.websocket() != null
@@ -63,7 +68,7 @@ public class UpstoxHealthIndicator implements HealthIndicator {
     }
 
     private boolean probeRestMarketData() {
-        if (!transportCapabilities.supportsRestMarketData()) {
+        if (transportCapabilities == null || !transportCapabilities.supportsRestMarketData()) {
             return false;
         }
         try {

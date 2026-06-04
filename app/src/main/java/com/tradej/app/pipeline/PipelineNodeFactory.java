@@ -271,7 +271,7 @@ public final class PipelineNodeFactory {
                 exchangeSegment,
                 "EQUITY", symbol, null, 0L, null, 1, 0
         );
-        return new ScanAsset(instrument, com.tradej.scanner.model.AssetClass.EQUITY, symbol);
+        return new ScanAsset(instrument, com.tradej.core.domain.scan.AssetClass.EQUITY, symbol);
     }
 
     public ReactorBridge reactorBridge() {

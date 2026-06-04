@@ -6,6 +6,7 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.actuate.health.Health;
 import org.springframework.boot.actuate.health.HealthIndicator;
 
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -21,16 +22,17 @@ public class MarketDataHealthIndicator implements HealthIndicator {
     private final MarketDataPipeline pipeline;
     private final Duration staleThreshold;
     private final BrokerTransportCapabilities transportCapabilities;
+    private final Clock clock;
 
     public MarketDataHealthIndicator(
             MarketDataPipeline pipeline,
             ObjectProvider<BrokerTransportCapabilities> transportCapabilitiesProvider
     ) {
-        this(pipeline, DEFAULT_STALE_THRESHOLD, transportCapabilitiesProvider.getIfAvailable());
+        this(pipeline, DEFAULT_STALE_THRESHOLD, transportCapabilitiesProvider.getIfUnique(), Clock.systemUTC());
     }
 
     MarketDataHealthIndicator(MarketDataPipeline pipeline, Duration staleThreshold) {
-        this(pipeline, staleThreshold, null);
+        this(pipeline, staleThreshold, null, Clock.systemUTC());
     }
 
     MarketDataHealthIndicator(
@@ -38,9 +40,19 @@ public class MarketDataHealthIndicator implements HealthIndicator {
             Duration staleThreshold,
             BrokerTransportCapabilities transportCapabilities
     ) {
+        this(pipeline, staleThreshold, transportCapabilities, Clock.systemUTC());
+    }
+
+    MarketDataHealthIndicator(
+            MarketDataPipeline pipeline,
+            Duration staleThreshold,
+            BrokerTransportCapabilities transportCapabilities,
+            Clock clock
+    ) {
         this.pipeline = pipeline;
         this.staleThreshold = staleThreshold;
         this.transportCapabilities = transportCapabilities;
+        this.clock = clock;
     }
 
     @Override
@@ -60,7 +72,7 @@ public class MarketDataHealthIndicator implements HealthIndicator {
 
         boolean receivedTicks = totalTicks > 0;
         boolean stale = receivedTicks
-                && (System.currentTimeMillis() - lastTickMs) > staleThreshold.toMillis();
+                && (clock.millis() - lastTickMs) > staleThreshold.toMillis();
 
         String status;
         if (!receivedTicks) {

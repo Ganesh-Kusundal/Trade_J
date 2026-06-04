@@ -8,7 +8,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -64,23 +68,22 @@ class MarketDataHealthIndicatorTest {
     }
 
     @Test
-    void healthIsDownWhenTickIsStale() throws InterruptedException {
-        // Use a very short stale threshold
-        var shortThreshold = new MarketDataHealthIndicator(pipeline, Duration.ofMillis(10));
+    void healthIsDownWhenTickIsStale() {
+        Instant baseTime = Instant.parse("2026-01-01T00:00:00Z");
+        long tickTimestampMs = baseTime.toEpochMilli();
 
-        var tick = new TickReceived(
-                EventMetadata.root(), "SBIN", "5m", 750_00L, 10L, 1_000L,
-                System.currentTimeMillis(), null
-        );
-        pipeline.onTickReceived(tick);
+        pipeline.onTickReceived(tickAt(tickTimestampMs));
 
-        // Initially active
-        assertEquals("ACTIVE", shortThreshold.health().getDetails().get("status"));
+        // Initially active — clock matches tick timestamp
+        var activeIndicator = new MarketDataHealthIndicator(
+                pipeline, Duration.ofMillis(200), null, Clock.fixed(baseTime, ZoneOffset.UTC));
+        assertEquals("ACTIVE", activeIndicator.health().getDetails().get("status"));
 
-        // Wait for threshold to expire
-        Thread.sleep(30);
+        // Advance clock past the stale threshold (250ms > 200ms)
+        var staleIndicator = new MarketDataHealthIndicator(
+                pipeline, Duration.ofMillis(200), null, Clock.fixed(baseTime.plusMillis(250), ZoneOffset.UTC));
 
-        var health = shortThreshold.health();
+        var health = staleIndicator.health();
         assertEquals("DOWN", health.getStatus().getCode());
         assertEquals("STALLED", health.getDetails().get("status"));
     }
@@ -109,29 +112,37 @@ class MarketDataHealthIndicatorTest {
     }
 
     @Test
-    void healthIsDownWhenTicksStopAfterBeingActive() throws InterruptedException {
-        var shortThreshold = new MarketDataHealthIndicator(pipeline, Duration.ofMillis(20));
+    void healthIsDownWhenTicksStopAfterBeingActive() {
+        Instant baseTime = Instant.parse("2026-01-01T00:00:00Z");
 
-        // Send a few ticks
+        // Send 3 ticks at baseTime+0ms, baseTime+5ms, baseTime+10ms
         for (int i = 0; i < 3; i++) {
-            var tick = new TickReceived(
-                    EventMetadata.root(), "SBIN", "5m", 750_00L, 10L, 1_000L,
-                    System.currentTimeMillis(), null
-            );
-            pipeline.onTickReceived(tick);
-            Thread.sleep(5);
+            pipeline.onTickReceived(tickAt(baseTime.toEpochMilli() + (i * 5)));
         }
 
-        // Was active
-        assertEquals("ACTIVE", shortThreshold.health().getDetails().get("status"));
+        // Still active — last tick was 10ms ago, threshold is 200ms
+        var activeIndicator = new MarketDataHealthIndicator(
+                pipeline, Duration.ofMillis(200), null, Clock.fixed(baseTime, ZoneOffset.UTC));
+        assertEquals("ACTIVE", activeIndicator.health().getDetails().get("status"));
 
-        // Wait for stall
-        Thread.sleep(30);
+        // Advance clock 250ms past the last tick (10 + 250 = 260 > 200ms threshold)
+        var staleIndicator = new MarketDataHealthIndicator(
+                pipeline, Duration.ofMillis(200), null, Clock.fixed(baseTime.plusMillis(260), ZoneOffset.UTC));
 
-                var health = shortThreshold.health();
+        var health = staleIndicator.health();
         assertEquals("DOWN", health.getStatus().getCode());
         assertEquals("STALLED", health.getDetails().get("status"));
         assertEquals(3L, health.getDetails().get("totalTicks"));
+    }
+
+    /** Creates a TickReceived with a controlled metadata timestamp for deterministic time tests. */
+    private static TickReceived tickAt(long timestampMs) {
+        var metadata = new EventMetadata(
+                UUID.randomUUID().toString(),
+                timestampMs, System.nanoTime(), 0L, "", 1);
+        return new TickReceived(
+                metadata, "SBIN", "5m", 750_00L, 10L, 1_000L,
+                timestampMs, null);
     }
 
     @Test

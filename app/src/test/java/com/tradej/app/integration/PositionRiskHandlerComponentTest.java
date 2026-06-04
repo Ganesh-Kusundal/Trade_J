@@ -2,8 +2,11 @@ package com.tradej.app.integration;
 
 import com.tradej.core.domain.event.DomainEvent;
 import com.tradej.core.domain.event.EventMetadata;
+import com.tradej.core.domain.event.SignalGenerated;
 import com.tradej.core.domain.event.SignalPendingExecution;
 import com.tradej.core.domain.event.SignalSuppressed;
+import com.tradej.core.domain.value.Side;
+import com.tradej.strategy.portfolio.PortfolioEngine;
 import com.tradej.core.domain.event.TradeClosed;
 import com.tradej.core.domain.event.TradeOpened;
 import com.tradej.core.domain.model.OrderRequest;
@@ -60,7 +63,7 @@ class PositionRiskHandlerComponentTest {
     @Test
     void qualifiesSignalIntoExecutableOrderRequest() {
         PositionRiskHandler handler = new PositionRiskHandler(
-                new RiskLimits(1_000_000L, 3, 5_000_000L, 3),
+                RiskLimits.withOpenPositionQuantity(1_000_000L, 3, 5_000_000L, 3),
                 emptyPositions()
         );
 
@@ -68,15 +71,44 @@ class PositionRiskHandlerComponentTest {
         handler.onDomainEvent(sbinSignal("sig-1",
                 sbinBuyOrder(10L, 75_000L, "correlation-1")), emitted::add);
 
-        // SignalPendingExecution should pass through without being suppressed
-        assertTrue(emitted.isEmpty(),
-                "Signal should pass risk checks and produce no suppression event");
+        assertEquals(1, emitted.size(), "Passing signal must be forwarded to execution");
+        assertInstanceOf(SignalPendingExecution.class, emitted.getFirst());
+    }
+
+    @Test
+    void qualifiesSignalGeneratedIntoPendingExecution() {
+        PortfolioEngine portfolio = new PortfolioEngine(10_000_000L, 50_000_000L);
+        PositionRiskHandler handler = new PositionRiskHandler(
+                RiskLimits.withOpenPositionQuantity(1_000_000L, 3, 5_000_000L, 3),
+                emptyPositions(),
+                portfolio
+        );
+
+        List<DomainEvent> emitted = new ArrayList<>();
+        SignalGenerated signal = new SignalGenerated(
+                EventMetadata.root(),
+                "sig-gen-1",
+                "SBIN",
+                "5m",
+                Side.BUY,
+                75_000L,
+                70_000L,
+                80_000L,
+                "test",
+                Map.of("strategyName", "test-strategy", "quantity", 10L)
+        );
+        handler.onDomainEvent(signal, emitted::add);
+
+        assertEquals(1, emitted.size());
+        SignalPendingExecution pending = assertInstanceOf(SignalPendingExecution.class, emitted.getFirst());
+        assertEquals("sig-gen-1", pending.signalId());
+        assertEquals(10L, pending.orderRequest().quantity());
     }
 
     @Test
     void suppressesSignalWhenOrderValueBreachesRiskLimit() {
         PositionRiskHandler handler = new PositionRiskHandler(
-                new RiskLimits(1_000_000L, 3, 100_000L, 3),
+                RiskLimits.withOpenPositionQuantity(1_000_000L, 3, 100_000L, 3),
                 emptyPositions()
         );
 
@@ -96,7 +128,7 @@ class PositionRiskHandlerComponentTest {
         NetPositionProvider shortPosition = () -> Map.of("SBIN", -100L);
 
         PositionRiskHandler handler = new PositionRiskHandler(
-                new RiskLimits(1_000_000L, 3, 50L, 3),
+                RiskLimits.withOpenPositionQuantity(1_000_000L, 3, 50L, 3),
                 shortPosition
         );
 
@@ -109,12 +141,12 @@ class PositionRiskHandlerComponentTest {
     }
 
     @Test
-    void suppressesSignalWhenOpenPositionLimitReached() {
-        // Already at max open positions and trying to flip
+    void suppressesSignalWhenOrderValueExceedsFlipLimit() {
+        // Position of 3 + sell qty of 1 = 4 > maxOpenPositionQuantity of 3 triggers max_order_value_breach
         NetPositionProvider atLimit = () -> Map.of("SBIN", 3L);
 
         PositionRiskHandler handler = new PositionRiskHandler(
-                new RiskLimits(1_000_000L, 3, 5_000_000L, 3),
+                RiskLimits.withOpenPositionQuantity(1_000_000L, 3, 5_000_000L, 3),
                 atLimit
         );
 
@@ -139,13 +171,13 @@ class PositionRiskHandlerComponentTest {
         ), emitted::add);
 
         SignalSuppressed suppressed = assertInstanceOf(SignalSuppressed.class, emitted.get(0));
-        assertEquals("max_open_positions", suppressed.reason());
+        assertEquals("max_order_value_breach", suppressed.reason());
     }
 
     @Test
     void killSwitchSuppressesAllSignals() {
         PositionRiskHandler handler = new PositionRiskHandler(
-                new RiskLimits(1_000_000L, 1, 5_000_000L, 3),
+                RiskLimits.withOpenPositionQuantity(1_000_000L, 1, 5_000_000L, 3),
                 emptyPositions()
         );
 
@@ -155,7 +187,7 @@ class PositionRiskHandlerComponentTest {
                 "t-1",
                 "SBIN",
                 75_000L,
-                -500L,
+                -500L, 10L,
                 "stop_loss"
         ), e -> {});
 
@@ -172,7 +204,7 @@ class PositionRiskHandlerComponentTest {
     @Test
     void openTradeTrackingIsCorrect() {
         PositionRiskHandler handler = new PositionRiskHandler(
-                new RiskLimits(1_000_000L, 3, 5_000_000L, 3),
+                RiskLimits.withOpenPositionQuantity(1_000_000L, 3, 5_000_000L, 3),
                 emptyPositions()
         );
 
@@ -198,7 +230,7 @@ class PositionRiskHandlerComponentTest {
                 "t-1",
                 "SBIN",
                 75_000L,
-                100L,
+                100L, 10L,
                 "take_profit"
         ), e -> {});
 
@@ -208,7 +240,7 @@ class PositionRiskHandlerComponentTest {
     @Test
     void snapshotAndRestorePreservesState() {
         PositionRiskHandler handler = new PositionRiskHandler(
-                new RiskLimits(1_000_000L, 3, 5_000_000L, 3),
+                RiskLimits.withOpenPositionQuantity(1_000_000L, 3, 5_000_000L, 3),
                 emptyPositions()
         );
 
@@ -231,7 +263,7 @@ class PositionRiskHandlerComponentTest {
                 "t-1",
                 "SBIN",
                 75_000L,
-                -500L,
+                -500L, 10L,
                 "stop_loss"
         ), e -> {});
 

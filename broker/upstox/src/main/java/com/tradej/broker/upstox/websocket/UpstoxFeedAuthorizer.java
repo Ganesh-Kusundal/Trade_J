@@ -55,9 +55,6 @@ public final class UpstoxFeedAuthorizer {
      * Result of a feed authorization request.
      */
     public record AuthorizedFeed(String wsUri, long expiryEpochMs) {
-        public boolean isExpired() {
-            return expiryEpochMs > 0 && System.currentTimeMillis() >= expiryEpochMs;
-        }
     }
 
     /**
