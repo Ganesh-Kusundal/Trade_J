@@ -671,9 +671,9 @@ broker/dhan/src/main/java/com/tradej/broker/dhan/
 │   ├── DhanRollingOptionClient.java
 │   └── OptionExpiryCache.java
 ├── rate/
-│   └── MultiBucketRateLimiter.java
+│   └── ApiCategory.java
 └── resilience/
-    └── DhanResilienceExecutor.java
+    └── DhanRetryExecutor.java
 ```
 
 ### Upstox Adapter — Unsupported Ports Pattern

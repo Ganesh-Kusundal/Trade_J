@@ -436,10 +436,9 @@ trade-j/
 │   │       ├── orders/
 │   │       │   └── DhanRestOrderClient.java
 │   │       ├── rate/
-│   │       │   ├── ApiCategory.java
-│   │       │   ├── DhanEndpointCategory.java
-│   │       │   ├── MultiBucketRateLimiter.java
-│   │       │   └── TokenBucketRateLimiter.java
+│   │       │   └── ApiCategory.java
+│   │       ├── resilience/
+│   │       ├──     └── DhanRetryExecutor.java
 │   │       └── websocket/
 │   │           ├── AbstractDhanDepthWebSocketClient.java
 │   │           ├── DhanDepthSideUpdate.java
