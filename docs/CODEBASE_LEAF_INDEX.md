@@ -1,7 +1,7 @@
 # Trade-J — Leaf File Index (generated from repo)
 
 > **Audit date:** 2026-06-04 (updated: removed trade-experiments, trade-optimization)  
-> **Totals:** 638 main Java · 205 test Java (+ 1 architecture-test)  
+> **Totals:** 635 main Java · 205 test Java (+ 1 architecture-test)  
 > **Canonical architecture:** [ARCHITECTURE_REPORT.md](ARCHITECTURE_REPORT.md)
 
 Per-module listing of every `src/main/java` compilation unit, grouped by package.
@@ -44,7 +44,7 @@ Per-module listing of every `src/main/java` compilation unit, grouped by package
 - **`com/tradej/broker/core/util`** (1): ReflectionSupport
 - **`com/tradej/broker/core/websocket`** (1): DefaultWebSocketSupervisor
 
-### `:broker-dhan` — `broker/dhan/` (69 main · 19 test)
+### `:broker-dhan` — `broker/dhan/` (66 main · 19 test)
 - **`com/tradej/broker/dhan`** (1): DhanBrokerConnection
 - **`com/tradej/broker/dhan/adapter`** (15): DhanBaseRestAdapter, DhanBracketOrderAdapter, DhanConditionalAlertProvider, DhanFuturesAdapter, DhanGttOrderAdapter, DhanInstrumentResolver, DhanMarginProvider, DhanMarketDataProvider, DhanOptionsAdapter, DhanOrderCommandAdapter, DhanOrderQueryAdapter, DhanPortfolioProvider, DhanSessionRiskProvider, DhanSliceOrderAdapter, InMemoryInstrumentResolver
 - **`com/tradej/broker/dhan/auth`** (9): DhanAuthClient, DhanAuthRejectedException, DhanAuthenticationException, DhanTokenInfo, DhanTokenManager, DhanTokenProvider, DhanTokenState, DhanTokenStateStore, DhanTotpGenerator
@@ -58,8 +58,8 @@ Per-module listing of every `src/main/java` compilation unit, grouped by package
 - **`com/tradej/broker/dhan/mapper`** (6): DhanJsonResponse, DhanPayloadNormalizer, DhanSdkConverters, DhanSdkMapper, DhanSdkResponse, ReflectionSupport
 - **`com/tradej/broker/dhan/options`** (7): DhanOptionChainClient, DhanOptionChainResponseMapper, DhanRollingOptionClient, DhanRollingOptionMapper, DhanRollingOptionWireMapper, OptionExpiryCache, StrikeSelectionSupport
 - **`com/tradej/broker/dhan/orders`** (1): DhanRestOrderClient
-- **`com/tradej/broker/dhan/rate`** (4): ApiCategory, DhanEndpointCategory, MultiBucketRateLimiter, TokenBucketRateLimiter
-- **`com/tradej/broker/dhan/resilience`** (2): DhanBackoffUtil, DhanResilienceExecutor
+- **`com/tradej/broker/dhan/rate`** (1): ApiCategory
+- **`com/tradej/broker/dhan/resilience`** (2): DhanBackoffUtil, DhanRetryExecutor
 - **`com/tradej/broker/dhan/websocket`** (3): DhanBinaryParser, DhanWebSocketMultiplexer, ParsedFeedFrame
 - **tests:** com/tradej/broker/dhan/adapter/DhanMarketDataProviderMergeTest, com/tradej/broker/dhan/adapter/InMemoryInstrumentResolverContractTest, com/tradej/broker/dhan/auth/DhanAuthClientUnitTest, com/tradej/broker/dhan/auth/DhanTokenManagerUnitTest, com/tradej/broker/dhan/auth/DhanTotpGeneratorUnitTest, com/tradej/broker/dhan/config/DhanConfigPathsUnitTest, com/tradej/broker/dhan/config/DhanConnectionSettingsUnitTest, com/tradej/broker/dhan/constants/DhanApiUrlResolverUnitTest, com/tradej/broker/dhan/historical/DhanHistoricalDataClientFailureTest, com/tradej/broker/dhan/historical/DhanHistoricalDataClientWindowingTest, com/tradej/broker/dhan/instrument/DhanInstrumentCatalogComponentTest, com/tradej/broker/dhan/instrument/DhanInstrumentCatalogContractTest, com/tradej/broker/dhan/options/DhanOptionChainResponseMapperTest, com/tradej/broker/dhan/options/DhanRollingOptionMapperTest, com/tradej/broker/dhan/options/DhanRollingOptionWireMapperTest, com/tradej/broker/dhan/options/OptionExpiryCacheTest, com/tradej/broker/dhan/options/StrikeSelectionSupportTest, com/tradej/broker/dhan/orders/DhanRestOrderClientFixtureTest, com/tradej/broker/dhan/orders/DhanRestOrderClientUnitTest
 
