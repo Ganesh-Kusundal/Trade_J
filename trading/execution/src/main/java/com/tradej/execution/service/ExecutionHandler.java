@@ -25,11 +25,15 @@ import com.tradej.core.domain.oms.OrderProjection;
 import com.tradej.core.domain.oms.OrderSubmitted;
 import com.tradej.core.domain.port.DeadLetterQueue;
 import com.tradej.core.domain.runtime.RuntimeModeHolder;
+import com.tradej.core.domain.time.TradingClock;
 import com.tradej.core.domain.value.FillReconciliation;
 import com.tradej.core.domain.value.OrderStatus;
 import com.tradej.core.domain.value.Side;
 import com.tradej.core.support.MdcHelper;
 import com.tradej.execution.identity.OrderIdentityRegistry;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import java.time.Duration;
 import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
@@ -55,8 +59,9 @@ public final class ExecutionHandler {
     private static final int DEFAULT_QUEUE_CAPACITY = 1000;
 
     /** Maximum time to wait for a broker order placement response. */
-    private static final long ORDER_PLACEMENT_TIMEOUT_MS = 10_000L;
+    private static final long DEFAULT_ORDER_PLACEMENT_TIMEOUT_MS = 10_000L;
 
+    private final long orderPlacementTimeoutMs;
     private final BlockingQueue<ExecutionCommand> queue;
     private final ExecutorService executor = Executors.newSingleThreadExecutor(r -> {
         Thread thread = new Thread(r, "execution-handler");
@@ -70,13 +75,17 @@ public final class ExecutionHandler {
     });
     private final OrderManagementService orderManagementService;
     private final RuntimeModeHolder runtimeModeHolder;
+    private final TradingClock clock;
     private final TradingCircuitBreaker circuitBreaker;
     private final OrderIdentityRegistry identityRegistry;
     private final DeadLetterQueue deadLetterQueue;
     private final AtomicLong droppedFillCount = new AtomicLong();
-    /** Tracks which orders have already emitted TradeOpened, so subsequent fills
-     *  emit TradeUpdated instead (fixing the duplicate TradeOpened bug C-05). */
-    private final Set<String> tradeOpenedEmitted = ConcurrentHashMap.newKeySet();
+    /** Tracks which orders have already emitted TradeOpened, so subsequent fills emit TradeUpdated. */
+    private final Cache<String, Boolean> tradeOpenedEmitted = Caffeine.newBuilder()
+            .maximumSize(10_000)
+            .expireAfterWrite(Duration.ofHours(24))
+            .build();
+    private final AtomicLong orderIdSequence = new AtomicLong();
     private volatile boolean running;
     private volatile CountDownLatch processingLatch;
 
@@ -87,11 +96,20 @@ public final class ExecutionHandler {
     public ExecutionHandler(
             OrderManagementService orderManagementService,
             RuntimeModeHolder runtimeModeHolder,
+            TradingClock clock,
             TradingCircuitBreaker circuitBreaker,
             OrderIdentityRegistry identityRegistry,
             DeadLetterQueue deadLetterQueue
     ) {
-        this(orderManagementService, runtimeModeHolder, circuitBreaker, identityRegistry, deadLetterQueue, DEFAULT_QUEUE_CAPACITY);
+        this(
+                orderManagementService,
+                runtimeModeHolder,
+                clock,
+                circuitBreaker,
+                identityRegistry,
+                deadLetterQueue,
+                DEFAULT_QUEUE_CAPACITY,
+                DEFAULT_ORDER_PLACEMENT_TIMEOUT_MS);
     }
 
     /**
@@ -102,17 +120,46 @@ public final class ExecutionHandler {
     public ExecutionHandler(
             OrderManagementService orderManagementService,
             RuntimeModeHolder runtimeModeHolder,
+            TradingClock clock,
             TradingCircuitBreaker circuitBreaker,
             OrderIdentityRegistry identityRegistry,
             DeadLetterQueue deadLetterQueue,
             int queueCapacity
     ) {
+        this(
+                orderManagementService,
+                runtimeModeHolder,
+                clock,
+                circuitBreaker,
+                identityRegistry,
+                deadLetterQueue,
+                queueCapacity,
+                DEFAULT_ORDER_PLACEMENT_TIMEOUT_MS);
+    }
+
+    /**
+     * @param orderPlacementTimeoutMs max wait for broker placement acknowledgement
+     */
+    public ExecutionHandler(
+            OrderManagementService orderManagementService,
+            RuntimeModeHolder runtimeModeHolder,
+            TradingClock clock,
+            TradingCircuitBreaker circuitBreaker,
+            OrderIdentityRegistry identityRegistry,
+            DeadLetterQueue deadLetterQueue,
+            int queueCapacity,
+            long orderPlacementTimeoutMs
+    ) {
         this.orderManagementService = orderManagementService;
         this.runtimeModeHolder = runtimeModeHolder;
+        this.clock = clock;
         this.circuitBreaker = circuitBreaker;
         this.identityRegistry = identityRegistry;
         this.deadLetterQueue = deadLetterQueue == null ? DeadLetterQueue.noop() : deadLetterQueue;
         this.queue = new ArrayBlockingQueue<>(queueCapacity);
+        this.orderPlacementTimeoutMs = orderPlacementTimeoutMs > 0
+                ? orderPlacementTimeoutMs
+                : DEFAULT_ORDER_PLACEMENT_TIMEOUT_MS;
     }
 
     public void start() {
@@ -170,6 +217,20 @@ public final class ExecutionHandler {
                             orderFilled.eventId(), orderFilled.order().orderId());
                     scheduleFillRetry(orderFilled, downstream, 0);
                 }
+                return;
+            }
+            if (event instanceof com.tradej.core.domain.event.OrderPartiallyFilled partial) {
+                if (!queue.offer(new BrokerFillCommand(partial.order(), partial.metadata(), partial.fills(), false, downstream, 0))) {
+                    scheduleBrokerFillRetry(partial.order(), partial.metadata(), partial.fills(), false, downstream, 0);
+                }
+                return;
+            }
+            if (event instanceof com.tradej.core.domain.event.OrderFullyFilled fullyFilled) {
+                if (!queue.offer(new BrokerFillCommand(
+                        fullyFilled.order(), fullyFilled.metadata(), fullyFilled.fills(), true, downstream, 0))) {
+                    scheduleBrokerFillRetry(
+                            fullyFilled.order(), fullyFilled.metadata(), fullyFilled.fills(), true, downstream, 0);
+                }
             }
         } finally {
             MdcHelper.clear();
@@ -211,6 +272,88 @@ public final class ExecutionHandler {
         switch (command) {
             case SignalCommand cmd -> processSignal(cmd.pendingExecution(), cmd.downstream());
             case FillCommand cmd -> processFill(cmd.orderFilled(), cmd.downstream(), cmd.deferAttempts());
+            case BrokerFillCommand cmd -> processBrokerFill(
+                    cmd.order(), cmd.metadata(), cmd.fills(), cmd.fullyFilled(), cmd.downstream(), cmd.deferAttempts());
+        }
+    }
+
+    private void scheduleBrokerFillRetry(
+            Order order,
+            EventMetadata metadata,
+            java.util.List<Trade> fills,
+            boolean fullyFilled,
+            Consumer<DomainEvent> downstream,
+            int nextAttempt
+    ) {
+        if (nextAttempt >= MAX_FILL_DEFER_ATTEMPTS) {
+            droppedFillCount.incrementAndGet();
+            deadLetterQueue.append("execution-handler",
+                    new OrderFilled(metadata, order, fills), "Broker fill defer attempts exhausted");
+            log.error("Broker fill dropped after {} defer attempts brokerOrderId={}", nextAttempt, order.orderId());
+            return;
+        }
+        int scheduledAttempt = nextAttempt + 1;
+        fillDeferExecutor.schedule(() -> {
+            if (!queue.offer(new BrokerFillCommand(order, metadata, fills, fullyFilled, downstream, scheduledAttempt))) {
+                scheduleBrokerFillRetry(order, metadata, fills, fullyFilled, downstream, scheduledAttempt);
+            }
+        }, FILL_DEFER_DELAY_MS, TimeUnit.MILLISECONDS);
+    }
+
+    private void processBrokerFill(
+            Order order,
+            EventMetadata metadata,
+            java.util.List<Trade> fills,
+            boolean fullyFilled,
+            Consumer<DomainEvent> downstream,
+            int deferAttempts
+    ) {
+        try {
+            String internalOrderId = resolveInternalOrderId(order);
+            if (internalOrderId == null) {
+                if (deferAttempts < MAX_FILL_DEFER_ATTEMPTS) {
+                    scheduleBrokerFillRetry(order, metadata, fills, fullyFilled, downstream, deferAttempts);
+                    return;
+                }
+                droppedFillCount.incrementAndGet();
+                deadLetterQueue.append("execution-handler",
+                        new OrderFilled(metadata, order, fills), "Broker fill identity unavailable");
+                return;
+            }
+
+            OrderProjection projection = orderManagementService.getOrderProjection(internalOrderId).orElse(null);
+            if (projection == null) {
+                log.warn("No OSM projection for broker fill internalOrderId={} brokerOrderId={}",
+                        internalOrderId, order.orderId());
+                return;
+            }
+
+            long fillQty = fills.isEmpty()
+                    ? Math.max(0L, order.filledQuantity() - projection.filledQuantity())
+                    : fills.stream().mapToLong(Trade::quantity).sum();
+            if (fillQty <= 0 && !fullyFilled) {
+                log.debug("Skipping zero-qty broker fill update orderId={}", order.orderId());
+                return;
+            }
+            long avgPrice = fills.isEmpty()
+                    ? order.pricePaisa()
+                    : Math.round((double) fills.stream().mapToLong(Trade::pricePaisa).sum() / fills.size());
+            long filledSoFar = projection.filledQuantity() + fillQty;
+            long totalQty = projection.totalQuantity();
+
+            if (fullyFilled || filledSoFar >= totalQty) {
+                long reportQty = fullyFilled ? Math.max(totalQty, order.filledQuantity()) : totalQty;
+                orderManagementService.onBrokerEvent(OrderFullyFilled.event(internalOrderId, reportQty, avgPrice));
+                downstream.accept(new com.tradej.core.domain.event.OrderFullyFilled(metadata, order, fills));
+            } else {
+                orderManagementService.onBrokerEvent(OrderPartiallyFilled.event(internalOrderId, fillQty, avgPrice));
+                downstream.accept(new com.tradej.core.domain.event.OrderPartiallyFilled(metadata, order, fills));
+            }
+
+            OrderFilled synthetic = new OrderFilled(metadata, order, fills);
+            emitTradeOpened(internalOrderId, order, synthetic, downstream);
+        } finally {
+            MdcHelper.clear();
         }
     }
 
@@ -387,13 +530,14 @@ public final class ExecutionHandler {
     }
 
     private Order placeOrderWithTimeout(OrderRequest request) throws Exception {
+        CompletableFuture<Order> placement = CompletableFuture.supplyAsync(
+                () -> orderManagementService.placeOrder(request));
         try {
-            return CompletableFuture
-                    .supplyAsync(() -> orderManagementService.placeOrder(request))
-                    .get(ORDER_PLACEMENT_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+            return placement.get(orderPlacementTimeoutMs, TimeUnit.MILLISECONDS);
         } catch (TimeoutException e) {
+            placement.cancel(true);
             throw new RuntimeException("Order placement timed out after "
-                    + ORDER_PLACEMENT_TIMEOUT_MS + "ms", e);
+                    + orderPlacementTimeoutMs + "ms", e);
         } catch (ExecutionException e) {
             Throwable cause = e.getCause() != null ? e.getCause() : e;
             if (cause instanceof RuntimeException re) throw re;
@@ -405,7 +549,7 @@ public final class ExecutionHandler {
                                   Consumer<DomainEvent> downstream) {
         // Guard: only emit TradeOpened once per order (fixes C-05).
         // Subsequent fills emit TradeUpdated instead.
-        if (!tradeOpenedEmitted.add(orderId)) {
+        if (tradeOpenedEmitted.asMap().putIfAbsent(orderId, Boolean.TRUE) != null) {
             Trade fill = orderFilled.fills().isEmpty() ? null : orderFilled.fills().get(0);
             long fillPrice = fill != null ? fill.pricePaisa() : order.pricePaisa();
             downstream.accept(new TradeUpdated(
@@ -436,18 +580,26 @@ public final class ExecutionHandler {
         ));
     }
 
-    private static final AtomicLong orderIdCounter = new AtomicLong(0);
-
-    static String generateOrderId() {
-        return "ORD-" + orderIdCounter.incrementAndGet();
+    private String generateOrderId() {
+        return "ORD-" + clock.millis() + "-" + orderIdSequence.incrementAndGet();
     }
 
-    private sealed interface ExecutionCommand permits SignalCommand, FillCommand {
+    private sealed interface ExecutionCommand permits SignalCommand, FillCommand, BrokerFillCommand {
     }
 
     private record SignalCommand(SignalPendingExecution pendingExecution, Consumer<DomainEvent> downstream) implements ExecutionCommand {
     }
 
     private record FillCommand(OrderFilled orderFilled, Consumer<DomainEvent> downstream, int deferAttempts) implements ExecutionCommand {
+    }
+
+    private record BrokerFillCommand(
+            Order order,
+            EventMetadata metadata,
+            java.util.List<Trade> fills,
+            boolean fullyFilled,
+            Consumer<DomainEvent> downstream,
+            int deferAttempts
+    ) implements ExecutionCommand {
     }
 }

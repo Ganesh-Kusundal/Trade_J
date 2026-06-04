@@ -61,6 +61,7 @@ class ExecutionHandlerUnitTest {
     private TradingCircuitBreaker circuitBreaker;
 
     private ExecutionHandler handler;
+    private OrderIdentityRegistry identityRegistry;
 
     private final List<com.tradej.core.domain.event.DomainEvent> emitted = new ArrayList<>();
 
@@ -68,7 +69,14 @@ class ExecutionHandlerUnitTest {
     void setUp() throws IOException {
         tempDir = Files.createTempDirectory("exec-handler-test-");
         omsRepo = new EventSourcedOrderRepository(tempDir);
-        handler = new ExecutionHandler(orderManagementService, new RuntimeModeHolder(), circuitBreaker, new OrderIdentityRegistry(), DeadLetterQueue.noop());
+        identityRegistry = new OrderIdentityRegistry();
+        handler = new ExecutionHandler(
+                orderManagementService,
+                new RuntimeModeHolder(),
+                new com.tradej.core.domain.time.LiveTradingClock(),
+                circuitBreaker,
+                identityRegistry,
+                DeadLetterQueue.noop());
         emitted.clear();
 
         // Wire mock OrderManagementService to delegate state operations to real omsRepo
@@ -396,11 +404,20 @@ class ExecutionHandlerUnitTest {
 
     @Test
     void orderPlacementTimeoutEmitsSignalSuppressed() {
+        handler.stop();
+        handler = new ExecutionHandler(
+                orderManagementService,
+                new RuntimeModeHolder(),
+                new com.tradej.core.domain.time.LiveTradingClock(),
+                circuitBreaker,
+                identityRegistry,
+                DeadLetterQueue.noop(),
+                1000,
+                200L);
         when(circuitBreaker.allowsRequest()).thenReturn(true);
-        // Simulate a hung broker that never responds
         when(orderManagementService.placeOrder(any())).thenAnswer(invocation -> {
             try {
-                Thread.sleep(30_000L); // Exceeds the 10s timeout
+                Thread.sleep(5_000L);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
@@ -414,22 +431,16 @@ class ExecutionHandlerUnitTest {
         handler.start();
         handler.onDomainEvent(signal, emitted::add);
 
-        // The processing timeout is ~10s (ORDER_PLACEMENT_TIMEOUT_MS), so use a longer latch wait
-        try {
-            assertTrue(latch.await(15, TimeUnit.SECONDS), "Processing did not complete within 15s");
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            fail("Interrupted while waiting for processing latch");
-        }
+        assertTrue(awaitLatch(latch), "Processing did not complete within timeout window");
 
         boolean hasSuppressed = emitted.stream().anyMatch(e -> e instanceof SignalSuppressed);
         assertTrue(hasSuppressed, "Should emit SignalSuppressed on broker timeout");
         boolean hasSuppressedWithTimeout = emitted.stream()
                 .filter(e -> e instanceof SignalSuppressed)
-                .anyMatch(e -> ((SignalSuppressed) e).reason().contains("timeout")
-                        || ((SignalSuppressed) e).reason().contains("Timed")
-                        || ((SignalSuppressed) e).reason().contains("timed out"));
+                .anyMatch(e -> ((SignalSuppressed) e).reason().toLowerCase().contains("timeout")
+                        || ((SignalSuppressed) e).reason().toLowerCase().contains("timed out"));
         assertTrue(hasSuppressedWithTimeout, "Suppression reason should mention timeout");
+        assertEquals(0, identityRegistry.size(), "Timed-out placement must release identity mapping");
         verify(circuitBreaker).recordFailure();
     }
 
@@ -530,23 +541,17 @@ class ExecutionHandlerUnitTest {
     // ── Order ID format ───────────────────────────────────────────────────
 
     @Test
-    void generatedOrderIdUsesCounterFormat() {
-        // Counter-based order ID replaces UUID.randomUUID() to avoid entropy bottleneck
-        String orderId = ExecutionHandler.generateOrderId();
+    void generatedOrderIdUsesClockAndSequenceFormat() throws Exception {
+        var method = ExecutionHandler.class.getDeclaredMethod("generateOrderId");
+        method.setAccessible(true);
+        String orderId = (String) method.invoke(handler);
+        String orderId2 = (String) method.invoke(handler);
 
         assertTrue(orderId.startsWith("ORD-"),
                 "Order ID must start with ORD-");
-
-        // Verify numeric suffix: ORD-<counter>
-        String counterPart = orderId.substring("ORD-".length());
-        assertTrue(counterPart.matches("\\d+"),
-                "Counter part should be numeric, got: " + counterPart);
-
-        // Monotonically increasing
-        String orderId2 = ExecutionHandler.generateOrderId();
-        long first = Long.parseLong(orderId.substring("ORD-".length()));
-        long second = Long.parseLong(orderId2.substring("ORD-".length()));
-        assertEquals(first + 1, second, "Order IDs must be monotonically increasing");
+        assertTrue(orderId.matches("ORD-\\d+-\\d+"),
+                "Order ID must be ORD-<epochMs>-<sequence>, got: " + orderId);
+        assertTrue(!orderId.equals(orderId2), "Sequential order IDs must differ");
     }
 
     // ── Lifecycle ───────────────────────────────────────────────────────────

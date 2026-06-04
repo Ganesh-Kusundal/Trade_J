@@ -34,6 +34,9 @@ public final class EventSourcedNetPositionProvider implements NetPositionProvide
     private final ConcurrentHashMap.KeySetView<String, Boolean> activeTradeIds = ConcurrentHashMap.newKeySet();
     // Tracks individual active trade contributions to resolve positions on close (fixes N-01).
     private final ConcurrentHashMap<String, TradeContribution> tradeContributions = new ConcurrentHashMap<>();
+    // TradeClosed may arrive before TradeOpened on async buses — buffer until open is recorded.
+    private final ConcurrentHashMap<String, TradeClosed> pendingCloses = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap.KeySetView<String, Boolean> closedTradeIds = ConcurrentHashMap.newKeySet();
     // Cached net position snapshot to preserve snapshot/restore semantics.
     private final AtomicReference<StateSnapshot> snapshot = new AtomicReference<>();
 
@@ -76,19 +79,42 @@ public final class EventSourcedNetPositionProvider implements NetPositionProvide
                 size,
                 tradeLongs.getOrDefault(symbol, 0L),
                 tradeShorts.getOrDefault(symbol, 0L));
+        TradeClosed bufferedClose = pendingCloses.remove(opened.tradeId());
+        if (bufferedClose != null) {
+            closeContribution(opened.tradeId());
+        }
     }
 
     private void handleTradeClosed(TradeClosed closed) {
         String tradeId = closed.tradeId();
-        if (!activeTradeIds.remove(tradeId)) {
-            log.warn("TradeClosed received for unknown tradeId={} symbol={} — ignoring", tradeId, closed.symbol());
+        if (closedTradeIds.contains(tradeId)) {
+            log.debug("Ignoring duplicate TradeClosed tradeId={}", tradeId);
             return;
         }
         TradeContribution contribution = tradeContributions.remove(tradeId);
+        activeTradeIds.remove(tradeId);
         if (contribution == null) {
-            log.warn("No active trade contribution tracked for tradeId={} symbol={} — closing fallback", tradeId, closed.symbol());
+            if (pendingCloses.putIfAbsent(tradeId, closed) == null) {
+                log.warn(
+                        "TradeClosed before TradeOpened tradeId={} symbol={} — buffered",
+                        tradeId,
+                        closed.symbol());
+            }
             return;
         }
+        applyContributionClose(tradeId, contribution);
+    }
+
+    private void closeContribution(String tradeId) {
+        TradeContribution contribution = tradeContributions.remove(tradeId);
+        activeTradeIds.remove(tradeId);
+        if (contribution == null) {
+            return;
+        }
+        applyContributionClose(tradeId, contribution);
+    }
+
+    private void applyContributionClose(String tradeId, TradeContribution contribution) {
         String symbol = contribution.symbol();
         long size = contribution.size();
         if (contribution.side().isBuySide()) {
@@ -96,8 +122,9 @@ public final class EventSourcedNetPositionProvider implements NetPositionProvide
         } else {
             tradeShorts.computeIfPresent(symbol, (k, v) -> v > size ? v - size : null);
         }
+        closedTradeIds.add(tradeId);
         snapshot.set(null);
-        log.debug("Position closed tradeId={} symbol={} size={}", closed.tradeId(), symbol, size);
+        log.debug("Position closed tradeId={} symbol={} size={}", tradeId, symbol, size);
     }
 
     private Map<String, Long> recompute() {
@@ -145,6 +172,8 @@ public final class EventSourcedNetPositionProvider implements NetPositionProvide
         tradeShorts.clear();
         activeTradeIds.clear();
         tradeContributions.clear();
+        pendingCloses.clear();
+        closedTradeIds.clear();
         tradeLongs.putAll(state.tradeLongs());
         tradeShorts.putAll(state.tradeShorts());
         activeTradeIds.addAll(state.activeTradeIds());

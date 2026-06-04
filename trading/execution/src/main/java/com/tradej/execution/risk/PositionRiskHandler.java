@@ -1,6 +1,7 @@
 package com.tradej.execution.risk;
 
 import com.tradej.core.domain.event.DomainEvent;
+import com.tradej.core.domain.event.SignalGenerated;
 import com.tradej.core.domain.event.SignalPendingExecution;
 import com.tradej.core.domain.event.SignalSuppressed;
 import com.tradej.core.domain.event.TradeClosed;
@@ -9,22 +10,24 @@ import com.tradej.core.domain.port.NetPositionProvider;
 import com.tradej.core.domain.model.OrderRequest;
 import com.tradej.core.domain.model.RiskLimits;
 import com.tradej.core.domain.value.Side;
+import com.tradej.execution.bridge.SignalExecutionBridge;
+import com.tradej.strategy.portfolio.PortfolioEngine;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Enforces pre-trade risk checks and kill-switch conditions using a
- * {@link NetPositionProvider} only. The {@code PortfolioEngine} is no longer
- * consulted here, removing the direct coupling between pipeline risk qualification
- * and portfolio state reconstruction (PE-02).
+ * {@link NetPositionProvider}, then qualifies {@link SignalGenerated} events into
+ * {@link SignalPendingExecution} for the OMS stage.
  *
- * <p>Qualification uses per-symbol net positions from the injected
- * {@link NetPositionProvider}. Strategy-level portfolio aggregation remains in
- * {@code PortfolioEngine} at a higher level in the execution pipeline.
+ * <p>When a {@link PortfolioEngine} is configured, portfolio capital and exposure
+ * limits are enforced via {@link PortfolioEngine#reserveSignal(SignalGenerated)}
+ * before a signal is forwarded to execution.
  */
 public final class PositionRiskHandler {
 
@@ -32,6 +35,7 @@ public final class PositionRiskHandler {
 
     private final RiskLimits riskLimits;
     private final NetPositionProvider netPositionProvider;
+    private final PortfolioEngine portfolioEngine;
 
     // Mutable risk state.
     private final AtomicLong realizedLossPaisa = new AtomicLong();
@@ -43,12 +47,18 @@ public final class PositionRiskHandler {
     // Snapshot support for replay isolation (AD-02).
     private volatile StateSnapshot snapshot;
 
-    /**
-     * Creates a handler with the provided risk limits and position provider.
-     */
     public PositionRiskHandler(RiskLimits limits, NetPositionProvider netPositionProvider) {
-        this.riskLimits = limits;
-        this.netPositionProvider = netPositionProvider;
+        this(limits, netPositionProvider, null);
+    }
+
+    public PositionRiskHandler(
+            RiskLimits limits,
+            NetPositionProvider netPositionProvider,
+            PortfolioEngine portfolioEngine
+    ) {
+        this.riskLimits = Objects.requireNonNull(limits, "limits");
+        this.netPositionProvider = Objects.requireNonNull(netPositionProvider, "netPositionProvider");
+        this.portfolioEngine = portfolioEngine;
     }
 
     public void onDomainEvent(DomainEvent event, java.util.function.Consumer<DomainEvent> publisher) {
@@ -56,9 +66,32 @@ public final class PositionRiskHandler {
             handleTradeOpened(opened);
         } else if (event instanceof TradeClosed closed) {
             handleTradeClosed(closed);
+        } else if (event instanceof SignalGenerated generated) {
+            handleSignalGenerated(generated, publisher);
         } else if (event instanceof SignalPendingExecution pending) {
             handleSignalPending(pending, publisher);
         }
+    }
+
+    private void handleSignalGenerated(SignalGenerated signal, java.util.function.Consumer<DomainEvent> publisher) {
+        SignalExecutionBridge.toPending(signal).ifPresentOrElse(
+                pending -> handleSignalPending(pending, publisher, signal),
+                () -> rejectRawSignal(signal, publisher, "invalid_signal_quantity"));
+    }
+
+    private void rejectRawSignal(
+            SignalGenerated signal,
+            java.util.function.Consumer<DomainEvent> publisher,
+            String reason) {
+        if (publisher == null) {
+            return;
+        }
+        publisher.accept(new SignalSuppressed(
+                signal.metadata(),
+                signal.signalId(),
+                signal.symbol(),
+                reason,
+                Map.copyOf(signal.attributes())));
     }
 
     private void handleTradeOpened(TradeOpened opened) {
@@ -118,6 +151,14 @@ public final class PositionRiskHandler {
     }
 
     private void handleSignalPending(SignalPendingExecution pending, java.util.function.Consumer<DomainEvent> publisher) {
+        handleSignalPending(pending, publisher, null);
+    }
+
+    private void handleSignalPending(
+            SignalPendingExecution pending,
+            java.util.function.Consumer<DomainEvent> publisher,
+            SignalGenerated sourceSignal
+    ) {
         if (killSwitch) {
             log.warn("Kill switch active — rejecting signal signalId={}", pending.signalId());
             rejectSignal(pending, publisher, "kill_switch_active");
@@ -156,11 +197,23 @@ public final class PositionRiskHandler {
             rejectSignal(pending, publisher, "max_open_positions");
             return;
         }
+
+        if (sourceSignal != null && portfolioEngine != null) {
+            String portfolioReason = portfolioEngine.reserveSignal(sourceSignal);
+            if (portfolioReason != null) {
+                rejectSignal(pending, publisher, portfolioReason);
+                return;
+            }
+        }
+
         log.debug(
                 "Signal passed risk qualification signalId={} symbol={} position={}",
                 pending.signalId(),
                 symbol,
                 currentPosition);
+        if (publisher != null) {
+            publisher.accept(pending);
+        }
     }
 
     private void rejectSignal(
@@ -200,9 +253,6 @@ public final class PositionRiskHandler {
     public int getConsecutiveLosses() { return consecutiveLosses.get(); }
     public int getOpenTrades() { return openTrades.get(); }
 
-    /**
-     * Captures a snapshot of mutable risk state for replay isolation.
-     */
     public StateSnapshot snapshot() {
         StateSnapshot current = snapshot;
         if (current != null) {
@@ -218,9 +268,6 @@ public final class PositionRiskHandler {
         return current;
     }
 
-    /**
-     * Restores mutable risk state from a previously captured snapshot.
-     */
     public void restore(StateSnapshot state) {
         if (state == null) {
             return;

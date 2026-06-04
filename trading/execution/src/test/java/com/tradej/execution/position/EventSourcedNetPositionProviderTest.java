@@ -45,7 +45,7 @@ class EventSourcedNetPositionProviderTest {
                 "T1",
                 "SBIN",
                 51000L,
-                100000L,
+                100000L, 10L,
                 "Target reached"
         );
         positionProvider.onDomainEvent(closeEvent);
@@ -78,7 +78,7 @@ class EventSourcedNetPositionProviderTest {
                 "T2",
                 "SBIN",
                 49000L,
-                50000L,
+                50000L, 10L,
                 "Target reached"
         );
         positionProvider.onDomainEvent(closeEvent);
@@ -128,7 +128,7 @@ class EventSourcedNetPositionProviderTest {
                 "T1",
                 "SBIN",
                 51000L,
-                100000L,
+                100000L, 10L,
                 "Exit part 1"
         );
         positionProvider.onDomainEvent(closeEvent1);
@@ -143,12 +143,43 @@ class EventSourcedNetPositionProviderTest {
                 "T2",
                 "SBIN",
                 52000L,
-                100000L,
+                100000L, 10L,
                 "Exit part 2"
         );
         positionProvider.onDomainEvent(closeEvent2);
 
         // Verify position is fully closed
+        assertEquals(0L, positionProvider.getNetPosition("SBIN"));
+        assertTrue(positionProvider.getNetPositions().isEmpty());
+    }
+
+    @Test
+    void tradeClosedBeforeOpenedStillYieldsZeroNetPosition() {
+        TradeClosed closeFirst = new TradeClosed(
+                EventMetadata.root(),
+                "T-OOO",
+                "SBIN",
+                51000L,
+                100000L,
+                10L,
+                "Out of order close"
+        );
+        positionProvider.onDomainEvent(closeFirst);
+
+        TradeOpened openAfter = new TradeOpened(
+                EventMetadata.root(),
+                "T-OOO",
+                "ORD-OOO",
+                "SIG-OOO",
+                "SBIN",
+                Side.BUY,
+                100L,
+                50000L,
+                0L,
+                0L
+        );
+        positionProvider.onDomainEvent(openAfter);
+
         assertEquals(0L, positionProvider.getNetPosition("SBIN"));
         assertTrue(positionProvider.getNetPositions().isEmpty());
     }
@@ -176,7 +207,7 @@ class EventSourcedNetPositionProviderTest {
                 "T1",
                 "SBIN",
                 51000L,
-                100000L,
+                100000L, 10L,
                 "Exit"
         );
         positionProvider.onDomainEvent(closeEvent);

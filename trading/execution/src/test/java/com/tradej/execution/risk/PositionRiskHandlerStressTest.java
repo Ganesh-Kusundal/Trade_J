@@ -53,7 +53,7 @@ class PositionRiskHandlerStressTest {
                     "t-" + threadIndex + "-" + tradesPerWorker,
                     "SBIN",
                     75_000L,
-                    -lossPerTrade,
+                    -lossPerTrade, 10L,
                     "stop_loss"
             ), e -> {});
         });
@@ -83,7 +83,7 @@ class PositionRiskHandlerStressTest {
                     "t-" + threadIndex,
                     "SBIN",
                     75_000L,
-                    -100L,
+                    -100L, 10L,
                     "stop_loss"
             ), e -> {});
         });
@@ -110,7 +110,7 @@ class PositionRiskHandlerStressTest {
                 "t-1",
                 "SBIN",
                 75_000L,
-                -500L,
+                -500L, 10L,
                 "stop_loss"
         ), e -> {});
 
