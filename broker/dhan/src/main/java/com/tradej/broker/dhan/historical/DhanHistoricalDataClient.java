@@ -9,7 +9,7 @@ import com.tradej.broker.dhan.http.DhanAuthenticatedHttpClient;
 import com.tradej.broker.dhan.instrument.DhanInstrumentDefinition;
 import com.tradej.broker.dhan.mapper.DhanJsonResponse;
 import com.tradej.broker.dhan.rate.ApiCategory;
-import com.tradej.broker.dhan.resilience.DhanResilienceExecutor;
+import com.tradej.broker.dhan.resilience.DhanRetryExecutor;
 import com.tradej.core.domain.model.CandleHistoryRequest;
 import com.tradej.core.domain.value.ExchangeSegment;
 import com.tradej.core.domain.value.SessionSchedule;
@@ -26,12 +26,12 @@ public final class DhanHistoricalDataClient {
     private final ObjectMapper objectMapper;
     private final DhanAuthenticatedHttpClient httpClient;
     private final DhanApiUrlResolver apiUrlResolver;
-    private final DhanResilienceExecutor resilienceExecutor;
+    private final DhanRetryExecutor resilienceExecutor;
 
     public DhanHistoricalDataClient(
             DhanAuthenticatedHttpClient httpClient,
             DhanApiUrlResolver apiUrlResolver,
-            DhanResilienceExecutor resilienceExecutor
+            DhanRetryExecutor resilienceExecutor
     ) {
         this.objectMapper = new ObjectMapper();
         this.httpClient = httpClient;
@@ -40,7 +40,7 @@ public final class DhanHistoricalDataClient {
     }
 
     @Deprecated
-    public DhanHistoricalDataClient(DhanAuthenticatedHttpClient httpClient, DhanResilienceExecutor resilienceExecutor) {
+    public DhanHistoricalDataClient(DhanAuthenticatedHttpClient httpClient, DhanRetryExecutor resilienceExecutor) {
         this(httpClient, new DhanApiUrlResolver(DhanConnectionSettings.defaultBaseUrl(null)), resilienceExecutor);
     }
 

@@ -1,6 +1,11 @@
 package com.tradej.broker.dhan;
 
 import com.tradej.broker.api.IBrokerConnection;
+import com.tradej.broker.api.capability.AdvancedOrderCapable;
+import com.tradej.broker.api.capability.AlertCapable;
+import com.tradej.broker.api.capability.FuturesCapable;
+import com.tradej.broker.api.capability.MarginCapable;
+import com.tradej.broker.api.capability.OptionsCapable;
 import com.tradej.broker.api.port.FuturesProvider;
 import com.tradej.broker.api.port.BracketOrderProvider;
 import com.tradej.broker.api.port.ConditionalAlertProvider;
@@ -32,6 +37,7 @@ import com.tradej.broker.dhan.adapter.DhanMarginProvider;
 import com.tradej.broker.dhan.adapter.DhanSessionRiskProvider;
 import com.tradej.broker.dhan.adapter.DhanSliceOrderAdapter;
 import com.tradej.broker.dhan.client.DhanClientHolder;
+import com.tradej.broker.dhan.config.DhanBrokerStartup;
 import com.tradej.broker.dhan.config.DhanConnectionSettings;
 import com.tradej.broker.dhan.constants.DhanApiUrlResolver;
 import com.tradej.broker.dhan.historical.DhanHistoricalDataClient;
@@ -43,14 +49,25 @@ import com.tradej.broker.dhan.options.DhanOptionChainClient;
 import com.tradej.broker.dhan.options.DhanRollingOptionClient;
 import com.tradej.broker.dhan.options.OptionExpiryCache;
 import com.tradej.broker.api.model.BrokerCapabilities;
-import com.tradej.broker.dhan.config.DhanBrokerStartup;
-import com.tradej.broker.dhan.rate.MultiBucketRateLimiter;
-import com.tradej.broker.dhan.resilience.DhanResilienceExecutor;
+import com.tradej.core.domain.event.EventMetadataFactory;
+import com.tradej.core.domain.time.LiveTradingClock;
+import com.tradej.broker.core.resilience.CircuitBreaker;
+import com.tradej.broker.dhan.constants.DhanProtocolConstants;
+import com.tradej.broker.dhan.resilience.DhanRetryExecutor;
 import com.tradej.broker.dhan.websocket.DhanWebSocketMultiplexer;
 
 import java.nio.file.Path;
+import java.util.Objects;
+import java.util.Optional;
 
 public final class DhanBrokerConnection implements IBrokerConnection {
+
+    private static final OptionsCapable OPTIONS_CAPABLE = new OptionsCapable() {};
+    private static final FuturesCapable FUTURES_CAPABLE = new FuturesCapable() {};
+    private static final MarginCapable MARGIN_CAPABLE = new MarginCapable() {};
+    private static final AlertCapable ALERT_CAPABLE = new AlertCapable() {};
+    private static final AdvancedOrderCapable ADVANCED_ORDER_CAPABLE = new AdvancedOrderCapable() {};
+
     private final DhanClientHolder clientHolder;
     private final DhanInstrumentResolver instrumentResolver;
     private final MarketDataProvider marketDataProvider;
@@ -68,9 +85,7 @@ public final class DhanBrokerConnection implements IBrokerConnection {
     private final WebSocketMultiplexer webSocketMultiplexer;
 
     /**
-     * Convenience factory that auto-creates a default {@link MultiBucketRateLimiter}.
-     * Equivalent to Python's {@code BrokerGateway.from_config()} — callers only
-     * need to supply settings and an idempotency cache.
+     * Convenience factory that auto-creates a default {@link com.tradej.broker.core.rate.MultiBucketRateLimiter}.
      *
      * @deprecated For Spring-managed environments, use the
      *             {@link #DhanBrokerConnection(DhanClientHolder, DhanInstrumentResolver, MarketDataProvider, FuturesProvider, OptionsProvider, OrderCommand, OrderQuery, PortfolioProvider, WebSocketMultiplexer)}
@@ -82,7 +97,7 @@ public final class DhanBrokerConnection implements IBrokerConnection {
             DhanConnectionSettings settings,
             IdempotencyCachePort idempotencyCache
     ) {
-        return new DhanBrokerConnection(settings, new MultiBucketRateLimiter(), idempotencyCache);
+        return new DhanBrokerConnection(settings, DhanProtocolConstants.defaultRateLimiter(), idempotencyCache);
     }
 
     /**
@@ -110,7 +125,7 @@ public final class DhanBrokerConnection implements IBrokerConnection {
             ConditionalAlertProvider conditionalAlertProvider,
             WebSocketMultiplexer webSocketMultiplexer
     ) {
-        this.clientHolder = clientHolder;
+        this.clientHolder = Objects.requireNonNull(clientHolder, "clientHolder");
         this.instrumentResolver = instrumentResolver;
         this.marketDataProvider = marketDataProvider;
         this.futuresProvider = futuresProvider;
@@ -137,13 +152,13 @@ public final class DhanBrokerConnection implements IBrokerConnection {
     @Deprecated
     public DhanBrokerConnection(
             DhanConnectionSettings settings,
-            MultiBucketRateLimiter rateLimiter,
+            com.tradej.broker.core.rate.MultiBucketRateLimiter rateLimiter,
             IdempotencyCachePort idempotencyCachePort
     ) {
         DhanTokenProvider tokenProvider = new DhanTokenManager(settings);
         DhanClientHolder clientHolder = new DhanClientHolder(settings, tokenProvider);
         DhanInstrumentResolver instrumentResolver = new InMemoryInstrumentResolver();
-        DhanResilienceExecutor resilienceExecutor = new DhanResilienceExecutor(rateLimiter);
+        DhanRetryExecutor resilienceExecutor = new DhanRetryExecutor(rateLimiter, new CircuitBreaker());
         DhanAuthenticatedHttpClient httpClient = new DhanAuthenticatedHttpClient(tokenProvider, settings);
         DhanApiUrlResolver apiUrlResolver = new DhanApiUrlResolver(settings);
         DhanRestOrderClient restOrderClient = new DhanRestOrderClient(httpClient, settings, apiUrlResolver, resilienceExecutor);
@@ -223,7 +238,10 @@ public final class DhanBrokerConnection implements IBrokerConnection {
         this.webSocketMultiplexer = new DhanWebSocketMultiplexer(
                 clientHolder,
                 instrumentResolver,
-                settings
+                settings,
+                new EventMetadataFactory(new LiveTradingClock()),
+                null,
+                tokenProvider
         );
     }
 
@@ -327,5 +345,70 @@ public final class DhanBrokerConnection implements IBrokerConnection {
 
     public Path loadDailyInstrumentCatalog(Path cacheDirectory, boolean forceRefresh) {
         return DhanBrokerStartup.loadDailyInstrumentCatalog(instrumentResolver, cacheDirectory, forceRefresh);
+    }
+
+    @Override
+    public <T> Optional<T> getCapability(Class<T> capabilityClass) {
+        if (capabilityClass == null) {
+            return Optional.empty();
+        }
+        if (capabilityClass.isInstance(marketDataProvider)) {
+            return Optional.of(capabilityClass.cast(marketDataProvider));
+        }
+        if (capabilityClass.isInstance(futuresProvider)) {
+            return Optional.of(capabilityClass.cast(futuresProvider));
+        }
+        if (capabilityClass.isInstance(optionsProvider)) {
+            return Optional.of(capabilityClass.cast(optionsProvider));
+        }
+        if (capabilityClass.isInstance(orderCommand)) {
+            return Optional.of(capabilityClass.cast(orderCommand));
+        }
+        if (capabilityClass.isInstance(orderQuery)) {
+            return Optional.of(capabilityClass.cast(orderQuery));
+        }
+        if (capabilityClass.isInstance(sliceOrderCommand)) {
+            return Optional.of(capabilityClass.cast(sliceOrderCommand));
+        }
+        if (capabilityClass.isInstance(bracketOrderProvider)) {
+            return Optional.of(capabilityClass.cast(bracketOrderProvider));
+        }
+        if (capabilityClass.isInstance(gttOrderProvider)) {
+            return Optional.of(capabilityClass.cast(gttOrderProvider));
+        }
+        if (capabilityClass.isInstance(portfolioProvider)) {
+            return Optional.of(capabilityClass.cast(portfolioProvider));
+        }
+        if (capabilityClass.isInstance(marginProvider)) {
+            return Optional.of(capabilityClass.cast(marginProvider));
+        }
+        if (capabilityClass.isInstance(sessionRiskProvider)) {
+            return Optional.of(capabilityClass.cast(sessionRiskProvider));
+        }
+        if (capabilityClass.isInstance(conditionalAlertProvider)) {
+            return Optional.of(capabilityClass.cast(conditionalAlertProvider));
+        }
+        if (capabilityClass.isInstance(instrumentResolver)) {
+            return Optional.of(capabilityClass.cast(instrumentResolver));
+        }
+        if (capabilityClass.isInstance(webSocketMultiplexer)) {
+            return Optional.of(capabilityClass.cast(webSocketMultiplexer));
+        }
+        if (OptionsCapable.class.equals(capabilityClass)) {
+            return Optional.of(capabilityClass.cast(OPTIONS_CAPABLE));
+        }
+        if (FuturesCapable.class.equals(capabilityClass)) {
+            return Optional.of(capabilityClass.cast(FUTURES_CAPABLE));
+        }
+        if (MarginCapable.class.equals(capabilityClass)) {
+            return Optional.of(capabilityClass.cast(MARGIN_CAPABLE));
+        }
+        if (AlertCapable.class.equals(capabilityClass)) {
+            return Optional.of(capabilityClass.cast(ALERT_CAPABLE));
+        }
+        if (AdvancedOrderCapable.class.equals(capabilityClass)) {
+            return Optional.of(capabilityClass.cast(ADVANCED_ORDER_CAPABLE));
+        }
+        return Optional.empty();
     }
 }

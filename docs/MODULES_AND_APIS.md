@@ -57,12 +57,6 @@
 │  │ core — Domain events, ports, value objects, pipeline graph types │   │
 │  └──────────────────────────────────────────────────────────────────┘   │
 ├─────────────────────────────────────────────────────────────────────────┤
-│                       RESEARCH LAYER                                    │
-│  ┌──────────────────┐ ┌──────────────────┐                              │
-│  │ trade-experiments│ │trade-optimization│                              │
-│  │ (experiment mgmt)│ │(Grid/MC/Walk-    │                              │
-│  │                  │ │ Forward Search)  │                              │
-│  └──────────────────┘ └──────────────────┘                              │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -94,8 +88,7 @@
 | `:trade-pipeline-platform` | `pipeline/platform/` | Pipeline template/definition/catalog services, validation, versioning |
 | `:trade-node-library` | `nodes/` | Reusable pipeline nodes: scanner, output, feature, historical |
 | `:trade-analytics` | `pipeline/analytics/` | Performance analytics: equity curve, drawdown, trade records |
-| `:trade-experiments` | `research/experiment/` | Experiment framework for strategy testing |
-| `:trade-optimization` | `research/optimizer/` | Parameter optimization: Grid Search, Monte Carlo, Walk-Forward |
+
 | `:architecture-test` | `architecture-test/` | ArchUnit tests enforcing module boundaries |
 
 ---

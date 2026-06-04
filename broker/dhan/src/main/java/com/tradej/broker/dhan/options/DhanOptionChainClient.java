@@ -7,25 +7,25 @@ import com.tradej.broker.dhan.http.DhanAuthenticatedHttpClient;
 import com.tradej.broker.dhan.instrument.DhanInstrumentDefinition;
 import com.tradej.broker.dhan.mapper.DhanJsonResponse;
 import com.tradej.broker.dhan.rate.ApiCategory;
-import com.tradej.broker.dhan.resilience.DhanResilienceExecutor;
+import com.tradej.broker.dhan.resilience.DhanRetryExecutor;
 
 import java.time.LocalDate;
 import java.util.List;
 
 /**
- * REST client for Dhan option-chain endpoints, routed through {@link DhanResilienceExecutor}
+ * REST client for Dhan option-chain endpoints, routed through {@link DhanRetryExecutor}
  * and the OPTION_CHAIN rate bucket.
  */
 public final class DhanOptionChainClient {
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final DhanAuthenticatedHttpClient httpClient;
     private final DhanApiUrlResolver apiUrlResolver;
-    private final DhanResilienceExecutor resilienceExecutor;
+    private final DhanRetryExecutor resilienceExecutor;
 
     public DhanOptionChainClient(
             DhanAuthenticatedHttpClient httpClient,
             DhanApiUrlResolver apiUrlResolver,
-            DhanResilienceExecutor resilienceExecutor
+            DhanRetryExecutor resilienceExecutor
     ) {
         this.httpClient = httpClient;
         this.apiUrlResolver = apiUrlResolver;

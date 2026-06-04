@@ -1,5 +1,8 @@
 package com.tradej.broker.dhan.constants;
 
+import com.tradej.broker.core.rate.MultiBucketRateLimiter;
+import com.tradej.broker.core.rate.RateLimitConfig;
+
 import java.util.Map;
 import java.util.Set;
 
@@ -95,7 +98,7 @@ public final class DhanProtocolConstants {
     /** Fallback strike step (in paisa) when the underlying has no specific mapping. */
     public static final long DEFAULT_STRIKE_STEP_PAISA = 5_000L;
 
-    // ---- REST resilience constants (from DhanResilienceExecutor) ----
+    // ---- REST resilience constants (from DhanRetryExecutor) ----
 
     /** Base delay (ms) for REST retry exponential backoff. */
     public static final long RETRY_BASE_DELAY_MS = 100L;
@@ -109,20 +112,11 @@ public final class DhanProtocolConstants {
     /** Duration (ms) the REST circuit stays open. */
     public static final long RETRY_CIRCUIT_OPEN_MS = 10_000L;
 
-    /** Retry count for ORDER-category operations. */
+    /** Default retry count for most Dhan REST categories. */
+    public static final int RETRY_COUNT_DEFAULT = 3;
+
+    /** Retry count for ORDER-category operations (lower than default to fail fast). */
     public static final int RETRY_COUNT_ORDER = 2;
-
-    /** Retry count for DATA-category operations. */
-    public static final int RETRY_COUNT_DATA = 3;
-
-    /** Retry count for QUOTE-category operations. */
-    public static final int RETRY_COUNT_QUOTE = 3;
-
-    /** Retry count for OPTION_CHAIN-category operations. */
-    public static final int RETRY_COUNT_OPTION_CHAIN = 3;
-
-    /** Retry count for NON_TRADING-category operations. */
-    public static final int RETRY_COUNT_NON_TRADING = 3;
 
     // ---- Rate limit constants (from MultiBucketRateLimiter) ----
 
@@ -155,4 +149,19 @@ public final class DhanProtocolConstants {
 
     /** Token-bucket capacity for NON_TRADING-category operations. */
     public static final int RATE_LIMIT_NON_TRADING_CAPACITY = 20;
+
+    /**
+     * Creates a {@link MultiBucketRateLimiter} configured with the Dhan-specific
+     * rate limits defined above. Used by both Spring DI and the legacy
+     * {@link com.tradej.broker.dhan.DhanBrokerConnection} factory.
+     */
+    public static MultiBucketRateLimiter defaultRateLimiter() {
+        return new MultiBucketRateLimiter(Map.of(
+                "ORDER", new RateLimitConfig("ORDER", RATE_LIMIT_ORDER_RATE, RATE_LIMIT_ORDER_CAPACITY),
+                "DATA", new RateLimitConfig("DATA", RATE_LIMIT_DATA_RATE, RATE_LIMIT_DATA_CAPACITY),
+                "QUOTE", new RateLimitConfig("QUOTE", RATE_LIMIT_QUOTE_RATE, RATE_LIMIT_QUOTE_CAPACITY),
+                "OPTION_CHAIN", new RateLimitConfig("OPTION_CHAIN", RATE_LIMIT_OPTION_CHAIN_RATE, RATE_LIMIT_OPTION_CHAIN_CAPACITY),
+                "NON_TRADING", new RateLimitConfig("NON_TRADING", RATE_LIMIT_NON_TRADING_RATE, RATE_LIMIT_NON_TRADING_CAPACITY)
+        ));
+    }
 }

@@ -60,12 +60,6 @@ project(':trade-node-library').projectDir = file('nodes/trade-node-library')
 include 'trade-analytics'
 project(':trade-analytics').projectDir = file('pipeline/analytics/trade-analytics')
 
-include 'trade-experiments'
-project(':trade-experiments').projectDir = file('research/experiment/trade-experiments')
-
-include 'trade-optimization'
-project(':trade-optimization').projectDir = file('research/optimizer/trade-optimization')
-
 include 'research-core'
 project(':research-core').projectDir = file('research/core')
 

@@ -10,7 +10,7 @@ import com.tradej.broker.dhan.options.DhanOptionChainResponseMapper;
 import com.tradej.broker.dhan.options.DhanRollingOptionClient;
 import com.tradej.broker.dhan.options.OptionExpiryCache;
 import com.tradej.broker.dhan.options.StrikeSelectionSupport;
-import com.tradej.broker.dhan.resilience.DhanResilienceExecutor;
+import com.tradej.broker.dhan.resilience.DhanRetryExecutor;
 import com.tradej.core.domain.model.Instrument;
 import com.tradej.core.domain.model.InstrumentKey;
 import com.tradej.core.domain.model.OptionChainEntry;
@@ -44,7 +44,7 @@ public final class DhanOptionsAdapter extends DhanBaseRestAdapter implements Opt
             DhanOptionChainClient optionChainClient,
             DhanRollingOptionClient rollingOptionClient,
             OptionExpiryCache expiryCache,
-            DhanResilienceExecutor resilienceExecutor
+            DhanRetryExecutor resilienceExecutor
     ) {
         super(instrumentResolver, resilienceExecutor);
         this.optionChainClient = optionChainClient;

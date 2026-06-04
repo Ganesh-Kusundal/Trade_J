@@ -9,7 +9,7 @@ import com.tradej.broker.dhan.http.DhanAuthenticatedHttpClient;
 import com.tradej.broker.dhan.instrument.DhanInstrumentDefinition;
 import com.tradej.broker.dhan.mapper.DhanJsonResponse;
 import com.tradej.broker.dhan.rate.ApiCategory;
-import com.tradej.broker.dhan.resilience.DhanResilienceExecutor;
+import com.tradej.broker.dhan.resilience.DhanRetryExecutor;
 import com.tradej.core.domain.instrument.RollingOptionSeriesKey;
 import com.tradej.core.domain.model.RollingOptionBar;
 import com.tradej.core.domain.model.RollingOptionHistoryRequest;
@@ -34,12 +34,12 @@ public final class DhanRollingOptionClient {
     private final DhanRollingOptionMapper rollingOptionMapper = new DhanRollingOptionMapper();
     private final DhanAuthenticatedHttpClient httpClient;
     private final DhanApiUrlResolver apiUrlResolver;
-    private final DhanResilienceExecutor resilienceExecutor;
+    private final DhanRetryExecutor resilienceExecutor;
 
     public DhanRollingOptionClient(
             DhanAuthenticatedHttpClient httpClient,
             DhanApiUrlResolver apiUrlResolver,
-            DhanResilienceExecutor resilienceExecutor
+            DhanRetryExecutor resilienceExecutor
     ) {
         this.httpClient = httpClient;
         this.apiUrlResolver = apiUrlResolver;

@@ -7,7 +7,7 @@ import com.tradej.broker.dhan.constants.DhanApiUrlResolver;
 import com.tradej.broker.dhan.http.DhanAuthenticatedHttpClient;
 import com.tradej.broker.dhan.mapper.DhanSdkConverters;
 import com.tradej.broker.dhan.rate.ApiCategory;
-import com.tradej.broker.dhan.resilience.DhanResilienceExecutor;
+import com.tradej.broker.dhan.resilience.DhanRetryExecutor;
 import com.tradej.core.domain.model.ConditionalAlert;
 import com.tradej.core.domain.model.ConditionalAlertRequest;
 import com.tradej.core.domain.value.PriceMath;
@@ -24,7 +24,7 @@ public final class DhanConditionalAlertProvider extends DhanBaseRestAdapter impl
             DhanInstrumentResolver resolver,
             DhanAuthenticatedHttpClient httpClient,
             DhanApiUrlResolver apiUrlResolver,
-            DhanResilienceExecutor resilienceExecutor
+            DhanRetryExecutor resilienceExecutor
     ) {
         super(resolver, resilienceExecutor);
         this.httpClient = httpClient;

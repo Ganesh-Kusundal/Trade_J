@@ -45,21 +45,25 @@ import com.tradej.broker.dhan.adapter.DhanSliceOrderAdapter;
 import com.tradej.broker.dhan.options.DhanOptionChainClient;
 import com.tradej.broker.dhan.options.DhanRollingOptionClient;
 import com.tradej.broker.dhan.options.OptionExpiryCache;
-import com.tradej.broker.dhan.rate.MultiBucketRateLimiter;
-import com.tradej.broker.dhan.resilience.DhanResilienceExecutor;
+import com.tradej.broker.core.rate.MultiBucketRateLimiter;
+import com.tradej.broker.core.resilience.CircuitBreaker;
+import com.tradej.broker.dhan.constants.DhanProtocolConstants;
+import com.tradej.broker.dhan.resilience.DhanRetryExecutor;
 import com.tradej.broker.dhan.websocket.DhanWebSocketMultiplexer;
+import com.tradej.broker.core.reconnect.ReconnectListenerRegistry;
 import com.tradej.core.domain.event.EventMetadataFactory;
 import com.tradej.execution.service.CaffeineIdempotencyCache;
-import com.tradej.app.metrics.ObservableMarketDataProvider;
-import com.tradej.app.metrics.ObservableOrderCommand;
+import com.tradej.broker.core.observability.ObservableMarketDataProvider;
+import com.tradej.broker.core.observability.ObservableOrderCommand;
 import com.tradej.broker.api.port.InstrumentResolver;
 import com.tradej.app.service.broker.LivePnlService;
 import com.tradej.app.service.broker.MarketDepthOrchestrator;
 import com.tradej.app.service.broker.OptionStrikeResolver;
 import io.micrometer.core.instrument.MeterRegistry;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 
 
 /**
@@ -69,12 +73,13 @@ import org.springframework.context.annotation.Configuration;
  * <p>Active by default. Deactivated when {@code trade.broker-type=upstox}.
  */
 @Configuration
-@ConditionalOnProperty(name = "trade.broker-type", havingValue = "dhan", matchIfMissing = true)
+@ConditionalOnExpression("'${trade.broker-type:dhan}' == 'dhan' || '${trade.broker-type:dhan}' == 'gateway'")
 public class BrokerConfiguration {
 
     @Bean
+    @Primary
     MultiBucketRateLimiter multiBucketRateLimiter() {
-        return new MultiBucketRateLimiter();
+        return DhanProtocolConstants.defaultRateLimiter();
     }
 
     @Bean
@@ -83,6 +88,7 @@ public class BrokerConfiguration {
     }
 
     @Bean
+    @Primary
     com.tradej.execution.identity.OrderIdentityRegistry orderIdentityRegistry() {
         return new com.tradej.execution.identity.OrderIdentityRegistry();
     }
@@ -127,8 +133,8 @@ public class BrokerConfiguration {
     }
 
     @Bean
-    DhanResilienceExecutor dhanResilienceExecutor(MultiBucketRateLimiter rateLimiter) {
-        return new DhanResilienceExecutor(rateLimiter);
+    DhanRetryExecutor dhanRetryExecutor(MultiBucketRateLimiter rateLimiter) {
+        return new DhanRetryExecutor(rateLimiter, new CircuitBreaker());
     }
 
     @Bean
@@ -141,13 +147,13 @@ public class BrokerConfiguration {
             DhanAuthenticatedHttpClient dhanAuthenticatedHttpClient,
             DhanConnectionSettings dhanConnectionSettings,
             DhanApiUrlResolver dhanApiUrlResolver,
-            DhanResilienceExecutor dhanResilienceExecutor
+            DhanRetryExecutor dhanRetryExecutor
     ) {
         return new DhanRestOrderClient(
                 dhanAuthenticatedHttpClient,
                 dhanConnectionSettings,
                 dhanApiUrlResolver,
-                dhanResilienceExecutor
+                dhanRetryExecutor
         );
     }
 
@@ -160,9 +166,9 @@ public class BrokerConfiguration {
     DhanHistoricalDataClient dhanHistoricalDataClient(
             DhanAuthenticatedHttpClient dhanAuthenticatedHttpClient,
             DhanApiUrlResolver dhanApiUrlResolver,
-            DhanResilienceExecutor dhanResilienceExecutor
+            DhanRetryExecutor dhanRetryExecutor
     ) {
-        return new DhanHistoricalDataClient(dhanAuthenticatedHttpClient, dhanApiUrlResolver, dhanResilienceExecutor);
+        return new DhanHistoricalDataClient(dhanAuthenticatedHttpClient, dhanApiUrlResolver, dhanRetryExecutor);
     }
 
     @Bean
@@ -174,7 +180,7 @@ public class BrokerConfiguration {
     MarketDataProvider marketDataProvider(
             DhanClientHolder dhanClientHolder,
             DhanInstrumentResolver dhanInstrumentResolver,
-            DhanResilienceExecutor dhanResilienceExecutor,
+            DhanRetryExecutor dhanRetryExecutor,
             DhanHistoricalDataClient dhanHistoricalDataClient,
             DhanHistoricalDataMapper dhanHistoricalDataMapper,
             MeterRegistry meterRegistry
@@ -182,11 +188,11 @@ public class BrokerConfiguration {
         MarketDataProvider delegate = new DhanMarketDataProvider(
                 dhanClientHolder,
                 dhanInstrumentResolver,
-                dhanResilienceExecutor,
+                dhanRetryExecutor,
                 dhanHistoricalDataClient,
                 dhanHistoricalDataMapper
         );
-        return new ObservableMarketDataProvider(delegate, meterRegistry);
+        return new ObservableMarketDataProvider("dhan", delegate, meterRegistry);
     }
 
     @Bean
@@ -198,18 +204,18 @@ public class BrokerConfiguration {
     DhanOptionChainClient dhanOptionChainClient(
             DhanAuthenticatedHttpClient dhanAuthenticatedHttpClient,
             DhanApiUrlResolver dhanApiUrlResolver,
-            DhanResilienceExecutor dhanResilienceExecutor
+            DhanRetryExecutor dhanRetryExecutor
     ) {
-        return new DhanOptionChainClient(dhanAuthenticatedHttpClient, dhanApiUrlResolver, dhanResilienceExecutor);
+        return new DhanOptionChainClient(dhanAuthenticatedHttpClient, dhanApiUrlResolver, dhanRetryExecutor);
     }
 
     @Bean
     DhanRollingOptionClient dhanRollingOptionClient(
             DhanAuthenticatedHttpClient dhanAuthenticatedHttpClient,
             DhanApiUrlResolver dhanApiUrlResolver,
-            DhanResilienceExecutor dhanResilienceExecutor
+            DhanRetryExecutor dhanRetryExecutor
     ) {
-        return new DhanRollingOptionClient(dhanAuthenticatedHttpClient, dhanApiUrlResolver, dhanResilienceExecutor);
+        return new DhanRollingOptionClient(dhanAuthenticatedHttpClient, dhanApiUrlResolver, dhanRetryExecutor);
     }
 
     @Bean
@@ -223,14 +229,14 @@ public class BrokerConfiguration {
             DhanOptionChainClient dhanOptionChainClient,
             DhanRollingOptionClient dhanRollingOptionClient,
             OptionExpiryCache optionExpiryCache,
-            DhanResilienceExecutor dhanResilienceExecutor
+            DhanRetryExecutor dhanRetryExecutor
     ) {
         return new DhanOptionsAdapter(
                 dhanInstrumentResolver,
                 dhanOptionChainClient,
                 dhanRollingOptionClient,
                 optionExpiryCache,
-                dhanResilienceExecutor
+                dhanRetryExecutor
         );
     }
 
@@ -238,7 +244,7 @@ public class BrokerConfiguration {
     OrderCommand orderCommand(
             DhanClientHolder dhanClientHolder,
             DhanInstrumentResolver dhanInstrumentResolver,
-            DhanResilienceExecutor dhanResilienceExecutor,
+            DhanRetryExecutor dhanRetryExecutor,
             DhanConnectionSettings dhanConnectionSettings,
             DhanRestOrderClient dhanRestOrderClient,
             IdempotencyCachePort idempotencyCache,
@@ -247,26 +253,26 @@ public class BrokerConfiguration {
         OrderCommand delegate = new DhanOrderCommandAdapter(
                 dhanClientHolder,
                 dhanInstrumentResolver,
-                dhanResilienceExecutor,
+                dhanRetryExecutor,
                 dhanConnectionSettings,
                 dhanRestOrderClient,
                 idempotencyCache
         );
-        return new ObservableOrderCommand(delegate, meterRegistry);
+        return new ObservableOrderCommand("dhan", delegate, meterRegistry);
     }
 
     @Bean
     OrderQuery orderQuery(
             DhanClientHolder dhanClientHolder,
             DhanInstrumentResolver dhanInstrumentResolver,
-            DhanResilienceExecutor dhanResilienceExecutor,
+            DhanRetryExecutor dhanRetryExecutor,
             DhanConnectionSettings dhanConnectionSettings,
             DhanRestOrderClient dhanRestOrderClient
     ) {
         return new DhanOrderQueryAdapter(
                 dhanClientHolder,
                 dhanInstrumentResolver,
-                dhanResilienceExecutor,
+                dhanRetryExecutor,
                 dhanConnectionSettings,
                 dhanRestOrderClient
         );
@@ -276,7 +282,7 @@ public class BrokerConfiguration {
     SliceOrderCommand sliceOrderCommand(
             DhanClientHolder dhanClientHolder,
             DhanInstrumentResolver dhanInstrumentResolver,
-            DhanResilienceExecutor dhanResilienceExecutor,
+            DhanRetryExecutor dhanRetryExecutor,
             DhanConnectionSettings dhanConnectionSettings,
             DhanRestOrderClient dhanRestOrderClient,
             OrderCommand orderCommand
@@ -284,7 +290,7 @@ public class BrokerConfiguration {
         return new DhanSliceOrderAdapter(
                 dhanClientHolder,
                 dhanInstrumentResolver,
-                dhanResilienceExecutor,
+                dhanRetryExecutor,
                 dhanConnectionSettings,
                 dhanRestOrderClient,
                 orderCommand
@@ -295,14 +301,14 @@ public class BrokerConfiguration {
     BracketOrderProvider bracketOrderProvider(
             DhanClientHolder dhanClientHolder,
             DhanInstrumentResolver dhanInstrumentResolver,
-            DhanResilienceExecutor dhanResilienceExecutor,
+            DhanRetryExecutor dhanRetryExecutor,
             DhanConnectionSettings dhanConnectionSettings,
             DhanRestOrderClient dhanRestOrderClient
     ) {
         return new DhanBracketOrderAdapter(
                 dhanClientHolder,
                 dhanInstrumentResolver,
-                dhanResilienceExecutor,
+                dhanRetryExecutor,
                 dhanConnectionSettings,
                 dhanRestOrderClient
         );
@@ -312,14 +318,14 @@ public class BrokerConfiguration {
     GttOrderProvider gttOrderProvider(
             DhanClientHolder dhanClientHolder,
             DhanInstrumentResolver dhanInstrumentResolver,
-            DhanResilienceExecutor dhanResilienceExecutor,
+            DhanRetryExecutor dhanRetryExecutor,
             DhanConnectionSettings dhanConnectionSettings,
             DhanRestOrderClient dhanRestOrderClient
     ) {
         return new DhanGttOrderAdapter(
                 dhanClientHolder,
                 dhanInstrumentResolver,
-                dhanResilienceExecutor,
+                dhanRetryExecutor,
                 dhanConnectionSettings,
                 dhanRestOrderClient
         );
@@ -329,12 +335,12 @@ public class BrokerConfiguration {
     PortfolioProvider portfolioProvider(
             DhanClientHolder dhanClientHolder,
             DhanInstrumentResolver dhanInstrumentResolver,
-            DhanResilienceExecutor dhanResilienceExecutor
+            DhanRetryExecutor dhanRetryExecutor
     ) {
         return new DhanPortfolioProvider(
                 dhanClientHolder,
                 dhanInstrumentResolver,
-                dhanResilienceExecutor
+                dhanRetryExecutor
         );
     }
 
@@ -342,7 +348,7 @@ public class BrokerConfiguration {
     MarginProvider marginProvider(
             DhanClientHolder dhanClientHolder,
             DhanInstrumentResolver dhanInstrumentResolver,
-            DhanResilienceExecutor dhanResilienceExecutor,
+            DhanRetryExecutor dhanRetryExecutor,
             DhanAuthenticatedHttpClient dhanAuthenticatedHttpClient,
             DhanApiUrlResolver dhanApiUrlResolver,
             DhanConnectionSettings dhanConnectionSettings
@@ -350,7 +356,7 @@ public class BrokerConfiguration {
         return new DhanMarginProvider(
                 dhanClientHolder,
                 dhanInstrumentResolver,
-                dhanResilienceExecutor,
+                dhanRetryExecutor,
                 dhanAuthenticatedHttpClient,
                 dhanApiUrlResolver,
                 dhanConnectionSettings
@@ -361,9 +367,9 @@ public class BrokerConfiguration {
     SessionRiskProvider sessionRiskProvider(
             DhanAuthenticatedHttpClient dhanAuthenticatedHttpClient,
             DhanApiUrlResolver dhanApiUrlResolver,
-            DhanResilienceExecutor dhanResilienceExecutor
+            DhanRetryExecutor dhanRetryExecutor
     ) {
-        return new DhanSessionRiskProvider(dhanAuthenticatedHttpClient, dhanApiUrlResolver, dhanResilienceExecutor);
+        return new DhanSessionRiskProvider(dhanAuthenticatedHttpClient, dhanApiUrlResolver, dhanRetryExecutor);
     }
 
     @Bean
@@ -371,13 +377,13 @@ public class BrokerConfiguration {
             DhanInstrumentResolver dhanInstrumentResolver,
             DhanAuthenticatedHttpClient dhanAuthenticatedHttpClient,
             DhanApiUrlResolver dhanApiUrlResolver,
-            DhanResilienceExecutor dhanResilienceExecutor
+            DhanRetryExecutor dhanRetryExecutor
     ) {
         return new DhanConditionalAlertProvider(
                 dhanInstrumentResolver,
                 dhanAuthenticatedHttpClient,
                 dhanApiUrlResolver,
-                dhanResilienceExecutor
+                dhanRetryExecutor
         );
     }
 
@@ -386,18 +392,22 @@ public class BrokerConfiguration {
             DhanClientHolder dhanClientHolder,
             DhanInstrumentResolver dhanInstrumentResolver,
             DhanConnectionSettings dhanConnectionSettings,
-            EventMetadataFactory eventMetadataFactory
+            EventMetadataFactory eventMetadataFactory,
+            ReconnectListenerRegistry reconnectListenerRegistry,
+            DhanTokenProvider dhanTokenProvider
     ) {
         return new DhanWebSocketMultiplexer(
                 dhanClientHolder,
                 dhanInstrumentResolver,
                 dhanConnectionSettings,
-                eventMetadataFactory
+                eventMetadataFactory,
+                reconnectListenerRegistry,
+                dhanTokenProvider
         );
     }
 
-    @Bean
-    IBrokerConnection brokerConnection(
+    @Bean(name = {"brokerConnection", "dhanBrokerConnection"})
+    DhanBrokerConnection brokerConnection(
             DhanClientHolder dhanClientHolder,
             DhanInstrumentResolver dhanInstrumentResolver,
             MarketDataProvider marketDataProvider,

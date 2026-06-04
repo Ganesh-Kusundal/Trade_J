@@ -12,7 +12,7 @@ import com.tradej.broker.dhan.mapper.DhanJsonResponse;
 import com.tradej.broker.dhan.mapper.DhanSdkConverters;
 import com.tradej.broker.dhan.mapper.DhanSdkResponse;
 import com.tradej.broker.dhan.rate.ApiCategory;
-import com.tradej.broker.dhan.resilience.DhanResilienceExecutor;
+import com.tradej.broker.dhan.resilience.DhanRetryExecutor;
 import com.tradej.core.domain.model.MarginEstimate;
 import com.tradej.core.domain.model.MarginEstimateRequest;
 import com.tradej.core.domain.value.PriceMath;
@@ -31,7 +31,7 @@ public final class DhanMarginProvider extends DhanBaseRestAdapter implements Mar
     public DhanMarginProvider(
             DhanClientHolder clientHolder,
             DhanInstrumentResolver resolver,
-            DhanResilienceExecutor resilienceExecutor,
+            DhanRetryExecutor resilienceExecutor,
             DhanAuthenticatedHttpClient httpClient,
             DhanApiUrlResolver apiUrlResolver,
             DhanConnectionSettings settings

@@ -11,7 +11,7 @@
 
 | Metric | Value |
 |--------|-------|
-| Gradle subprojects | 26 ([`settings.gradle`](../settings.gradle)) |
+| Gradle subprojects | 24 ([`settings.gradle`](../settings.gradle)) |
 | Java compilation units | **655** main · **213** module test · **1** architecture-test (**214** total) — see [CODEBASE_LEAF_INDEX.md](CODEBASE_LEAF_INDEX.md) |
 | React console (`frontend/`) | **29** TS/TSX/CSS files (incl. `vite.config.ts`; synced into `:app` static console) |
 | Leaf file index | [docs/CODEBASE_LEAF_INDEX.md](CODEBASE_LEAF_INDEX.md) (every `src/main/java` class by package) |
@@ -40,7 +40,7 @@ Use this section for orientation. Detailed mermaid diagrams follow in §3–§22
 | **Simulation** | Replay/backtest with simulated broker and matching engine | `:trading-simulation`, `RuntimeMode` REPLAY/BACKTEST |
 | **Composable pipelines** | DAG graph runtime (nodes: candle, strategy, risk, OMS, scan, feature) | `:core` graph types, `DagPipelineRuntimeService`, Studio UI |
 | **Operator tooling** | REST API, React console, picocli CLI (`tradej`) | `:app`, `:gateway`, `:cli` |
-| **Research** | Experiments, grid/Monte Carlo/walk-forward optimization | `:trade-experiments`, `:trade-optimization` |
+
 
 **Runtime modes:** `LIVE` (real or sandbox broker), `REPLAY` (historical events + simulated orders), `BACKTEST` (Parquet bars + matching engine).
 
@@ -208,7 +208,7 @@ Trade-J is a **real-time algorithmic trading platform** for Indian equity and F&
 
 ## 2. Gradle Module Map
 
-26 subprojects in [`settings.gradle`](../settings.gradle):
+24 subprojects in [`settings.gradle`](../settings.gradle):
 
 ```
 trade-j (root)
@@ -247,8 +247,6 @@ trade-j (root)
 ├── nodes/trade-node-library/          → :trade-node-library
 │
 ├── research/
-│   ├── experiment/trade-experiments   → :trade-experiments
-│   └── optimizer/trade-optimization   → :trade-optimization
 │
 ├── architecture-test/                 → :architecture-test
 ├── app/                               → :app (Spring Boot + React console)
@@ -278,8 +276,6 @@ trade-j (root)
 | `:trade-pipeline-platform` | `pipeline/platform/…` | 15 · 12 | Pipeline catalog, templates |
 | `:trade-analytics` | `pipeline/analytics/…` | 9 · 6 | Performance / drawdown reports |
 | `:trade-node-library` | `nodes/trade-node-library/` | 12 · 4 | DAG node adapters |
-| `:trade-experiments` | `research/experiment/…` | 5 · 3 | Experiment service |
-| `:trade-optimization` | `research/optimizer/…` | 12 · 5 | Grid / Monte Carlo / walk-forward |
 | `:architecture-test` | `architecture-test/` | 0 · 1 | `ModuleBoundaryArchitectureTest` |
 | `:app` | `app/` | 82 · 65 | Spring Boot, REST, pipeline orchestration |
 | `:gateway` | `gateway/` | 7 · 0 | WebSocket UI bridge |
@@ -291,7 +287,7 @@ Full package → class listing: [CODEBASE_LEAF_INDEX.md](CODEBASE_LEAF_INDEX.md)
 
 ## 3. High-Level Architecture
 
-> Full layer diagram with all 26 modules: [Visual HTML §1](visuals/Trade-J-Architecture-Visual.html). Module list: [§2](#2-gradle-module-map).
+> Full layer diagram with all 24 modules: [Visual HTML §1](visuals/Trade-J-Architecture-Visual.html). Module list: [§2](#2-gradle-module-map).
 
 ```mermaid
 graph TB
@@ -2016,11 +2012,7 @@ Every compilation unit under `src/main/java`, grouped by package with class name
 
 **[docs/CODEBASE_LEAF_INDEX.md](CODEBASE_LEAF_INDEX.md)**
 
-Regenerate after structural changes:
-
-```bash
-python3 scripts/generate-codebase-leaf-index.py
-```
+Update [CODEBASE_LEAF_INDEX.md](CODEBASE_LEAF_INDEX.md) manually after structural changes.
 
 The index includes test file names per module (where ≤30 tests) and `:architecture-test`.
 

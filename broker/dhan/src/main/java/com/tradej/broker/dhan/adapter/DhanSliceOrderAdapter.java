@@ -10,7 +10,7 @@ import com.tradej.broker.dhan.mapper.DhanSdkMapper;
 import com.tradej.broker.dhan.mapper.DhanSdkResponse;
 import com.tradej.broker.dhan.orders.DhanRestOrderClient;
 import com.tradej.broker.dhan.rate.ApiCategory;
-import com.tradej.broker.dhan.resilience.DhanResilienceExecutor;
+import com.tradej.broker.dhan.resilience.DhanRetryExecutor;
 import com.tradej.core.domain.model.Order;
 import com.tradej.core.domain.model.OrderRequest;
 import com.tradej.core.domain.model.SliceOrderRequest;
@@ -27,7 +27,7 @@ public final class DhanSliceOrderAdapter extends DhanBaseRestAdapter implements 
     public DhanSliceOrderAdapter(
             DhanClientHolder clientHolder,
             DhanInstrumentResolver instrumentResolver,
-            DhanResilienceExecutor resilienceExecutor,
+            DhanRetryExecutor resilienceExecutor,
             DhanConnectionSettings settings,
             DhanRestOrderClient restOrderClient,
             OrderCommand orderCommand

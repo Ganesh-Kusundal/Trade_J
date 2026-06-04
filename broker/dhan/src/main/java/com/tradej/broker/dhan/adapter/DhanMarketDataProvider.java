@@ -9,7 +9,7 @@ import com.tradej.broker.dhan.instrument.DhanInstrumentDefinition;
 import com.tradej.broker.dhan.mapper.DhanSdkMapper;
 import com.tradej.broker.dhan.mapper.DhanSdkResponse;
 import com.tradej.broker.dhan.rate.ApiCategory;
-import com.tradej.broker.dhan.resilience.DhanResilienceExecutor;
+import com.tradej.broker.dhan.resilience.DhanRetryExecutor;
 import com.tradej.core.domain.model.Candle;
 import com.tradej.core.domain.model.CandleHistoryRequest;
 import com.tradej.core.domain.model.Instrument;
@@ -41,7 +41,7 @@ public final class DhanMarketDataProvider extends DhanBaseRestAdapter implements
     public DhanMarketDataProvider(
             DhanClientHolder clientHolder,
             DhanInstrumentResolver instrumentResolver,
-            DhanResilienceExecutor resilienceExecutor,
+            DhanRetryExecutor resilienceExecutor,
             DhanHistoricalDataClient historicalDataClient,
             DhanHistoricalDataMapper historicalDataMapper
     ) {
@@ -61,7 +61,7 @@ public final class DhanMarketDataProvider extends DhanBaseRestAdapter implements
             DhanClientHolder clientHolder,
             DhanInstrumentResolver instrumentResolver,
             DhanAuthenticatedHttpClient httpClient,
-            DhanResilienceExecutor resilienceExecutor
+            DhanRetryExecutor resilienceExecutor
     ) {
         super(clientHolder, instrumentResolver, resilienceExecutor);
         this.historicalDataClient = new DhanHistoricalDataClient(httpClient, resilienceExecutor);

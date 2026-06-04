@@ -1,17 +1,10 @@
 # Trade-J — Leaf File Index (generated from repo)
 
-> **Audit date:** 2026-05-31  
-> **Totals:** 655 main Java · 213 test Java (+ 1 architecture-test)  
+> **Audit date:** 2026-06-04 (updated: removed trade-experiments, trade-optimization)  
+> **Totals:** 638 main Java · 205 test Java (+ 1 architecture-test)  
 > **Canonical architecture:** [ARCHITECTURE_REPORT.md](ARCHITECTURE_REPORT.md)
 
 Per-module listing of every `src/main/java` compilation unit, grouped by package.
-
-Regenerate:
-
-```bash
-python3 scripts/generate-codebase-leaf-index.py
-```
-
 
 ### `:core` — `core/` (160 main · 15 test)
 - **`com/tradej/core/domain`** (1): SequenceService
@@ -231,14 +224,6 @@ python3 scripts/generate-codebase-leaf-index.py
 - **`com/tradej/node/output`** (1): OutputNode
 - **`com/tradej/node/scanner`** (1): ScannerNode
 - **tests:** com/tradej/node/NodeDescriptorTest, com/tradej/node/NodeResultTest, com/tradej/node/output/OutputNodeTest, com/tradej/node/scanner/ScannerNodeTest
-
-### `:trade-experiments` — `research/experiment/trade-experiments/` (5 main · 3 test)
-- **`com/tradej/experiments`** (5): Experiment, ExperimentRun, ExperimentRunStatus, ExperimentService, ExperimentStatus
-- **tests:** com/tradej/experiments/ExperimentRunTest, com/tradej/experiments/ExperimentServiceTest, com/tradej/experiments/ExperimentTest
-
-### `:trade-optimization` — `research/optimizer/trade-optimization/` (12 main · 5 test)
-- **`com/tradej/optimizer`** (12): GridSearchOptimizationEngine, MonteCarloOptimizationEngine, OptimizationEngine, OptimizationJob, OptimizationResult, OptimizationStatus, OptimizationStrategy, ParameterSpace, ParameterType, TrialResult, WalkForwardOptimizationEngine, package-info
-- **tests:** com/tradej/optimizer/GridSearchOptimizationEngineTest, com/tradej/optimizer/MonteCarloOptimizationEngineTest, com/tradej/optimizer/OptimizationJobTest, com/tradej/optimizer/OptimizationResultTest, com/tradej/optimizer/TrialResultTest
 
 ### `:architecture-test` — `architecture-test/` (0 main · 1 test)
 - `com/tradej/architecture/ModuleBoundaryArchitectureTest.java`

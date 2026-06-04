@@ -8,7 +8,7 @@ import com.tradej.broker.dhan.mapper.DhanSdkMapper;
 import com.tradej.broker.dhan.mapper.DhanSdkResponse;
 import com.tradej.broker.dhan.orders.DhanRestOrderClient;
 import com.tradej.broker.dhan.rate.ApiCategory;
-import com.tradej.broker.dhan.resilience.DhanResilienceExecutor;
+import com.tradej.broker.dhan.resilience.DhanRetryExecutor;
 import com.tradej.core.domain.model.Order;
 import com.tradej.core.domain.model.Trade;
 import com.tradej.core.domain.value.OrderStatus;
@@ -23,7 +23,7 @@ public final class DhanOrderQueryAdapter extends DhanBaseRestAdapter implements 
     public DhanOrderQueryAdapter(
             DhanClientHolder clientHolder,
             DhanInstrumentResolver instrumentResolver,
-            DhanResilienceExecutor resilienceExecutor,
+            DhanRetryExecutor resilienceExecutor,
             DhanConnectionSettings settings,
             DhanRestOrderClient restOrderClient
     ) {

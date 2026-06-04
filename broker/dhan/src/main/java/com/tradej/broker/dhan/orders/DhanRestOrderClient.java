@@ -9,7 +9,7 @@ import com.tradej.broker.dhan.instrument.DhanInstrumentDefinition;
 import com.tradej.broker.dhan.mapper.DhanJsonResponse;
 import com.tradej.broker.dhan.mapper.DhanSdkMapper;
 import com.tradej.broker.dhan.rate.ApiCategory;
-import com.tradej.broker.dhan.resilience.DhanResilienceExecutor;
+import com.tradej.broker.dhan.resilience.DhanRetryExecutor;
 import com.tradej.core.domain.model.ModifyOrderRequest;
 import com.tradej.core.domain.model.Order;
 import com.tradej.core.domain.model.OrderRequest;
@@ -25,13 +25,13 @@ public final class DhanRestOrderClient {
     private final DhanAuthenticatedHttpClient httpClient;
     private final DhanConnectionSettings settings;
     private final DhanApiUrlResolver apiUrlResolver;
-    private final DhanResilienceExecutor resilienceExecutor;
+    private final DhanRetryExecutor resilienceExecutor;
 
     public DhanRestOrderClient(
             DhanAuthenticatedHttpClient httpClient,
             DhanConnectionSettings settings,
             DhanApiUrlResolver apiUrlResolver,
-            DhanResilienceExecutor resilienceExecutor
+            DhanRetryExecutor resilienceExecutor
     ) {
         this.httpClient = httpClient;
         this.settings = settings;

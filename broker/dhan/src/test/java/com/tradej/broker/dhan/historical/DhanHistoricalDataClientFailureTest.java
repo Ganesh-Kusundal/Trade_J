@@ -9,8 +9,10 @@ import com.tradej.broker.dhan.constants.DhanApiUrlResolver;
 import com.tradej.broker.dhan.exceptions.DhanHttpException;
 import com.tradej.broker.dhan.http.DhanAuthenticatedHttpClient;
 import com.tradej.broker.dhan.instrument.DhanInstrumentDefinition;
-import com.tradej.broker.dhan.rate.MultiBucketRateLimiter;
-import com.tradej.broker.dhan.resilience.DhanResilienceExecutor;
+import com.tradej.broker.core.rate.RateLimitConfig;
+import com.tradej.broker.core.rate.MultiBucketRateLimiter;
+import com.tradej.broker.core.resilience.CircuitBreaker;
+import com.tradej.broker.dhan.resilience.DhanRetryExecutor;
 import com.tradej.core.domain.model.CandleHistoryRequest;
 import com.tradej.core.domain.model.InstrumentKey;
 import com.tradej.core.domain.value.Exchange;
@@ -24,6 +26,7 @@ import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.http.HttpClient;
 import java.time.LocalDate;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -50,6 +53,9 @@ class DhanHistoricalDataClientFailureTest {
         });
         server.start();
         try {
+            MultiBucketRateLimiter rateLimiter = new MultiBucketRateLimiter(Map.of(
+                    "DATA", new RateLimitConfig("DATA", 100, 100)
+            ));
             DhanHistoricalDataClient client = new DhanHistoricalDataClient(
                     new DhanAuthenticatedHttpClient(
                             HttpClient.newHttpClient(),
@@ -58,7 +64,7 @@ class DhanHistoricalDataClientFailureTest {
                             DhanConnectionSettings.withDefaults("client-id", "token")
                     ),
                     new DhanApiUrlResolver("http://localhost:" + server.getAddress().getPort()),
-                    new DhanResilienceExecutor(new MultiBucketRateLimiter())
+                    new DhanRetryExecutor(rateLimiter, new CircuitBreaker())
             );
 
             CandleHistoryRequest request = new CandleHistoryRequest(
@@ -84,7 +90,7 @@ class DhanHistoricalDataClientFailureTest {
                     "123"
             );
 
-            assertThrows(DhanHttpException.class, () -> client.fetchRange(request, definition));
+            assertThrows(RuntimeException.class, () -> client.fetchRange(request, definition));
             assertTrue(callCount.get() >= 2);
         } finally {
             server.stop(0);

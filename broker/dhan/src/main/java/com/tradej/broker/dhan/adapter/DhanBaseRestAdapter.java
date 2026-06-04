@@ -4,7 +4,7 @@ import com.tradej.broker.dhan.client.DhanClientHolder;
 import com.tradej.broker.dhan.instrument.DhanInstrumentDefinition;
 import com.tradej.broker.dhan.mapper.DhanSdkResponse;
 import com.tradej.broker.dhan.rate.ApiCategory;
-import com.tradej.broker.dhan.resilience.DhanResilienceExecutor;
+import com.tradej.broker.dhan.resilience.DhanRetryExecutor;
 import com.tradej.core.domain.model.InstrumentKey;
 import com.tradej.core.domain.value.ExchangeSegment;
 
@@ -23,12 +23,12 @@ import java.util.function.Supplier;
 public abstract class DhanBaseRestAdapter {
     protected final DhanClientHolder clientHolder;
     protected final DhanInstrumentResolver resolver;
-    protected final DhanResilienceExecutor executor;
+    protected final DhanRetryExecutor executor;
 
     protected DhanBaseRestAdapter(
             DhanClientHolder clientHolder,
             DhanInstrumentResolver resolver,
-            DhanResilienceExecutor executor
+            DhanRetryExecutor executor
     ) {
         this.clientHolder = clientHolder;
         this.resolver = resolver;
@@ -42,7 +42,7 @@ public abstract class DhanBaseRestAdapter {
      */
     protected DhanBaseRestAdapter(
             DhanInstrumentResolver resolver,
-            DhanResilienceExecutor executor
+            DhanRetryExecutor executor
     ) {
         this.clientHolder = null;
         this.resolver = resolver;

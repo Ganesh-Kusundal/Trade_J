@@ -6,7 +6,7 @@ import com.tradej.broker.dhan.instrument.DhanInstrumentDefinition;
 import com.tradej.broker.dhan.mapper.DhanSdkMapper;
 import com.tradej.broker.dhan.mapper.DhanSdkResponse;
 import com.tradej.broker.dhan.rate.ApiCategory;
-import com.tradej.broker.dhan.resilience.DhanResilienceExecutor;
+import com.tradej.broker.dhan.resilience.DhanRetryExecutor;
 import com.tradej.core.domain.model.Balance;
 import com.tradej.core.domain.model.Holding;
 import com.tradej.core.domain.model.Position;
@@ -14,7 +14,7 @@ import java.util.List;
 
 public final class DhanPortfolioProvider extends DhanBaseRestAdapter implements PortfolioProvider {
 
-    public DhanPortfolioProvider(DhanClientHolder clientHolder, DhanInstrumentResolver instrumentResolver, DhanResilienceExecutor resilienceExecutor) {
+    public DhanPortfolioProvider(DhanClientHolder clientHolder, DhanInstrumentResolver instrumentResolver, DhanRetryExecutor resilienceExecutor) {
         super(clientHolder, instrumentResolver, resilienceExecutor);
     }
 

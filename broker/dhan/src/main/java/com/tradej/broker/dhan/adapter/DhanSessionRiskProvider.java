@@ -6,7 +6,7 @@ import com.tradej.broker.api.port.SessionRiskProvider;
 import com.tradej.broker.dhan.constants.DhanApiUrlResolver;
 import com.tradej.broker.dhan.http.DhanAuthenticatedHttpClient;
 import com.tradej.broker.dhan.rate.ApiCategory;
-import com.tradej.broker.dhan.resilience.DhanResilienceExecutor;
+import com.tradej.broker.dhan.resilience.DhanRetryExecutor;
 import com.tradej.core.domain.model.PnlExitPolicy;
 import com.tradej.core.domain.model.PnlExitResult;
 import com.tradej.core.domain.value.PriceMath;
@@ -14,13 +14,13 @@ import com.tradej.core.domain.value.PriceMath;
 public final class DhanSessionRiskProvider implements SessionRiskProvider {
     private final DhanAuthenticatedHttpClient httpClient;
     private final DhanApiUrlResolver apiUrlResolver;
-    private final DhanResilienceExecutor resilienceExecutor;
+    private final DhanRetryExecutor resilienceExecutor;
     private final ObjectMapper mapper = new ObjectMapper();
 
     public DhanSessionRiskProvider(
             DhanAuthenticatedHttpClient httpClient,
             DhanApiUrlResolver apiUrlResolver,
-            DhanResilienceExecutor resilienceExecutor
+            DhanRetryExecutor resilienceExecutor
     ) {
         this.httpClient = httpClient;
         this.apiUrlResolver = apiUrlResolver;
