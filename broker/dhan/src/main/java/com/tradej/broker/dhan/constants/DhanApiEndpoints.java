@@ -5,8 +5,7 @@ package com.tradej.broker.dhan.constants;
  *
  * <p>Consolidates hardcoded endpoint strings that were previously duplicated
  * across {@code DhanOptionsAdapter}, {@code DhanHistoricalDataClient},
- * {@code DhanInstrumentLoader}, {@code DhanAuthenticatedHttpClient},
- * and {@code DhanEndpointCategory}.
+ * {@code DhanInstrumentLoader}, and {@code DhanAuthenticatedHttpClient}.
  */
 public final class DhanApiEndpoints {
     private DhanApiEndpoints() {
@@ -64,7 +63,7 @@ public final class DhanApiEndpoints {
     /** Content-Type header value for JSON request bodies. */
     public static final String HEADER_CONTENT_TYPE_JSON = "application/json";
 
-    // ---- REST path prefixes (used by DhanEndpointCategory for rate-limit bucketing) ----
+    // ---- REST path prefixes (used by DhanRetryExecutor for rate-limit bucketing) ----
 
     /** Path prefix for order endpoints. */
     public static final String PATH_PREFIX_ORDERS = "/orders";
