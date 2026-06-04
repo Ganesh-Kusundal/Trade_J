@@ -442,10 +442,9 @@ trade-j/
 │   │       ├── resilience/
 │   │       └── DhanRetryExecutor.java
 │   │       └── websocket/
-│   │           ├── AbstractDhanDepthWebSocketClient.java
-│   │           ├── DhanDepthSideUpdate.java
-│   │           ├── DhanFullDepthBinaryParser.java
-│   │           └── DhanWebSocketMultiplexer.java
+│   │           ├── DhanBinaryParser.java
+│   │           ├── DhanWebSocketMultiplexer.java
+│   │           └── ParsedFeedFrame.java
 │   │
 │   ├── icici/                             # ICICI Direct broker adapter
 │   │   ├── build.gradle
