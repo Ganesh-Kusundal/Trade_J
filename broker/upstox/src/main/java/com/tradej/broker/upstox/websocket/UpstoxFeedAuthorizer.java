@@ -55,6 +55,16 @@ public final class UpstoxFeedAuthorizer {
      * Result of a feed authorization request.
      */
     public record AuthorizedFeed(String wsUri, long expiryEpochMs) {
+        /**
+         * Returns {@code true} if the feed authorization has expired
+         * relative to the given timestamp.
+         *
+         * @param nowMs current time in epoch milliseconds
+         * @return true if expired, false if still valid or no expiry was set
+         */
+        public boolean isExpired(long nowMs) {
+            return expiryEpochMs > 0 && nowMs >= expiryEpochMs;
+        }
     }
 
     /**
