@@ -3,6 +3,7 @@ package com.tradej.architecture;
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.core.importer.ImportOption;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -55,6 +56,10 @@ class ModuleBoundaryArchitectureTest {
 
     @Test
     void replayEngineMustNotDependOnLiveBrokers() {
+        Assumptions.assumeTrue(
+                projectHasProperty("research"),
+                "Skipped: replay-engine excluded from default build (use -Presearch)"
+        );
         noClasses()
                 .that().resideInAPackage("com.tradej.replay..")
                 .should().dependOnClassesThat().resideInAnyPackage(
@@ -64,5 +69,9 @@ class ModuleBoundaryArchitectureTest {
                 )
                 .allowEmptyShould(false)
                 .check(allClasses);
+    }
+
+    private static boolean projectHasProperty(String name) {
+        return Boolean.parseBoolean(System.getProperty(name));
     }
 }

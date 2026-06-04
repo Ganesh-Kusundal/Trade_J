@@ -2,27 +2,41 @@ plugins {
     id 'java-library'
 }
 
-def scannedModules = [
+def coreModules = [
         ':core',
         ':broker-api',
+        ':broker-core',
         ':broker-dhan',
         ':broker-upstox',
+        ':broker-icici',
         ':data-persistence',
+        ':data-feature-store',
         ':data-historical-ingest',
+        ':data-analytics',
         ':trading-scanner',
         ':trading-execution',
         ':trading-strategy',
+        ':trading-simulation',
         ':trading-institutional-scanner',
         ':trading-indicators',
         ':runtime-disruptor',
         ':runtime-hotpath',
+        ':gateway',
+        ':cli',
+        ':trade-node-library',
+        ':trade-pipeline-platform',
         ':app',
+]
+def researchModules = [
         ':research-core',
         ':research-lab',
         ':replay-engine',
         ':mcp-server',
         ':research-api',
 ]
+def scannedModules = coreModules + (
+        project.hasProperty('research') ? researchModules : []
+)
 
 dependencies {
     scannedModules.each { modulePath ->
@@ -34,6 +48,12 @@ dependencies {
 
 def moduleClassOutputs = scannedModules.collect { modulePath ->
     project(modulePath).sourceSets.main.output.classesDirs
+}
+
+def researchEnabled = project.hasProperty('research')
+
+tasks.withType(Test).configureEach {
+    systemProperty 'research', researchEnabled.toString()
 }
 
 tasks.named('test', Test).configure {

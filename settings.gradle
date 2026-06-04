@@ -60,17 +60,21 @@ project(':trade-node-library').projectDir = file('nodes/trade-node-library')
 include 'trade-analytics'
 project(':trade-analytics').projectDir = file('pipeline/analytics/trade-analytics')
 
-include 'research-core'
-project(':research-core').projectDir = file('research/core')
+// Research / MCP modules — excluded by default for faster builds.
+// Enable with:  ./gradlew build -Presearch
+if (settings.startParameter.projectProperties.containsKey('research')) {
+    include 'research-core'
+    project(':research-core').projectDir = file('research/core')
 
-include 'research-lab'
-project(':research-lab').projectDir = file('research/lab')
+    include 'research-lab'
+    project(':research-lab').projectDir = file('research/lab')
 
-include 'replay-engine'
-project(':replay-engine').projectDir = file('replay/engine')
+    include 'replay-engine'
+    project(':replay-engine').projectDir = file('replay/engine')
 
-include 'mcp-server'
-project(':mcp-server').projectDir = file('mcp-server')
+    include 'mcp-server'
+    project(':mcp-server').projectDir = file('mcp-server')
 
-include 'research-api'
-project(':research-api').projectDir = file('research/api')
+    include 'research-api'
+    project(':research-api').projectDir = file('research/api')
+}
