@@ -386,7 +386,8 @@ trade-j/
 │   │       │   ├── DhanTokenManager.java
 │   │       │   ├── DhanTokenProvider.java
 │   │       │   ├── DhanTokenState.java
-│   │       │   └── DhanTokenStateStore.java
+│   │       │   ├── DhanTokenStateStore.java
+│   │       │   └── DhanTotpGenerator.java
 │   │       ├── client/
 │   │       │   └── DhanClientHolder.java
 │   │       ├── config/
@@ -399,10 +400,12 @@ trade-j/
 │   │       ├── constants/
 │   │       │   ├── DhanApiEndpoints.java
 │   │       │   ├── DhanApiUrlResolver.java
-│   │       │   ├── DhanProtocolConstants.java
-│   │       │   └── DhanWebSocketEndpoints.java
+│   │       └── DhanProtocolConstants.java
 │   │       ├── depth/
-│   │       │   └── DhanMarketDepthProvider.java
+│   │       │   ├── DhanExchangeSegmentCodes.java
+│   │       │   ├── DhanMarketDepthProvider.java
+│   │       │   ├── DhanTwentyDepthBinaryParser.java
+│   │       │   └── DhanTwentyDepthWebSocketClient.java
 │   │       ├── DhanBrokerConnection.java
 │   │       ├── exceptions/
 │   │       │   ├── DhanBrokerException.java
@@ -417,7 +420,6 @@ trade-j/
 │   │       │   ├── DhanInstrumentCatalog.java
 │   │       │   ├── DhanInstrumentDefinition.java
 │   │       │   ├── DhanInstrumentLoader.java
-│   │       │   ├── DhanInstrumentSubscribeResolver.java
 │   │       │   ├── DhanSegmentMapper.java
 │   │       │   └── DhanSymbolNormalizer.java
 │   │       ├── mapper/
@@ -438,7 +440,7 @@ trade-j/
 │   │       ├── rate/
 │   │       │   └── ApiCategory.java
 │   │       ├── resilience/
-│   │       ├──     └── DhanRetryExecutor.java
+│   │       └── DhanRetryExecutor.java
 │   │       └── websocket/
 │   │           ├── AbstractDhanDepthWebSocketClient.java
 │   │           ├── DhanDepthSideUpdate.java
