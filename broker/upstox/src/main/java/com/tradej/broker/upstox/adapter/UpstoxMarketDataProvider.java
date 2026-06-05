@@ -157,17 +157,7 @@ public final class UpstoxMarketDataProvider implements MarketDataProvider {
     }
 
     private Quote parseQuoteFromNode(JsonNode node, InstrumentKey key) {
-        return new Quote(
-                instrument(key),
-                UpstoxPriceParser.optionalPricePaisa(node, "last_price"),
-                UpstoxPriceParser.optionalPricePaisa(node, "open"),
-                UpstoxPriceParser.optionalPricePaisa(node, "high"),
-                UpstoxPriceParser.optionalPricePaisa(node, "low"),
-                UpstoxPriceParser.optionalPricePaisa(node, "close"),
-                node.has("volume") ? node.get("volume").asLong() : 0L,
-                0L, 0L,
-                System.currentTimeMillis()
-        );
+        return new Quote(instrument(key), UpstoxPriceParser.optionalPricePaisa(node, "last_price"), UpstoxPriceParser.optionalPricePaisa(node, "open"), UpstoxPriceParser.optionalPricePaisa(node, "high"), UpstoxPriceParser.optionalPricePaisa(node, "low"), UpstoxPriceParser.optionalPricePaisa(node, "close"), node.has("volume") ? node.get("volume").asLong() : 0L, 0L, 0L, 0L, System.currentTimeMillis());
     }
 
     private MarketDepth parseDepth(JsonNode root, InstrumentKey key) {

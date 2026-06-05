@@ -84,6 +84,9 @@ export function connectGateway(url: string) {
 
   socket.onopen = () => {
     reconnectAttempt = 0;
+    if (socket) {
+      (window as unknown as {__tradejGatewaySocket?: WebSocket}).__tradejGatewaySocket = socket;
+    }
     // Subscribe to all gateway topics (binary frame, since handler extends BinaryWebSocketHandler)
     const encoder = new TextEncoder();
     socket?.send(encoder.encode('SUBSCRIBE ALL'));
@@ -119,6 +122,7 @@ export function connectGateway(url: string) {
   };
 
   socket.onclose = () => {
+    (window as unknown as {__tradejGatewaySocket?: WebSocket}).__tradejGatewaySocket = undefined;
     socket = null;
     statusHandler?.(false);
     if (!intentionalClose) scheduleReconnect(url);

@@ -1,5 +1,6 @@
 package com.tradej.scanner.model;
 
+import com.tradej.core.domain.scan.AssetClass;
 import com.tradej.core.domain.value.ExchangeSegment;
 
 import java.util.List;

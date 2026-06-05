@@ -24,6 +24,9 @@ public final class BrokerRuntimeModeResolver {
             }
             return BrokerRuntimeMode.UPSTOX_TRADING_WS;
         }
+        if ("gateway".equalsIgnoreCase(brokerType)) {
+            return BrokerRuntimeMode.BROKER_GATEWAY;
+        }
         if ("icici".equalsIgnoreCase(brokerType)) {
             return BrokerRuntimeMode.ICICI_TRADING_WS;
         }

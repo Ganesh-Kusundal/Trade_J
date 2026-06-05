@@ -5,6 +5,7 @@ import com.tradej.broker.api.auth.TokenState;
 
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
@@ -23,11 +24,14 @@ import java.util.concurrent.locks.ReentrantLock;
  */
 public abstract class DefaultTokenLifecycleService implements TokenLifecycleService {
 
+    private static final long FAILED_REFRESH_COOLDOWN_MS = 30_000L;
+
     private final ReentrantLock lock = new ReentrantLock();
     private final TokenStateStore stateStore;
     private final long refreshBufferMs;
     private final List<Runnable> expiryCallbacks = new CopyOnWriteArrayList<>();
     private final List<Runnable> refreshCallbacks = new CopyOnWriteArrayList<>();
+    private final AtomicLong lastFailedRefreshMs = new AtomicLong(0L);
 
     private volatile TokenState currentState;
 
@@ -72,6 +76,10 @@ public abstract class DefaultTokenLifecycleService implements TokenLifecycleServ
         if (state.valid() && !state.refreshRecommended(refreshBufferMs)) {
             return;
         }
+        long now = System.currentTimeMillis();
+        if (now - lastFailedRefreshMs.get() < FAILED_REFRESH_COOLDOWN_MS) {
+            return;
+        }
         lock.lock();
         try {
             state = currentState;
@@ -79,16 +87,22 @@ public abstract class DefaultTokenLifecycleService implements TokenLifecycleServ
                 currentState = doAcquire();
                 stateStore.save(currentState);
                 notifyRefresh();
+                lastFailedRefreshMs.set(0L);
                 return;
             }
             if (state.valid() && !state.refreshRecommended(refreshBufferMs)) {
                 return;
             }
-            // Needs refresh
-            TokenState refreshed = doRefresh(state.refreshToken());
-            currentState = refreshed;
-            stateStore.save(refreshed);
-            notifyRefresh();
+            try {
+                TokenState refreshed = doRefresh(state.refreshToken());
+                currentState = refreshed;
+                stateStore.save(refreshed);
+                notifyRefresh();
+                lastFailedRefreshMs.set(0L);
+            } catch (RuntimeException ex) {
+                lastFailedRefreshMs.set(System.currentTimeMillis());
+                throw ex;
+            }
         } finally {
             lock.unlock();
         }

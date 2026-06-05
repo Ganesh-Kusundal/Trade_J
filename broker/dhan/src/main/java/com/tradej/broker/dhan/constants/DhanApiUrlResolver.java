@@ -62,14 +62,42 @@ public final class DhanApiUrlResolver {
     }
 
     public String foreverOrdersUrl() {
-        return baseUrl + "/forever-orders";
+        return baseUrl + (sandboxBaseUrl() ? "/forever-orders" : "/forever/orders");
+    }
+
+    public String foreverOrderUrl(String orderId) {
+        return foreverOrdersUrl() + "/" + orderId;
+    }
+
+    public String foreverOrdersAllUrl() {
+        return baseUrl + (sandboxBaseUrl() ? "/forever-orders" : "/forever/all");
+    }
+
+    private boolean sandboxBaseUrl() {
+        return baseUrl.contains("sandbox");
     }
 
     public String sliceOrderUrl() {
         return baseUrl + "/orders/slicing";
     }
 
-    public String fundLimitUrl() {
-        return baseUrl + "/fundlimit";
-    }
+  public String fundLimitUrl() {
+    return baseUrl + "/fundlimit";
+  }
+
+  public String positionsUrl() {
+    return baseUrl + "/positions";
+  }
+
+  public String holdingsUrl() {
+    return baseUrl + "/holdings";
+  }
+
+  public String marketFeedLtpUrl() {
+    return baseUrl + "/marketfeed/ltp";
+  }
+
+  public String marketFeedQuoteUrl() {
+    return baseUrl + "/marketfeed/quote";
+  }
 }

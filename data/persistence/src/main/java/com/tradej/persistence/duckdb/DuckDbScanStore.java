@@ -2,9 +2,9 @@ package com.tradej.persistence.duckdb;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.tradej.scanner.model.ScanHit;
-import com.tradej.scanner.model.ScanResult;
-import com.tradej.scanner.model.ScanRun;
+import com.tradej.core.domain.scan.ScanHit;
+import com.tradej.core.domain.scan.ScanResult;
+import com.tradej.core.domain.scan.ScanRun;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -158,7 +158,7 @@ public final class DuckDbScanStore implements AutoCloseable {
                         rs.getString("profile_id"),
                         rs.getLong("started_at_ms"),
                         rs.getLong("finished_at_ms"),
-                        com.tradej.scanner.model.ScanRunStatus.valueOf(rs.getString("status")),
+                        com.tradej.core.domain.scan.ScanRunStatus.valueOf(rs.getString("status")),
                         rs.getInt("universe_size"),
                         rs.getInt("hit_count"),
                         rs.getInt("partial_failure_count"),
@@ -178,7 +178,7 @@ public final class DuckDbScanStore implements AutoCloseable {
                                     rs.getString("symbol"),
                                     com.tradej.core.domain.value.ExchangeSegment.valueOf(rs.getString("exchange_segment"))
                             ),
-                            com.tradej.scanner.model.AssetClass.valueOf(rs.getString("asset_class")),
+                            com.tradej.core.domain.scan.AssetClass.valueOf(rs.getString("asset_class")),
                             rs.getString("underlying"),
                             rs.getDouble("score"),
                             readStringList(rs.getString("reasons_json")),
@@ -209,7 +209,7 @@ public final class DuckDbScanStore implements AutoCloseable {
                             rs.getString("profile_id"),
                             rs.getLong("started_at_ms"),
                             rs.getLong("finished_at_ms"),
-                            com.tradej.scanner.model.ScanRunStatus.valueOf(rs.getString("status")),
+                            com.tradej.core.domain.scan.ScanRunStatus.valueOf(rs.getString("status")),
                             rs.getInt("universe_size"),
                             rs.getInt("hit_count"),
                             rs.getInt("partial_failure_count"),

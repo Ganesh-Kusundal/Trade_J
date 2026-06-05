@@ -16,4 +16,9 @@ public record PositionUpdateEvent(
         long unrealizedPnlPaisa,
         long realizedPnlPaisa
 ) implements DomainEvent {
+
+    @Override
+    public void accept(DomainEventVisitor visitor) {
+        visitor.visit(this);
+    }
 }

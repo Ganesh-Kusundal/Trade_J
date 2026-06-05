@@ -56,7 +56,16 @@ public final class GatewayBinaryCodec {
      * Check if a byte array is a gateway control frame (has header).
      */
     public static boolean isGatewayFrame(byte[] data) {
-        return data.length >= HEADER_SIZE;
+        if (data.length < HEADER_SIZE) {
+            return false;
+        }
+        int wireId = data[0] & 0xFF;
+        for (GatewayTopic topic : GatewayTopic.values()) {
+            if (topic.wireId() == wireId) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

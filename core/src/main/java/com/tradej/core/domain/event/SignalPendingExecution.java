@@ -13,4 +13,9 @@ public record SignalPendingExecution(
     public SignalPendingExecution {
         decisionContext = Map.copyOf(decisionContext);
     }
+
+    @Override
+    public void accept(DomainEventVisitor visitor) {
+        visitor.visit(this);
+    }
 }

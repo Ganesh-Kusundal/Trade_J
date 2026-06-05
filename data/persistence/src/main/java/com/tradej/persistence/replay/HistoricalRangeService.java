@@ -185,9 +185,9 @@ public final class HistoricalRangeService implements AutoCloseable {
         String sql = """
                 select event_id, order_id, correlation_id, symbol, status, quantity, price_paisa
                 from orders
-                where (ingested_at_ms IS NULL OR ingested_at_ms >= ?) and (ingested_at_ms IS NULL OR ingested_at_ms < ?)
+                where (coalesce(event_time_ms, ingested_at_ms) IS NULL OR coalesce(event_time_ms, ingested_at_ms) >= ?) and (coalesce(event_time_ms, ingested_at_ms) IS NULL OR coalesce(event_time_ms, ingested_at_ms) < ?)
                 """ + (symbol != null && !symbol.isBlank() ? " and symbol = ?" : "") + """
-                order by ingested_at_ms desc nulls last, event_id asc
+                order by coalesce(event_time_ms, ingested_at_ms) desc nulls last, event_id asc
                 limit ?
                 """;
         try (PreparedStatement ps = connection.prepareStatement(sql)) {
@@ -244,9 +244,9 @@ public final class HistoricalRangeService implements AutoCloseable {
         String sql = """
                 select event_id, order_id, trade_id, symbol, quantity, price_paisa
                 from fills
-                where (ingested_at_ms IS NULL OR ingested_at_ms >= ?) and (ingested_at_ms IS NULL OR ingested_at_ms < ?)
+                where (coalesce(event_time_ms, ingested_at_ms) IS NULL OR coalesce(event_time_ms, ingested_at_ms) >= ?) and (coalesce(event_time_ms, ingested_at_ms) IS NULL OR coalesce(event_time_ms, ingested_at_ms) < ?)
                 """ + (symbol != null && !symbol.isBlank() ? " and symbol = ?" : "") + """
-                order by ingested_at_ms desc nulls last, event_id asc
+                order by coalesce(event_time_ms, ingested_at_ms) desc nulls last, event_id asc
                 limit ?
                 """;
         try (PreparedStatement ps = connection.prepareStatement(sql)) {
@@ -304,9 +304,9 @@ public final class HistoricalRangeService implements AutoCloseable {
                 select event_id, event_type, order_id, correlation_id, symbol,
                        quantity, price_paisa, fill_count
                 from fill_events
-                where (ingested_at_ms IS NULL OR ingested_at_ms >= ?) and (ingested_at_ms IS NULL OR ingested_at_ms < ?)
+                where (coalesce(event_time_ms, ingested_at_ms) IS NULL OR coalesce(event_time_ms, ingested_at_ms) >= ?) and (coalesce(event_time_ms, ingested_at_ms) IS NULL OR coalesce(event_time_ms, ingested_at_ms) < ?)
                 """ + (symbol != null && !symbol.isBlank() ? " and symbol = ?" : "") + """
-                order by ingested_at_ms desc nulls last, event_id asc
+                order by coalesce(event_time_ms, ingested_at_ms) desc nulls last, event_id asc
                 limit ?
                 """;
         try (PreparedStatement ps = connection.prepareStatement(sql)) {
@@ -367,10 +367,10 @@ public final class HistoricalRangeService implements AutoCloseable {
                        stop_loss_paisa, take_profit_paisa,
                        exit_price_paisa, realized_pnl_paisa, close_reason
                 from trade_lifecycle
-                where (ingested_at_ms IS NULL OR ingested_at_ms >= ?)
-                  and (ingested_at_ms IS NULL OR ingested_at_ms < ?)
+                where (coalesce(event_time_ms, ingested_at_ms) IS NULL OR coalesce(event_time_ms, ingested_at_ms) >= ?)
+                  and (coalesce(event_time_ms, ingested_at_ms) IS NULL OR coalesce(event_time_ms, ingested_at_ms) < ?)
                 """ + (symbol != null && !symbol.isBlank() ? " and symbol = ?" : "") + """
-                order by ingested_at_ms asc nulls last, event_id asc
+                order by coalesce(event_time_ms, ingested_at_ms) asc nulls last, event_id asc
                 limit ?
                 """;
         try (PreparedStatement ps = connection.prepareStatement(sql)) {
@@ -469,6 +469,7 @@ public final class HistoricalRangeService implements AutoCloseable {
                             evt.symbol(),
                             evt.exitPricePaisa(),
                             evt.realizedPnlPaisa(),
+ evt.size(),
                             evt.closeReason()
                     );
                     default -> null;
@@ -510,50 +511,77 @@ public final class HistoricalRangeService implements AutoCloseable {
      * @return replay summary with total/replayed/failed counts
      */
     public ReplayResult replayMarketTicks(String symbol, long fromMs, long toMs, EventBus eventBus) {
+        return replayMarketTicks(symbol, fromMs, toMs, eventBus, 0, 50_000);
+    }
+
+    public ReplayResult replayMarketTicks(
+            String symbol,
+            long fromMs,
+            long toMs,
+            EventBus eventBus,
+            int offset,
+            int batchSize
+    ) {
+        int limit = Math.min(Math.max(batchSize, 1), 50_000);
         try (PreparedStatement ps = connection.prepareStatement("""
                 select event_id, interval, ltp_paisa, last_trade_quantity,
-                       cumulative_volume, exchange_timestamp_ms
+                       cumulative_volume, exchange_timestamp_ms, exchange_segment
                 from feature_ticks
                 where symbol = ? and exchange_timestamp_ms >= ? and exchange_timestamp_ms < ?
                 order by exchange_timestamp_ms asc
-                limit 50000
+                limit ? offset ?
                 """)) {
             ps.setString(1, symbol);
             ps.setLong(2, fromMs);
             ps.setLong(3, toMs);
+            ps.setInt(4, limit);
+            ps.setInt(5, Math.max(0, offset));
             long replayed = 0L;
             long failed = 0L;
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     try {
                         long exchangeTs = rs.getLong("exchange_timestamp_ms");
+                        ExchangeSegment segment = resolveExchangeSegment(rs.getString("exchange_segment"));
                         var tick = new MarketTickEvent(
                                 EventMetadata.correlated("", 0L),
                                 0L,
                                 symbol,
-                                ExchangeSegment.NSE_EQ,
+                                segment,
                                 FeedMode.TICKER,
                                 rs.getLong("ltp_paisa"),
                                 rs.getLong("last_trade_quantity"),
                                 rs.getLong("cumulative_volume"),
                                 exchangeTs,
-                                java.util.Optional.empty()
-                        );
+                                java.util.Optional.empty(),
+                                0L,
+                                0L);
                         eventBus.publish(tick);
                         replayed++;
                     } catch (Exception e) {
                         failed++;
-                        log.debug("Failed to replay market tick for {} at {}: {}", symbol, rs.getLong("exchange_timestamp_ms"), e.getMessage());
+                        log.debug("Failed to replay market tick for {}: {}", symbol, e.getMessage());
                     }
                 }
             }
             long total = replayed + failed;
-            log.info("Replay market ticks complete for {} [{},{}]: {}/{} replayed, {} failed",
-                    symbol, fromMs, toMs, replayed, total, failed);
+            log.info("Replay market ticks complete for {} [{},{}] offset={} limit={}: {}/{} replayed, {} failed",
+                    symbol, fromMs, toMs, offset, limit, replayed, total, failed);
             return new ReplayResult(total, replayed, failed);
         } catch (SQLException e) {
             log.warn("Failed to replay market ticks for {} [{},{}]: {}", symbol, fromMs, toMs, e.getMessage());
             return new ReplayResult(0L, 0L, 0L);
+        }
+    }
+
+    private static ExchangeSegment resolveExchangeSegment(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return ExchangeSegment.NSE_EQ;
+        }
+        try {
+            return ExchangeSegment.valueOf(raw.trim().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            return ExchangeSegment.NSE_EQ;
         }
     }
 
@@ -655,9 +683,9 @@ public final class HistoricalRangeService implements AutoCloseable {
         String sql = """
                 select event_id, order_id, correlation_id, symbol, status, quantity, price_paisa
                 from orders
-                where (ingested_at_ms IS NULL OR ingested_at_ms >= ?) and (ingested_at_ms IS NULL OR ingested_at_ms < ?)
+                where (coalesce(event_time_ms, ingested_at_ms) IS NULL OR coalesce(event_time_ms, ingested_at_ms) >= ?) and (coalesce(event_time_ms, ingested_at_ms) IS NULL OR coalesce(event_time_ms, ingested_at_ms) < ?)
                 """ + (symbol != null && !symbol.isBlank() ? " and symbol = ?" : "") + """
-                order by ingested_at_ms asc nulls last, event_id asc
+                order by coalesce(event_time_ms, ingested_at_ms) asc nulls last, event_id asc
                 limit 10000
                 """;
         long replayed = 0L;
@@ -736,9 +764,9 @@ public final class HistoricalRangeService implements AutoCloseable {
                        coalesce(exchange_segment, '') as exch_seg,
                        coalesce(side, '') as side_str
                 from fill_events
-                where (ingested_at_ms IS NULL OR ingested_at_ms >= ?) and (ingested_at_ms IS NULL OR ingested_at_ms < ?)
+                where (coalesce(event_time_ms, ingested_at_ms) IS NULL OR coalesce(event_time_ms, ingested_at_ms) >= ?) and (coalesce(event_time_ms, ingested_at_ms) IS NULL OR coalesce(event_time_ms, ingested_at_ms) < ?)
                 """ + (symbol != null && !symbol.isBlank() ? " and symbol = ?" : "") + """
-                order by ingested_at_ms asc nulls last, event_id asc
+                order by coalesce(event_time_ms, ingested_at_ms) asc nulls last, event_id asc
                 limit 10000
                 """;
         long replayed = 0L;
@@ -893,7 +921,7 @@ public final class HistoricalRangeService implements AutoCloseable {
         try (PreparedStatement orderPs = connection.prepareStatement("""
                 select count(*) as cnt
                 from orders
-                where symbol = ? and (ingested_at_ms IS NULL OR ingested_at_ms >= ?) and (ingested_at_ms IS NULL OR ingested_at_ms < ?)
+                where symbol = ? and (coalesce(event_time_ms, ingested_at_ms) IS NULL OR coalesce(event_time_ms, ingested_at_ms) >= ?) and (coalesce(event_time_ms, ingested_at_ms) IS NULL OR coalesce(event_time_ms, ingested_at_ms) < ?)
                 """)) {
             orderPs.setString(1, symbol);
             orderPs.setLong(2, fromMs);
@@ -910,7 +938,7 @@ public final class HistoricalRangeService implements AutoCloseable {
         try (PreparedStatement fillPs = connection.prepareStatement("""
                 select count(*) as cnt
                 from fills
-                where symbol = ? and (ingested_at_ms IS NULL OR ingested_at_ms >= ?) and (ingested_at_ms IS NULL OR ingested_at_ms < ?)
+                where symbol = ? and (coalesce(event_time_ms, ingested_at_ms) IS NULL OR coalesce(event_time_ms, ingested_at_ms) >= ?) and (coalesce(event_time_ms, ingested_at_ms) IS NULL OR coalesce(event_time_ms, ingested_at_ms) < ?)
                 """)) {
             fillPs.setString(1, symbol);
             fillPs.setLong(2, fromMs);
@@ -927,7 +955,7 @@ public final class HistoricalRangeService implements AutoCloseable {
         try (PreparedStatement fillEventPs = connection.prepareStatement("""
                 select count(*) as cnt
                 from fill_events
-                where symbol = ? and (ingested_at_ms IS NULL OR ingested_at_ms >= ?) and (ingested_at_ms IS NULL OR ingested_at_ms < ?)
+                where symbol = ? and (coalesce(event_time_ms, ingested_at_ms) IS NULL OR coalesce(event_time_ms, ingested_at_ms) >= ?) and (coalesce(event_time_ms, ingested_at_ms) IS NULL OR coalesce(event_time_ms, ingested_at_ms) < ?)
                 """)) {
             fillEventPs.setString(1, symbol);
             fillEventPs.setLong(2, fromMs);

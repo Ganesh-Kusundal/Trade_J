@@ -102,19 +102,21 @@ describe('TradingPanel', () => {
     expect(screen.queryByText('No trades yet')).not.toBeInTheDocument();
   });
 
-  it('calls placeOrder on BUY click (no error)', () => {
-    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+  it('opens order confirmation modal on BUY click', () => {
     render(<TradingPanel />);
     fireEvent.click(screen.getByText('BUY'));
-    expect(consoleSpy).toHaveBeenCalledWith('Order placement via REST API not yet implemented');
-    consoleSpy.mockRestore();
+    expect(screen.getByText('Confirm Order')).toBeInTheDocument();
+    // Verify the modal BUY button exists (there are two BUY texts - one in panel, one in modal)
+    const buyButtons = screen.getAllByText('BUY');
+    expect(buyButtons.length).toBeGreaterThanOrEqual(2);
   });
 
-  it('calls placeOrder on SELL click (no error)', () => {
-    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+  it('opens order confirmation modal on SELL click', () => {
     render(<TradingPanel />);
     fireEvent.click(screen.getByText('SELL'));
-    expect(consoleSpy).toHaveBeenCalled();
-    consoleSpy.mockRestore();
+    expect(screen.getByText('Confirm Order')).toBeInTheDocument();
+    // Verify the modal SELL button exists (there are two SELL texts - one in panel, one in modal)
+    const sellButtons = screen.getAllByText('SELL');
+    expect(sellButtons.length).toBeGreaterThanOrEqual(2);
   });
 });

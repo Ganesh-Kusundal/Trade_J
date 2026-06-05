@@ -360,18 +360,22 @@ public class AdminController {
     ResponseEntity<Map<String, Object>> replayTicks(
             @RequestParam String symbol,
             @RequestParam long from,
-            @RequestParam long to
+            @RequestParam long to,
+            @RequestParam(defaultValue = "0") int offset,
+            @RequestParam(defaultValue = "50000") int batchSize
     ) {
         var replayCheck = rejectIfLiveReplay();
         if (replayCheck.isPresent()) {
             return replayCheck.get();
         }
-        var result = replayOrchestrator.replayTicks(symbol, from, to, eventBus);
+        var result = replayOrchestrator.replayTicks(symbol, from, to, eventBus, offset, batchSize);
         return ResponseEntity.ok(Map.of(
                 "mode", "ticks",
                 "symbol", symbol,
                 "from", from,
                 "to", to,
+                "offset", offset,
+                "batchSize", batchSize,
                 "totalRead", result.totalRead(),
                 "replayed", result.replayed(),
                 "failed", result.failed(),

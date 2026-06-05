@@ -223,6 +223,10 @@ public final class OrderManagementService {
         brokerConnection.orders().setKillSwitch(true);
     }
 
+    public void deactivateKillSwitch() {
+        brokerConnection.orders().setKillSwitch(false);
+    }
+
     /**
      * Captures a snapshot of all in-memory order state machines.
      * Used by {@link com.tradej.app.pipeline.IsolatedReplayStateManager} for AD-02 isolation.

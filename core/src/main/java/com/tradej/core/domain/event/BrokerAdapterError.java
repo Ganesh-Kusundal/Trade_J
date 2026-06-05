@@ -6,4 +6,9 @@ public record BrokerAdapterError(
         String stage,
         String detail
 ) implements DomainEvent {
+
+    @Override
+    public void accept(DomainEventVisitor visitor) {
+        visitor.visit(this);
+    }
 }

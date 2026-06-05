@@ -6,11 +6,16 @@ import com.tradej.core.domain.event.CandleDeveloping;
 import com.tradej.core.domain.event.DepthUpdateEvent;
 import com.tradej.core.domain.event.DomainEvent;
 import com.tradej.core.domain.event.MarketTickEvent;
+import com.tradej.core.domain.event.GammaExposureComputed;
+import com.tradej.core.domain.event.GreeksComputed;
+import com.tradej.core.domain.event.MaxPainComputed;
+import com.tradej.core.domain.event.OptionChainUpdated;
 import com.tradej.core.domain.event.OrderAccepted;
 import com.tradej.core.domain.event.OrderFilled;
 import com.tradej.core.domain.event.OrderRejected;
 import com.tradej.core.domain.event.PnlUpdatedEvent;
 import com.tradej.core.domain.event.ReplayTimeChangedEvent;
+import com.tradej.core.domain.event.ScanResultsPublished;
 import com.tradej.core.domain.event.SignalGenerated;
 import com.tradej.core.domain.event.TickReceived;
 import com.tradej.core.domain.event.TradeClosed;
@@ -102,6 +107,11 @@ public final class GatewayEventBridge implements AutoCloseable {
         eventBus.subscribe(SignalGenerated.class, this::onDomainEvent);
         eventBus.subscribe(ReplayTimeChangedEvent.class, this::onDomainEvent);
         eventBus.subscribe(PnlUpdatedEvent.class, this::onDomainEvent);
+        eventBus.subscribe(ScanResultsPublished.class, this::onDomainEvent);
+        eventBus.subscribe(OptionChainUpdated.class, this::onDomainEvent);
+        eventBus.subscribe(GreeksComputed.class, this::onDomainEvent);
+        eventBus.subscribe(MaxPainComputed.class, this::onDomainEvent);
+        eventBus.subscribe(GammaExposureComputed.class, this::onDomainEvent);
     }
 
     void onDomainEvent(DomainEvent event) {
@@ -129,9 +139,9 @@ public final class GatewayEventBridge implements AutoCloseable {
                 case CandleClosed closed ->
                         router.publish(GatewayTopic.CANDLE_CLOSED, writeJson(candlePayload(closed.candle())));
                 case OrderAccepted accepted ->
-                        router.publish(GatewayTopic.ORDER_UPDATE, writeJson(orderPayload(accepted)));
+                        router.publish(GatewayTopic.ORDER_UPDATE, writeJson(orderAckPayload(accepted)));
                 case OrderRejected rejected ->
-                        router.publish(GatewayTopic.ORDER_UPDATE, writeJson(orderPayload(rejected)));
+                        router.publish(GatewayTopic.ORDER_UPDATE, writeJson(orderRejectPayload(rejected)));
                 case OrderFilled filled ->
                         router.publish(GatewayTopic.ORDER_UPDATE, writeJson(orderPayload(filled)));
                 case TradeOpened opened ->
@@ -146,6 +156,16 @@ public final class GatewayEventBridge implements AutoCloseable {
                         router.publish(GatewayTopic.REPLAY_CONTROL, writeJson(replayPayload(replay)));
                 case PnlUpdatedEvent pnl ->
                         router.publish(GatewayTopic.PNL_UPDATE, writeJson(pnlPayload(pnl)));
+                case ScanResultsPublished scan ->
+                        router.publish(GatewayTopic.SCAN_COMPLETED, writeJson(scanPayload(scan)));
+                case OptionChainUpdated chain ->
+                        router.publish(GatewayTopic.STRATEGY_SIGNAL, writeJson(optionChainPayload(chain)));
+                case GreeksComputed greeks ->
+                        router.publish(GatewayTopic.STRATEGY_SIGNAL, writeJson(greeksPayload(greeks)));
+                case MaxPainComputed maxPain ->
+                        router.publish(GatewayTopic.STRATEGY_SIGNAL, writeJson(maxPainPayload(maxPain)));
+                case GammaExposureComputed gamma ->
+                        router.publish(GatewayTopic.STRATEGY_SIGNAL, writeJson(gammaPayload(gamma)));
                 default -> { }
             }
             eventCount.incrementAndGet();
@@ -284,6 +304,20 @@ public final class GatewayEventBridge implements AutoCloseable {
         return map;
     }
 
+    private Map<String, Object> orderAckPayload(OrderAccepted accepted) {
+        Map<String, Object> map = orderPayload(accepted);
+        map.put("ack", true);
+        map.put("status", "ACCEPTED");
+        return map;
+    }
+
+    private Map<String, Object> orderRejectPayload(OrderRejected rejected) {
+        Map<String, Object> map = orderPayload(rejected);
+        map.put("ack", false);
+        map.put("status", "REJECTED");
+        return map;
+    }
+
     private Map<String, Object> orderPayload(DomainEvent event) {
         Map<String, Object> map = new LinkedHashMap<>();
         String type = event.getClass().getSimpleName();
@@ -342,6 +376,71 @@ public final class GatewayEventBridge implements AutoCloseable {
         return map;
     }
 
+    private static Map<String, Object> scanPayload(ScanResultsPublished scan) {
+        Map<String, Object> map = new LinkedHashMap<>();
+        map.put("type", "SCAN_COMPLETED");
+        map.put("profileId", scan.profileId());
+        map.put("hitCount", scan.hits().size());
+        map.put("hits", scan.hits().stream().map(h -> {
+            Map<String, Object> hit = new LinkedHashMap<>();
+            hit.put("symbol", h.symbol());
+            hit.put("score", h.score());
+            hit.put("reasons", h.reasons());
+            return hit;
+        }).toList());
+        return map;
+    }
+
+    private static Map<String, Object> optionChainPayload(OptionChainUpdated event) {
+        Map<String, Object> map = new LinkedHashMap<>();
+        map.put("type", "OPTION_CHAIN_UPDATED");
+        map.put("underlying", event.chain().underlying().symbol());
+        map.put("expiry", event.chain().expiry().toString());
+        map.put("spotPricePaisa", event.chain().spotPricePaisa());
+        map.put("entryCount", event.chain().strikes().size());
+        return map;
+    }
+
+    private static Map<String, Object> greeksPayload(GreeksComputed event) {
+        Map<String, Object> map = new LinkedHashMap<>();
+        map.put("type", "GREEKS_COMPUTED");
+        map.put("symbol", event.instrumentKey().symbol());
+        map.put("delta", event.greeks().delta());
+        map.put("gamma", event.greeks().gamma());
+        map.put("theta", event.greeks().theta());
+        map.put("vega", event.greeks().vega());
+        map.put("iv", event.greeks().impliedVolatility());
+        return map;
+    }
+
+    private static Map<String, Object> maxPainPayload(MaxPainComputed event) {
+        Map<String, Object> map = new LinkedHashMap<>();
+        map.put("type", "MAX_PAIN_COMPUTED");
+        map.put("underlying", event.underlying());
+        map.put("maxPainStrikePaisa", event.maxPainStrikePaisa());
+        map.put("totalPainPaisa", event.totalPainPaisa());
+        return map;
+    }
+
+    private static Map<String, Object> gammaPayload(GammaExposureComputed event) {
+        Map<String, Object> map = new LinkedHashMap<>();
+        map.put("type", "GAMMA_EXPOSURE_COMPUTED");
+        map.put("underlying", event.underlying());
+        map.put("netGamma", event.netGamma());
+        return map;
+    }
+
+    /**
+     * Publishes a pipeline health snapshot to subscribed gateway clients.
+     */
+    public void publishPipelineHealth(Map<String, Object> health) {
+        try {
+            router.publish(GatewayTopic.PIPELINE_HEALTH, writeJson(health));
+        } catch (Exception e) {
+            log.warn("Failed to publish pipeline health: {}", e.getMessage());
+        }
+    }
+
     private static Map<String, Object> pnlPayload(PnlUpdatedEvent pnl) {
         Map<String, Object> map = new LinkedHashMap<>();
         map.put("realizedPnlPaisa", pnl.realizedPnlPaisa());
@@ -366,4 +465,5 @@ public final class GatewayEventBridge implements AutoCloseable {
             return symbol;
         }
     }
+
 }

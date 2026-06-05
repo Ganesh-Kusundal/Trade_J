@@ -1,8 +1,8 @@
 package com.tradej.app.scanner;
 
 import com.tradej.core.domain.event.ScanResultsPublished;
-import com.tradej.scanner.model.ScanRun;
-import com.tradej.scanner.model.ScanHit;
+import com.tradej.core.domain.scan.ScanRun;
+import com.tradej.core.domain.scan.ScanHit;
 
 import java.util.List;
 import java.util.Map;

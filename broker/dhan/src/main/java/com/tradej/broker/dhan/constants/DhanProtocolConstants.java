@@ -112,6 +112,29 @@ public final class DhanProtocolConstants {
     /** Duration (ms) the REST circuit stays open. */
     public static final long RETRY_CIRCUIT_OPEN_MS = 10_000L;
 
+    // ---- Market feed WebSocket request/response codes ----
+
+    public static final int FEED_DISCONNECT_REQUEST = 12;
+    public static final int FEED_SUBSCRIBE_TICKER = 15;
+    public static final int FEED_UNSUBSCRIBE_TICKER = 16;
+    public static final int FEED_SUBSCRIBE_QUOTE = 17;
+    public static final int FEED_UNSUBSCRIBE_QUOTE = 18;
+    public static final int FEED_SUBSCRIBE_FULL = 21;
+    public static final int FEED_UNSUBSCRIBE_FULL = 22;
+
+    public static final int FEED_RESPONSE_INDEX = 1;
+    public static final int FEED_RESPONSE_TICKER = 2;
+    public static final int FEED_RESPONSE_QUOTE = 4;
+    public static final int FEED_RESPONSE_OI = 5;
+    public static final int FEED_RESPONSE_PREV_CLOSE = 6;
+    public static final int FEED_RESPONSE_MARKET_STATUS = 7;
+    public static final int FEED_RESPONSE_FULL = 8;
+    public static final int FEED_RESPONSE_DISCONNECT = 50;
+
+    public static final int ORDER_UPDATE_MSG_CODE = 42;
+    public static final int FEED_MAX_INSTRUMENTS_PER_SUBSCRIPTION = 100;
+    public static final int FEED_MAX_INSTRUMENTS_PER_CONNECTION = 5000;
+
     /** Default retry count for most Dhan REST categories. */
     public static final int RETRY_COUNT_DEFAULT = 3;
 
@@ -149,6 +172,11 @@ public final class DhanProtocolConstants {
 
     /** Token-bucket capacity for NON_TRADING-category operations. */
     public static final int RATE_LIMIT_NON_TRADING_CAPACITY = 20;
+
+    // ---- Safety validation constants ----
+
+    /** Maximum notional value (in paisa) allowed without warning. Default: ₹50,000 = 5,000,000 paisa. */
+    public static final long MAX_NOTIONAL_PAISA = 5_000_000L;
 
     /**
      * Creates a {@link MultiBucketRateLimiter} configured with the Dhan-specific

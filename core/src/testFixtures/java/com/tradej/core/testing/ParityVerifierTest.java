@@ -1,6 +1,7 @@
 package com.tradej.core.testing;
 
 import com.tradej.core.domain.event.DomainEvent;
+import com.tradej.core.domain.event.DomainEventVisitor;
 import com.tradej.core.domain.event.EventMetadata;
 import com.tradej.core.domain.event.MarketTickEvent;
 import com.tradej.core.domain.value.ExchangeSegment;
@@ -111,9 +112,9 @@ class ParityVerifierTest {
         var meta1 = new EventMetadata("id-1", 1000L, 100L, 0L, "corr-1", 1);
         var meta2 = new EventMetadata("id-2", 2000L, 200L, 0L, "corr-1", 1);
         var tick1 = new MarketTickEvent(meta1, 0L, "AAPL", ExchangeSegment.NSE_EQ,
-                FeedMode.TICKER, 100L, 1L, 1L, 1000L, Optional.empty());
+                FeedMode.TICKER, 100L, 1L, 1L, 1000L, Optional.empty(), 0L, 0L);
         var tick2 = new MarketTickEvent(meta2, 0L, "AAPL", ExchangeSegment.NSE_EQ,
-                FeedMode.TICKER, 100L, 1L, 1L, 2000L, Optional.empty());
+                FeedMode.TICKER, 100L, 1L, 1L, 2000L, Optional.empty(), 0L, 0L);
         assertTrue(ParityVerifier.eventsStructurallyEqual(tick1, tick2));
     }
 
@@ -124,10 +125,14 @@ class ParityVerifierTest {
                 new EventMetadata("evt-" + eventId, CLOCK.instant().toEpochMilli(),
                         CLOCK.monotonicNanos(), 0L, "", 1),
                 0L, symbol, ExchangeSegment.NSE_EQ, FeedMode.TICKER,
-                ltp, 1L, 1L, CLOCK.instant().toEpochMilli(), Optional.empty()
+                ltp, 1L, 1L, CLOCK.instant().toEpochMilli(), Optional.empty(), 0L, 0L
         );
     }
 
     private record DifferentEvent(EventMetadata metadata) implements DomainEvent {
+        @Override
+        public void accept(DomainEventVisitor visitor) {
+            // No-op for test event
+        }
     }
 }

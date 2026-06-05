@@ -15,4 +15,9 @@ public record OrderCancelled(
             reason = "";
         }
     }
+
+    @Override
+    public void accept(DomainEventVisitor visitor) {
+        visitor.visit(this);
+    }
 }

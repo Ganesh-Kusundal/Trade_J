@@ -31,6 +31,8 @@ include 'trading-indicators'
 project(':trading-indicators').projectDir = file('trading/indicators')
 include 'trading-simulation'
 project(':trading-simulation').projectDir = file('trading/simulation')
+include 'trading-options-analytics'
+project(':trading-options-analytics').projectDir = file('trading/options-analytics')
 
 include 'data-persistence'
 project(':data-persistence').projectDir = file('data/persistence')

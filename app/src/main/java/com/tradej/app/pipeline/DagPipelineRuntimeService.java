@@ -75,6 +75,7 @@ public final class DagPipelineRuntimeService {
     }
 
     public synchronized void reloadFromApi(PipelineGraph graph) {
+        com.tradej.pipeline.graph.PipelineGraphValidator.validate(graph);
         reload(graph);
         persistGraph(graph);
     }

@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.ResponseEntity;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.util.List;
@@ -29,6 +30,7 @@ import static org.mockito.Mockito.when;
 @Tag("integration")
 @Tag("api")
 @Tag("console")
+@ActiveProfiles("console-api-contract")
 @SpringBootTest(
         classes = ConsoleApiContractTestConfig.class,
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,

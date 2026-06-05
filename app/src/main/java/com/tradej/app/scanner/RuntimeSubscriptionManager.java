@@ -1,11 +1,12 @@
 package com.tradej.app.scanner;
 
 import com.tradej.app.config.TradingProperties;
+import com.tradej.app.subscription.SubscriptionCoordinator;
 import com.tradej.broker.api.model.MarketSubscriptionRequest;
 import com.tradej.broker.api.port.WebSocketMultiplexer;
 import com.tradej.core.domain.value.FeedMode;
 import com.tradej.scanner.model.PromotionSpec;
-import com.tradej.scanner.model.ScanHit;
+import com.tradej.core.domain.scan.ScanHit;
 import com.tradej.scanner.model.ScanProfile;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,6 +24,7 @@ public final class RuntimeSubscriptionManager {
     private static final Logger log = LoggerFactory.getLogger(RuntimeSubscriptionManager.class);
 
     private final WebSocketMultiplexer websocket;
+    private final SubscriptionCoordinator coordinator;
     private final List<TradingProperties.SubscriptionProperties> staticSubscriptions;
     private final int batchSize;
     private final ReentrantLock lock = new ReentrantLock();
@@ -32,7 +34,16 @@ public final class RuntimeSubscriptionManager {
             WebSocketMultiplexer websocket,
             TradingProperties properties
     ) {
+        this(websocket, null, properties);
+    }
+
+    public RuntimeSubscriptionManager(
+            WebSocketMultiplexer websocket,
+            SubscriptionCoordinator coordinator,
+            TradingProperties properties
+    ) {
         this.websocket = websocket;
+        this.coordinator = coordinator;
         this.staticSubscriptions = properties.subscriptions() == null ? List.of() : properties.subscriptions();
         int configured = properties.universe() == null ? 0 : properties.universe().maxSubscriptionsPerBatch();
         this.batchSize = configured > 0 ? configured : 50;
@@ -47,7 +58,11 @@ public final class RuntimeSubscriptionManager {
             MarketSubscriptionRequest request = new MarketSubscriptionRequest(sub.symbol(), sub.exchangeSegment());
             byFeed.computeIfAbsent(sub.feedMode(), ignored -> new ArrayList<>()).add(request);
         }
-        byFeed.forEach((feedMode, requests) -> subscribeBatched(requests, feedMode));
+        if (coordinator != null) {
+            byFeed.forEach((feedMode, requests) -> coordinator.subscribe(requests, feedMode));
+        } else {
+            byFeed.forEach((feedMode, requests) -> subscribeBatched(requests, feedMode));
+        }
     }
 
     public void applyPromotion(ScanProfile profile, List<ScanHit> hits) {

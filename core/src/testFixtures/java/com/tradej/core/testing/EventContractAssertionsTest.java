@@ -39,7 +39,7 @@ class EventContractAssertionsTest {
     void eventWithZeroTimestampFails() {
         var meta = new EventMetadata("id", 0L, 0L, 0L, "", 1);
         var event = new MarketTickEvent(meta, 0L, "AAPL", ExchangeSegment.NSE_EQ,
-                FeedMode.TICKER, 100L, 1L, 1L, 0L, Optional.empty());
+                FeedMode.TICKER, 100L, 1L, 1L, 0L, Optional.empty(), 0L, 0L);
         assertThrows(AssertionError.class,
                 () -> EventContractAssertions.assertHasTimestamp(event));
     }
@@ -103,7 +103,7 @@ class EventContractAssertionsTest {
                 new EventMetadata("test-1", CLOCK.instant().toEpochMilli(),
                         CLOCK.monotonicNanos(), 0L, "corr", 1),
                 0L, "AAPL", ExchangeSegment.NSE_EQ, FeedMode.TICKER,
-                100L, 1L, 1L, CLOCK.instant().toEpochMilli(), Optional.empty()
+                100L, 1L, 1L, CLOCK.instant().toEpochMilli(), Optional.empty(), 0L, 0L
         );
     }
 
@@ -112,7 +112,7 @@ class EventContractAssertionsTest {
                 new EventMetadata(id, CLOCK.instant().toEpochMilli(),
                         CLOCK.monotonicNanos(), 0L, "", 1),
                 0L, "AAPL", ExchangeSegment.NSE_EQ, FeedMode.TICKER,
-                100L, 1L, 1L, CLOCK.instant().toEpochMilli(), Optional.empty()
+                100L, 1L, 1L, CLOCK.instant().toEpochMilli(), Optional.empty(), 0L, 0L
         );
     }
 
@@ -120,7 +120,7 @@ class EventContractAssertionsTest {
         return new MarketTickEvent(
                 new EventMetadata("test-" + ms, ms, 0L, 0L, "", 1),
                 0L, "AAPL", ExchangeSegment.NSE_EQ, FeedMode.TICKER,
-                100L, 1L, 1L, ms, Optional.empty()
+                100L, 1L, 1L, ms, Optional.empty(), 0L, 0L
         );
     }
 
@@ -129,7 +129,7 @@ class EventContractAssertionsTest {
                 new EventMetadata("test-" + seq, CLOCK.instant().toEpochMilli(),
                         CLOCK.monotonicNanos(), seq, "", 1),
                 seq, "AAPL", ExchangeSegment.NSE_EQ, FeedMode.TICKER,
-                100L, 1L, 1L, CLOCK.instant().toEpochMilli(), Optional.empty()
+                100L, 1L, 1L, CLOCK.instant().toEpochMilli(), Optional.empty(), 0L, 0L
         );
     }
 }

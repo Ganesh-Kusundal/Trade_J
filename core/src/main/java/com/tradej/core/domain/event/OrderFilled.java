@@ -13,4 +13,9 @@ public record OrderFilled(
     public OrderFilled {
         fills = List.copyOf(fills);
     }
+
+    @Override
+    public void accept(DomainEventVisitor visitor) {
+        visitor.visit(this);
+    }
 }

@@ -162,7 +162,7 @@ public final class CliConfig {
                 throw new IllegalStateException("Missing Upstox sandbox access token.");
             }
             return new UpstoxConnectionSettings(
-                    clientId, clientSecret, redirectUri, accessToken, null, null,
+                    clientId, clientSecret, redirectUri, accessToken, null, null, null,
                     false, true, 18080, 1_800_000L, 600_000L
             );
         }
@@ -189,7 +189,7 @@ public final class CliConfig {
         }
         if (analyticsToken != null && !analyticsToken.isBlank()) {
             return new UpstoxConnectionSettings(
-                    clientId, clientSecret, redirectUri, null, null, analyticsToken,
+                    clientId, clientSecret, redirectUri, null, null, analyticsToken, null,
                     true, false, 18080, 1_800_000L, 600_000L
             );
         }
@@ -202,7 +202,7 @@ public final class CliConfig {
                     "Missing Upstox live token. Set upstox.live.analyticsToken or upstox.live.accessToken.");
         }
         return new UpstoxConnectionSettings(
-                clientId, clientSecret, redirectUri, accessToken, null, null,
+                clientId, clientSecret, redirectUri, accessToken, null, null, null,
                 false, false, 18080, 1_800_000L, 600_000L
         );
     }

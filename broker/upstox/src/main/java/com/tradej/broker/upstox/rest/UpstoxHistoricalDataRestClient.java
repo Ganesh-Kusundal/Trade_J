@@ -2,7 +2,7 @@ package com.tradej.broker.upstox.rest;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.tradej.broker.upstox.http.UpstoxJsonHttpClient;
-import com.tradej.broker.upstox.resilience.UpstoxResilienceExecutor;
+import com.tradej.broker.upstox.resilience.UpstoxRetryExecutor;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -23,7 +23,7 @@ public final class UpstoxHistoricalDataRestClient {
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
     private final UpstoxJsonHttpClient httpClient;
-    private final UpstoxResilienceExecutor resilienceExecutor;
+    private final UpstoxRetryExecutor retryExecutor;
 
     public UpstoxHistoricalDataRestClient(UpstoxJsonHttpClient httpClient) {
         this(httpClient, null);
@@ -31,10 +31,10 @@ public final class UpstoxHistoricalDataRestClient {
 
     public UpstoxHistoricalDataRestClient(
             UpstoxJsonHttpClient httpClient,
-            UpstoxResilienceExecutor resilienceExecutor
+            UpstoxRetryExecutor retryExecutor
     ) {
         this.httpClient = httpClient;
-        this.resilienceExecutor = resilienceExecutor;
+        this.retryExecutor = retryExecutor;
     }
 
     /**
@@ -51,11 +51,13 @@ public final class UpstoxHistoricalDataRestClient {
                 .replace("{interval}", encodePathSegment(interval))
                 .replace("{toDate}", toDate.format(DATE_FMT))
                 .replace("{fromDate}", fromDate.format(DATE_FMT));
-        if (resilienceExecutor == null) {
+        if (retryExecutor == null) {
             return httpClient.getJson(path);
         }
-        return resilienceExecutor.executeData(
+        return retryExecutor.execute(
+                UpstoxRetryExecutor.CATEGORY_DATA,
                 "historical-candle",
+                UpstoxRetryExecutor.DATA_POLICY,
                 () -> httpClient.getJson(path)
         );
     }

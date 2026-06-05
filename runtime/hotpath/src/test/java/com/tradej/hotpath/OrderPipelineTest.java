@@ -124,7 +124,7 @@ class OrderPipelineTest {
     @Test
     void tradeClosedIsForwarded() {
         var tradeClosed = new TradeClosed(
-                EventMetadata.root(), "TRADE-1", "SBIN", 752_00L, 2_00L, "TARGET_REACHED"
+                EventMetadata.root(), "TRADE-1", "SBIN", 752_00L, 2_00L, 5L, "TARGET_REACHED"
         );
 
         pipeline.onTradeClosed(tradeClosed);
@@ -239,7 +239,7 @@ class OrderPipelineTest {
             assertEquals("order", MDC.get("stage"));
         });
         var tradeClosed = new TradeClosed(
-                EventMetadata.root(), "TRADE-1", "SBIN", 752_00L, 2_00L, "TARGET_REACHED"
+                EventMetadata.root(), "TRADE-1", "SBIN", 752_00L, 2_00L, 5L, "TARGET_REACHED"
         );
         verifyingPipeline.onTradeClosed(tradeClosed);
     }

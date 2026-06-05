@@ -87,6 +87,7 @@ class ExecutionToSandboxBrokerIntegrationTest {
         executionHandler = new ExecutionHandler(
                 new OrderManagementService(brokerConnection, runtimeModeHolder, clock, omsRepository),
                 runtimeModeHolder,
+                clock,
                 new TradingCircuitBreaker(),
                 new OrderIdentityRegistry(),
                 com.tradej.core.domain.port.DeadLetterQueue.noop()

@@ -4,6 +4,7 @@ import com.tradej.core.domain.port.EventBus;
 import com.tradej.broker.api.port.InstrumentResolver;
 import com.tradej.gateway.bridge.GatewayEventBridge;
 import com.tradej.gateway.router.GatewayTopicRouter;
+import com.tradej.gateway.websocket.GatewayReplayCommandProcessor;
 import com.tradej.gateway.websocket.GatewayWebSocketHandler;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
@@ -12,6 +13,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.web.socket.config.annotation.EnableWebSocket;
 import org.springframework.web.socket.config.annotation.WebSocketConfigurer;
 import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry;
@@ -37,7 +39,7 @@ public class GatewayWebSocketConfiguration implements WebSocketConfigurer {
 
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
-        registry.addHandler(gatewayWebSocketHandler(gatewayTopicRouter()), properties.websocketPath())
+        registry.addHandler(gatewayWebSocketHandler(gatewayTopicRouter(), null), properties.websocketPath())
                 .setAllowedOrigins("*");
         log.info("Gateway WebSocket endpoint registered at {}", properties.websocketPath());
     }
@@ -48,8 +50,13 @@ public class GatewayWebSocketConfiguration implements WebSocketConfigurer {
     }
 
     @Bean
-    GatewayWebSocketHandler gatewayWebSocketHandler(GatewayTopicRouter router) {
-        return new GatewayWebSocketHandler(router);
+    @Lazy
+    GatewayWebSocketHandler gatewayWebSocketHandler(
+            GatewayTopicRouter router,
+            @org.springframework.beans.factory.annotation.Autowired(required = false)
+            GatewayReplayCommandProcessor replayCommandProcessor
+    ) {
+        return new GatewayWebSocketHandler(router, replayCommandProcessor);
     }
 
     @Bean(destroyMethod = "close")

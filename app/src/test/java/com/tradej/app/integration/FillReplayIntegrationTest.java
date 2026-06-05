@@ -24,6 +24,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -144,17 +145,17 @@ class FillReplayIntegrationTest {
     void replaysMultipleFillEventsInIngestionOrder() throws Exception {
         // Seed three fill events in a known sequence
         eventStore.onEvent(new OrderPartiallyFilled(
-                EventMetadata.correlated("corr-a", 1L),
+                metadataAt(INGEST_BASE_MS, "corr-a", 1L),
                 createOrder("ORD-P1", "corr-a", "SBIN", 200, 150_00L),
                 List.of(new Trade("T1", "ORD-P1", "SBIN", ExchangeSegment.NSE_EQ, Side.BUY, 200, 150_00L, 1000L))
         ));
         eventStore.onEvent(new OrderPartiallyFilled(
-                EventMetadata.correlated("corr-b", 1L),
+                metadataAt(INGEST_BASE_MS + INGEST_STEP_MS, "corr-b", 1L),
                 createOrder("ORD-P2", "corr-b", "TCS", 50, 3_200_00L),
                 List.of(new Trade("T2", "ORD-P2", "TCS", ExchangeSegment.NSE_EQ, Side.BUY, 50, 3_200_00L, 2000L))
         ));
         eventStore.onEvent(new OrderFullyFilled(
-                EventMetadata.correlated("corr-c", 1L),
+                metadataAt(INGEST_BASE_MS + 2 * INGEST_STEP_MS, "corr-c", 1L),
                 createOrder("ORD-F1", "corr-c", "RELIANCE", 300, 2_500_00L),
                 List.of(new Trade("T3", "ORD-F1", "RELIANCE", ExchangeSegment.NSE_EQ, Side.BUY, 300, 2_500_00L, 3000L))
         ));
@@ -305,15 +306,16 @@ class FillReplayIntegrationTest {
 
     @Test
     void onlyReplaysFillEventsWithinTimeRange() throws Exception {
-        // Seed first fill event and capture its timestamp as the cutoff boundary
+        long earlyEventTimeMs = INGEST_BASE_MS;
         eventStore.onEvent(new OrderPartiallyFilled(
-                EventMetadata.correlated("corr-early", 1L),
+                metadataAt(earlyEventTimeMs, "corr-early", 1L),
                 createOrder("ORD-EARLY", "corr-early", "SBIN", 100, 150_00L),
                 List.of(new Trade("TE1", "ORD-EARLY", "SBIN", ExchangeSegment.NSE_EQ, Side.BUY, 100, 150_00L, 1000L))
         ));
+        long lateEventTimeMs = INGEST_BASE_MS + INGEST_STEP_MS;
         long midMs = INGEST_BASE_MS + (INGEST_STEP_MS / 2);
         eventStore.onEvent(new OrderPartiallyFilled(
-                EventMetadata.correlated("corr-late", 1L),
+                metadataAt(lateEventTimeMs, "corr-late", 1L),
                 createOrder("ORD-LATE", "corr-late", "TCS", 50, 3_200_00L),
                 List.of(new Trade("TL1", "ORD-LATE", "TCS", ExchangeSegment.NSE_EQ, Side.BUY, 50, 3_200_00L, 2000L))
         ));
@@ -469,6 +471,17 @@ class FillReplayIntegrationTest {
                 orderId, correlationId, symbol,
                 ExchangeSegment.NSE_EQ, Side.BUY, ProductType.INTRADAY, OrderType.LIMIT,
                 OrderStatus.PART_TRADED, quantity, filledQuantity, pricePaisa, 0L, 0L, ""
+        );
+    }
+
+    private static EventMetadata metadataAt(long eventTimeMs, String correlationId, long sequenceId) {
+        return new EventMetadata(
+                UUID.randomUUID().toString(),
+                eventTimeMs,
+                System.nanoTime(),
+                sequenceId,
+                correlationId,
+                1
         );
     }
 

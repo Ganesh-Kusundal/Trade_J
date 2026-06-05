@@ -62,13 +62,14 @@ public final class OrderStateMachine {
                 this.accumulatedValuePaisa += fill.filledQuantity() * fill.pricePaisa();
             }
             case OrderFullyFilled fill -> {
-                long additional = fill.totalQuantity() - this.filledQuantity;
+                long targetFilled = Math.min(
+                        Math.max(this.filledQuantity, fill.totalQuantity()),
+                        this.totalQuantity);
+                long additional = targetFilled - this.filledQuantity;
                 if (additional > 0) {
-                    this.filledQuantity = fill.totalQuantity();
                     this.accumulatedValuePaisa += additional * fill.pricePaisa();
-                } else {
-                    this.filledQuantity = fill.totalQuantity();
                 }
+                this.filledQuantity = targetFilled;
             }
             case CancelRequested ignored -> {}
             case OrderSubmitted ignored -> {}

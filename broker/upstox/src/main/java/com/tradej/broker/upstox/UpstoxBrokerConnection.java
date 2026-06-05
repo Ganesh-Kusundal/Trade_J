@@ -1,31 +1,28 @@
 package com.tradej.broker.upstox;
 
 import com.tradej.broker.api.IBrokerConnection;
-import com.tradej.broker.api.port.BracketOrderProvider;
-import com.tradej.broker.api.port.ConditionalAlertProvider;
+import com.tradej.broker.api.capability.NewsCapable;
 import com.tradej.broker.api.port.FuturesProvider;
-import com.tradej.broker.api.port.GttOrderProvider;
 import com.tradej.broker.api.port.InstrumentResolver;
 import com.tradej.broker.api.port.MarginProvider;
 import com.tradej.broker.api.port.MarketDataProvider;
+import com.tradej.broker.api.port.NewsProvider;
 import com.tradej.broker.api.port.OptionsProvider;
 import com.tradej.broker.api.port.OrderCommand;
 import com.tradej.broker.api.port.OrderQuery;
 import com.tradej.broker.api.port.PortfolioProvider;
-import com.tradej.broker.api.port.SessionRiskProvider;
-import com.tradej.broker.api.port.SliceOrderCommand;
 import com.tradej.broker.api.port.WebSocketMultiplexer;
-import com.tradej.broker.upstox.adapter.UpstoxUnsupportedPorts;
 import com.tradej.broker.upstox.instrument.UpstoxInstrumentLoader;
 import com.tradej.broker.upstox.instrument.UpstoxInstrumentResolver;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Optional;
 import java.util.Objects;
 
 /**
- * Upstox broker connection facade — the single entry point for all Upstox operations.
+ * Upstox broker connection facade — capabilities resolved via {@link #getCapability(Class)}.
  */
 public final class UpstoxBrokerConnection implements IBrokerConnection {
 
@@ -38,6 +35,7 @@ public final class UpstoxBrokerConnection implements IBrokerConnection {
     private final WebSocketMultiplexer webSocketMultiplexer;
     private final FuturesProvider futuresProvider;
     private final OptionsProvider optionsProvider;
+    private final NewsProvider newsProvider;
     private final UpstoxInstrumentLoader instrumentLoader;
     private final UpstoxInstrumentResolver upstoxInstrumentResolver;
 
@@ -51,6 +49,7 @@ public final class UpstoxBrokerConnection implements IBrokerConnection {
             WebSocketMultiplexer webSocketMultiplexer,
             FuturesProvider futuresProvider,
             OptionsProvider optionsProvider,
+            NewsProvider newsProvider,
             UpstoxInstrumentLoader instrumentLoader
     ) {
         this.marketDataProvider = Objects.requireNonNull(marketDataProvider);
@@ -62,78 +61,9 @@ public final class UpstoxBrokerConnection implements IBrokerConnection {
         this.webSocketMultiplexer = Objects.requireNonNull(webSocketMultiplexer);
         this.futuresProvider = futuresProvider;
         this.optionsProvider = optionsProvider;
+        this.newsProvider = Objects.requireNonNull(newsProvider);
         this.instrumentLoader = Objects.requireNonNull(instrumentLoader);
-        this.upstoxInstrumentResolver = instrumentResolver;
-    }
-
-    @Override
-    public MarketDataProvider marketData() {
-        return marketDataProvider;
-    }
-
-    @Override
-    public FuturesProvider futures() {
-        return futuresProvider;
-    }
-
-    @Override
-    public OptionsProvider options() {
-        return optionsProvider;
-    }
-
-    @Override
-    public OrderCommand orders() {
-        return orderCommand;
-    }
-
-    @Override
-    public OrderQuery orderQuery() {
-        return orderQuery;
-    }
-
-    @Override
-    public SliceOrderCommand sliceOrders() {
-        return UpstoxUnsupportedPorts.SLICE_ORDERS;
-    }
-
-    @Override
-    public BracketOrderProvider bracketOrders() {
-        return UpstoxUnsupportedPorts.BRACKET_ORDERS;
-    }
-
-    @Override
-    public GttOrderProvider gttOrders() {
-        return UpstoxUnsupportedPorts.GTT_ORDERS;
-    }
-
-    @Override
-    public PortfolioProvider portfolio() {
-        return portfolioProvider;
-    }
-
-    @Override
-    public MarginProvider margin() {
-        return marginProvider;
-    }
-
-    @Override
-    public SessionRiskProvider sessionRisk() {
-        return UpstoxUnsupportedPorts.SESSION_RISK;
-    }
-
-    @Override
-    public ConditionalAlertProvider alerts() {
-        return UpstoxUnsupportedPorts.ALERTS;
-    }
-
-    @Override
-    public InstrumentResolver instruments() {
-        return instrumentResolver;
-    }
-
-    @Override
-    public WebSocketMultiplexer websocket() {
-        return webSocketMultiplexer;
+        this.upstoxInstrumentResolver = Objects.requireNonNull(instrumentResolver);
     }
 
     @Override
@@ -171,5 +101,46 @@ public final class UpstoxBrokerConnection implements IBrokerConnection {
         } catch (IOException ex) {
             throw new IllegalStateException("Failed to load Upstox instrument catalog from " + catalogPath, ex);
         }
+    }
+
+    @Override
+    public <T> Optional<T> getCapability(Class<T> capabilityClass) {
+        if (capabilityClass == null) {
+            return Optional.empty();
+        }
+        if (capabilityClass.isInstance(marketDataProvider)) {
+            return Optional.of(capabilityClass.cast(marketDataProvider));
+        }
+        if (capabilityClass.isInstance(orderCommand)) {
+            return Optional.of(capabilityClass.cast(orderCommand));
+        }
+        if (capabilityClass.isInstance(orderQuery)) {
+            return Optional.of(capabilityClass.cast(orderQuery));
+        }
+        if (capabilityClass.isInstance(portfolioProvider)) {
+            return Optional.of(capabilityClass.cast(portfolioProvider));
+        }
+        if (capabilityClass.isInstance(marginProvider)) {
+            return Optional.of(capabilityClass.cast(marginProvider));
+        }
+        if (futuresProvider != null && capabilityClass.isInstance(futuresProvider)) {
+            return Optional.of(capabilityClass.cast(futuresProvider));
+        }
+        if (optionsProvider != null && capabilityClass.isInstance(optionsProvider)) {
+            return Optional.of(capabilityClass.cast(optionsProvider));
+        }
+        if (capabilityClass.isInstance(instrumentResolver)) {
+            return Optional.of(capabilityClass.cast(instrumentResolver));
+        }
+        if (capabilityClass.isInstance(webSocketMultiplexer)) {
+            return Optional.of(capabilityClass.cast(webSocketMultiplexer));
+        }
+        if (capabilityClass.isInstance(newsProvider)) {
+            return Optional.of(capabilityClass.cast(newsProvider));
+        }
+        if (NewsCapable.class.equals(capabilityClass)) {
+            return Optional.of(capabilityClass.cast(new NewsCapable() {}));
+        }
+        return Optional.empty();
     }
 }

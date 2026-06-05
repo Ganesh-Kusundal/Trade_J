@@ -6,7 +6,7 @@ import com.tradej.core.domain.model.RollingOptionBar;
 import com.tradej.core.domain.model.RollingOptionSeriesRequest;
 import com.tradej.core.domain.port.HistoricalBarRepository;
 import com.tradej.core.domain.port.RollingOptionHistoricalRepository;
-import com.tradej.core.domain.value.AssetClass;
+import com.tradej.core.domain.scan.AssetClass;
 import com.tradej.core.domain.value.ExchangeSegment;
 import com.tradej.core.domain.value.OptionType;
 import com.tradej.node.NodeCategory;

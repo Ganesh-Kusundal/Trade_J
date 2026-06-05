@@ -152,7 +152,7 @@ class PortfolioEngineTest {
                 tradeId,
                 symbol,
                 exitPrice,
-                pnl,
+                pnl, 10L,
                 "stop-loss"
         );
     }

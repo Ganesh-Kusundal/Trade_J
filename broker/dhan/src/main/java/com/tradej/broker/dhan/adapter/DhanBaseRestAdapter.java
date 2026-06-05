@@ -2,7 +2,6 @@ package com.tradej.broker.dhan.adapter;
 
 import com.tradej.broker.dhan.client.DhanClientHolder;
 import com.tradej.broker.dhan.instrument.DhanInstrumentDefinition;
-import com.tradej.broker.dhan.mapper.DhanSdkResponse;
 import com.tradej.broker.dhan.rate.ApiCategory;
 import com.tradej.broker.dhan.resilience.DhanRetryExecutor;
 import com.tradej.core.domain.model.InstrumentKey;
@@ -64,11 +63,6 @@ public abstract class DhanBaseRestAdapter {
     /** Resolve an arbitrary Dhan SDK payload to a DhanInstrumentDefinition. */
     protected DhanInstrumentDefinition resolvePayload(Object payload) {
         return resolver.resolveDhanPayload(payload);
-    }
-
-    /** Resolve a typed Dhan SDK response to a DhanInstrumentDefinition. */
-    protected DhanInstrumentDefinition resolvePayload(DhanSdkResponse<?> response) {
-        return resolver.resolveDhanPayload(response);
     }
 
     // ---- Resilience execution shortcuts ----

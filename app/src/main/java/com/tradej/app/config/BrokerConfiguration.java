@@ -26,6 +26,7 @@ import com.tradej.broker.dhan.adapter.DhanOrderCommandAdapter;
 import com.tradej.broker.dhan.adapter.DhanOrderQueryAdapter;
 import com.tradej.broker.dhan.adapter.DhanPortfolioProvider;
 import com.tradej.broker.dhan.adapter.InMemoryInstrumentResolver;
+import com.tradej.broker.dhan.validator.DhanOrderValidator;
 import com.tradej.broker.dhan.adapter.DhanFuturesAdapter;
 import com.tradej.broker.dhan.adapter.DhanBracketOrderAdapter;
 import com.tradej.broker.dhan.adapter.DhanConditionalAlertProvider;
@@ -110,7 +111,9 @@ public class BrokerConfiguration {
                 DhanConfigPaths.resolve(broker.pinFile()),
                 DhanConfigPaths.resolve(broker.totpSecretFile()),
                 DhanConfigPaths.resolve(broker.tokenStateFile()),
-                broker.refreshBufferMinutes()
+                broker.refreshBufferMinutes(),
+                null,  // depthWsUrl - will use default
+                false  // killSwitchTestEnabled - default
         );
     }
 
@@ -183,6 +186,8 @@ public class BrokerConfiguration {
             DhanRetryExecutor dhanRetryExecutor,
             DhanHistoricalDataClient dhanHistoricalDataClient,
             DhanHistoricalDataMapper dhanHistoricalDataMapper,
+            DhanAuthenticatedHttpClient dhanAuthenticatedHttpClient,
+            DhanApiUrlResolver dhanApiUrlResolver,
             MeterRegistry meterRegistry
     ) {
         MarketDataProvider delegate = new DhanMarketDataProvider(
@@ -190,9 +195,20 @@ public class BrokerConfiguration {
                 dhanInstrumentResolver,
                 dhanRetryExecutor,
                 dhanHistoricalDataClient,
-                dhanHistoricalDataMapper
+                dhanHistoricalDataMapper,
+                dhanAuthenticatedHttpClient,
+                dhanApiUrlResolver
         );
         return new ObservableMarketDataProvider("dhan", delegate, meterRegistry);
+    }
+
+    @Bean
+    DhanOrderValidator dhanOrderValidator(
+            DhanInstrumentResolver dhanInstrumentResolver,
+            DhanConnectionSettings dhanConnectionSettings,
+            MarketDataProvider marketDataProvider
+    ) {
+        return new DhanOrderValidator(dhanInstrumentResolver, dhanConnectionSettings, marketDataProvider);
     }
 
     @Bean
@@ -248,6 +264,7 @@ public class BrokerConfiguration {
             DhanConnectionSettings dhanConnectionSettings,
             DhanRestOrderClient dhanRestOrderClient,
             IdempotencyCachePort idempotencyCache,
+            DhanOrderValidator dhanOrderValidator,
             MeterRegistry meterRegistry
     ) {
         OrderCommand delegate = new DhanOrderCommandAdapter(
@@ -256,7 +273,8 @@ public class BrokerConfiguration {
                 dhanRetryExecutor,
                 dhanConnectionSettings,
                 dhanRestOrderClient,
-                idempotencyCache
+                idempotencyCache,
+                dhanOrderValidator
         );
         return new ObservableOrderCommand("dhan", delegate, meterRegistry);
     }
@@ -335,12 +353,16 @@ public class BrokerConfiguration {
     PortfolioProvider portfolioProvider(
             DhanClientHolder dhanClientHolder,
             DhanInstrumentResolver dhanInstrumentResolver,
-            DhanRetryExecutor dhanRetryExecutor
+            DhanRetryExecutor dhanRetryExecutor,
+            DhanAuthenticatedHttpClient dhanAuthenticatedHttpClient,
+            DhanApiUrlResolver dhanApiUrlResolver
     ) {
         return new DhanPortfolioProvider(
                 dhanClientHolder,
                 dhanInstrumentResolver,
-                dhanRetryExecutor
+                dhanRetryExecutor,
+                dhanAuthenticatedHttpClient,
+                dhanApiUrlResolver
         );
     }
 

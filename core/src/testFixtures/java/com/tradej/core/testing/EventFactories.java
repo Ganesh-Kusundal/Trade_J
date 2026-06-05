@@ -58,7 +58,7 @@ public final class EventFactories {
                 qty,
                 volume,
                 clock.instant().toEpochMilli(),
-                Optional.empty()
+                Optional.empty(), 0L, 0L
         );
     }
 
@@ -75,7 +75,7 @@ public final class EventFactories {
                 1L,
                 100L,
                 clock.instant().toEpochMilli(),
-                Optional.of(depth)
+                Optional.of(depth), 0L, 0L
         );
     }
 

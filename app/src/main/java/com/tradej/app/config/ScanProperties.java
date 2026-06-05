@@ -2,7 +2,7 @@ package com.tradej.app.config;
 
 import com.tradej.core.domain.value.ExchangeSegment;
 import com.tradej.core.domain.value.FeedMode;
-import com.tradej.scanner.model.AssetClass;
+import com.tradej.core.domain.scan.AssetClass;
 import com.tradej.scanner.model.ScanMode;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;

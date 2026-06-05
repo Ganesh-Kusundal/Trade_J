@@ -6,7 +6,7 @@ Living overview of the Trade-J codebase. Historical AI reviews live in [archive/
 
 **Interactive diagrams (browser):** [visuals/Trade-J-Architecture-Visual.html](visuals/Trade-J-Architecture-Visual.html) — architecture, components, flows, modules.
 
-**Leaf file index:** [CODEBASE_LEAF_INDEX.md](CODEBASE_LEAF_INDEX.md) — regenerate with `python3 scripts/generate-codebase-leaf-index.py`.
+**Leaf file index:** [CODEBASE_LEAF_INDEX.md](CODEBASE_LEAF_INDEX.md) — update manually when module layout changes.
 
 ## Runtime modes
 

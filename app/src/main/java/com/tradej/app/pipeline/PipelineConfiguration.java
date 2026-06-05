@@ -7,7 +7,7 @@ import com.tradej.execution.risk.PositionRiskHandler;
 import com.tradej.execution.service.ExecutionHandler;
 import com.tradej.execution.service.OrderManagementService;
 import com.tradej.execution.service.TradingCircuitBreaker;
-import com.tradej.feature.store.InMemoryFeatureStore;
+import com.tradej.feature.store.OptionsAwareFeatureStore;
 import com.tradej.persistence.oms.EventSourcedOrderRepository;
 import com.tradej.persistence.pipeline.DuckDbPipelineGraphStore;
 import com.tradej.pipeline.clock.VirtualClock;
@@ -201,7 +201,7 @@ public class PipelineConfiguration {
             GraphStrategySandbox graphStrategySandbox,
             ExecutionHandler executionHandler,
             PortfolioEngine portfolioEngine,
-            InMemoryFeatureStore hotPathFeatureStore,
+            OptionsAwareFeatureStore hotPathFeatureStore,
             ReactorBridge reactorBridge,
             @Autowired(required = false) ScanEngine scanEngine,
             ScanProperties scanProperties,

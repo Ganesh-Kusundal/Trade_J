@@ -2,6 +2,7 @@ package com.tradej.gateway.bridge;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tradej.core.domain.event.DomainEvent;
+import com.tradej.core.domain.event.DomainEventVisitor;
 import com.tradej.core.domain.event.EventMetadata;
 import com.tradej.core.domain.event.MarketTickEvent;
 import com.tradej.core.domain.event.PnlUpdatedEvent;
@@ -93,7 +94,7 @@ class GatewayEventBridgeIntegrationTest {
                 EventMetadata.root(), 1L, symbol,
                 ExchangeSegment.NSE_EQ, FeedMode.FULL,
                 750_00L, 100L, 50_000L,
-                System.currentTimeMillis(), Optional.empty());
+                System.currentTimeMillis(), Optional.empty(), 0L, 0L);
     }
 
     // ── End-to-end event flow ───────────────────────────────────────────
@@ -154,6 +155,11 @@ class GatewayEventBridgeIntegrationTest {
             @Override
             public EventMetadata metadata() {
                 return EventMetadata.root();
+            }
+
+            @Override
+            public void accept(DomainEventVisitor visitor) {
+                // No-op for test event
             }
         };
         bridge.onDomainEvent(unhandled);

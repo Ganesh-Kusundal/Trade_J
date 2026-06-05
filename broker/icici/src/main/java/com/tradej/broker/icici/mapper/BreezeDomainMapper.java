@@ -27,7 +27,7 @@ public final class BreezeDomainMapper {
             DateTimeFormatter.ofPattern("yyyy-MM-dd'T'06:00:00.000'Z'");
 
     public ObjectNode toQuotesPayload(BreezeInstrumentDefinition definition) {
-        ObjectNode payload = emptyPayload();
+        ObjectNode payload = emptyPayloadInternal();
         payload.put("stock_code", definition.breezeStockCode());
         payload.put("exchange_code", definition.exchangeCode());
         if ("NFO".equalsIgnoreCase(definition.exchangeCode())) {
@@ -43,7 +43,7 @@ public final class BreezeDomainMapper {
         if (request.orderType() == OrderType.MARKET) {
             throw new UnsupportedOperationException("ICICI Breeze API does not permit market orders");
         }
-        ObjectNode payload = emptyPayload();
+        ObjectNode payload = emptyPayloadInternal();
         payload.put("stock_code", definition.breezeStockCode());
         payload.put("exchange_code", definition.exchangeCode());
         payload.put("product", mapProduct(request.productType(), definition.exchangeCode()));
@@ -68,7 +68,7 @@ public final class BreezeDomainMapper {
     }
 
     public ObjectNode toModifyOrderPayload(ModifyOrderRequest request, String exchangeCode) {
-        ObjectNode payload = emptyPayload();
+        ObjectNode payload = emptyPayloadInternal();
         payload.put("order_id", request.orderId());
         payload.put("exchange_code", exchangeCode);
         if (request.quantity() != null) {
@@ -90,14 +90,14 @@ public final class BreezeDomainMapper {
     }
 
     public ObjectNode toCancelOrderPayload(String orderId, String exchangeCode) {
-        ObjectNode payload = emptyPayload();
+        ObjectNode payload = emptyPayloadInternal();
         payload.put("order_id", orderId);
         payload.put("exchange_code", exchangeCode);
         return payload;
     }
 
     public ObjectNode toOrderDetailPayload(String orderId, String exchangeCode) {
-        ObjectNode payload = emptyPayload();
+        ObjectNode payload = emptyPayloadInternal();
         payload.put("order_id", orderId);
         payload.put("exchange_code", exchangeCode);
         return payload;
@@ -109,7 +109,7 @@ public final class BreezeDomainMapper {
             String fromDate,
             String toDate
     ) {
-        ObjectNode payload = emptyPayload();
+        ObjectNode payload = emptyPayloadInternal();
         payload.put("interval", interval);
         payload.put("from_date", fromDate);
         payload.put("to_date", toDate);
@@ -139,7 +139,7 @@ public final class BreezeDomainMapper {
     }
 
     public ObjectNode toOptionChainPayload(BreezeInstrumentDefinition definition, LocalDate expiry) {
-        ObjectNode payload = emptyPayload();
+        ObjectNode payload = emptyPayloadInternal();
         payload.put("stock_code", definition.breezeStockCode());
         payload.put("exchange_code", definition.exchangeCode());
         payload.put("expiry_date", BREEZE_EXPIRY.format(expiry.atStartOfDay(INDIA)));
@@ -159,18 +159,7 @@ public final class BreezeDomainMapper {
                 node.path("ttq").asLong(node.path("volume").asLong(0L)));
         long totalBuy = node.path("total_buy_quantity").asLong(node.path("totalBuyQt").asLong(0L));
         long totalSell = node.path("total_sell_quantity").asLong(node.path("totalSellQt").asLong(0L));
-        return new Quote(
-                instrument,
-                ltp,
-                open,
-                high,
-                low,
-                close,
-                volume,
-                totalBuy,
-                totalSell,
-                Instant.now().toEpochMilli()
-        );
+        return new Quote(instrument, ltp, open, high, low, close, volume, totalBuy, totalSell, 0L, Instant.now().toEpochMilli());
     }
 
     public Order toOrder(JsonNode node, OrderRequest originalRequest) {
@@ -198,7 +187,11 @@ public final class BreezeDomainMapper {
         return Math.max(0L, quantity - pending);
     }
 
-    private static ObjectNode emptyPayload() {
+    public ObjectNode emptyPayload() {
+        return emptyPayloadInternal();
+    }
+
+    private static ObjectNode emptyPayloadInternal() {
         return new com.fasterxml.jackson.databind.ObjectMapper().createObjectNode();
     }
 

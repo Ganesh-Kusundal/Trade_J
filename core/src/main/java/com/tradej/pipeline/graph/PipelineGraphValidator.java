@@ -69,6 +69,14 @@ public final class PipelineGraphValidator {
         if (!missing.isEmpty()) {
             throw new IllegalArgumentException("Hot-path graph missing required node types: " + missing);
         }
+        if (presentTypes.contains(PipelineNodeTypes.STRATEGY) && !presentTypes.contains(PipelineNodeTypes.RISK)) {
+            throw new IllegalArgumentException("Graph with Strategy must include Risk node for pre-trade checks");
+        }
+        if (presentTypes.contains(PipelineNodeTypes.STRATEGY)
+                && !presentTypes.contains(PipelineNodeTypes.OMS)
+                && !presentTypes.contains(PipelineNodeTypes.ORDER_PLACEMENT)) {
+            throw new IllegalArgumentException("Graph with Strategy must include OMS or OrderPlacement node");
+        }
     }
 
     public static void validateDag(PipelineGraph graph) {

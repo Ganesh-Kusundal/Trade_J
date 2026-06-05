@@ -58,6 +58,11 @@ public final class AsyncDispatchHandler implements EventHandler<MutableDomainEve
         public EventMetadata metadata() {
             return EventMetadata.root();
         }
+
+        @Override
+        public void accept(com.tradej.core.domain.event.DomainEventVisitor visitor) {
+            // PoisonPill is internal and doesn't need to be visited by risk/engine
+        }
     }
 
     private static final PoisonPill POISON_PILL = new PoisonPill();

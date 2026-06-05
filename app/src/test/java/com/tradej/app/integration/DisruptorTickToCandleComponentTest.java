@@ -52,7 +52,7 @@ class DisruptorTickToCandleComponentTest {
 
     @Test
     void publishesCandleEventsFromSyntheticTicks() throws Exception {
-        PositionRiskHandler riskHandler = new PositionRiskHandler(new RiskLimits(10, 10, 10_000_000L, 10), NetPositionProvider.empty());
+        PositionRiskHandler riskHandler = new PositionRiskHandler(RiskLimits.withOpenPositionQuantity(10, 10, 10_000_000L, 10), NetPositionProvider.empty());
         CandleAggregationService candleService = new CandleAggregationService();
         TradingClock clock = new LiveTradingClock();
         EventMetadataFactory metadataFactory = new EventMetadataFactory(clock);
@@ -63,12 +63,30 @@ class DisruptorTickToCandleComponentTest {
         executionHandler = new ExecutionHandler(
                 new OrderManagementService(null, runtimeModeHolder, clock, omsRepository),
                 runtimeModeHolder,
+                clock,
                 new TradingCircuitBreaker(),
                 new OrderIdentityRegistry(),
                 com.tradej.core.domain.port.DeadLetterQueue.noop()
         );
 
-        eventBus = new DisruptorEventBus(riskHandler, candleService, strategyEngine, executionHandler);
+        var bridge = new com.tradej.disruptor.testsupport.TestPipelineGraphBridge(
+                new com.tradej.pipeline.graph.PipelineGraph(
+                        "tick-candle-test",
+                        "Tick Candle Test",
+                        1,
+                        java.util.List.of(
+                                new com.tradej.pipeline.graph.PipelineNodeDef(
+                                        "candle-1", com.tradej.pipeline.runtime.PipelineNodeTypes.CANDLE, "Candle", java.util.Map.of())
+                        ),
+                        java.util.List.of()
+                ),
+                def -> new com.tradej.strategy.node.CandleNode(candleService)
+        );
+
+        eventBus = new DisruptorEventBus(
+                riskHandler, candleService, strategyEngine, executionHandler,
+                null, com.tradej.disruptor.config.StageTimings.NO_OP, null,
+                com.tradej.core.domain.port.DeadLetterQueue.noop(), bridge);
         AtomicInteger developingCount = new AtomicInteger();
         CountDownLatch closedLatch = new CountDownLatch(1);
         eventBus.subscribe(CandleDeveloping.class, event -> developingCount.incrementAndGet());

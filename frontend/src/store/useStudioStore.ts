@@ -11,9 +11,16 @@ import type {
   HalfTrendPoint,
   CvdPoint,
   IndicatorParams,
+  MarketDepthState,
+  PipelineHealthState,
+  ReplayStatus,
+  StrategySignalToast,
+  PlaceOrderRequest,
+  DepthLevel,
 } from '@/dto/types';
 import type {GatewayFrame} from '@/api/websocket';
-import {scanApi, studioApi} from '@/api/client';
+import {ordersApi, replayApi, scanApi, studioApi} from '@/api/client';
+import {sendReplayGatewayCommand} from '@/api/replayGateway';
 import {connectGateway, disconnectGateway, onGatewayMessage, onGatewayStatus} from '@/api/websocket';
 
 export interface StudioStore {
@@ -45,9 +52,17 @@ export interface StudioStore {
 
   positions: ActivePosition[];
   trades: Trade[];
+  marketDepth: MarketDepthState | null;
+  pipelineHealth: PipelineHealthState | null;
+  replayStatus: ReplayStatus | null;
+  recentSignals: StrategySignalToast[];
+  pendingOrder: PlaceOrderRequest | null;
+  orderModalOpen: boolean;
+  orderSubmitting: boolean;
+  killSwitchActive: boolean;
 
   sidebarOpen: boolean;
-  activeView: 'chart' | 'scanner' | 'pipeline' | 'admin';
+  activeView: 'chart' | 'scanner' | 'pipeline' | 'admin' | 'portfolio';
   error: string | null;
 
   connect: (url: string) => void;
@@ -58,6 +73,15 @@ export interface StudioStore {
   setDateRange: (from: string, to: string) => void;
   loadCandles: () => Promise<void>;
   runScan: (profile?: string) => Promise<void>;
+  requestOrder: (side: 'BUY' | 'SELL') => void;
+  confirmOrder: () => Promise<void>;
+  cancelOrderModal: () => void;
+  replayPlay: () => Promise<void>;
+  replayPause: () => Promise<void>;
+  replayStep: () => Promise<void>;
+  replayStop: () => Promise<void>;
+  replayStart: () => Promise<void>;
+  replaySetSpeed: (multiplier: number) => Promise<void>;
   setScannerFilter: (filter: Partial<ScannerFilter>) => void;
   setIndicatorParams: (params: Partial<IndicatorParams>) => void;
   setActiveView: (view: StudioStore['activeView']) => void;
@@ -147,15 +171,83 @@ export const useStudioStore = create<StudioStore>((set, get) => {
         break;
       }
       case 'ORDER_UPDATE': {
-        const trade: Trade = {
-          id: (p.orderId as string) || String(Date.now()),
+        const status = (p.status as string) || (p.type as string) || '';
+        if (status.includes('Filled') || status === 'ACCEPTED' || p.ack === true) {
+          const trade: Trade = {
+            id: (p.orderId as string) || String(Date.now()),
+            symbol: (p.symbol as string) || '',
+            side: (p.side as 'BUY' | 'SELL') || 'BUY',
+            quantity: (p.quantity as number) || (p.filledQuantity as number) || 0,
+            price: (p.pricePaisa as number) || 0,
+            timestamp: Date.now(),
+          };
+          set((s) => ({trades: [...s.trades, trade].slice(-200)}));
+        }
+        break;
+      }
+      case 'MARKET_DEPTH': {
+        const toLevels = (arr: unknown): DepthLevel[] =>
+          Array.isArray(arr)
+            ? arr.map((l) => {
+                const row = l as Record<string, unknown>;
+                return {
+                  pricePaisa: (row.pricePaisa as number) || 0,
+                  quantity: (row.quantity as number) || 0,
+                  orders: (row.orders as number) || 0,
+                };
+              })
+            : [];
+        set({
+          marketDepth: {
+            symbol: (p.symbol as string) || '',
+            bids: toLevels(p.bids),
+            asks: toLevels(p.asks),
+          },
+        });
+        break;
+      }
+      case 'STRATEGY_SIGNAL': {
+        const toast: StrategySignalToast = {
+          signalId: (p.signalId as string) || String(Date.now()),
           symbol: (p.symbol as string) || '',
-          side: (p.side as 'BUY' | 'SELL') || 'BUY',
-          quantity: (p.quantity as number) || 0,
-          price: (p.pricePaisa as number) || 0,
+          side: p.side as string | undefined,
+          setup: p.setup as string | undefined,
+          type: (p.type as string) || 'STRATEGY_SIGNAL',
           timestamp: Date.now(),
         };
-        set((s) => ({trades: [...s.trades, trade].slice(-200)}));
+        set((s) => ({recentSignals: [...s.recentSignals, toast].slice(-10)}));
+        break;
+      }
+      case 'SCAN_COMPLETED': {
+        const profile = get().scannerFilter.profile;
+        get().runScan(profile).catch(() => {});
+        break;
+      }
+      case 'REPLAY_CONTROL': {
+        if (p.type === 'REPLAY_STATUS') {
+          set({
+            replayStatus: {
+              state: (p.state as string) || 'STOPPED',
+              currentIndex: (p.currentIndex as number) || 0,
+              totalCandles: (p.totalCandles as number) || 0,
+              speedMultiplier: (p.speedMultiplier as number) || 1,
+              currentTimeMs: (p.currentTimeMs as number) || 0,
+            },
+          });
+        }
+        break;
+      }
+      case 'PIPELINE_HEALTH': {
+        set({
+          pipelineHealth: {
+            catalogLoaded: p.catalogLoaded as boolean | undefined,
+            catalogSize: p.catalogSize as number | undefined,
+            brokerPreflightPassed: p.brokerPreflightPassed as boolean | undefined,
+            startupCompleted: p.startupCompleted as boolean | undefined,
+            brokerNodes: p.brokerNodes as number | undefined,
+          },
+          killSwitchActive: false,
+        });
         break;
       }
       case 'PNL_UPDATE': {
@@ -206,6 +298,14 @@ export const useStudioStore = create<StudioStore>((set, get) => {
 
     positions: [],
     trades: [],
+    marketDepth: null,
+    pipelineHealth: null,
+    replayStatus: null,
+    recentSignals: [],
+    pendingOrder: null,
+    orderModalOpen: false,
+    orderSubmitting: false,
+    killSwitchActive: false,
 
     sidebarOpen: true,
     activeView: 'chart',
@@ -293,6 +393,94 @@ export const useStudioStore = create<StudioStore>((set, get) => {
       } catch (e) {
         set({error: `Scan failed: ${e instanceof Error ? e.message : e}`, scanLoading: false});
       }
+    },
+
+    requestOrder: (side: 'BUY' | 'SELL') => {
+      const {selectedSymbol, candles} = get();
+      if (!selectedSymbol) return;
+      const last = candles[candles.length - 1];
+      const pricePaisa = last?.closePaisa || 0;
+      set({
+        pendingOrder: {
+          symbol: selectedSymbol,
+          exchangeSegment: get().selectedExchange,
+          side,
+          quantity: 1,
+          orderType: 'MARKET',
+          pricePaisa,
+          productType: 'INTRADAY',
+          validity: 'DAY',
+        },
+        orderModalOpen: true,
+      });
+    },
+
+    confirmOrder: async () => {
+      const pending = get().pendingOrder;
+      if (!pending) return;
+      set({orderSubmitting: true, error: null});
+      try {
+        await ordersApi.place(pending);
+        set({orderModalOpen: false, pendingOrder: null, orderSubmitting: false});
+      } catch (e) {
+        set({
+          error: `Order failed: ${e instanceof Error ? e.message : e}`,
+          orderSubmitting: false,
+        });
+      }
+    },
+
+    cancelOrderModal: () => set({orderModalOpen: false, pendingOrder: null}),
+
+    replayStart: async () => {
+      const {selectedSymbol, selectedExchange, from, to, interval} = get();
+      try {
+        const status = await replayApi.start(selectedSymbol, selectedExchange, from, to, interval);
+        set({replayStatus: status});
+        sendReplayGatewayCommand('play');
+      } catch (e) {
+        set({error: `Replay start failed: ${e instanceof Error ? e.message : e}`});
+      }
+    },
+
+    replayPlay: async () => {
+      sendReplayGatewayCommand('play');
+      try {
+        const status = await replayApi.play();
+        set({replayStatus: status});
+      } catch { /* gateway may handle */ }
+    },
+
+    replayPause: async () => {
+      sendReplayGatewayCommand('pause');
+      try {
+        const status = await replayApi.pause();
+        set({replayStatus: status});
+      } catch { /* gateway may handle */ }
+    },
+
+    replayStep: async () => {
+      sendReplayGatewayCommand('step');
+      try {
+        const status = await replayApi.step();
+        set({replayStatus: status});
+      } catch { /* gateway may handle */ }
+    },
+
+    replayStop: async () => {
+      sendReplayGatewayCommand('stop');
+      try {
+        const status = await replayApi.stop();
+        set({replayStatus: status});
+      } catch { /* gateway may handle */ }
+    },
+
+    replaySetSpeed: async (multiplier: number) => {
+      sendReplayGatewayCommand('speed', multiplier);
+      try {
+        const status = await replayApi.speed(multiplier);
+        set({replayStatus: status});
+      } catch { /* gateway may handle */ }
     },
 
     setScannerFilter: (filter: Partial<ScannerFilter>) => {

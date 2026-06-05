@@ -6,7 +6,7 @@ import com.tradej.core.domain.value.ExchangeSegment;
 import com.tradej.core.domain.value.FeedMode;
 import com.tradej.scanner.criterion.ScanCriterion;
 import com.tradej.scanner.criterion.ScanCriterionFactory;
-import com.tradej.scanner.model.AssetClass;
+import com.tradej.core.domain.scan.AssetClass;
 import com.tradej.scanner.model.PromotionSpec;
 import com.tradej.scanner.model.RestScanSpec;
 import com.tradej.scanner.model.OptionScanSpec;

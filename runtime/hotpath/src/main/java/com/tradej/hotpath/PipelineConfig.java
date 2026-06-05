@@ -190,6 +190,7 @@ public final class PipelineConfig {
             DeadLetterQueue deadLetterQueue,
             PipelineRuntimeBridge pipelineRuntimeBridge
     ) {
+        Objects.requireNonNull(pipelineRuntimeBridge, "pipelineRuntimeBridge must not be null");
         Objects.requireNonNull(positionRiskHandler, "positionRiskHandler must not be null");
         Objects.requireNonNull(candleAggregationService, "candleAggregationService must not be null");
         Objects.requireNonNull(strategyEngine, "strategyEngine must not be null");

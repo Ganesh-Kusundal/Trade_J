@@ -4,8 +4,6 @@ import com.tradej.broker.api.port.OrderQuery;
 import com.tradej.broker.dhan.client.DhanClientHolder;
 import com.tradej.broker.dhan.config.DhanConnectionSettings;
 import com.tradej.broker.dhan.instrument.DhanInstrumentDefinition;
-import com.tradej.broker.dhan.mapper.DhanSdkMapper;
-import com.tradej.broker.dhan.mapper.DhanSdkResponse;
 import com.tradej.broker.dhan.orders.DhanRestOrderClient;
 import com.tradej.broker.dhan.rate.ApiCategory;
 import com.tradej.broker.dhan.resilience.DhanRetryExecutor;
@@ -34,41 +32,24 @@ public final class DhanOrderQueryAdapter extends DhanBaseRestAdapter implements 
 
     @Override
     public Order getOrder(String orderId) {
-        if (settings.isSandbox()) {
+        return execute(ApiCategory.ORDER, "get-order", () -> {
             Order order = restOrderClient.getOrder(orderId);
             return resolveOrder(order);
-        }
-        return execute(ApiCategory.ORDER, "get-order", () -> {
-            DhanSdkResponse<?> order = new DhanSdkResponse<>(clientHolder.client().getOrderById(orderId));
-            DhanInstrumentDefinition definition = resolvePayload(order);
-            return DhanSdkMapper.toOrder(order, definition.toInstrument());
         });
     }
 
     @Override
     public List<Order> getOrderBook() {
-        if (settings.isSandbox()) {
-            return restOrderClient.getOrders().stream().map(this::resolveOrder).toList();
-        }
         return execute(ApiCategory.ORDER, "get-order-book",
-                () -> clientHolder.client().getOrders().stream().map(order -> {
-                    DhanSdkResponse<?> response = new DhanSdkResponse<>(order);
-                    DhanInstrumentDefinition definition = resolvePayload(response);
-                    return DhanSdkMapper.toOrder(response, definition.toInstrument());
-                }).toList());
+                () -> restOrderClient.getOrders().stream().map(this::resolveOrder).toList()
+        );
     }
 
     @Override
     public List<Trade> getTradeBook() {
-        if (settings.isSandbox()) {
-            return restOrderClient.getTrades().stream().map(this::resolveTrade).toList();
-        }
         return execute(ApiCategory.ORDER, "get-trade-book",
-                () -> clientHolder.client().getTrades().stream().map(trade -> {
-                    DhanSdkResponse<?> response = new DhanSdkResponse<>(trade);
-                    DhanInstrumentDefinition definition = resolvePayload(response);
-                    return DhanSdkMapper.toTrade(response, definition.toInstrument());
-                }).toList());
+                () -> restOrderClient.getTrades().stream().map(this::resolveTrade).toList()
+        );
     }
 
     @Override

@@ -1,6 +1,6 @@
 package com.tradej.scanner.engine;
 
-import com.tradej.scanner.model.ScanHit;
+import com.tradej.core.domain.scan.ScanHit;
 
 import java.util.Comparator;
 import java.util.List;

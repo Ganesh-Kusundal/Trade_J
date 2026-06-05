@@ -3,8 +3,8 @@ package com.tradej.scanner.option;
 import com.tradej.core.domain.model.InstrumentKey;
 import com.tradej.core.domain.value.ExchangeSegment;
 import com.tradej.core.domain.value.OptionType;
-import com.tradej.scanner.model.AssetClass;
-import com.tradej.scanner.model.ScanHit;
+import com.tradej.core.domain.scan.AssetClass;
+import com.tradej.core.domain.scan.ScanHit;
 
 import java.time.LocalDate;
 import java.util.LinkedHashMap;

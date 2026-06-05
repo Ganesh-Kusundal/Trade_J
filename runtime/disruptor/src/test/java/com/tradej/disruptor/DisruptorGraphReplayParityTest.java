@@ -218,6 +218,7 @@ class DisruptorGraphReplayParityTest {
         return new ExecutionHandler(
                 null,
                 new RuntimeModeHolder(),
+                new com.tradej.core.domain.time.LiveTradingClock(),
                 new TradingCircuitBreaker(),
                 new OrderIdentityRegistry(),
                 DeadLetterQueue.noop()

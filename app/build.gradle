@@ -6,6 +6,7 @@ plugins {
 dependencies {
     implementation project(':core')
     implementation project(':broker-api')
+    implementation project(':broker-core')
     implementation project(':broker-dhan')
     implementation project(':broker-upstox')
     implementation project(':broker-icici')
@@ -20,11 +21,13 @@ dependencies {
     implementation project(':trading-institutional-scanner')
     implementation project(':trading-indicators')
     implementation project(':trading-simulation')
+    implementation project(':trading-options-analytics')
     implementation project(':data-historical-ingest')
     implementation project(':data-analytics')
 
     implementation 'org.springframework.boot:spring-boot-starter'
     implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-websocket'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
     implementation 'io.micrometer:micrometer-registry-prometheus'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
@@ -33,6 +36,7 @@ dependencies {
     implementation 'net.logstash.logback:logstash-logback-encoder:8.0'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation testFixtures(project(':runtime-disruptor'))
 }
 
 bootJar {

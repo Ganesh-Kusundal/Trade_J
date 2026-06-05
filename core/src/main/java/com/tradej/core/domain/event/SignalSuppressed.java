@@ -12,4 +12,9 @@ public record SignalSuppressed(
     public SignalSuppressed {
         gateContext = Map.copyOf(gateContext);
     }
+
+    @Override
+    public void accept(DomainEventVisitor visitor) {
+        visitor.visit(this);
+    }
 }

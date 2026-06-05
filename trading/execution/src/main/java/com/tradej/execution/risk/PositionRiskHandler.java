@@ -1,14 +1,16 @@
 package com.tradej.execution.risk;
 
 import com.tradej.core.domain.event.DomainEvent;
+import com.tradej.core.domain.event.DomainEventVisitor;
+import com.tradej.core.domain.event.ReconciliationHaltRequired;
 import com.tradej.core.domain.event.SignalGenerated;
 import com.tradej.core.domain.event.SignalPendingExecution;
 import com.tradej.core.domain.event.SignalSuppressed;
 import com.tradej.core.domain.event.TradeClosed;
 import com.tradej.core.domain.event.TradeOpened;
-import com.tradej.core.domain.port.NetPositionProvider;
 import com.tradej.core.domain.model.OrderRequest;
 import com.tradej.core.domain.model.RiskLimits;
+import com.tradej.core.domain.port.NetPositionProvider;
 import com.tradej.core.domain.value.Side;
 import com.tradej.execution.bridge.SignalExecutionBridge;
 import com.tradej.strategy.portfolio.PortfolioEngine;
@@ -17,38 +19,39 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
 
 /**
  * Enforces pre-trade risk checks and kill-switch conditions using a
  * {@link NetPositionProvider}, then qualifies {@link SignalGenerated} events into
  * {@link SignalPendingExecution} for the OMS stage.
- *
- * <p>When a {@link PortfolioEngine} is configured, portfolio capital and exposure
- * limits are enforced via {@link PortfolioEngine#reserveSignal(SignalGenerated)}
- * before a signal is forwarded to execution.
  */
-public final class PositionRiskHandler {
+public final class PositionRiskHandler implements DomainEventVisitor {
 
     private static final Logger log = LoggerFactory.getLogger(PositionRiskHandler.class);
 
     private final RiskLimits riskLimits;
     private final NetPositionProvider netPositionProvider;
     private final PortfolioEngine portfolioEngine;
+    private final MarginEnforcementHandler marginEnforcement;
+    private final KillSwitchCoordinator killSwitchCoordinator;
 
-    // Mutable risk state.
     private final AtomicLong realizedLossPaisa = new AtomicLong();
     private final AtomicLong unrealizedLossPaisa = new AtomicLong();
     private final AtomicInteger consecutiveLosses = new AtomicInteger();
     private final AtomicInteger openTrades = new AtomicInteger();
+    private final Set<String> symbolsWithOpenPosition = ConcurrentHashMap.newKeySet();
     private volatile boolean killSwitch = false;
-
-    // Snapshot support for replay isolation (AD-02).
+    private volatile boolean reconciliationHalt = false;
     private volatile StateSnapshot snapshot;
+    private Consumer<DomainEvent> currentPublisher;
 
     public PositionRiskHandler(RiskLimits limits, NetPositionProvider netPositionProvider) {
-        this(limits, netPositionProvider, null);
+        this(limits, netPositionProvider, null, null, null);
     }
 
     public PositionRiskHandler(
@@ -56,20 +59,91 @@ public final class PositionRiskHandler {
             NetPositionProvider netPositionProvider,
             PortfolioEngine portfolioEngine
     ) {
+        this(limits, netPositionProvider, portfolioEngine, null, null);
+    }
+
+    public PositionRiskHandler(
+            RiskLimits limits,
+            NetPositionProvider netPositionProvider,
+            PortfolioEngine portfolioEngine,
+            MarginEnforcementHandler marginEnforcement,
+            KillSwitchCoordinator killSwitchCoordinator
+    ) {
         this.riskLimits = Objects.requireNonNull(limits, "limits");
         this.netPositionProvider = Objects.requireNonNull(netPositionProvider, "netPositionProvider");
         this.portfolioEngine = portfolioEngine;
+        this.marginEnforcement = marginEnforcement;
+        this.killSwitchCoordinator = killSwitchCoordinator;
     }
 
-    public void onDomainEvent(DomainEvent event, java.util.function.Consumer<DomainEvent> publisher) {
-        if (event instanceof TradeOpened opened) {
-            handleTradeOpened(opened);
-        } else if (event instanceof TradeClosed closed) {
-            handleTradeClosed(closed);
-        } else if (event instanceof SignalGenerated generated) {
-            handleSignalGenerated(generated, publisher);
-        } else if (event instanceof SignalPendingExecution pending) {
-            handleSignalPending(pending, publisher);
+    public void onDomainEvent(DomainEvent event, Consumer<DomainEvent> publisher) {
+        this.currentPublisher = publisher;
+        try {
+            event.accept(this);
+        } finally {
+            this.currentPublisher = null;
+        }
+    }
+
+    @Override
+    public void visit(TradeOpened event) {
+        handleTradeOpened(event);
+    }
+
+    @Override
+    public void visit(TradeClosed event) {
+        handleTradeClosed(event);
+    }
+
+    @Override
+    public void visit(SignalGenerated event) {
+        handleSignalGenerated(event, currentPublisher);
+    }
+
+    @Override
+    public void visit(SignalPendingExecution event) {
+        handleSignalPending(event, currentPublisher);
+    }
+
+    @Override
+    public void visit(ReconciliationHaltRequired event) {
+        handleReconciliationHalt(event);
+    }
+
+    public void handleReconciliationHalt(ReconciliationHaltRequired halt) {
+        reconciliationHalt = true;
+        activateKillSwitch("reconciliation_mismatch:" + halt.symbol());
+        log.error(
+                "Reconciliation halt symbol={} expected={} broker={} mismatch={}",
+                halt.symbol(),
+                halt.expectedQuantity(),
+                halt.brokerQuantity(),
+                halt.mismatchQuantity());
+    }
+
+    public void acknowledgeReconciliationHalt() {
+        reconciliationHalt = false;
+        resetDailyLimits();
+        if (killSwitchCoordinator != null) {
+            killSwitchCoordinator.disengage();
+        }
+        log.info("Reconciliation halt acknowledged — trading resumed");
+    }
+
+    public boolean isReconciliationHaltActive() {
+        return reconciliationHalt;
+    }
+
+    public void updateUnrealizedLoss(long lossPaisa) {
+        unrealizedLossPaisa.set(Math.max(0L, lossPaisa));
+    }
+
+    public void checkCombinedLossLimit(long maxDailyLossPaisa) {
+        long total = realizedLossPaisa.get() + unrealizedLossPaisa.get();
+        if (total >= maxDailyLossPaisa) {
+            log.warn("Combined loss limit breached realized={} unrealized={} max={}",
+                    realizedLossPaisa.get(), unrealizedLossPaisa.get(), maxDailyLossPaisa);
+            activateKillSwitch("combined_loss_mtm");
         }
     }
 
@@ -100,54 +174,30 @@ public final class PositionRiskHandler {
             return;
         }
         openTrades.incrementAndGet();
-        log.debug(
-                "Trade opened symbol={} side={} size={} netPosition={}",
-                opened.symbol(),
-                opened.side(),
-                opened.size(),
-                netPositionProvider.getNetPositions().get(opened.symbol()));
+        symbolsWithOpenPosition.add(opened.symbol());
     }
 
     private void handleTradeClosed(TradeClosed closed) {
-        int trades = openTrades.updateAndGet(current -> {
-            if (current <= 0) {
-                log.warn("TradeClosed received with no open trades — ignoring symbol={}", closed.symbol());
-                return 0;
-            }
-            return current - 1;
-        });
+        int trades = openTrades.updateAndGet(current -> current <= 0 ? 0 : current - 1);
         long realized = closed.realizedPnlPaisa();
         if (realized < 0) {
-            long prev = realizedLossPaisa.addAndGet(-realized);
+            realizedLossPaisa.addAndGet(-realized);
             int seq = consecutiveLosses.incrementAndGet();
-            log.debug(
-                    "Loss realized symbol={} lossPaisa={} cumulativeLossPaisa={} consecutiveLosses={}",
-                    closed.symbol(),
-                    realized,
-                    -realized + prev,
-                    seq);
             if (seq >= riskLimits.maxConsecutiveLosses()) {
-                log.warn(
-                        "Consecutive-loss threshold breached: {} >= {} — activating kill switch",
-                        seq,
-                        riskLimits.maxConsecutiveLosses());
                 activateKillSwitch("consecutive_losses");
             }
         } else {
             consecutiveLosses.set(0);
         }
-        long totalRealized = realizedLossPaisa.get();
-        if (totalRealized >= riskLimits.maxDailyLossPaisa()) {
-            log.warn(
-                    "Daily loss limit breached: {} >= {} — activating kill switch",
-                    totalRealized,
-                    riskLimits.maxDailyLossPaisa());
+        if (realizedLossPaisa.get() >= riskLimits.maxDailyLossPaisa()) {
             activateKillSwitch("daily_loss");
+        }
+        if (netPositionProvider.getNetPosition(closed.symbol()) == 0) {
+            symbolsWithOpenPosition.remove(closed.symbol());
         }
         if (trades == 0) {
             unrealizedLossPaisa.set(0);
         }
-        log.debug("Trade closed symbol={} pnlPaisa={} openTrades={}", closed.symbol(), realized, trades);
     }
 
     private void handleSignalPending(SignalPendingExecution pending, java.util.function.Consumer<DomainEvent> publisher) {
@@ -159,9 +209,8 @@ public final class PositionRiskHandler {
             java.util.function.Consumer<DomainEvent> publisher,
             SignalGenerated sourceSignal
     ) {
-        if (killSwitch) {
-            log.warn("Kill switch active — rejecting signal signalId={}", pending.signalId());
-            rejectSignal(pending, publisher, "kill_switch_active");
+        if (killSwitch || reconciliationHalt) {
+            rejectSignal(pending, publisher, killSwitch ? "kill_switch_active" : "reconciliation_halt");
             return;
         }
         OrderRequest order = pending.orderRequest();
@@ -169,33 +218,33 @@ public final class PositionRiskHandler {
         boolean isBuy = order.side() == Side.BUY;
         long currentPosition = netPositionProvider.getNetPosition(symbol);
         boolean wouldFlipPosition = (isBuy && currentPosition < 0) || (!isBuy && currentPosition > 0);
+
         if (wouldFlipPosition
-                && Math.abs(currentPosition) + order.quantity() > riskLimits.maxOrderValuePaisa()) {
-            log.warn(
-                    "Order would exceed max order value after position flip: symbol={} currentPosition={} orderQty={}",
-                    symbol,
-                    currentPosition,
-                    order.quantity());
+                && Math.abs(currentPosition) + order.quantity() > riskLimits.maxOpenPositionQuantity()) {
             rejectSignal(pending, publisher, "max_order_value_breach");
             return;
         }
         if (Math.abs(order.quantity() * order.pricePaisa()) > riskLimits.maxOrderValuePaisa()) {
-            log.warn(
-                    "Order value exceeds limit: symbol={} notionalPaisa={} max={}",
-                    symbol,
-                    Math.abs(order.quantity() * order.pricePaisa()),
-                    riskLimits.maxOrderValuePaisa());
             rejectSignal(pending, publisher, "max_notional_value");
             return;
         }
-        if (Math.abs(currentPosition) >= riskLimits.maxOpenPositions() && wouldFlipPosition) {
-            log.warn(
-                    "Open position limit already reached: symbol={} position={} max={}",
-                    symbol,
-                    currentPosition,
-                    riskLimits.maxOpenPositions());
-            rejectSignal(pending, publisher, "max_open_positions");
+        if (Math.abs(currentPosition) >= riskLimits.maxOpenPositionQuantity() && wouldFlipPosition) {
+            rejectSignal(pending, publisher, "max_open_position_quantity");
             return;
+        }
+        if (currentPosition == 0
+                && symbolsWithOpenPosition.size() >= riskLimits.maxDistinctOpenPositions()
+                && !symbolsWithOpenPosition.contains(symbol)) {
+            rejectSignal(pending, publisher, "max_distinct_open_positions");
+            return;
+        }
+
+        if (marginEnforcement != null) {
+            var marginReason = marginEnforcement.checkMargin(order);
+            if (marginReason.isPresent()) {
+                rejectSignal(pending, publisher, marginReason.get());
+                return;
+            }
         }
 
         if (sourceSignal != null && portfolioEngine != null) {
@@ -206,11 +255,6 @@ public final class PositionRiskHandler {
             }
         }
 
-        log.debug(
-                "Signal passed risk qualification signalId={} symbol={} position={}",
-                pending.signalId(),
-                symbol,
-                currentPosition);
         if (publisher != null) {
             publisher.accept(pending);
         }
@@ -227,16 +271,17 @@ public final class PositionRiskHandler {
                     pending.orderRequest().symbol(),
                     reason,
                     Map.of(
-                            "symbol",
-                            pending.orderRequest().symbol(),
-                            "netPosition",
-                            netPositionProvider.getNetPosition(pending.orderRequest().symbol()))));
+                            "symbol", pending.orderRequest().symbol(),
+                            "netPosition", netPositionProvider.getNetPosition(pending.orderRequest().symbol()))));
         }
     }
 
     private void activateKillSwitch(String reason) {
         this.killSwitch = true;
         log.error("Kill switch activated due to: {}", reason);
+        if (killSwitchCoordinator != null) {
+            killSwitchCoordinator.engage(reason);
+        }
     }
 
     public void resetDailyLimits() {
@@ -244,6 +289,7 @@ public final class PositionRiskHandler {
         unrealizedLossPaisa.set(0);
         consecutiveLosses.set(0);
         killSwitch = false;
+        reconciliationHalt = false;
         log.info("Daily risk limits reset");
     }
 
@@ -263,7 +309,9 @@ public final class PositionRiskHandler {
                 unrealizedLossPaisa.get(),
                 consecutiveLosses.get(),
                 openTrades.get(),
-                killSwitch);
+                killSwitch,
+                reconciliationHalt,
+                Set.copyOf(symbolsWithOpenPosition));
         this.snapshot = current;
         return current;
     }
@@ -276,9 +324,11 @@ public final class PositionRiskHandler {
         unrealizedLossPaisa.set(state.unrealizedLossPaisa());
         consecutiveLosses.set(state.consecutiveLosses());
         openTrades.set(state.openTrades());
-        this.killSwitch = state.killSwitch();
+        killSwitch = state.killSwitch();
+        reconciliationHalt = state.reconciliationHalt();
+        symbolsWithOpenPosition.clear();
+        symbolsWithOpenPosition.addAll(state.symbolsWithOpenPosition());
         this.snapshot = null;
-        log.debug("Risk state restored from snapshot");
     }
 
     public record StateSnapshot(
@@ -286,20 +336,18 @@ public final class PositionRiskHandler {
             long unrealizedLossPaisa,
             int consecutiveLosses,
             int openTrades,
-            boolean killSwitch) {
-        public StateSnapshot {
-            if (realizedLossPaisa < 0) {
-                throw new IllegalArgumentException("realizedLossPaisa cannot be negative");
-            }
-            if (unrealizedLossPaisa < 0) {
-                throw new IllegalArgumentException("unrealizedLossPaisa cannot be negative");
-            }
-            if (consecutiveLosses < 0) {
-                throw new IllegalArgumentException("consecutiveLosses cannot be negative");
-            }
-            if (openTrades < 0) {
-                throw new IllegalArgumentException("openTrades cannot be negative");
-            }
+            boolean killSwitch,
+            boolean reconciliationHalt,
+            Set<String> symbolsWithOpenPosition
+    ) {
+        public StateSnapshot(
+                long realizedLossPaisa,
+                long unrealizedLossPaisa,
+                int consecutiveLosses,
+                int openTrades,
+                boolean killSwitch
+        ) {
+            this(realizedLossPaisa, unrealizedLossPaisa, consecutiveLosses, openTrades, killSwitch, false, Set.of());
         }
     }
 }

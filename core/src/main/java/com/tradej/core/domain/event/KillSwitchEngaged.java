@@ -12,4 +12,9 @@ public record KillSwitchEngaged(
     public EventPriority priority() {
         return EventPriority.URGENT;
     }
+
+    @Override
+    public void accept(DomainEventVisitor visitor) {
+        visitor.visit(this);
+    }
 }

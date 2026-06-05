@@ -11,8 +11,12 @@ import com.tradej.broker.icici.rest.BreezeOrderRestClient;
 import com.tradej.core.domain.model.InstrumentKey;
 import com.tradej.core.domain.model.ModifyOrderRequest;
 import com.tradej.core.domain.model.Order;
+import com.tradej.core.domain.model.OrderPreview;
 import com.tradej.core.domain.model.OrderRequest;
+import com.tradej.core.domain.value.ExchangeSegment;
 import com.tradej.core.domain.value.OrderType;
+import com.tradej.core.domain.value.ProductType;
+import com.tradej.core.domain.value.Side;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -22,6 +26,7 @@ public final class IciciOrderCommandAdapter implements OrderCommand {
     private final BreezeDomainMapper mapper;
     private final BreezeInstrumentResolver instrumentResolver;
     private final BreezeConnectionSettings settings;
+    private final IciciOrderExchangeResolver exchangeResolver;
 
     public IciciOrderCommandAdapter(
             BreezeOrderRestClient restClient,
@@ -33,6 +38,7 @@ public final class IciciOrderCommandAdapter implements OrderCommand {
         this.mapper = mapper;
         this.instrumentResolver = instrumentResolver;
         this.settings = settings;
+        this.exchangeResolver = new IciciOrderExchangeResolver(restClient, mapper);
     }
 
     @Override
@@ -51,7 +57,8 @@ public final class IciciOrderCommandAdapter implements OrderCommand {
     @Override
     public Order modifyOrder(ModifyOrderRequest request) {
         ensureOrdersEnabled();
-        ObjectNode payload = mapper.toModifyOrderPayload(request, "NSE");
+        String exchangeCode = exchangeResolver.resolveExchangeCode(request.orderId());
+        ObjectNode payload = mapper.toModifyOrderPayload(request, exchangeCode);
         JsonNode response = restClient.modifyOrder(payload);
         return mapper.toOrder(response, null);
     }
@@ -59,7 +66,8 @@ public final class IciciOrderCommandAdapter implements OrderCommand {
     @Override
     public boolean cancelOrder(String orderId) {
         ensureOrdersEnabled();
-        ObjectNode payload = mapper.toCancelOrderPayload(orderId, "NSE");
+        String exchangeCode = exchangeResolver.resolveExchangeCode(orderId);
+        ObjectNode payload = mapper.toCancelOrderPayload(orderId, exchangeCode);
         restClient.cancelOrder(payload);
         return true;
     }
@@ -79,6 +87,22 @@ public final class IciciOrderCommandAdapter implements OrderCommand {
     @Override
     public boolean setKillSwitch(boolean enabled) {
         throw new UnsupportedOperationException("ICICI kill switch not supported");
+    }
+
+    @Override
+    public OrderPreview previewOrder(OrderRequest request) {
+        // ICICI Breeze API does not support order preview
+        return OrderPreview.valid(
+                request.symbol(),
+                request.exchangeSegment(),
+                request.side(),
+                request.quantity(),
+                request.pricePaisa(),
+                request.triggerPricePaisa(),
+                request.productType(),
+                request.quantity() * request.pricePaisa(),
+                0L
+        );
     }
 
     private void ensureOrdersEnabled() {

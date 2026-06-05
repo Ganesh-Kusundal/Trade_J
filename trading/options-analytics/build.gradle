@@ -1,0 +1,11 @@
+dependencies {
+    api project(':core')
+    implementation project(':trade-pipeline-platform')
+
+    implementation 'com.github.ben-manes.caffeine:caffeine'
+    implementation 'org.slf4j:slf4j-api'
+
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testImplementation 'org.mockito:mockito-core'
+    testImplementation 'org.mockito:mockito-junit-jupiter'
+}

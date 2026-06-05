@@ -1,6 +1,5 @@
 dependencies {
     implementation project(':core')
-    implementation project(':trading-scanner')
     implementation "net.openhft:chronicle-queue:${versions.chronicleQueue}"
     implementation "org.duckdb:duckdb_jdbc:${versions.duckdb}"
     implementation 'com.fasterxml.jackson.core:jackson-databind'

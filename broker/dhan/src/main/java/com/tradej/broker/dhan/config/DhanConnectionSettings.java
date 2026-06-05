@@ -17,14 +17,20 @@ public record DhanConnectionSettings(
         Path pinFile,
         Path totpSecretFile,
         Path tokenStateFile,
-        long refreshBufferMinutes
+        long refreshBufferMinutes,
+        String depthWsUrl,
+        boolean killSwitchTestEnabled
 ) {
     private static final String LIVE_BASE_URL = "https://api.dhan.co/v2";
     private static final String SANDBOX_BASE_URL = "https://sandbox.dhan.co/v2";
+    private static final String LIVE_DEPTH_WS_URL = "wss://depth-api-feed.dhan.co/twentydepth";
+    private static final String SANDBOX_DEPTH_WS_URL = "wss://depth-api-feed.dhan.co/twentydepth"; // Not available in sandbox per Dhan docs
 
     public DhanConnectionSettings {
         environment = Objects.requireNonNullElse(environment, DhanApiEnvironment.LIVE);
         restBaseUrl = normalizeBaseUrl(restBaseUrl, environment);
+        depthWsUrl = Objects.requireNonNullElse(depthWsUrl, defaultDepthWsUrl(environment));
+        killSwitchTestEnabled = Objects.requireNonNullElse(killSwitchTestEnabled, false);
     }
 
     /**
@@ -115,12 +121,18 @@ public record DhanConnectionSettings(
                 pinFile,
                 totpSecretFile,
                 tokenStateFile,
-                refreshBufferMinutes
+                refreshBufferMinutes,
+                null,
+                false
         );
     }
 
     public static String defaultBaseUrl(DhanApiEnvironment environment) {
         return environment == DhanApiEnvironment.SANDBOX ? SANDBOX_BASE_URL : LIVE_BASE_URL;
+    }
+
+    public static String defaultDepthWsUrl(DhanApiEnvironment environment) {
+        return environment == DhanApiEnvironment.SANDBOX ? SANDBOX_DEPTH_WS_URL : LIVE_DEPTH_WS_URL;
     }
 
     public long refreshBufferMillis() {
@@ -150,8 +162,60 @@ public record DhanConnectionSettings(
                 pinFile,
                 totpSecretFile,
                 path,
-                refreshBufferMinutes
+                refreshBufferMinutes,
+                depthWsUrl,
+                killSwitchTestEnabled
         );
+    }
+
+    public DhanConnectionSettings withDepthWsUrl(String url) {
+        return new DhanConnectionSettings(
+                clientId,
+                accessToken,
+                environment,
+                restBaseUrl,
+                loggingEnabled,
+                rateLimitRetries,
+                maxReconnectAttempts,
+                autoReconnectEnabled,
+                autoResubscribeEnabled,
+                authMode,
+                pinFile,
+                totpSecretFile,
+                tokenStateFile,
+                refreshBufferMinutes,
+                url,
+                killSwitchTestEnabled
+        );
+    }
+
+    public DhanConnectionSettings withKillSwitchTestEnabled(boolean enabled) {
+        return new DhanConnectionSettings(
+                clientId,
+                accessToken,
+                environment,
+                restBaseUrl,
+                loggingEnabled,
+                rateLimitRetries,
+                maxReconnectAttempts,
+                autoReconnectEnabled,
+                autoResubscribeEnabled,
+                authMode,
+                pinFile,
+                totpSecretFile,
+                tokenStateFile,
+                refreshBufferMinutes,
+                depthWsUrl,
+                enabled
+        );
+    }
+
+    public String depthWsUrl() {
+        return depthWsUrl;
+    }
+
+    public boolean killSwitchTestEnabled() {
+        return killSwitchTestEnabled;
     }
 
     private static String normalizeBaseUrl(String baseUrl, DhanApiEnvironment environment) {

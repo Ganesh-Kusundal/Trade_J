@@ -3,6 +3,8 @@ package com.tradej.hotpath;
 import com.tradej.core.domain.event.DomainEvent;
 import com.tradej.core.domain.event.OrderAccepted;
 import com.tradej.core.domain.event.OrderFilled;
+import com.tradej.core.domain.event.OrderFullyFilled;
+import com.tradej.core.domain.event.OrderPartiallyFilled;
 import com.tradej.core.domain.event.OrderRejected;
 import com.tradej.core.domain.event.TradeClosed;
 import com.tradej.core.domain.event.TradeOpened;
@@ -88,6 +90,32 @@ public final class OrderPipeline {
         MdcHelper.enrich(fill, "order");
         try {
             downstream.accept(fill);
+        } finally {
+            MdcHelper.clear();
+        }
+    }
+
+    /**
+     * Process a partial fill status transition from the broker order stream.
+     */
+    public void onOrderPartiallyFilled(OrderPartiallyFilled partial) {
+        if (partial == null) return;
+        MdcHelper.enrich(partial, "order");
+        try {
+            downstream.accept(partial);
+        } finally {
+            MdcHelper.clear();
+        }
+    }
+
+    /**
+     * Process a fully-filled status transition from the broker order stream.
+     */
+    public void onOrderFullyFilled(OrderFullyFilled fullyFilled) {
+        if (fullyFilled == null) return;
+        MdcHelper.enrich(fullyFilled, "order");
+        try {
+            downstream.accept(fullyFilled);
         } finally {
             MdcHelper.clear();
         }

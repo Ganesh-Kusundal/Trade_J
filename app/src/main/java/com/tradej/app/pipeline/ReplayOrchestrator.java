@@ -49,7 +49,19 @@ public final class ReplayOrchestrator {
     }
 
     public ReplayResult replayTicks(String symbol, long fromMs, long toMs, EventBus eventBus) {
-        return withReplayMode(() -> historicalRangeService.replayTicks(symbol, fromMs, toMs, clockSyncedBus(eventBus)));
+        return replayTicks(symbol, fromMs, toMs, eventBus, 0, 50_000);
+    }
+
+    public ReplayResult replayTicks(
+            String symbol,
+            long fromMs,
+            long toMs,
+            EventBus eventBus,
+            int offset,
+            int batchSize
+    ) {
+        return withReplayMode(() -> historicalRangeService.replayMarketTicks(
+                symbol, fromMs, toMs, clockSyncedBus(eventBus), offset, batchSize));
     }
 
     public ReplayResult replayCandles(String symbol, String interval, long fromMs, long toMs, EventBus eventBus) {

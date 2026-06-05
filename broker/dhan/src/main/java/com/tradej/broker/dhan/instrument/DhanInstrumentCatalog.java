@@ -1,6 +1,6 @@
 package com.tradej.broker.dhan.instrument;
 
-import com.tradej.broker.dhan.mapper.ReflectionSupport;
+import com.tradej.broker.core.util.ReflectionSupport;
 import com.tradej.core.domain.instrument.ContractSymbolNormalizer;
 import com.tradej.core.domain.model.Instrument;
 import com.tradej.core.domain.model.InstrumentKey;

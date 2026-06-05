@@ -48,39 +48,26 @@ if [[ ! -f "$STATE_FILE" ]]; then
   exit 1
 fi
 
-TOKEN="$(python3 - <<'PY'
-import json
-import sys
-from pathlib import Path
+if ! command -v jq >/dev/null 2>&1; then
+  echo "jq is required (brew install jq)" >&2
+  exit 1
+fi
 
-state = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
-token = state.get("accessToken", "").strip()
-if not token:
-    raise SystemExit("accessToken missing in token state file")
-print(token)
-PY
-"$STATE_FILE")"
+TOKEN="$(jq -r '.accessToken // empty' "$STATE_FILE")"
+if [[ -z "$TOKEN" ]]; then
+  echo "accessToken missing in token state file" >&2
+  exit 1
+fi
 
-python3 - <<'PY' "$LIVE_PROPS" "$TOKEN"
-import re
-import sys
-from pathlib import Path
-
-props_path = Path(sys.argv[1])
-token = sys.argv[2]
-lines = props_path.read_text(encoding="utf-8").splitlines()
-updated = False
-out = []
-for line in lines:
-    if line.startswith("dhan.accessToken="):
-        out.append(f"dhan.accessToken={token}")
-        updated = True
-    else:
-        out.append(line)
-if not updated:
-    out.append(f"dhan.accessToken={token}")
-props_path.write_text("\n".join(out) + "\n", encoding="utf-8")
-PY
+PROPS_TMP="$(mktemp)"
+trap 'rm -f "$PROPS_TMP"' EXIT
+awk -v token="$TOKEN" '
+  /^dhan\.accessToken=/ { print "dhan.accessToken=" token; found=1; next }
+  { print }
+  END { if (!found) print "dhan.accessToken=" token }
+' "$LIVE_PROPS" >"$PROPS_TMP"
+mv "$PROPS_TMP" "$LIVE_PROPS"
+trap - EXIT
 
 echo "Synced dhan.accessToken in $LIVE_PROPS"
 echo "Token state: $STATE_FILE"

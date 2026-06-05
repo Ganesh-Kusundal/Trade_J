@@ -14,4 +14,9 @@ public record TradeOpened(
         long stopLossPaisa,
         long takeProfitPaisa
 ) implements DomainEvent {
+
+    @Override
+    public void accept(DomainEventVisitor visitor) {
+        visitor.visit(this);
+    }
 }

@@ -22,6 +22,15 @@ class DhanApiUrlResolverUnitTest {
     }
 
     @Test
+    void liveForeverOrderUrlsUseOfficialPaths() {
+        DhanApiUrlResolver resolver = new DhanApiUrlResolver(DhanConnectionSettings.liveWithDefaults("client", "token"));
+
+        assertEquals("https://api.dhan.co/v2/forever/orders", resolver.foreverOrdersUrl());
+        assertEquals("https://api.dhan.co/v2/forever/orders/ord-1", resolver.foreverOrderUrl("ord-1"));
+        assertEquals("https://api.dhan.co/v2/forever/all", resolver.foreverOrdersAllUrl());
+    }
+
+    @Test
     void sandboxBaseUrlBuildsSandboxPaths() {
         DhanConnectionSettings settings = DhanConnectionSettings.sandboxWithDefaults("sandbox-client", "token");
         DhanApiUrlResolver resolver = new DhanApiUrlResolver(settings);

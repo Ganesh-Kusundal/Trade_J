@@ -7,4 +7,5 @@ public record OptionGreeks(
         Double vega,
         Double impliedVolatility
 ) {
+    public static final OptionGreeks UNKNOWN = new OptionGreeks(null, null, null, null, null);
 }

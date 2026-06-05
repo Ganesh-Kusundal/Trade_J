@@ -8,4 +8,9 @@ public record TradeUpdated(
         long unrealizedPnlPaisa,
         long updatedStopLossPaisa
 ) implements DomainEvent {
+
+    @Override
+    public void accept(DomainEventVisitor visitor) {
+        visitor.visit(this);
+    }
 }

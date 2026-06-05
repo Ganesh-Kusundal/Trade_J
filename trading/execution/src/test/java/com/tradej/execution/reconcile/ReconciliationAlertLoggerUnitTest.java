@@ -25,7 +25,7 @@ class ReconciliationAlertLoggerUnitTest {
 
     @BeforeEach
     void setUp() {
-        handler = new ReconciliationAlertLogger();
+        handler = new ReconciliationAlertLogger(null, false, 0L);
 
         // Capture log output from the handler's logger
         logger = (Logger) LoggerFactory.getLogger(ReconciliationAlertLogger.class);

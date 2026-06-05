@@ -29,6 +29,8 @@ public final class BreezeHistoricalDataService {
     private static final ZoneId INDIA = ZoneId.of("Asia/Kolkata");
     /** Max seconds per v2 request (1000 rows at 1-second granularity). */
     private static final int MAX_SECONDS_PER_V2_REQUEST = 999;
+    /** Safety cap for paginated historical requests. */
+    static final int MAX_PAGINATION_ITERATIONS = 1_000;
     private static final DateTimeFormatter BREEZE_HISTORICAL_DATE =
             DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.000'Z'").withZone(INDIA);
     private static final DateTimeFormatter BREEZE_CANDLE_DATETIME =
@@ -132,7 +134,8 @@ public final class BreezeHistoricalDataService {
         String toStr = BREEZE_HISTORICAL_DATE.format(rangeTo);
         List<Candle> collected = new ArrayList<>();
         String currentTo = toStr;
-        while (true) {
+        int iteration = 0;
+        while (iteration++ < MAX_PAGINATION_ITERATIONS) {
             Map<String, String> params = mapper.toHistoricalV2QueryParams(definition, v2Interval, fromStr, currentTo);
             JsonNode success = resilienceExecutor.executeData(
                     "historical-charts-v2",
@@ -173,7 +176,8 @@ public final class BreezeHistoricalDataService {
         String toStr = BREEZE_HISTORICAL_DATE.format(rangeTo);
         List<Candle> collected = new ArrayList<>();
         String currentTo = toStr;
-        while (true) {
+        int iteration = 0;
+        while (iteration++ < MAX_PAGINATION_ITERATIONS) {
             ObjectNode payload = mapper.toHistoricalPayload(definition, apiInterval, fromStr, currentTo);
             JsonNode success = fetchHistorical(apiInterval, payload);
             List<Candle> page = parseCandles(success, instrument, requestInterval);

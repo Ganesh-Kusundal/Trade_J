@@ -125,7 +125,7 @@ class PositionRiskHandlerComponentTest {
     @Test
     void suppressesSignalWhenPositionFlipExceedsMaxOrderValue() {
         // Current position is short 100 — flipping would create a buy of 110
-        NetPositionProvider shortPosition = () -> Map.of("SBIN", -100L);
+        NetPositionProvider shortPosition = () -> Map.of("SBIN", new NetPositionProvider.Position("SBIN", -100L, 0L));
 
         PositionRiskHandler handler = new PositionRiskHandler(
                 RiskLimits.withOpenPositionQuantity(1_000_000L, 3, 50L, 3),
@@ -143,7 +143,7 @@ class PositionRiskHandlerComponentTest {
     @Test
     void suppressesSignalWhenOrderValueExceedsFlipLimit() {
         // Position of 3 + sell qty of 1 = 4 > maxOpenPositionQuantity of 3 triggers max_order_value_breach
-        NetPositionProvider atLimit = () -> Map.of("SBIN", 3L);
+        NetPositionProvider atLimit = () -> Map.of("SBIN", new NetPositionProvider.Position("SBIN", 3L, 0L));
 
         PositionRiskHandler handler = new PositionRiskHandler(
                 RiskLimits.withOpenPositionQuantity(1_000_000L, 3, 5_000_000L, 3),

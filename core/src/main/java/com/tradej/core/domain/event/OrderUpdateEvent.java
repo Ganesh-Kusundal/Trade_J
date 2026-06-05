@@ -13,4 +13,5 @@ public sealed interface OrderUpdateEvent extends DomainEvent
                 OrderFullyFilled,
                 OrderModified,
                 OrderCancelled {
+
 }

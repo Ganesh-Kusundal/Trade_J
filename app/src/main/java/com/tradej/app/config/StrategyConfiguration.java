@@ -6,8 +6,10 @@ import com.tradej.core.domain.port.ModelRegistry;
 import com.tradej.strategy.api.GraphStrategyPlugin;
 import com.tradej.strategy.api.StrategyPlugin;
 import com.tradej.strategy.api.StrategyPluginAdapter;
+import com.tradej.feature.store.OptionsAwareFeatureStore;
 import com.tradej.strategy.example.DepthImbalanceStrategy;
 import com.tradej.strategy.example.TickPriceChangeStrategy;
+import com.tradej.strategy.plugin.OptionsContextStrategyPlugin;
 import com.tradej.strategy.ml.DefaultModelRegistry;
 import com.tradej.strategy.ml.MLStrategyPlugin;
 import com.tradej.strategy.ml.ThresholdMLInferenceEngine;
@@ -70,6 +72,11 @@ public class StrategyConfiguration {
     @Bean
     DepthImbalanceStrategy depthImbalanceStrategy() {
         return new DepthImbalanceStrategy("Depth-Imbalance", 2.0, 10_000L);
+    }
+
+    @Bean
+    OptionsContextStrategyPlugin optionsContextStrategyPlugin(OptionsAwareFeatureStore featureStore) {
+        return new OptionsContextStrategyPlugin(featureStore);
     }
 
     /**

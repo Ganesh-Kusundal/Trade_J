@@ -43,11 +43,22 @@ trade:
   reconciliation:
     interval-seconds: 300
     initial-delay-seconds: 60
+    auto-halt: false
+    mismatch-tolerance-qty: 0
   risk:
     max-daily-loss-paisa: 500000
     max-consecutive-losses: 3
     max-order-value-paisa: 5000000
     max-open-positions: 3
+    max-distinct-open-positions: 10
+    enforce-margin: false
+    enforce-unrealized-loss: false
+    margin-cache-ttl-minutes: 5
+  options:
+    analytics-enabled: false
+    chain-poll-interval-ms: 60000
+  tracing:
+    enabled: false
   portfolio:
     default-capital-paisa: 1000000
     max-net-exposure-paisa: 5000000

@@ -19,6 +19,7 @@ import java.nio.file.Path;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@Tag("integration")
 @Tag("upstox-preflight")
 class UpstoxHttpClientLiveIntegrationTest {
 
@@ -31,6 +32,7 @@ class UpstoxHttpClientLiveIntegrationTest {
                 null,
                 null,
                 "invalid-analytics-token",
+                null,
                 true,
                 false,
                 18080,

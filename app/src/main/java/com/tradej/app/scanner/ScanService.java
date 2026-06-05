@@ -14,12 +14,12 @@ import com.tradej.persistence.duckdb.DuckDbScanStore;
 import com.tradej.scanner.engine.ScanDependencies;
 import com.tradej.scanner.engine.ScanEngine;
 import com.tradej.scanner.option.OptionLiquidityScanner;
-import com.tradej.scanner.model.AssetClass;
-import com.tradej.scanner.model.ScanHit;
+import com.tradej.core.domain.scan.AssetClass;
+import com.tradej.core.domain.scan.ScanHit;
 import com.tradej.scanner.model.ScanMode;
 import com.tradej.scanner.model.ScanProfile;
-import com.tradej.scanner.model.ScanResult;
-import com.tradej.scanner.model.ScanRun;
+import com.tradej.core.domain.scan.ScanResult;
+import com.tradej.core.domain.scan.ScanRun;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -142,7 +142,7 @@ public final class ScanService {
         }
     }
 
-    public List<com.tradej.scanner.model.ScanRun> listRuns(String profileId, int limit) {
+    public List<com.tradej.core.domain.scan.ScanRun> listRuns(String profileId, int limit) {
         try {
             return scanStore.listRuns(profileId, limit);
         } catch (Exception ex) {

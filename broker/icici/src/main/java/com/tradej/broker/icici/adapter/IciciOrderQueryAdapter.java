@@ -1,7 +1,6 @@
 package com.tradej.broker.icici.adapter;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.tradej.broker.api.port.OrderQuery;
 import com.tradej.broker.icici.mapper.BreezeDomainMapper;
@@ -15,30 +14,28 @@ import java.util.List;
 import java.util.OptionalLong;
 
 public final class IciciOrderQueryAdapter implements OrderQuery {
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-
     private final BreezeOrderRestClient restClient;
     private final BreezeDomainMapper mapper;
+    private final IciciOrderExchangeResolver exchangeResolver;
 
     public IciciOrderQueryAdapter(BreezeOrderRestClient restClient, BreezeDomainMapper mapper) {
         this.restClient = restClient;
         this.mapper = mapper;
+        this.exchangeResolver = new IciciOrderExchangeResolver(restClient, mapper);
     }
 
     @Override
     public Order getOrder(String orderId) {
-        ObjectNode payload = mapper.toOrderDetailPayload(orderId, "NSE");
+        String exchangeCode = exchangeResolver.resolveExchangeCode(orderId);
+        ObjectNode payload = mapper.toOrderDetailPayload(orderId, exchangeCode);
         JsonNode response = restClient.getOrderDetail(payload);
         return mapper.toOrder(response, null);
     }
 
     @Override
     public List<Order> getOrderBook() {
-        ObjectNode payload = OBJECT_MAPPER.createObjectNode();
-        payload.put("exchange_code", "NSE");
-        JsonNode response = restClient.getOrderList(payload);
         List<Order> orders = new ArrayList<>();
-        if (response != null && response.isArray()) {
+        for (JsonNode response : exchangeResolver.fetchOrderListsAcrossExchanges()) {
             for (JsonNode node : response) {
                 orders.add(mapper.toOrder(node, null));
             }
@@ -48,18 +45,17 @@ public final class IciciOrderQueryAdapter implements OrderQuery {
 
     @Override
     public List<Trade> getTradeBook() {
-        ObjectNode payload = OBJECT_MAPPER.createObjectNode();
-        payload.put("exchange_code", "NSE");
-        JsonNode response = restClient.getTrades(payload);
         List<Trade> trades = new ArrayList<>();
-        if (response != null && response.isArray()) {
+        for (JsonNode response : exchangeResolver.fetchTradeBooksAcrossExchanges()) {
             for (JsonNode node : response) {
                 trades.add(new Trade(
                         node.path("trade_id").asText(""),
                         node.path("order_id").asText(""),
                         node.path("stock_code").asText(""),
                         com.tradej.core.domain.value.ExchangeSegment.NSE_EQ,
-                        "sell".equalsIgnoreCase(node.path("action").asText("")) ? com.tradej.core.domain.value.Side.SELL : com.tradej.core.domain.value.Side.BUY,
+                        "sell".equalsIgnoreCase(node.path("action").asText(""))
+                                ? com.tradej.core.domain.value.Side.SELL
+                                : com.tradej.core.domain.value.Side.BUY,
                         parseLong(node.path("quantity").asText("0")),
                         Math.round(node.path("price").asDouble(0.0) * 100.0),
                         System.currentTimeMillis()

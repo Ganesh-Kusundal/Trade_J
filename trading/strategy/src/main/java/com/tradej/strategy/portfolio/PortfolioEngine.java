@@ -471,7 +471,7 @@ public final class PortfolioEngine {
      * <p>This mirrors the pattern used by {@link com.tradej.execution.risk.PositionRiskHandler}
      * which also reads quantity from {@code attributes.get("quantity")}.
      */
-    static long extractQuantity(SignalGenerated signal) {
+    public static long extractQuantity(SignalGenerated signal) {
         Object qty = signal.attributes().get(ATTR_QUANTITY);
         if (qty instanceof Number n) {
             long v = n.longValue();

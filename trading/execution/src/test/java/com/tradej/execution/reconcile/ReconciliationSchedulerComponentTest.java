@@ -93,7 +93,7 @@ class ReconciliationSchedulerComponentTest {
         ));
 
         // Expected positions match broker → reconcile() pass is silent
-        FakeEventBus eventBus = runScheduler(Map.of("SBIN", 80L));
+        FakeEventBus eventBus = runScheduler(Map.of("SBIN", new NetPositionProvider.Position("SBIN", 80L, 100_00L)));
 
         // Only the OSM-vs-broker pass should detect a mismatch
         assertFalse(eventBus.published.isEmpty(), "Should publish at least one event");
@@ -117,7 +117,7 @@ class ReconciliationSchedulerComponentTest {
         ));
 
         // Expected positions match broker → reconcile() pass is silent
-        FakeEventBus eventBus = runScheduler(Map.of("TCS", 50L));
+        FakeEventBus eventBus = runScheduler(Map.of("TCS", new NetPositionProvider.Position("TCS", 50L, 100_00L)));
 
         assertTrue(eventBus.published.isEmpty(), "No mismatches expected when positions match");
     }
@@ -134,7 +134,7 @@ class ReconciliationSchedulerComponentTest {
         ));
 
         // Expected positions match broker → reconcile() pass is silent
-        FakeEventBus eventBus = runScheduler(Map.of("SBIN", 80L));
+        FakeEventBus eventBus = runScheduler(Map.of("SBIN", new NetPositionProvider.Position("SBIN", 80L, 150_00L)));
 
         assertTrue(eventBus.published.isEmpty(), "Should skip non-final (SUBMITTED) orders");
     }
@@ -156,7 +156,7 @@ class ReconciliationSchedulerComponentTest {
         ));
 
         // Expected positions match broker's SBIN → reconcile() passes for SBIN
-        FakeEventBus eventBus = runScheduler(Map.of("SBIN", 100L));
+        FakeEventBus eventBus = runScheduler(Map.of("SBIN", new NetPositionProvider.Position("SBIN", 100L, 150_00L)));
 
         // Should detect TCS mismatch (0 in broker, 50 in OSM)
         assertEquals(1, eventBus.published.size(), "Should detect exactly one mismatch");
@@ -206,7 +206,8 @@ class ReconciliationSchedulerComponentTest {
         ));
 
         // Expected positions match broker → reconcile() pass is silent
-        FakeEventBus freshBus = runScheduler(freshReconciler, Map.of("SBIN", 80L));
+        java.util.Map<String, NetPositionProvider.Position> expected = java.util.Map.of("SBIN", new NetPositionProvider.Position("SBIN", 80L, 150_00L));
+        FakeEventBus freshBus = runScheduler(freshReconciler, expected);
 
         assertFalse(freshBus.published.isEmpty(), "Should reconstruct state from Chronicle Queue");
         PositionMismatch mismatch = (PositionMismatch) freshBus.published.getFirst();
@@ -222,11 +223,11 @@ class ReconciliationSchedulerComponentTest {
      * Expected positions match the broker's positions so the {@code reconcile()} pass
      * produces no spurious mismatches, leaving only the OSM-vs-broker pass to verify.
      */
-    private FakeEventBus runScheduler(Map<String, Long> expectedPositions) {
+    private FakeEventBus runScheduler(Map<String, NetPositionProvider.Position> expectedPositions) {
         return runScheduler(reconciler, expectedPositions);
     }
 
-    private FakeEventBus runScheduler(OrderReconciler targetReconciler, Map<String, Long> expectedPositions) {
+    private FakeEventBus runScheduler(OrderReconciler targetReconciler, Map<String, NetPositionProvider.Position> expectedPositions) {
         FakeEventBus eventBus = new FakeEventBus();
         NetPositionProvider provider = () -> expectedPositions;
         ReconciliationScheduler scheduler = new ReconciliationScheduler(targetReconciler, eventBus, provider);

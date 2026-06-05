@@ -19,4 +19,9 @@ public record SignalGenerated(
     public SignalGenerated {
         attributes = Map.copyOf(attributes);
     }
+
+    @Override
+    public void accept(DomainEventVisitor visitor) {
+        visitor.visit(this);
+    }
 }

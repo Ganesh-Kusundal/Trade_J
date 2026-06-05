@@ -4,9 +4,14 @@ import com.tradej.broker.api.IBrokerConnection;
 import com.tradej.disruptor.DisruptorBusMetrics;
 import com.tradej.execution.service.ExecutionHandler;
 import com.tradej.hotpath.MarketDataPipeline;
+import com.tradej.feature.store.AsyncDuckDbWriter;
+import com.tradej.gateway.bridge.GatewayEventBridge;
+import com.tradej.gateway.router.GatewayTopicRouter;
 import com.tradej.hotpath.OrderPipeline;
+import com.tradej.persistence.duckdb.AsyncDuckDbEventStore;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Configuration;
 
 import jakarta.annotation.PostConstruct;
@@ -45,6 +50,10 @@ public class MicrometerConfiguration {
     private final MarketDataPipeline marketDataPipeline;
     private final OrderPipeline orderPipeline;
     private final MeterRegistry meterRegistry;
+    private final ObjectProvider<GatewayEventBridge> gatewayEventBridge;
+    private final ObjectProvider<GatewayTopicRouter> gatewayTopicRouter;
+    private final ObjectProvider<AsyncDuckDbEventStore> asyncDuckDbEventStore;
+    private final ObjectProvider<AsyncDuckDbWriter> asyncDuckDbWriter;
 
     public MicrometerConfiguration(
             IBrokerConnection brokerConnection,
@@ -52,7 +61,11 @@ public class MicrometerConfiguration {
             DisruptorBusMetrics disruptorBusMetrics,
             MarketDataPipeline marketDataPipeline,
             OrderPipeline orderPipeline,
-            MeterRegistry meterRegistry
+            MeterRegistry meterRegistry,
+            ObjectProvider<GatewayEventBridge> gatewayEventBridge,
+            ObjectProvider<GatewayTopicRouter> gatewayTopicRouter,
+            ObjectProvider<AsyncDuckDbEventStore> asyncDuckDbEventStore,
+            ObjectProvider<AsyncDuckDbWriter> asyncDuckDbWriter
     ) {
         this.brokerConnection = brokerConnection;
         this.executionHandler = executionHandler;
@@ -60,6 +73,10 @@ public class MicrometerConfiguration {
         this.marketDataPipeline = marketDataPipeline;
         this.orderPipeline = orderPipeline;
         this.meterRegistry = meterRegistry;
+        this.gatewayEventBridge = gatewayEventBridge;
+        this.gatewayTopicRouter = gatewayTopicRouter;
+        this.asyncDuckDbEventStore = asyncDuckDbEventStore;
+        this.asyncDuckDbWriter = asyncDuckDbWriter;
     }
 
     @PostConstruct
@@ -139,5 +156,21 @@ public class MicrometerConfiguration {
                         disruptorBusMetrics, DisruptorBusMetrics::subscriberCount)
                 .description("Number of registered event subscribers")
                 .register(meterRegistry);
+
+        Gauge.builder("hotpath.ticks.rate_limited",
+                        marketDataPipeline, MarketDataPipeline::tickRateLimitedCount)
+                .description("Ticks dropped by hot-path rate limiter")
+                .register(meterRegistry);
+
+        gatewayEventBridge.ifAvailable(bridge -> Gauge.builder("gateway.events.sent", bridge, GatewayEventBridge::eventCount)
+                .register(meterRegistry));
+        gatewayEventBridge.ifAvailable(bridge -> Gauge.builder("gateway.events.deduplicated", bridge, GatewayEventBridge::dedupHitCount)
+                .register(meterRegistry));
+        gatewayTopicRouter.ifAvailable(router -> Gauge.builder("gateway.events.dropped", router, GatewayTopicRouter::droppedEventCount)
+                .register(meterRegistry));
+        asyncDuckDbEventStore.ifAvailable(store -> Gauge.builder("duckdb.events.dropped", store, AsyncDuckDbEventStore::droppedEventCount)
+                .register(meterRegistry));
+        asyncDuckDbWriter.ifAvailable(writer -> Gauge.builder("featurestore.events.dropped", writer, AsyncDuckDbWriter::droppedEventCount)
+                .register(meterRegistry));
     }
 }

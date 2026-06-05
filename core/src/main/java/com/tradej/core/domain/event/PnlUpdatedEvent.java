@@ -17,4 +17,9 @@ public record PnlUpdatedEvent(
     public EventMetadata metadata() {
         return metadata;
     }
+
+    @Override
+    public void accept(DomainEventVisitor visitor) {
+        visitor.visit(this);
+    }
 }

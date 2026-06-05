@@ -11,7 +11,7 @@ import com.tradej.broker.upstox.http.UpstoxHttpClient;
 import com.tradej.broker.upstox.http.UpstoxJsonHttpClient;
 import com.tradej.broker.upstox.instrument.UpstoxInstrumentLoader;
 import com.tradej.broker.upstox.instrument.UpstoxInstrumentResolver;
-import com.tradej.broker.upstox.resilience.UpstoxResilienceExecutor;
+import com.tradej.broker.upstox.resilience.UpstoxRetryExecutor;
 import com.tradej.broker.upstox.rest.UpstoxExpiredInstrumentRestClient;
 import com.tradej.broker.upstox.http.UpstoxApiException;
 import com.tradej.core.domain.instrument.ExpiredOptionContractKey;
@@ -33,6 +33,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@Tag("integration")
 @Tag("integration")
 @Tag("upstox-preflight")
 class UpstoxExpiredInstrumentsLiveIntegrationTest {
@@ -77,9 +78,9 @@ class UpstoxExpiredInstrumentsLiveIntegrationTest {
 
         MultiBucketRateLimiter rateLimiter = new MultiBucketRateLimiter(Map.of(
                 "EXPIRED_INSTRUMENT", new RateLimitConfig("EXPIRED_INSTRUMENT", 3.0, 2)));
-        UpstoxResilienceExecutor resilience = new UpstoxResilienceExecutor(rateLimiter, new CircuitBreaker());
+        UpstoxRetryExecutor retryExecutor = new UpstoxRetryExecutor(rateLimiter, new CircuitBreaker());
         UpstoxExpiredInstrumentRestClient restClient =
-                new UpstoxExpiredInstrumentRestClient(jsonClient, resilience);
+                new UpstoxExpiredInstrumentRestClient(jsonClient, retryExecutor);
 
         UpstoxInstrumentResolver resolver = new UpstoxInstrumentResolver();
         Path catalogDir = LiveUpstoxTestSupport.propertiesPath("runtime/upstox-instruments-test");

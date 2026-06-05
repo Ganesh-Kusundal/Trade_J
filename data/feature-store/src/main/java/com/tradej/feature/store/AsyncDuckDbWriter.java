@@ -56,6 +56,11 @@ public final class AsyncDuckDbWriter implements DomainEventHandler<DomainEvent>,
         public com.tradej.core.domain.event.EventMetadata metadata() {
             return com.tradej.core.domain.event.EventMetadata.root();
         }
+
+        @Override
+        public void accept(com.tradej.core.domain.event.DomainEventVisitor visitor) {
+            // PoisonPill is internal and doesn't need to be visited by risk/engine
+        }
     }
 
     private static final PoisonPill POISON_PILL = new PoisonPill();

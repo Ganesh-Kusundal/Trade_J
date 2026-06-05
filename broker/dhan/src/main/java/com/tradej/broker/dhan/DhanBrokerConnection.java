@@ -38,6 +38,7 @@ import com.tradej.broker.dhan.adapter.DhanSessionRiskProvider;
 import com.tradej.broker.dhan.adapter.DhanSliceOrderAdapter;
 import com.tradej.broker.dhan.client.DhanClientHolder;
 import com.tradej.broker.dhan.config.DhanBrokerStartup;
+import com.tradej.broker.dhan.validator.DhanOrderValidator;
 import com.tradej.broker.dhan.config.DhanConnectionSettings;
 import com.tradej.broker.dhan.constants.DhanApiUrlResolver;
 import com.tradej.broker.dhan.historical.DhanHistoricalDataClient;
@@ -171,7 +172,9 @@ public final class DhanBrokerConnection implements IBrokerConnection {
                 instrumentResolver,
                 resilienceExecutor,
                 historicalDataClient,
-                historicalDataMapper
+                historicalDataMapper,
+                httpClient,
+                apiUrlResolver
         );
         this.futuresProvider = new DhanFuturesAdapter(instrumentResolver);
         DhanOptionChainClient optionChainClient = new DhanOptionChainClient(httpClient, apiUrlResolver, resilienceExecutor);
@@ -183,13 +186,15 @@ public final class DhanBrokerConnection implements IBrokerConnection {
                 new OptionExpiryCache(5L),
                 resilienceExecutor
         );
+        DhanOrderValidator validator = new DhanOrderValidator(instrumentResolver, settings, marketDataProvider);
         this.orderCommand = new DhanOrderCommandAdapter(
                 clientHolder,
                 instrumentResolver,
                 resilienceExecutor,
                 settings,
                 restOrderClient,
-                idempotencyCachePort
+                idempotencyCachePort,
+                validator
         );
         this.orderQuery = new DhanOrderQueryAdapter(
                 clientHolder,
@@ -223,7 +228,9 @@ public final class DhanBrokerConnection implements IBrokerConnection {
         this.portfolioProvider = new DhanPortfolioProvider(
                 clientHolder,
                 instrumentResolver,
-                resilienceExecutor
+                resilienceExecutor,
+                httpClient,
+                apiUrlResolver
         );
         this.marginProvider = new DhanMarginProvider(
                 clientHolder,

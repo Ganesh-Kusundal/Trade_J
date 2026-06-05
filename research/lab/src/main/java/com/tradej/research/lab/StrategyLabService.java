@@ -32,10 +32,20 @@ public class StrategyLabService {
 
     private final DuckDbAnalyticsEngine analyticsEngine;
     private final DuckDbResearchStore researchStore;
+    private final boolean usePipelineExecution;
 
     public StrategyLabService(DuckDbAnalyticsEngine analyticsEngine, DuckDbResearchStore researchStore) {
+        this(analyticsEngine, researchStore, false);
+    }
+
+    public StrategyLabService(
+            DuckDbAnalyticsEngine analyticsEngine,
+            DuckDbResearchStore researchStore,
+            boolean usePipelineExecution
+    ) {
         this.analyticsEngine = analyticsEngine;
         this.researchStore = researchStore;
+        this.usePipelineExecution = usePipelineExecution;
     }
 
     /**
@@ -48,7 +58,11 @@ public class StrategyLabService {
         long fromMs,
         long toMs
     ) throws SQLException {
-        log.info("Executing strategy backtest: strategy={} config={}", strategy.name(), config.configHash());
+        log.info("Executing strategy backtest: strategy={} config={} pipelineMode={}",
+                strategy.name(), config.configHash(), usePipelineExecution);
+        if (usePipelineExecution) {
+            log.warn("Pipeline execution mode requested but StrategyLab still uses direct plugin loop — wire AppBacktestService for full parity");
+        }
 
         String runId = UUID.randomUUID().toString();
         List<Candle> candles = new ArrayList<>();

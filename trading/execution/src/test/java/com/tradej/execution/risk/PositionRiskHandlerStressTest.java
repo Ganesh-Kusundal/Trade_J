@@ -40,7 +40,7 @@ class PositionRiskHandlerStressTest {
      */
     @Test
     void concurrentTradeClosedAccumulatesLossesCorrectly() {
-        RiskLimits limits = new RiskLimits(1_000_000_000L, 100, 1_000_000_000L, 100);
+        RiskLimits limits = RiskLimits.withOpenPositionQuantity(1_000_000_000L, 100, 1_000_000_000L, 100);
         PositionRiskHandler handler = new PositionRiskHandler(limits, emptyPositions());
 
         int workers = 10;
@@ -71,7 +71,7 @@ class PositionRiskHandlerStressTest {
      */
     @Test
     void concurrentLossSequenceIsCorrect() {
-        RiskLimits limits = new RiskLimits(1_000_000_000L, 100, 1_000_000_000L, 100);
+        RiskLimits limits = RiskLimits.withOpenPositionQuantity(1_000_000_000L, 100, 1_000_000_000L, 100);
         PositionRiskHandler handler = new PositionRiskHandler(limits, emptyPositions());
 
         int workers = 10;
@@ -133,9 +133,9 @@ class PositionRiskHandlerStressTest {
      */
     @Test
     void concurrentSignalQualificationIsConsistent() {
-        NetPositionProvider provider = () -> Map.of("SBIN", 0L);
+        NetPositionProvider provider = () -> Map.of("SBIN", new NetPositionProvider.Position("SBIN", 0L, 0L));
 
-        RiskLimits limits = new RiskLimits(1_000_000_000L, 100, 1_000_000_000L, 100);
+        RiskLimits limits = RiskLimits.withOpenPositionQuantity(1_000_000_000L, 100, 1_000_000_000L, 100);
         PositionRiskHandler handler = new PositionRiskHandler(limits, provider);
 
         int workers = 10;

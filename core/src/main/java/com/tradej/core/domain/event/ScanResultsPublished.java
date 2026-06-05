@@ -24,4 +24,9 @@ public record ScanResultsPublished(
             List<String> reasons
     ) {
     }
+
+    @Override
+    public void accept(DomainEventVisitor visitor) {
+        visitor.visit(this);
+    }
 }

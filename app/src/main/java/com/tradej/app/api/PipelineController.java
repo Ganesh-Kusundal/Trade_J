@@ -162,6 +162,7 @@ public class PipelineController {
     public Map<String, Object> compileAndReload(@RequestBody PipelineGraph newGraph) {
         log.info("Compiling pipeline graph: id={} name={} mode={}", newGraph.id(), newGraph.name(), newGraph.executionMode());
         try {
+            com.tradej.pipeline.graph.PipelineGraphValidator.validate(newGraph);
             if (newGraph.executionMode() == PipelineExecutionMode.DAG) {
                 dagPipelineRuntimeService.reloadFromApi(newGraph);
             } else {

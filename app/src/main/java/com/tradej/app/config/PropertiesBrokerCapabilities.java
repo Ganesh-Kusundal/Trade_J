@@ -13,9 +13,7 @@ import java.util.Set;
  * Creates a {@link BrokerCapabilities} instance from YAML-configured venue
  * properties, enabling OCP-compliant venue configuration without code changes.
  *
- * <p>This is the primary source of broker capabilities in production. The
- * hardcoded {@link com.tradej.broker.dhan.config.DhanBrokerCapabilities#live()}
- * method remains as a programmatic fallback for tests and legacy callers.
+ * <p>This is the primary source of broker capabilities in production.
  *
  * <p>See {@code application.yml → trade.venues} for the configuration format.
  */

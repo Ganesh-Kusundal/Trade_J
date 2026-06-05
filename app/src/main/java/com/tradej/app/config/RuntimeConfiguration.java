@@ -1,9 +1,8 @@
 package com.tradej.app.config;
 
 import com.tradej.core.domain.runtime.RuntimeModeHolder;
-import org.springframework.boot.context.event.ApplicationReadyEvent;
+import jakarta.annotation.PostConstruct;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.event.EventListener;
 
 /**
  * Applies configured {@link com.tradej.core.domain.runtime.RuntimeMode} at startup.
@@ -19,7 +18,7 @@ public class RuntimeConfiguration {
         this.runtimeModeHolder = runtimeModeHolder;
     }
 
-    @EventListener(ApplicationReadyEvent.class)
+    @PostConstruct
     void applyConfiguredMode() {
         if (properties.runtime() != null) {
             runtimeModeHolder.setMode(properties.runtime().mode());

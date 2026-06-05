@@ -1,8 +1,8 @@
 package com.tradej.scanner.option;
 
-import com.tradej.scanner.model.ScanHit;
-import com.tradej.scanner.model.ScanResult;
-import com.tradej.scanner.model.ScanRun;
+import com.tradej.core.domain.scan.ScanHit;
+import com.tradej.core.domain.scan.ScanResult;
+import com.tradej.core.domain.scan.ScanRun;
 
 import java.time.LocalDate;
 import java.util.List;

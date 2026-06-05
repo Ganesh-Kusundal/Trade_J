@@ -1,3 +1,7 @@
+plugins {
+    id 'java-test-fixtures'
+}
+
 dependencies {
     implementation project(':core')
     implementation project(':trading-strategy')
@@ -5,7 +9,11 @@ dependencies {
     implementation "com.lmax:disruptor:${versions.disruptor}"
     implementation 'org.slf4j:slf4j-api'
 
+    testFixturesApi project(':core')
+    testFixturesApi project(':trading-execution')
+
     testImplementation testFixtures(project(':core'))
+    testImplementation testFixtures(project(':runtime-disruptor'))
     testImplementation project(':broker-api')
     testImplementation project(':data-persistence')
     testImplementation project(':trading-execution')

@@ -8,4 +8,7 @@ dependencies {
     implementation 'io.socket:socket.io-client:2.1.1'
     implementation 'org.seleniumhq.selenium:selenium-java:4.27.0'
     implementation 'org.slf4j:slf4j-api'
+
+    testImplementation 'org.mockito:mockito-core'
+    testImplementation 'org.mockito:mockito-junit-jupiter'
 }

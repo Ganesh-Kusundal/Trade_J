@@ -1,5 +1,7 @@
 package com.tradej.broker.api;
 
+import java.util.Optional;
+
 import com.tradej.broker.api.port.InstrumentResolver;
 import com.tradej.broker.api.port.MarketDataProvider;
 import com.tradej.broker.api.port.OptionsProvider;
@@ -14,37 +16,83 @@ import com.tradej.broker.api.port.GttOrderProvider;
 import com.tradej.broker.api.port.MarginProvider;
 import com.tradej.broker.api.port.SessionRiskProvider;
 import com.tradej.broker.api.port.SliceOrderCommand;
+import com.tradej.broker.api.port.NewsProvider;
 
 import java.nio.file.Path;
 
+/**
+ * Broker connection facade. Optional capabilities are resolved via {@link #getCapability(Class)}
+ * with default port accessors delegating to capability lookup.
+ */
 public interface IBrokerConnection extends AutoCloseable {
-    MarketDataProvider marketData();
 
-    FuturesProvider futures();
+    <T> Optional<T> getCapability(Class<T> capabilityClass);
 
-    OptionsProvider options();
+    default MarketDataProvider marketData() {
+        return requireCapability(MarketDataProvider.class);
+    }
 
-    OrderCommand orders();
+    default FuturesProvider futures() {
+        return requireCapability(FuturesProvider.class);
+    }
 
-    OrderQuery orderQuery();
+    default OptionsProvider options() {
+        return requireCapability(OptionsProvider.class);
+    }
 
-    SliceOrderCommand sliceOrders();
+    default OrderCommand orders() {
+        return requireCapability(OrderCommand.class);
+    }
 
-    BracketOrderProvider bracketOrders();
+    default OrderQuery orderQuery() {
+        return requireCapability(OrderQuery.class);
+    }
 
-    GttOrderProvider gttOrders();
+    default SliceOrderCommand sliceOrders() {
+        return requireCapability(SliceOrderCommand.class);
+    }
 
-    PortfolioProvider portfolio();
+    default BracketOrderProvider bracketOrders() {
+        return requireCapability(BracketOrderProvider.class);
+    }
 
-    MarginProvider margin();
+    default GttOrderProvider gttOrders() {
+        return requireCapability(GttOrderProvider.class);
+    }
 
-    SessionRiskProvider sessionRisk();
+    default PortfolioProvider portfolio() {
+        return requireCapability(PortfolioProvider.class);
+    }
 
-    ConditionalAlertProvider alerts();
+    default MarginProvider margin() {
+        return requireCapability(MarginProvider.class);
+    }
 
-    InstrumentResolver instruments();
+    default SessionRiskProvider sessionRisk() {
+        return requireCapability(SessionRiskProvider.class);
+    }
 
-    WebSocketMultiplexer websocket();
+    default ConditionalAlertProvider alerts() {
+        return requireCapability(ConditionalAlertProvider.class);
+    }
+
+    default InstrumentResolver instruments() {
+        return requireCapability(InstrumentResolver.class);
+    }
+
+    default WebSocketMultiplexer websocket() {
+        return requireCapability(WebSocketMultiplexer.class);
+    }
+
+    default NewsProvider news() {
+        return requireCapability(NewsProvider.class);
+    }
+
+    default <T> T requireCapability(Class<T> capabilityClass) {
+        return getCapability(capabilityClass).orElseThrow(() ->
+                new UnsupportedOperationException(
+                        "Broker does not support capability: " + capabilityClass.getSimpleName()));
+    }
 
     void connect();
 

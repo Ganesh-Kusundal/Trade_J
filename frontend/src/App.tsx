@@ -8,14 +8,17 @@ import {ScannerPanel} from '@/components/ScannerPanel';
 import {PipelinePanel} from '@/components/PipelinePanel';
 import {AdminPanel} from '@/components/AdminPanel';
 import {useStudioStore} from '@/store/useStudioStore';
-import {Terminal, Wifi, BarChart3, Search, GitBranch, Settings} from 'lucide-react';
+import {Terminal, Wifi, BarChart3, Search, GitBranch, Settings, PieChart} from 'lucide-react';
 import {ReplayControlPanel} from '@/components/ReplayControlPanel';
 import {AgentChat} from '@/components/AgentChat';
+import {SignalToast} from '@/components/SignalToast';
+import {PortfolioAnalyticsPanel} from '@/components/PortfolioAnalyticsPanel';
 
 export default function App() {
   const {
     selectedSymbol, interval, from, to, candles, symbols, startupCandidates, loadCandles, error, clearError,
     setActiveView, activeView, connect, disconnect, wsConnected, bootstrapStartupCandidates,
+    recentSignals, pipelineHealth,
   } = useStudioStore();
 
   const lastLoadRef = useRef('');
@@ -118,6 +121,15 @@ export default function App() {
                 {pctChange >= 0 ? '+' : ''}{pctChange.toFixed(2)}%
               </span>
             </div>
+            {pipelineHealth?.brokerNodes != null && (
+              <>
+                <div className="h-3 w-[1px] bg-zinc-800" />
+                <div className="flex items-center gap-1.5 font-semibold text-[9px]">
+                  <span className="text-zinc-400">BRK:</span>
+                  <span className="text-zinc-300">{pipelineHealth.brokerNodes}</span>
+                </div>
+              </>
+            )}
           </div>
 
           <div className="flex items-center gap-1 bg-[#0e0e11] p-0.5 border border-zinc-800 rounded-xs h-7">
@@ -126,6 +138,7 @@ export default function App() {
               {view: 'scanner' as const, icon: Search},
               {view: 'pipeline' as const, icon: GitBranch},
               {view: 'admin' as const, icon: Settings},
+              {view: 'portfolio' as const, icon: PieChart},
             ].map(({view, icon: Icon}) => (
               <button
                 key={view}
@@ -192,6 +205,7 @@ export default function App() {
                   <ErrorBoundary>
                     <ChartWidget />
                   </ErrorBoundary>
+                  <SignalToast signals={recentSignals} />
                   <ReplayControlPanel />
                 </div>
               </div>
@@ -206,6 +220,7 @@ export default function App() {
           {activeView === 'scanner' && <ScannerPanel />}
           {activeView === 'pipeline' && <PipelinePanel />}
           {activeView === 'admin' && <AdminPanel />}
+          {activeView === 'portfolio' && <PortfolioAnalyticsPanel />}
         </div>
       </div>
 

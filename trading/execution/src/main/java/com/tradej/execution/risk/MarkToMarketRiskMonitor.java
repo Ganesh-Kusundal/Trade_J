@@ -19,7 +19,7 @@ import java.util.concurrent.atomic.AtomicLong;
 public final class MarkToMarketRiskMonitor {
 
     private static final Logger log = LoggerFactory.getLogger(MarkToMarketRiskMonitor.class);
-    private static final long PUBLISH_INTERVAL_MS = 5_000L;
+    private final long publishIntervalMs;
 
     private final boolean enforceUnrealizedLoss;
     private final NetPositionProvider netPositionProvider;
@@ -34,9 +34,19 @@ public final class MarkToMarketRiskMonitor {
             NetPositionProvider netPositionProvider,
             long maxDailyLossPaisa
     ) {
+        this(enforceUnrealizedLoss, netPositionProvider, maxDailyLossPaisa, 5_000L);
+    }
+
+    public MarkToMarketRiskMonitor(
+            boolean enforceUnrealizedLoss,
+            NetPositionProvider netPositionProvider,
+            long maxDailyLossPaisa,
+            long publishIntervalMs
+    ) {
         this.enforceUnrealizedLoss = enforceUnrealizedLoss;
         this.netPositionProvider = netPositionProvider;
         this.maxDailyLossPaisa = maxDailyLossPaisa;
+        this.publishIntervalMs = publishIntervalMs;
     }
 
     /**
@@ -62,7 +72,7 @@ public final class MarkToMarketRiskMonitor {
             return;
         }
         long now = System.currentTimeMillis();
-        if (now - lastPublishMs.get() < PUBLISH_INTERVAL_MS) {
+        if (now - lastPublishMs.get() < publishIntervalMs) {
             return;
         }
         lastPublishMs.set(now);
@@ -70,19 +80,19 @@ public final class MarkToMarketRiskMonitor {
     }
 
     private void publishMtmSnapshot() {
-        Map<String, Long> positions = netPositionProvider.getNetPositions();
+        Map<String, NetPositionProvider.Position> positions = netPositionProvider.getPositions();
         Map<String, Long> symbolUnrealized = new HashMap<>();
         long totalUnrealized = 0L;
         for (var entry : positions.entrySet()) {
-            long qty = entry.getValue();
-            if (qty == 0) {
+            NetPositionProvider.Position pos = entry.getValue();
+            if (pos.quantity() == 0) {
                 continue;
             }
             Long ltp = lastLtpPaisa.get(entry.getKey());
             if (ltp == null || ltp <= 0) {
                 continue;
             }
-            long unrealized = estimateUnrealizedPaisa(entry.getKey(), qty, ltp);
+            long unrealized = pos.unrealizedPnlPaisa(ltp);
             symbolUnrealized.put(entry.getKey(), unrealized);
             totalUnrealized += unrealized;
         }
@@ -102,11 +112,5 @@ public final class MarkToMarketRiskMonitor {
                     realizedLoss + unrealizedLoss,
                     Map.copyOf(symbolUnrealized)));
         }
-    }
-
-    private long estimateUnrealizedPaisa(String symbol, long netQty, long ltpPaisa) {
-        // Without avg entry in NetPositionProvider, use sign of position * LTP notional as proxy
-        // until cost basis is added to position provider.
-        return netQty * ltpPaisa;
     }
 }

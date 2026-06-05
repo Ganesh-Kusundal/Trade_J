@@ -144,6 +144,7 @@ public record TradingProperties(
             String accessToken,
             String refreshToken,
             String analyticsToken,
+            String extendedToken,
             @DefaultValue("false") boolean analyticsOnly,
             @DefaultValue("true") boolean sandbox,
             @DefaultValue("18080") int redirectServerPort,
@@ -219,8 +220,25 @@ public record TradingProperties(
             long maxDailyLossPaisa,
             int maxConsecutiveLosses,
             long maxOrderValuePaisa,
-            int maxOpenPositions
+            Integer maxOpenPositions,
+            @DefaultValue("3") int maxOpenPositionQuantity,
+            @DefaultValue("10") int maxDistinctOpenPositions,
+            @DefaultValue("false") boolean enforceMargin,
+            @DefaultValue("false") boolean enforceUnrealizedLoss,
+            @DefaultValue("5") int marginCacheTtlMinutes
     ) {
+        public RiskProperties {
+            if (maxOpenPositionQuantity <= 0 && maxOpenPositions != null && maxOpenPositions > 0) {
+                maxOpenPositionQuantity = maxOpenPositions;
+            }
+            if (maxOpenPositionQuantity <= 0) {
+                maxOpenPositionQuantity = 3;
+            }
+        }
+
+        public int effectiveMaxOpenPositionQuantity() {
+            return maxOpenPositionQuantity;
+        }
     }
 
     public record InstrumentProperties(
@@ -245,7 +263,9 @@ public record TradingProperties(
 
     public record ReconciliationProperties(
             long intervalSeconds,
-            long initialDelaySeconds
+            long initialDelaySeconds,
+            @DefaultValue("false") boolean autoHalt,
+            @DefaultValue("0") long mismatchToleranceQty
     ) {
     }
 

@@ -1,6 +1,11 @@
 package com.tradej.broker.icici;
 
 import com.tradej.broker.api.IBrokerConnection;
+import com.tradej.broker.api.capability.AdvancedOrderCapable;
+import com.tradej.broker.api.capability.AlertCapable;
+import com.tradej.broker.api.capability.FuturesCapable;
+import com.tradej.broker.api.capability.MarginCapable;
+import com.tradej.broker.api.capability.OptionsCapable;
 import com.tradej.broker.api.port.BracketOrderProvider;
 import com.tradej.broker.api.port.ConditionalAlertProvider;
 import com.tradej.broker.api.port.FuturesProvider;
@@ -16,12 +21,18 @@ import com.tradej.broker.api.port.SessionRiskProvider;
 import com.tradej.broker.api.port.SliceOrderCommand;
 import com.tradej.broker.api.port.WebSocketMultiplexer;
 import com.tradej.broker.icici.instrument.BreezeInstrumentResolver;
-import com.tradej.broker.icici.unsupported.IciciUnsupportedPorts;
 
 import java.nio.file.Path;
+import java.util.Optional;
 import java.util.Objects;
 
 public final class IciciBrokerConnection implements IBrokerConnection {
+    private static final OptionsCapable OPTIONS_CAPABLE = new OptionsCapable() {};
+    private static final FuturesCapable FUTURES_CAPABLE = new FuturesCapable() {};
+    private static final MarginCapable MARGIN_CAPABLE = new MarginCapable() {};
+    private static final AlertCapable ALERT_CAPABLE = new AlertCapable() {};
+    private static final AdvancedOrderCapable ADVANCED_ORDER_CAPABLE = new AdvancedOrderCapable() {};
+
     private final MarketDataProvider marketDataProvider;
     private final FuturesProvider futuresProvider;
     private final OptionsProvider optionsProvider;
@@ -81,17 +92,17 @@ public final class IciciBrokerConnection implements IBrokerConnection {
 
     @Override
     public SliceOrderCommand sliceOrders() {
-        return IciciUnsupportedPorts.SLICE_ORDERS;
+        throw new UnsupportedOperationException("Slice orders not supported by ICICI adapter");
     }
 
     @Override
     public BracketOrderProvider bracketOrders() {
-        return IciciUnsupportedPorts.BRACKET_ORDERS;
+        throw new UnsupportedOperationException("Bracket orders not supported by ICICI adapter");
     }
 
     @Override
     public GttOrderProvider gttOrders() {
-        return IciciUnsupportedPorts.GTT_ORDERS;
+        throw new UnsupportedOperationException("GTT orders not supported by ICICI adapter");
     }
 
     @Override
@@ -106,12 +117,12 @@ public final class IciciBrokerConnection implements IBrokerConnection {
 
     @Override
     public SessionRiskProvider sessionRisk() {
-        return IciciUnsupportedPorts.SESSION_RISK;
+        throw new UnsupportedOperationException("Session risk not supported by ICICI adapter");
     }
 
     @Override
     public ConditionalAlertProvider alerts() {
-        return IciciUnsupportedPorts.ALERTS;
+        throw new UnsupportedOperationException("Alerts not supported by ICICI adapter");
     }
 
     @Override
@@ -141,5 +152,55 @@ public final class IciciBrokerConnection implements IBrokerConnection {
             return;
         }
         instrumentResolver.loadCatalog(catalogPath);
+    }
+
+    @Override
+    public <T> Optional<T> getCapability(Class<T> capabilityClass) {
+        if (capabilityClass == null) {
+            return Optional.empty();
+        }
+        if (capabilityClass.isInstance(marketDataProvider)) {
+            return Optional.of(capabilityClass.cast(marketDataProvider));
+        }
+        if (capabilityClass.isInstance(futuresProvider)) {
+            return Optional.of(capabilityClass.cast(futuresProvider));
+        }
+        if (capabilityClass.isInstance(optionsProvider)) {
+            return Optional.of(capabilityClass.cast(optionsProvider));
+        }
+        if (capabilityClass.isInstance(orderCommand)) {
+            return Optional.of(capabilityClass.cast(orderCommand));
+        }
+        if (capabilityClass.isInstance(orderQuery)) {
+            return Optional.of(capabilityClass.cast(orderQuery));
+        }
+        if (capabilityClass.isInstance(portfolioProvider)) {
+            return Optional.of(capabilityClass.cast(portfolioProvider));
+        }
+        if (capabilityClass.isInstance(marginProvider)) {
+            return Optional.of(capabilityClass.cast(marginProvider));
+        }
+        if (capabilityClass.isInstance(instrumentResolver)) {
+            return Optional.of(capabilityClass.cast(instrumentResolver));
+        }
+        if (capabilityClass.isInstance(webSocketMultiplexer)) {
+            return Optional.of(capabilityClass.cast(webSocketMultiplexer));
+        }
+        if (OptionsCapable.class.equals(capabilityClass)) {
+            return Optional.of(capabilityClass.cast(OPTIONS_CAPABLE));
+        }
+        if (FuturesCapable.class.equals(capabilityClass)) {
+            return Optional.of(capabilityClass.cast(FUTURES_CAPABLE));
+        }
+        if (MarginCapable.class.equals(capabilityClass)) {
+            return Optional.of(capabilityClass.cast(MARGIN_CAPABLE));
+        }
+        if (AlertCapable.class.equals(capabilityClass)) {
+            return Optional.of(capabilityClass.cast(ALERT_CAPABLE));
+        }
+        if (AdvancedOrderCapable.class.equals(capabilityClass)) {
+            return Optional.of(capabilityClass.cast(ADVANCED_ORDER_CAPABLE));
+        }
+        return Optional.empty();
     }
 }

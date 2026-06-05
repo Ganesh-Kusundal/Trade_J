@@ -36,8 +36,7 @@ import java.nio.file.Path;
  * <p>The {@link EventSourcedOrderRepository} stores all OSM order lifecycle events
  * using Chronicle Queue for append-only persistence and rebuilds state on startup.
  *
- * <p>Extracted from {@link TradingRuntimeConfiguration} to separate persistence
- * concerns from general application wiring (Phase A.2).
+ * <p>Separates persistence concerns from general application wiring (Phase A.2).
  */
 @Configuration
 public class PersistenceConfiguration {

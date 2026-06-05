@@ -10,9 +10,11 @@ import com.tradej.app.pipeline.DagPipelineIngressBridge;
 import com.tradej.app.pipeline.PositionStateRebuilder;
 import com.tradej.app.readmodel.ReadModelStore;
 import com.tradej.app.scanner.RuntimeSubscriptionManager;
+import com.tradej.app.subscription.SubscriptionCoordinator;
 import com.tradej.broker.api.IBrokerConnection;
 import com.tradej.broker.api.model.BrokerCapabilities;
 import com.tradej.broker.api.model.MarketSubscriptionRequest;
+import com.tradej.broker.core.routing.LoadBalancedBrokerGateway;
 import com.tradej.broker.dhan.DhanBrokerConnection;
 import com.tradej.broker.dhan.auth.DhanTokenProvider;
 import com.tradej.broker.dhan.config.DhanApiEnvironment;
@@ -93,6 +95,7 @@ public final class BrokerStartupOrchestrator {
             ReadModelStore readModelStore,
             EventSourcedNetPositionProvider netPositionProvider,
             ObjectProvider<RuntimeSubscriptionManager> subscriptionManagerProvider,
+            ObjectProvider<SubscriptionCoordinator> subscriptionCoordinatorProvider,
             DagPipelineIngressBridge dagPipelineIngressBridge,
             PositionStateRebuilder positionStateRebuilder,
             OrderManagementService orderManagementService
@@ -123,7 +126,13 @@ public final class BrokerStartupOrchestrator {
         subscribeEventHandlers(eventBus, asyncDuckDbWriter, chronicleAuditLogWriter,
                 asyncDuckDbEventStore, brokerErrorTracker, readModelStore,
                 netPositionProvider, reconciliationAlertLogger, dagPipelineIngressBridge);
-        setupWebSocketHandlers(brokerConnection, marketDataPipeline, orderPipeline, eventBus);
+        if (mode.expectsWebSocket()) {
+            setupWebSocketHandlers(brokerConnection, marketDataPipeline, orderPipeline, eventBus);
+        } else {
+            log.info(
+                    "Skipping WebSocket handler wiring in {} mode (REST-only transport).",
+                    mode);
+        }
 
         eventBus.start();
         orderManagementService.replayAll();
@@ -139,10 +148,14 @@ public final class BrokerStartupOrchestrator {
             if (subscriptionManager != null) {
                 subscriptionManager.subscribeStaticAtStartup();
             } else {
-                subscribeExplicitly(brokerConnection, properties, subscriptions);
+                SubscriptionCoordinator coordinator = subscriptionCoordinatorProvider.getIfAvailable();
+                subscribeExplicitly(brokerConnection, properties, subscriptions, coordinator);
             }
         }
         runtimeHealthState.markStartupCompleted();
+        if (brokerConnection instanceof LoadBalancedBrokerGateway gateway) {
+            log.info("Load-balanced broker gateway active with {} node(s)", gateway.connectionCount());
+        }
     }
 
     private void verifyAnalyticsRestPreflight(IBrokerConnection brokerConnection, TradingProperties properties) {
@@ -182,6 +195,14 @@ public final class BrokerStartupOrchestrator {
                 throw new IllegalStateException("Dhan runtime requires `trade.instruments.cache-directory` when auto-download is enabled");
             }
             loadedPath = dhanConnection.loadDailyInstrumentCatalog(Path.of(cacheDirectory), false);
+        } else if (mode == BrokerRuntimeMode.BROKER_GATEWAY) {
+            String cacheDirectory = instruments != null ? instruments.cacheDirectory() : null;
+            if (cacheDirectory == null || cacheDirectory.isBlank()) {
+                cacheDirectory = "runtime-prod/instruments";
+            }
+            Path cachePath = Path.of(cacheDirectory);
+            brokerConnection.loadInstrumentCatalog(cachePath);
+            loadedPath = cachePath;
         } else if (mode.isUpstox()) {
             String cacheDirectory = instruments != null ? instruments.cacheDirectory() : null;
             if (cacheDirectory == null || cacheDirectory.isBlank()) {
@@ -252,7 +273,8 @@ public final class BrokerStartupOrchestrator {
     private void subscribeExplicitly(
             IBrokerConnection brokerConnection,
             TradingProperties properties,
-            List<MarketSubscriptionRequest> subscriptions
+            List<MarketSubscriptionRequest> subscriptions,
+            SubscriptionCoordinator coordinator
     ) {
         Map<com.tradej.core.domain.value.FeedMode, List<MarketSubscriptionRequest>> byFeedMode = properties.subscriptions().stream()
                 .collect(Collectors.groupingBy(
@@ -262,7 +284,11 @@ public final class BrokerStartupOrchestrator {
         if (subscriptions.isEmpty()) {
             throw new IllegalStateException("Refusing to start with zero active subscriptions");
         }
-        byFeedMode.forEach((feedMode, requests) -> brokerConnection.websocket().subscribe(requests, feedMode));
+        if (coordinator != null) {
+            byFeedMode.forEach((feedMode, requests) -> coordinator.subscribe(requests, feedMode));
+        } else {
+            byFeedMode.forEach((feedMode, requests) -> brokerConnection.websocket().subscribe(requests, feedMode));
+        }
     }
 
     private void verifyBrokerPreflight(
@@ -403,6 +429,7 @@ public final class BrokerStartupOrchestrator {
         return date;
     }
 
+    @SuppressWarnings({"removal", "deprecation"})
     private void subscribeEventHandlers(
             EventBus eventBus,
             AsyncDuckDbWriter asyncDuckDbWriter,
@@ -453,8 +480,6 @@ public final class BrokerStartupOrchestrator {
         brokerConnection.websocket().onMarketData(event -> {
             if (event instanceof MarketTickEvent tick) {
                 marketDataPipeline.onMarketTickEvent(tick);
-            } else if (event instanceof TickReceived tick) {
-                marketDataPipeline.onTickReceived(tick);
             } else {
                 eventBus.publish(event);
             }
@@ -463,6 +488,10 @@ public final class BrokerStartupOrchestrator {
             switch (event) {
                 case OrderAccepted accepted -> orderPipeline.onOrderAccepted(accepted);
                 case OrderFilled filled -> orderPipeline.onOrderFilled(filled);
+                case com.tradej.core.domain.event.OrderPartiallyFilled partial ->
+                        orderPipeline.onOrderPartiallyFilled(partial);
+                case com.tradej.core.domain.event.OrderFullyFilled fully ->
+                        orderPipeline.onOrderFullyFilled(fully);
                 case OrderRejected rejected -> orderPipeline.onOrderRejected(rejected);
                 default -> eventBus.publish(event);
             }

@@ -1,21 +1,25 @@
 package com.tradej.broker.dhan.websocket;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.tradej.broker.api.model.MarketSubscriptionRequest;
 import com.tradej.broker.api.port.MarketDataListener;
 import com.tradej.broker.api.port.OrderUpdateListener;
 import com.tradej.broker.api.port.WebSocketMultiplexer;
 import com.tradej.broker.dhan.adapter.DhanInstrumentResolver;
+import com.tradej.broker.dhan.auth.DhanTokenProvider;
 import com.tradej.broker.dhan.client.DhanClientHolder;
 import com.tradej.broker.dhan.config.DhanConnectionSettings;
 import com.tradej.broker.dhan.constants.DhanProtocolConstants;
+import com.tradej.broker.dhan.depth.DhanTwentyDepthWebSocketClient;
 import com.tradej.broker.dhan.instrument.DhanInstrumentDefinition;
+import com.tradej.broker.dhan.mapper.DhanJsonResponse;
 import com.tradej.broker.dhan.mapper.DhanPayloadNormalizer;
-import com.tradej.broker.dhan.mapper.DhanSdkConverters;
-import com.tradej.broker.dhan.resilience.DhanBackoffUtil;
-import com.tradej.broker.dhan.mapper.DhanSdkResponse;
+import com.tradej.broker.core.resilience.BackoffStrategy;
+import com.tradej.broker.dhan.websocket.feed.DhanMarketFeedPacket;
 import com.tradej.core.domain.event.BrokerAdapterError;
 import com.tradej.core.domain.event.DomainEvent;
 import com.tradej.core.domain.event.EventMetadataFactory;
+import com.tradej.core.domain.event.DepthUpdateEvent;
 import com.tradej.core.domain.event.MarketTickEvent;
 import com.tradej.core.domain.event.OrderAccepted;
 import com.tradej.core.domain.event.OrderFilled;
@@ -25,17 +29,8 @@ import com.tradej.core.domain.model.Order;
 import com.tradej.core.domain.model.Trade;
 import com.tradej.core.domain.value.FeedMode;
 import com.tradej.core.domain.value.OrderStatus;
-import io.github.sonicalgo.dhan.Dhan;
-import io.github.sonicalgo.dhan.websocket.marketFeed.FullData;
-import io.github.sonicalgo.dhan.websocket.marketFeed.IndexData;
-import io.github.sonicalgo.dhan.websocket.marketFeed.MarketFeedClient;
-import io.github.sonicalgo.dhan.websocket.marketFeed.MarketFeedListener;
-import io.github.sonicalgo.dhan.websocket.marketFeed.QuoteData;
-import io.github.sonicalgo.dhan.websocket.marketFeed.TickerData;
-import io.github.sonicalgo.dhan.websocket.order.OrderStreamClient;
-import io.github.sonicalgo.dhan.websocket.order.OrderStreamListener;
-import io.github.sonicalgo.dhan.websocket.order.OrderUpdate;
-import io.github.sonicalgo.dhan.websocket.order.TradeUpdate;
+
+import com.tradej.broker.core.reconnect.ReconnectListenerRegistry;
 
 import java.util.Collection;
 import java.util.List;
@@ -46,8 +41,11 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public final class DhanWebSocketMultiplexer implements WebSocketMultiplexer {
+    private static final Logger log = LoggerFactory.getLogger(DhanWebSocketMultiplexer.class);
     private static final int INVALID_TOKEN_CODE = DhanProtocolConstants.INVALID_TOKEN_CODE;
     private static final long STALE_FEED_THRESHOLD_MS = DhanProtocolConstants.STALE_FEED_THRESHOLD_MS;
     private static final long TOKEN_CHECK_INTERVAL_MS = DhanProtocolConstants.TOKEN_CHECK_INTERVAL_MS;
@@ -68,15 +66,16 @@ public final class DhanWebSocketMultiplexer implements WebSocketMultiplexer {
         return thread;
     });
 
-    private volatile MarketFeedClient marketFeedClient;
-    private volatile OrderStreamClient orderStreamClient;
+    private volatile DhanMarketFeedWebSocketClient marketFeedClient;
+    private volatile DhanOrderStreamWebSocketClient orderStreamClient;
     private volatile boolean connected;
     private volatile boolean shutdown;
     private volatile long lastMarketEventAtMs;
     private volatile long lastTokenCheckAtMs;
     private volatile boolean staleFeedEmitted;
+    private final ReconnectListenerRegistry reconnectRegistry;
+    private final DhanTwentyDepthWebSocketClient depthClient;
 
-    // Reconnection circuit breaker state (accessed under transportLock)
     private int reconnectAttempts;
     private long circuitOpenUntilMs;
 
@@ -86,24 +85,12 @@ public final class DhanWebSocketMultiplexer implements WebSocketMultiplexer {
         return t;
     });
 
-    // ---------------------------------------------------------------
-    // Event factory helpers — reduce EventMetadata.root() boilerplate
-    // ---------------------------------------------------------------
-
-    private StreamHealthChanged healthEvent(String stream, String status, int detail) {
-        return new StreamHealthChanged(metadataFactory.root(), stream, status, detail);
-    }
-
-    private BrokerAdapterError brokerError(String source, String message) {
-        return new BrokerAdapterError(metadataFactory.root(), "dhan", source, message);
-    }
-
     public DhanWebSocketMultiplexer(
             DhanClientHolder clientHolder,
             DhanInstrumentResolver resolver,
             DhanConnectionSettings settings
     ) {
-        this(clientHolder, resolver, settings, new EventMetadataFactory(new com.tradej.core.domain.time.LiveTradingClock()));
+        this(clientHolder, resolver, settings, new EventMetadataFactory(new com.tradej.core.domain.time.LiveTradingClock()), null, null);
     }
 
     public DhanWebSocketMultiplexer(
@@ -112,11 +99,40 @@ public final class DhanWebSocketMultiplexer implements WebSocketMultiplexer {
             DhanConnectionSettings settings,
             EventMetadataFactory metadataFactory
     ) {
+        this(clientHolder, resolver, settings, metadataFactory, null, null);
+    }
+
+    public DhanWebSocketMultiplexer(
+            DhanClientHolder clientHolder,
+            DhanInstrumentResolver resolver,
+            DhanConnectionSettings settings,
+            EventMetadataFactory metadataFactory,
+            ReconnectListenerRegistry reconnectRegistry
+    ) {
+        this(clientHolder, resolver, settings, metadataFactory, reconnectRegistry, clientHolder.tokenProvider());
+    }
+
+    public DhanWebSocketMultiplexer(
+            DhanClientHolder clientHolder,
+            DhanInstrumentResolver resolver,
+            DhanConnectionSettings settings,
+            EventMetadataFactory metadataFactory,
+            ReconnectListenerRegistry reconnectRegistry,
+            DhanTokenProvider tokenProvider
+    ) {
         this.clientHolder = clientHolder;
         this.resolver = resolver;
         this.settings = settings;
         this.metadataFactory = metadataFactory;
         this.normalizer = new DhanPayloadNormalizer(metadataFactory);
+        this.reconnectRegistry = reconnectRegistry;
+        DhanTokenProvider effectiveTokenProvider = tokenProvider == null ? clientHolder.tokenProvider() : tokenProvider;
+        this.depthClient = settings.isSandbox()
+                ? null
+                : new DhanTwentyDepthWebSocketClient(settings, effectiveTokenProvider, resolver, metadataFactory);
+        if (this.depthClient != null) {
+            this.depthClient.onDepthUpdate(this::publishMarket);
+        }
         this.clientHolder.addRotationListener(this::rebindAfterTokenRotation);
         healthMonitor.scheduleAtFixedRate(
                 this::verifyFeedLiveness,
@@ -132,8 +148,9 @@ public final class DhanWebSocketMultiplexer implements WebSocketMultiplexer {
             ensureClientsLocked();
             resetLifecycleTimestampsLocked();
             resetReconnectCircuitLocked();
-            marketFeedClient.connect(false);
-            orderStreamClient.connect(false);
+            connectMarketFeedLocked();
+            connectOrderStreamLocked();
+            connectDepthClientIfNeeded();
         }
     }
 
@@ -144,24 +161,38 @@ public final class DhanWebSocketMultiplexer implements WebSocketMultiplexer {
         synchronized (transportLock) {
             closeClientsLocked();
         }
+        if (depthClient != null) {
+            depthClient.disconnect();
+        }
     }
 
     @Override
     public boolean isConnected() {
-        return connected;
+        return connected || (depthClient != null && depthClient.isConnected());
     }
 
     @Override
     public void subscribe(Collection<MarketSubscriptionRequest> instruments, FeedMode feedMode) {
-        List<io.github.sonicalgo.dhan.websocket.marketFeed.Instrument> sdkInstruments = instruments.stream()
-                .map(this::toSdkInstrument)
-                .toList();
-        if (sdkInstruments.isEmpty()) {
+        if (instruments.isEmpty()) {
             throw new IllegalArgumentException("Cannot subscribe an empty instrument set");
         }
+        if (feedMode == FeedMode.DEPTH_20) {
+            if (depthClient == null) {
+                throw new IllegalStateException("Dhan 20-level depth feed requires a live token provider");
+            }
+            instruments.forEach(request -> subscriptions.put(request, feedMode));
+            connectDepthClientIfNeeded();
+            depthClient.subscribe(List.copyOf(instruments));
+            lastMarketEventAtMs = System.currentTimeMillis();
+            staleFeedEmitted = false;
+            return;
+        }
+        List<DhanMarketFeedWebSocketClient.SubscriptionKey> keys = instruments.stream()
+                .map(this::toFeedKey)
+                .toList();
         synchronized (transportLock) {
             ensureClientsLocked();
-            marketFeedClient.subscribe(sdkInstruments, toSdkFeedMode(feedMode));
+            marketFeedClient.subscribe(keys, feedMode);
         }
         instruments.forEach(request -> subscriptions.put(request, feedMode));
         lastMarketEventAtMs = System.currentTimeMillis();
@@ -170,10 +201,21 @@ public final class DhanWebSocketMultiplexer implements WebSocketMultiplexer {
 
     @Override
     public void unsubscribe(Collection<MarketSubscriptionRequest> instruments) {
-        synchronized (transportLock) {
-            if (marketFeedClient != null) {
-                marketFeedClient.unsubscribe(instruments.stream().map(this::toSdkInstrument).toList());
+        List<MarketSubscriptionRequest> depthRequests = instruments.stream()
+                .filter(request -> subscriptions.get(request) == FeedMode.DEPTH_20)
+                .toList();
+        List<MarketSubscriptionRequest> marketRequests = instruments.stream()
+                .filter(request -> subscriptions.get(request) != FeedMode.DEPTH_20)
+                .toList();
+        if (!marketRequests.isEmpty()) {
+            synchronized (transportLock) {
+                if (marketFeedClient != null) {
+                    marketFeedClient.unsubscribe(marketRequests.stream().map(this::toFeedKey).toList());
+                }
             }
+        }
+        if (!depthRequests.isEmpty() && depthClient != null) {
+            depthClient.unsubscribe(depthRequests);
         }
         instruments.forEach(subscriptions::remove);
     }
@@ -197,19 +239,13 @@ public final class DhanWebSocketMultiplexer implements WebSocketMultiplexer {
         if (marketFeedClient != null && orderStreamClient != null) {
             return;
         }
-        bindClientsLocked(clientHolder.client());
+        bindClientsLocked();
     }
 
-    private void bindClientsLocked(Dhan dhan) {
-        MarketFeedClient newMarketFeedClient = dhan.createMarketFeedClient(
-                settings.maxReconnectAttempts(),
-                settings.autoReconnectEnabled(),
-                settings.autoResubscribeEnabled()
-        );
-        OrderStreamClient newOrderStreamClient = dhan.createOrderStreamClient(
-                settings.maxReconnectAttempts(),
-                settings.autoReconnectEnabled()
-        );
+    private void bindClientsLocked() {
+        DhanTokenProvider tokenProvider = clientHolder.tokenProvider();
+        DhanMarketFeedWebSocketClient newMarketFeedClient = new DhanMarketFeedWebSocketClient(settings, tokenProvider);
+        DhanOrderStreamWebSocketClient newOrderStreamClient = new DhanOrderStreamWebSocketClient(settings, tokenProvider);
         wireListeners(newMarketFeedClient, newOrderStreamClient);
         this.marketFeedClient = newMarketFeedClient;
         this.orderStreamClient = newOrderStreamClient;
@@ -226,26 +262,35 @@ public final class DhanWebSocketMultiplexer implements WebSocketMultiplexer {
         }
     }
 
-    private void rebindAfterTokenRotation(Dhan newDhan) {
+    private void rebindAfterTokenRotation() {
         synchronized (transportLock) {
             if (shutdown) {
                 return;
             }
             boolean shouldReconnect = connected || !subscriptions.isEmpty();
             closeClientsLocked();
-            bindClientsLocked(newDhan);
             if (shouldReconnect) {
+                bindClientsLocked();
                 staleFeedEmitted = false;
                 resetLifecycleTimestampsLocked();
                 resetReconnectCircuitLocked();
-                marketFeedClient.connect(false);
-                orderStreamClient.connect(false);
+                connectMarketFeedLocked();
+                connectOrderStreamLocked();
+            }
+        }
+        if (depthClient != null) {
+            depthClient.disconnect();
+            if (!shutdown && !subscriptions.isEmpty()) {
+                connectDepthClientIfNeeded();
             }
         }
     }
 
-    private void wireListeners(MarketFeedClient marketFeedClient, OrderStreamClient orderStreamClient) {
-        marketFeedClient.addListener(new MarketFeedListener() {
+    private void wireListeners(
+            DhanMarketFeedWebSocketClient marketFeedClient,
+            DhanOrderStreamWebSocketClient orderStreamClient
+    ) {
+        marketFeedClient.addListener(new DhanMarketFeedWebSocketClient.Listener() {
             @Override
             public void onConnected() {
                 connected = true;
@@ -254,16 +299,6 @@ public final class DhanWebSocketMultiplexer implements WebSocketMultiplexer {
                 staleFeedEmitted = false;
                 scheduleResubscribe();
                 publishMarket(healthEvent("dhan", "CONNECTED", 0));
-            }
-
-            @Override
-            public void onReconnected() {
-                connected = true;
-                lastMarketEventAtMs = System.currentTimeMillis();
-                lastTokenCheckAtMs = lastMarketEventAtMs;
-                staleFeedEmitted = false;
-                scheduleResubscribe();
-                publishMarket(healthEvent("dhan", "RECONNECTED", 0));
             }
 
             @Override
@@ -283,40 +318,15 @@ public final class DhanWebSocketMultiplexer implements WebSocketMultiplexer {
             }
 
             @Override
-            public void onTickerData(TickerData data) {
-                handleMarketPayload(data, FeedMode.TICKER);
-            }
-
-            @Override
-            public void onQuoteData(QuoteData data) {
-                handleMarketPayload(data, FeedMode.QUOTE);
-            }
-
-            @Override
-            public void onFullData(FullData data) {
-                handleMarketPayload(data, FeedMode.FULL);
-            }
-
-            @Override
-            public void onIndexData(IndexData data) {
-                handleMarketPayload(data, FeedMode.TICKER);
-            }
-
-            @Override
-            public void onReconnecting(int attempt, long delayMs) {
-                publishMarket(healthEvent("dhan", "RECONNECTING", attempt));
+            public void onPacket(DhanMarketFeedPacket packet, FeedMode feedMode) {
+                handleFeedPacket(packet, feedMode);
             }
         });
 
-        orderStreamClient.addListener(new OrderStreamListener() {
+        orderStreamClient.addListener(new DhanOrderStreamWebSocketClient.Listener() {
             @Override
             public void onConnected() {
                 publishOrder(healthEvent("dhan-order", "CONNECTED", 0));
-            }
-
-            @Override
-            public void onReconnected() {
-                publishOrder(healthEvent("dhan-order", "RECONNECTED", 0));
             }
 
             @Override
@@ -334,59 +344,21 @@ public final class DhanWebSocketMultiplexer implements WebSocketMultiplexer {
             }
 
             @Override
-            public void onOrderUpdate(OrderUpdate update) {
-                try {
-                    DhanSdkResponse<?> response = new DhanSdkResponse<>(update);
-                    DhanInstrumentDefinition definition = lookupDefinition(response);
-                    Order order = normalizer.normalizeOrder(response, definition);
-                    OrderStatus previousStatus = latestOrderStatuses.put(order.orderId(), order.status());
-                    if (order.status().isRejected() && previousStatus != OrderStatus.REJECTED) {
-                        publishOrder(new OrderRejected(metadataFactory.correlated(order.correlationId(), 0), order, order.rejectionReason()));
-                        return;
-                    }
-                    if (previousStatus == null) {
-                        publishOrder(new OrderAccepted(metadataFactory.correlated(order.correlationId(), 0), order));
-                    }
-                    // Emit partial/full fill events when the order update itself
-                    // signals a fill transition (DW-03 fix).
-                    if (order.status() == OrderStatus.PART_TRADED && previousStatus != OrderStatus.PART_TRADED) {
-                        publishOrder(new com.tradej.core.domain.event.OrderPartiallyFilled(
-                                metadataFactory.correlated(order.correlationId(), 0), order, List.of()));
-                    } else if (order.status() == OrderStatus.TRADED && previousStatus != OrderStatus.TRADED) {
-                        publishOrder(new com.tradej.core.domain.event.OrderFullyFilled(
-                                metadataFactory.correlated(order.correlationId(), 0), order, List.of()));
-                    }
-                } catch (RuntimeException ex) {
-                    publishOrder(brokerError("order-normalization", ex.getMessage()));
-                }
+            public void onOrderUpdate(JsonNode update) {
+                handleOrderPayload(update);
             }
 
             @Override
-            public void onTradeUpdate(TradeUpdate update) {
-                try {
-                    DhanSdkResponse<?> response = new DhanSdkResponse<>(update);
-                    DhanInstrumentDefinition definition = lookupDefinition(response);
-                    Trade trade = normalizer.normalizeTrade(response, definition);
-                    Order order = normalizer.normalizeOrder(response, definition);
-                    latestOrderStatuses.put(order.orderId(), order.status());
-                    publishOrder(new OrderFilled(metadataFactory.correlated(order.correlationId(), 0), order, List.of(trade)));
-                } catch (RuntimeException ex) {
-                    publishOrder(brokerError("trade-normalization", ex.getMessage()));
-                }
-            }
-
-            @Override
-            public void onReconnecting(int attempt, long delayMs) {
-                publishOrder(healthEvent("dhan-order", "RECONNECTING", attempt));
+            public void onTradeUpdate(JsonNode update) {
+                handleTradePayload(update);
             }
         });
     }
 
-    private void handleMarketPayload(Object source, FeedMode feedMode) {
+    private void handleFeedPacket(DhanMarketFeedPacket packet, FeedMode feedMode) {
         try {
-            DhanSdkResponse<?> response = new DhanSdkResponse<>(source);
-            DhanInstrumentDefinition definition = lookupDefinition(response);
-            MarketTickEvent tick = normalizer.normalizeToMarketTick(response, definition, feedMode);
+            DhanInstrumentDefinition definition = resolver.requireSecurityId(packet.securityId());
+            MarketTickEvent tick = normalizer.normalizeFeedPacket(packet, definition, feedMode);
             lastMarketEventAtMs = System.currentTimeMillis();
             staleFeedEmitted = false;
             publishMarket(tick);
@@ -395,37 +367,71 @@ public final class DhanWebSocketMultiplexer implements WebSocketMultiplexer {
         }
     }
 
-    private DhanInstrumentDefinition lookupDefinition(DhanSdkResponse<?> source) {
-        return resolver.resolveDhanPayload(source);
+    private void handleOrderPayload(JsonNode update) {
+        try {
+            DhanJsonResponse response = new DhanJsonResponse(update);
+            DhanInstrumentDefinition definition = resolver.resolveDhanPayload(update);
+            Order order = normalizer.normalizeOrder(response, definition);
+            OrderStatus previousStatus = latestOrderStatuses.put(order.orderId(), order.status());
+            if (order.status().isRejected() && previousStatus != OrderStatus.REJECTED) {
+                publishOrder(new OrderRejected(metadataFactory.correlated(order.correlationId(), 0), order, order.rejectionReason()));
+                return;
+            }
+            if (previousStatus == null) {
+                publishOrder(new OrderAccepted(metadataFactory.correlated(order.correlationId(), 0), order));
+            }
+            if (order.status() == OrderStatus.PART_TRADED && previousStatus != OrderStatus.PART_TRADED) {
+                publishOrder(new com.tradej.core.domain.event.OrderPartiallyFilled(
+                        metadataFactory.correlated(order.correlationId(), 0), order, List.of()));
+            } else if (order.status() == OrderStatus.TRADED && previousStatus != OrderStatus.TRADED) {
+                publishOrder(new com.tradej.core.domain.event.OrderFullyFilled(
+                        metadataFactory.correlated(order.correlationId(), 0), order, List.of()));
+            }
+        } catch (RuntimeException ex) {
+            publishOrder(brokerError("order-normalization", ex.getMessage()));
+        }
     }
 
-    private io.github.sonicalgo.dhan.websocket.marketFeed.Instrument toSdkInstrument(MarketSubscriptionRequest request) {
+    private void handleTradePayload(JsonNode update) {
+        try {
+            DhanJsonResponse response = new DhanJsonResponse(update);
+            DhanInstrumentDefinition definition = resolver.resolveDhanPayload(update);
+            Trade trade = normalizer.normalizeTrade(response, definition);
+            Order order = normalizer.normalizeOrder(response, definition);
+            latestOrderStatuses.put(order.orderId(), order.status());
+            publishOrder(new OrderFilled(metadataFactory.correlated(order.correlationId(), 0), order, List.of(trade)));
+        } catch (RuntimeException ex) {
+            publishOrder(brokerError("trade-normalization", ex.getMessage()));
+        }
+    }
+
+    private DhanMarketFeedWebSocketClient.SubscriptionKey toFeedKey(MarketSubscriptionRequest request) {
         DhanInstrumentDefinition definition = resolver.requireDhanDefinition(request.symbol(), request.exchangeSegment());
-        return new io.github.sonicalgo.dhan.websocket.marketFeed.Instrument(
-                DhanSdkConverters.segment(definition.exchangeSegment()),
-                definition.securityId()
-        );
-    }
-
-    private io.github.sonicalgo.dhan.websocket.marketFeed.FeedMode toSdkFeedMode(FeedMode feedMode) {
-        return switch (feedMode) {
-            case TICKER -> io.github.sonicalgo.dhan.websocket.marketFeed.FeedMode.TICKER;
-            case QUOTE, DEPTH_20 -> io.github.sonicalgo.dhan.websocket.marketFeed.FeedMode.QUOTE;
-            case FULL -> io.github.sonicalgo.dhan.websocket.marketFeed.FeedMode.FULL;
-            case DEPTH_200 -> throw new IllegalArgumentException("Dhan does not expose DEPTH_200 over the configured market feed transport");
-        };
+        return new DhanMarketFeedWebSocketClient.SubscriptionKey(definition.exchangeSegment(), definition.securityId());
     }
 
     private void resubscribeAll() {
-        subscriptions.entrySet().stream()
-                .collect(Collectors.groupingBy(Map.Entry::getValue))
-                .forEach((feedMode, grouped) -> subscribe(grouped.stream().map(Map.Entry::getKey).toList(), feedMode));
+        Map<FeedMode, List<MarketSubscriptionRequest>> grouped = subscriptions.entrySet().stream()
+                .collect(Collectors.groupingBy(
+                        Map.Entry::getValue,
+                        Collectors.mapping(Map.Entry::getKey, Collectors.toList())
+                ));
+        grouped.forEach((feedMode, requests) -> subscribe(requests, feedMode));
     }
 
-    /**
-     * Schedules resubscribe on a separate thread to avoid deadlock when the
-     * SDK invokes onConnected synchronously while the caller holds transportLock.
-     */
+    private void connectDepthClientIfNeeded() {
+        if (depthClient == null || shutdown) {
+            return;
+        }
+        if (!subscriptions.containsValue(FeedMode.DEPTH_20)) {
+            return;
+        }
+        if (!depthClient.isConnected()) {
+            depthClient.connect();
+            depthClient.resubscribeAll();
+        }
+    }
+
     private void scheduleResubscribe() {
         reconnectScheduler.schedule(() -> {
             synchronized (transportLock) {
@@ -443,7 +449,7 @@ public final class DhanWebSocketMultiplexer implements WebSocketMultiplexer {
         long now = System.currentTimeMillis();
         if (now - lastTokenCheckAtMs >= TOKEN_CHECK_INTERVAL_MS) {
             try {
-                clientHolder.client();
+                clientHolder.ensureValidToken();
             } catch (RuntimeException ex) {
                 publishMarket(brokerError("token-refresh", ex.getMessage()));
             } finally {
@@ -482,20 +488,19 @@ public final class DhanWebSocketMultiplexer implements WebSocketMultiplexer {
                 publishMarket(healthEvent("dhan", "CIRCUIT_OPEN", reconnectAttempts));
                 return;
             }
-            delayMs = DhanBackoffUtil.computeDelayMs(
+            delayMs = BackoffStrategy.computeDelayMs(
                     reconnectAttempts,
                     DhanProtocolConstants.WS_RECONNECT_BASE_DELAY_MS,
                     DhanProtocolConstants.WS_RECONNECT_MAX_DELAY_MS
             );
             closeClientsLocked();
             try {
-                bindClientsLocked(clientHolder.client());
+                bindClientsLocked();
             } catch (RuntimeException ex) {
                 publishMarket(brokerError("client-rebuild", ex.getMessage()));
                 return;
             }
         }
-        // Schedule the connect on a dedicated thread instead of blocking the health monitor
         reconnectScheduler.schedule(this::executeReconnect, delayMs, TimeUnit.MILLISECONDS);
     }
 
@@ -505,8 +510,29 @@ public final class DhanWebSocketMultiplexer implements WebSocketMultiplexer {
                 return;
             }
             resetLifecycleTimestampsLocked();
-            marketFeedClient.connect(false);
-            orderStreamClient.connect(false);
+            connectMarketFeedLocked();
+            connectOrderStreamLocked();
+        }
+    }
+
+    private void connectMarketFeedLocked() {
+        try {
+            marketFeedClient.connect();
+        } catch (RuntimeException ex) {
+            connected = false;
+            publishMarket(brokerError("market-transport", ex.getMessage()));
+            publishMarket(healthEvent("dhan", "ERROR", 0));
+            throw ex;
+        }
+    }
+
+    private void connectOrderStreamLocked() {
+        try {
+            orderStreamClient.connect();
+        } catch (RuntimeException ex) {
+            log.warn("Dhan order stream connect failed: {}", ex.getMessage());
+            publishOrder(brokerError("order-transport", ex.getMessage()));
+            publishOrder(healthEvent("dhan-order", "ERROR", 0));
         }
     }
 
@@ -521,7 +547,19 @@ public final class DhanWebSocketMultiplexer implements WebSocketMultiplexer {
         circuitOpenUntilMs = 0L;
     }
 
+    private StreamHealthChanged healthEvent(String stream, String status, int detail) {
+        return new StreamHealthChanged(metadataFactory.root(), stream, status, detail);
+    }
+
+    private BrokerAdapterError brokerError(String source, String message) {
+        return new BrokerAdapterError(metadataFactory.root(), "dhan", source, message);
+    }
+
     private void publishMarket(DomainEvent event) {
+        if (event instanceof DepthUpdateEvent || event instanceof MarketTickEvent) {
+            lastMarketEventAtMs = System.currentTimeMillis();
+            staleFeedEmitted = false;
+        }
         marketListeners.forEach(listener -> listener.onEvent(event));
     }
 

@@ -10,7 +10,7 @@ import com.tradej.broker.core.rate.RateLimitConfig;
 import com.tradej.broker.core.resilience.CircuitBreaker;
 import com.tradej.broker.upstox.expired.UpstoxExpiredOptionMapper;
 import com.tradej.broker.upstox.expired.UpstoxExpiredOptionService;
-import com.tradej.broker.upstox.resilience.UpstoxResilienceExecutor;
+import com.tradej.broker.upstox.resilience.UpstoxRetryExecutor;
 import com.tradej.broker.upstox.rest.UpstoxExpiredInstrumentRestClient;
 import com.tradej.broker.upstox.UpstoxBrokerConnection;
 import com.tradej.broker.upstox.adapter.UpstoxFuturesProvider;
@@ -20,7 +20,6 @@ import com.tradej.broker.upstox.adapter.UpstoxOptionsProvider;
 import com.tradej.broker.upstox.adapter.UpstoxOrderCommandAdapter;
 import com.tradej.broker.upstox.adapter.UpstoxOrderQueryAdapter;
 import com.tradej.broker.upstox.adapter.UpstoxPortfolioProvider;
-import com.tradej.broker.upstox.adapter.UpstoxUnsupportedPorts;
 import com.tradej.broker.upstox.auth.UpstoxAnalyticsTokenHolder;
 import com.tradej.broker.upstox.auth.UpstoxBearerTokenSource;
 import com.tradej.broker.upstox.auth.UpstoxOAuthClient;
@@ -41,9 +40,11 @@ import com.tradej.broker.upstox.rest.UpstoxPortfolioRestClient;
 import com.tradej.broker.upstox.websocket.UpstoxFeedAuthorizer;
 import com.tradej.broker.upstox.websocket.UpstoxStreamNormalizer;
 import com.tradej.broker.upstox.websocket.UpstoxWebSocketMultiplexer;
+import com.tradej.broker.core.reconnect.ReconnectListenerRegistry;
 import com.tradej.core.domain.event.EventMetadataFactory;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -58,7 +59,7 @@ import java.util.Map;
  * Activated when {@code trade.broker-type=upstox}.
  */
 @Configuration
-@ConditionalOnProperty(name = "trade.broker-type", havingValue = "upstox")
+@ConditionalOnExpression("'${trade.broker-type:}' == 'upstox'")
 public class UpstoxConfiguration {
 
     @Bean
@@ -74,6 +75,7 @@ public class UpstoxConfiguration {
                 cfg.accessToken(),
                 cfg.refreshToken(),
                 cfg.analyticsToken(),
+                cfg.extendedToken(),
                 cfg.analyticsOnly(),
                 cfg.sandbox(),
                 cfg.redirectServerPort(),
@@ -114,6 +116,7 @@ public class UpstoxConfiguration {
     }
 
     @Bean
+    @Primary
     UpstoxHttpClient upstoxAuthenticatedHttpClient(
             HttpClient upstoxJavaHttpClient,
             UpstoxBearerTokenSource tokenSource,
@@ -123,6 +126,16 @@ public class UpstoxConfiguration {
                 ? UpstoxApiEnvironment.SANDBOX.baseUrl()
                 : UpstoxApiEnvironment.LIVE.baseUrl();
         return new UpstoxHttpClient(upstoxJavaHttpClient, tokenSource, baseUrl);
+    }
+
+    /**
+     * Upstox Extended Token holder (1-year validity, read-only).
+     * Used when trade.upstox.extendedToken is configured.
+     */
+    @Bean
+    @ConditionalOnProperty(name = "trade.upstox.extendedToken", havingValue = "", matchIfMissing = false)
+    UpstoxBearerTokenSource upstoxExtendedTokenHolder(UpstoxConnectionSettings settings) {
+        return UpstoxTokenManager.createExtendedTokenHolder(settings.extendedToken());
     }
 
     /**
@@ -174,13 +187,17 @@ public class UpstoxConfiguration {
 
     @Bean
     MultiBucketRateLimiter upstoxRateLimiter() {
+        // Aligned with Upstox official rate limits:
+        // Order Placement (regular algo): 10 req/s, 500/min, 2000/30min
+        // Standard APIs (data, quotes, etc.): 50 req/s, 500/min, 2000/30min
+        // Using per-second limits with burst capacity
         return new MultiBucketRateLimiter(Map.of(
                 "ORDER", new RateLimitConfig("ORDER", 10.0, 10),
-                "DATA", new RateLimitConfig("DATA", 5.0, 3),
-                "QUOTE", new RateLimitConfig("QUOTE", 5.0, 3),
-                "OPTION_CHAIN", new RateLimitConfig("OPTION_CHAIN", 3.0, 2),
-                "EXPIRED_INSTRUMENT", new RateLimitConfig("EXPIRED_INSTRUMENT", 3.0, 2),
-                "NON_TRADING", new RateLimitConfig("NON_TRADING", 10.0, 15)
+                "DATA", new RateLimitConfig("DATA", 50.0, 50),
+                "QUOTE", new RateLimitConfig("QUOTE", 50.0, 50),
+                "OPTION_CHAIN", new RateLimitConfig("OPTION_CHAIN", 50.0, 50),
+                "EXPIRED_INSTRUMENT", new RateLimitConfig("EXPIRED_INSTRUMENT", 50.0, 50),
+                "NON_TRADING", new RateLimitConfig("NON_TRADING", 50.0, 50)
         ));
     }
 
@@ -190,11 +207,11 @@ public class UpstoxConfiguration {
     }
 
     @Bean
-    UpstoxResilienceExecutor upstoxResilienceExecutor(
+    UpstoxRetryExecutor upstoxRetryExecutor(
             MultiBucketRateLimiter upstoxRateLimiter,
             CircuitBreaker upstoxCircuitBreaker
     ) {
-        return new UpstoxResilienceExecutor(upstoxRateLimiter, upstoxCircuitBreaker);
+        return new UpstoxRetryExecutor(upstoxRateLimiter, upstoxCircuitBreaker);
     }
 
     @Bean
@@ -210,9 +227,9 @@ public class UpstoxConfiguration {
     @Bean
     UpstoxHistoricalDataRestClient upstoxHistoricalDataRestClient(
             UpstoxJsonHttpClient upstoxJsonHttpClient,
-            UpstoxResilienceExecutor upstoxResilienceExecutor
+            UpstoxRetryExecutor upstoxRetryExecutor
     ) {
-        return new UpstoxHistoricalDataRestClient(upstoxJsonHttpClient, upstoxResilienceExecutor);
+        return new UpstoxHistoricalDataRestClient(upstoxJsonHttpClient, upstoxRetryExecutor);
     }
 
     @Bean
@@ -233,11 +250,11 @@ public class UpstoxConfiguration {
     @Bean
     UpstoxExpiredInstrumentRestClient upstoxExpiredInstrumentRestClient(
             UpstoxJsonHttpClient upstoxExpiredInstrumentJsonHttpClient,
-            UpstoxResilienceExecutor upstoxResilienceExecutor
+            UpstoxRetryExecutor upstoxRetryExecutor
     ) {
         return new UpstoxExpiredInstrumentRestClient(
                 upstoxExpiredInstrumentJsonHttpClient,
-                upstoxResilienceExecutor);
+                upstoxRetryExecutor);
     }
 
     @Bean
@@ -291,10 +308,12 @@ public class UpstoxConfiguration {
             UpstoxFeedAuthorizer feedAuthorizer,
             UpstoxStreamNormalizer streamNormalizer,
             UpstoxInstrumentResolver instrumentResolver,
-            EventMetadataFactory metadataFactory
+            EventMetadataFactory metadataFactory,
+            ReconnectListenerRegistry reconnectListenerRegistry
     ) {
         return new UpstoxWebSocketMultiplexer(
-                feedAuthorizer, streamNormalizer, instrumentResolver, metadataFactory);
+                feedAuthorizer, streamNormalizer, instrumentResolver, metadataFactory,
+                reconnectListenerRegistry);
     }
 
     // ─── Domain adapters ─────────────────────────────────────────────────
@@ -325,7 +344,15 @@ public class UpstoxConfiguration {
     @Bean
     @ConditionalOnProperty(name = "trade.upstox.analytics-only", havingValue = "true")
     com.tradej.broker.api.port.OrderCommand upstoxAnalyticsOrderCommand() {
-        return UpstoxUnsupportedPorts.ORDERS;
+        return new com.tradej.broker.api.port.OrderCommand() {
+            @Override public com.tradej.core.domain.model.Order placeOrder(com.tradej.core.domain.model.OrderRequest request) { throw new UnsupportedOperationException(); }
+            @Override public com.tradej.core.domain.model.Order modifyOrder(com.tradej.core.domain.model.ModifyOrderRequest request) { throw new UnsupportedOperationException(); }
+            @Override public com.tradej.core.domain.model.OrderPreview previewOrder(com.tradej.core.domain.model.OrderRequest request) { throw new UnsupportedOperationException(); }
+            @Override public boolean cancelOrder(String orderId) { throw new UnsupportedOperationException(); }
+            @Override public java.util.List<String> cancelAllOpenOrders() { throw new UnsupportedOperationException(); }
+            @Override public java.util.List<String> cancelAndSquareOffIntradayPositions() { throw new UnsupportedOperationException(); }
+            @Override public boolean setKillSwitch(boolean enabled) { throw new UnsupportedOperationException(); }
+        };
     }
 
     @Bean
@@ -340,7 +367,14 @@ public class UpstoxConfiguration {
     @Bean
     @ConditionalOnProperty(name = "trade.upstox.analytics-only", havingValue = "true")
     com.tradej.broker.api.port.OrderQuery upstoxAnalyticsOrderQuery() {
-        return UpstoxUnsupportedPorts.ORDER_QUERY;
+        return new com.tradej.broker.api.port.OrderQuery() {
+            @Override public com.tradej.core.domain.model.Order getOrder(String orderId) { throw new UnsupportedOperationException(); }
+            @Override public java.util.List<com.tradej.core.domain.model.Order> getOrderBook() { throw new UnsupportedOperationException(); }
+            @Override public java.util.List<com.tradej.core.domain.model.Trade> getTradeBook() { throw new UnsupportedOperationException(); }
+            @Override public com.tradej.core.domain.value.OrderStatus getOrderStatus(String orderId) { throw new UnsupportedOperationException(); }
+            @Override public java.util.OptionalLong getExecutedPricePaisa(String orderId) { throw new UnsupportedOperationException(); }
+            @Override public java.util.OptionalLong getExchangeTimeMs(String orderId) { throw new UnsupportedOperationException(); }
+        };
     }
 
     @Bean
@@ -354,7 +388,11 @@ public class UpstoxConfiguration {
     @Bean
     @ConditionalOnProperty(name = "trade.upstox.analytics-only", havingValue = "true")
     com.tradej.broker.api.port.PortfolioProvider upstoxAnalyticsPortfolioProvider() {
-        return UpstoxUnsupportedPorts.PORTFOLIO;
+        return new com.tradej.broker.api.port.PortfolioProvider() {
+            @Override public java.util.List<com.tradej.core.domain.model.Position> getPositions() { throw new UnsupportedOperationException(); }
+            @Override public java.util.List<com.tradej.core.domain.model.Holding> getHoldings() { throw new UnsupportedOperationException(); }
+            @Override public com.tradej.core.domain.model.Balance getBalance() { throw new UnsupportedOperationException(); }
+        };
     }
 
     @Bean
@@ -368,7 +406,9 @@ public class UpstoxConfiguration {
     @Bean
     @ConditionalOnProperty(name = "trade.upstox.analytics-only", havingValue = "true")
     com.tradej.broker.api.port.MarginProvider upstoxAnalyticsMarginProvider() {
-        return UpstoxUnsupportedPorts.MARGIN;
+        return (order) -> {
+            throw new UnsupportedOperationException("Margin estimation not supported in Upstox analytics-only mode");
+        };
     }
 
     @Bean
@@ -387,6 +427,22 @@ public class UpstoxConfiguration {
     }
 
     @Bean
+    @ConditionalOnProperty(name = "trade.upstox.analytics-only", havingValue = "false", matchIfMissing = false)
+    com.tradej.broker.api.port.NewsProvider upstoxNewsProvider(
+            UpstoxJsonHttpClient upstoxJsonHttpClient
+    ) {
+        return new com.tradej.broker.upstox.adapter.UpstoxNewsProvider(new com.tradej.broker.upstox.rest.UpstoxNewsRestClient(upstoxJsonHttpClient));
+    }
+
+    @Bean
+    @ConditionalOnProperty(name = "trade.upstox.analytics-only", havingValue = "true")
+    com.tradej.broker.api.port.NewsProvider upstoxAnalyticsNewsProvider(
+            UpstoxJsonHttpClient upstoxJsonHttpClient
+    ) {
+        return new com.tradej.broker.upstox.adapter.UpstoxNewsProvider(new com.tradej.broker.upstox.rest.UpstoxNewsRestClient(upstoxJsonHttpClient));
+    }
+
+    @Bean
     IBrokerConnection upstoxBrokerConnection(
             com.tradej.broker.api.port.MarketDataProvider marketDataProvider,
             com.tradej.broker.api.port.OrderCommand orderCommand,
@@ -397,13 +453,14 @@ public class UpstoxConfiguration {
             UpstoxWebSocketMultiplexer webSocketMultiplexer,
             com.tradej.broker.api.port.FuturesProvider futuresProvider,
             com.tradej.broker.api.port.OptionsProvider optionsProvider,
+            com.tradej.broker.api.port.NewsProvider newsProvider,
             UpstoxInstrumentLoader instrumentLoader
     ) {
         return new UpstoxBrokerConnection(
                 marketDataProvider, orderCommand, orderQuery,
                 portfolioProvider, marginProvider, instrumentResolver,
                 webSocketMultiplexer, futuresProvider, optionsProvider,
-                instrumentLoader
+                newsProvider, instrumentLoader
         );
     }
 

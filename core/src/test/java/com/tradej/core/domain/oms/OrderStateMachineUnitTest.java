@@ -208,6 +208,28 @@ class OrderStateMachineUnitTest {
         assertEquals(150_50L, oms.averagePricePaisa());
     }
 
+    @Test
+    void cumulativeFullyFilledWithNoAdditionalQtyPreservesVwap() {
+        OrderStateMachine oms = machineInState(LifecycleState.PARTIALLY_FILLED);
+        oms.on(OrderPartiallyFilled.event(ORDER_ID, 75, 152_00L));
+        assertEquals(TOTAL_QTY, oms.filledQuantity());
+        long vwapBeforeTerminal = oms.averagePricePaisa();
+
+        oms.on(OrderFullyFilled.event(ORDER_ID, TOTAL_QTY, 999_00L));
+        assertEquals(TOTAL_QTY, oms.filledQuantity());
+        assertEquals(vwapBeforeTerminal, oms.averagePricePaisa());
+    }
+
+    @Test
+    void cumulativeFullyFilledDoesNotShrinkFilledQuantity() {
+        OrderStateMachine oms = machineInState(LifecycleState.PARTIALLY_FILLED);
+        oms.on(OrderPartiallyFilled.event(ORDER_ID, 60, 150_00L));
+        assertEquals(85, oms.filledQuantity());
+
+        oms.on(OrderFullyFilled.event(ORDER_ID, 50, 140_00L));
+        assertEquals(85, oms.filledQuantity());
+    }
+
     // ── replay() static factory ─────────────────────────────────────────────
 
     @Test

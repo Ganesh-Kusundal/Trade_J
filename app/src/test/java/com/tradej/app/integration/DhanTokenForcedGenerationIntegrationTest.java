@@ -46,7 +46,9 @@ class DhanTokenForcedGenerationIntegrationTest {
         base.pinFile(),
         base.totpSecretFile(),
         tokenStateFile,
-        base.refreshBufferMinutes()
+        base.refreshBufferMinutes(),
+        null,  // depthWsUrl - will use default
+        false  // killSwitchTestEnabled - default
     );
 
     DhanTokenManager manager = new DhanTokenManager(settings);

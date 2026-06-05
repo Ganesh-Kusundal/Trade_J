@@ -11,6 +11,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 @Tag("integration")
+@Tag("integration")
 @Tag("upstox-preflight")
 class UpstoxRegressionPreflightIntegrationTest {
 

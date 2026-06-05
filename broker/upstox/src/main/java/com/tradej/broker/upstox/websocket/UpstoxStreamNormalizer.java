@@ -53,6 +53,6 @@ public final class UpstoxStreamNormalizer {
                 frame.volume(),
                 frame.exchangeTimestampMs(),
                 Optional.ofNullable(depth)
-        );
+        , 0L, 0L);
     }
 }

@@ -22,4 +22,9 @@ public record DepthUpdateEvent(
         bids = List.copyOf(bids);
         asks = List.copyOf(asks);
     }
+
+    @Override
+    public void accept(DomainEventVisitor visitor) {
+        visitor.visit(this);
+    }
 }

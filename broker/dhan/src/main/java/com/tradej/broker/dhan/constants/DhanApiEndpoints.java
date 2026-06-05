@@ -46,8 +46,32 @@ public final class DhanApiEndpoints {
     /** Conditional alert order endpoint base. */
     public static final String ALERT_ORDERS_URL = BASE_URL + "/alerts/orders";
 
-    /** Instrument master CSV download URL (hosted on Dhan images CDN). */
-    public static final String INSTRUMENT_MASTER_URL = "https://images.dhan.co/api-data/api-scrip-master.csv";
+/** Instrument master CSV download URL (hosted on Dhan images CDN). */
+  public static final String INSTRUMENT_MASTER_URL = "https://images.dhan.co/api-data/api-scrip-master.csv";
+
+  /** Market quote ticker (LTP) endpoint. */
+  public static final String TICKER_DATA_URL = BASE_URL + "/marketfeed/ltp";
+
+  /** Market quote OHLC endpoint. */
+  public static final String OHLC_DATA_URL = BASE_URL + "/marketfeed/ohlc";
+
+  /** Market quote full snapshot endpoint. */
+  public static final String QUOTE_DATA_URL = BASE_URL + "/marketfeed/quote";
+
+  /** Default market feed WebSocket URL. */
+  public static final String MARKET_FEED_WS_URL = "wss://api-feed.dhan.co";
+
+  /** Default order update WebSocket URL. */
+  public static final String ORDER_UPDATE_WS_URL = "wss://api-order-update.dhan.co";
+
+  /** Positions endpoint. */
+  public static final String POSITIONS_URL = BASE_URL + "/positions";
+
+  /** Holdings endpoint. */
+  public static final String HOLDINGS_URL = BASE_URL + "/holdings";
+
+  /** Funds endpoint. */
+  public static final String FUNDS_URL = BASE_URL + "/funds";
 
     // ---- HTTP header names ----
 

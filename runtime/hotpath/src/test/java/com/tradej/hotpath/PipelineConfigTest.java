@@ -47,7 +47,7 @@ class PipelineConfigTest {
 
     private PositionRiskHandler createRiskHandler() {
         return new PositionRiskHandler(
-                new RiskLimits(50_000L, 3, 500_000L, 3),
+                RiskLimits.withOpenPositionQuantity(50_000L, 3, 500_000L, 3),
                 Map::of
         );
     }
@@ -63,6 +63,7 @@ class PipelineConfigTest {
                 @Override public List<String> cancelAllOpenOrders() { return List.of(); }
                 @Override public List<String> cancelAndSquareOffIntradayPositions() { return List.of(); }
                 @Override public boolean setKillSwitch(boolean enabled) { return false; }
+                @Override public com.tradej.core.domain.model.OrderPreview previewOrder(com.tradej.core.domain.model.OrderRequest request) { return null; }
             }; }
             @Override public MarketDataProvider marketData() { return null; }
             @Override public FuturesProvider futures() { return null; }
@@ -80,6 +81,7 @@ class PipelineConfigTest {
             @Override public void connect() {}
             @Override public void disconnect() {}
             @Override public void loadInstrumentCatalog(Path catalogPath) {}
+            @Override public <T> java.util.Optional<T> getCapability(Class<T> capabilityClass) { return java.util.Optional.empty(); }
         };
         OrderManagementService omsService = new OrderManagementService(
                 broker,
@@ -88,7 +90,35 @@ class PipelineConfigTest {
                 oms
         );
         var runtimeModeHolder = new com.tradej.core.domain.runtime.RuntimeModeHolder();
-        return new ExecutionHandler(omsService, runtimeModeHolder, breaker, new OrderIdentityRegistry(), com.tradej.core.domain.port.DeadLetterQueue.noop());
+        return new ExecutionHandler(omsService, runtimeModeHolder, new LiveTradingClock(), breaker, new OrderIdentityRegistry(), com.tradej.core.domain.port.DeadLetterQueue.noop());
+    }
+
+    private com.tradej.pipeline.runtime.PipelineRuntimeBridge testBridge(
+            PositionRiskHandler riskHandler,
+            ExecutionHandler executionHandler
+    ) {
+        return new com.tradej.disruptor.testsupport.TestPipelineGraphBridge(riskHandler, executionHandler);
+    }
+
+    private PipelineConfig.PipelineComponents createWithTestBridge(
+            PositionRiskHandler riskHandler,
+            CandleAggregationService candleService,
+            StrategyEngine strategyEngine,
+            ExecutionHandler executionHandler,
+            PortfolioEngine portfolioEngine
+    ) {
+        return PipelineConfig.create(
+                1,
+                riskHandler,
+                candleService,
+                strategyEngine,
+                executionHandler,
+                portfolioEngine,
+                com.tradej.disruptor.config.StageTimings.NO_OP,
+                null,
+                com.tradej.core.domain.port.DeadLetterQueue.noop(),
+                testBridge(riskHandler, executionHandler)
+        );
     }
 
     private EventMetadataFactory eventMetadataFactory() {
@@ -97,11 +127,13 @@ class PipelineConfigTest {
 
     @Test
     void createReturnsAllComponents() {
-        PipelineComponents components = PipelineConfig.create(
-                createRiskHandler(),
+        var risk = createRiskHandler();
+        var exec = createExecutionHandler();
+        PipelineComponents components = createWithTestBridge(
+                risk,
                 new CandleAggregationService(),
                 new StrategyEngine(List.of(), eventMetadataFactory()),
-                createExecutionHandler(),
+                exec,
                 new PortfolioEngine()
         );
         assertNotNull(components);
@@ -112,11 +144,13 @@ class PipelineConfigTest {
 
     @Test
     void createWithNullPortfolioEngine() {
-        PipelineComponents components = PipelineConfig.create(
-                createRiskHandler(),
+        var risk = createRiskHandler();
+        var exec = createExecutionHandler();
+        PipelineComponents components = createWithTestBridge(
+                risk,
                 new CandleAggregationService(),
                 new StrategyEngine(List.of(), eventMetadataFactory()),
-                createExecutionHandler(),
+                exec,
                 null
         );
         assertNotNull(components);
@@ -125,11 +159,13 @@ class PipelineConfigTest {
 
     @Test
     void eventBusCanPublishEvents() {
-        PipelineComponents components = PipelineConfig.create(
-                createRiskHandler(),
+        var risk = createRiskHandler();
+        var exec = createExecutionHandler();
+        PipelineComponents components = createWithTestBridge(
+                risk,
                 new CandleAggregationService(),
                 new StrategyEngine(List.of(), eventMetadataFactory()),
-                createExecutionHandler(),
+                exec,
                 null
         );
         var eventBus = components.eventBus();

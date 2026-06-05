@@ -6,4 +6,9 @@ public record StreamHealthChanged(
         String status,
         int reconnectAttempt
 ) implements DomainEvent {
+
+    @Override
+    public void accept(DomainEventVisitor visitor) {
+        visitor.visit(this);
+    }
 }

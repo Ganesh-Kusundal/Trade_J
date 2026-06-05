@@ -107,6 +107,11 @@ public final class UpstoxTokenManager extends DefaultTokenLifecycleService imple
 
     private TokenState bootstrapFromConfiguredToken(String accessToken, String refreshToken) {
         long expiry = oauthClient.fetchProfile(accessToken);
+        // Fallback 1: Try to parse JWT exp claim if profile endpoint doesn't return token_expiry
+        if (expiry <= 0) {
+            expiry = UpstoxJwtExpiry.parseExpiryEpochMs(accessToken);
+        }
+        // Fallback 2: Use daily 3:30 AM IST expiry calculation
         if (expiry <= 0) {
             expiry = UpstoxTokenExpiry.nextExpiryEpochMs();
         }
@@ -150,5 +155,55 @@ public final class UpstoxTokenManager extends DefaultTokenLifecycleService imple
                 tokenResp.issuedAtMs(),
                 TokenSource.OAUTH
         );
+    }
+
+    /**
+     * Creates a token holder for Upstox Extended Token (1-year validity, read-only).
+     * Extended tokens are generated from Developer Apps → Analytics tab and
+     * are valid for 1 year or until user revokes access.
+     *
+     * @param extendedToken the extended token from Upstox Developer Apps
+     * @return a token source that doesn't attempt refresh
+     */
+    public static UpstoxBearerTokenSource createExtendedTokenHolder(String extendedToken) {
+        return new UpstoxExtendedTokenHolder(extendedToken);
+    }
+
+    /**
+     * Token holder for Upstox Extended Token (long-lived read-only access).
+     * Valid for 1 year, no refresh capability.
+     */
+    public static final class UpstoxExtendedTokenHolder implements UpstoxBearerTokenSource {
+        private final String token;
+        private final long expiryEpochMs;
+
+        public UpstoxExtendedTokenHolder(String extendedToken) {
+            this.token = extendedToken;
+            this.expiryEpochMs = UpstoxJwtExpiry.parseExpiryEpochMs(extendedToken);
+        }
+
+        @Override
+        public String bearerToken() {
+            return token;
+        }
+
+        @Override
+        public void ensureValid() {
+            if (expiryEpochMs > 0 && System.currentTimeMillis() >= expiryEpochMs) {
+                throw new IllegalStateException(
+                        "Upstox extended token expired at " + java.time.Instant.ofEpochMilli(expiryEpochMs)
+                                + " — regenerate from Developer Apps → Analytics tab");
+            }
+        }
+
+        @Override
+        public long expiryEpochMs() {
+            return expiryEpochMs;
+        }
+
+        @Override
+        public boolean analyticsOnly() {
+            return true; // Extended tokens are read-only
+        }
     }
 }

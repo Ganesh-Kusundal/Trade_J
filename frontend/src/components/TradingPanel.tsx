@@ -1,17 +1,30 @@
 import {useStudioStore} from '@/store/useStudioStore';
+import {OrderConfirmationModal} from '@/components/OrderConfirmationModal';
+import {DepthLadder} from '@/components/DepthLadder';
 
 export function TradingPanel() {
   const positions = useStudioStore((s) => s.positions);
   const trades = useStudioStore((s) => s.trades);
-  const selectedSymbol = useStudioStore((s) => s.selectedSymbol);
-
-  const placeOrder = (_side: 'BUY' | 'SELL') => {
-    console.log('Order placement via REST API not yet implemented');
-    // TODO: Implement via admin/execution REST endpoints
-  };
+  const marketDepth = useStudioStore((s) => s.marketDepth);
+  const requestOrder = useStudioStore((s) => s.requestOrder);
+  const pendingOrder = useStudioStore((s) => s.pendingOrder);
+  const orderModalOpen = useStudioStore((s) => s.orderModalOpen);
+  const orderSubmitting = useStudioStore((s) => s.orderSubmitting);
+  const killSwitchActive = useStudioStore((s) => s.killSwitchActive);
+  const confirmOrder = useStudioStore((s) => s.confirmOrder);
+  const cancelOrderModal = useStudioStore((s) => s.cancelOrderModal);
 
   return (
     <div className="h-full flex flex-col text-[10px] font-mono">
+      <OrderConfirmationModal
+        open={orderModalOpen}
+        request={pendingOrder}
+        killSwitchActive={killSwitchActive}
+        onConfirm={() => confirmOrder()}
+        onCancel={cancelOrderModal}
+        loading={orderSubmitting}
+      />
+
       <div className="h-8 border-b border-[#1c1c1e] flex items-center px-3 shrink-0">
         <span className="text-[#71717a] font-bold tracking-wider uppercase text-[9px]">Order Entry</span>
       </div>
@@ -19,18 +32,20 @@ export function TradingPanel() {
       <div className="p-3 space-y-3 flex-1 overflow-y-auto">
         <div className="flex gap-2">
           <button
-            onClick={() => placeOrder('BUY')}
+            onClick={() => requestOrder('BUY')}
             className="flex-1 h-8 bg-[#10b981]/20 border border-[#10b981]/40 text-[#10b981] font-bold rounded-xs hover:bg-[#10b981]/30 transition cursor-pointer text-[11px]"
           >
             BUY
           </button>
           <button
-            onClick={() => placeOrder('SELL')}
+            onClick={() => requestOrder('SELL')}
             className="flex-1 h-8 bg-[#ef4444]/20 border border-[#ef4444]/40 text-[#ef4444] font-bold rounded-xs hover:bg-[#ef4444]/30 transition cursor-pointer text-[11px]"
           >
             SELL
           </button>
         </div>
+
+        <DepthLadder depth={marketDepth} />
 
         <div>
           <div className="text-[#71717a] font-semibold uppercase tracking-wider text-[8px] mb-2">Positions</div>

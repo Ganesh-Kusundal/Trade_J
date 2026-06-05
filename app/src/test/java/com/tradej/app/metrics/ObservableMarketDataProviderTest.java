@@ -1,6 +1,7 @@
 package com.tradej.app.metrics;
 
 import com.tradej.broker.api.port.MarketDataProvider;
+import com.tradej.broker.core.observability.ObservableMarketDataProvider;
 import com.tradej.core.domain.model.*;
 import com.tradej.core.domain.value.Exchange;
 import com.tradej.core.domain.value.ExchangeSegment;
@@ -34,13 +35,12 @@ class ObservableMarketDataProviderTest {
     void setUp() {
         delegate = mock(MarketDataProvider.class);
         registry = new SimpleMeterRegistry();
-        observable = new ObservableMarketDataProvider(delegate, registry);
+        observable = new ObservableMarketDataProvider("dhan", delegate, registry);
     }
 
     @Test
     void delegatesGetQuoteAndRecordsMetrics() {
-        Quote expected = new Quote(testInstrument, 750_00L, 751_00L, 749_00L,
-                752_00L, 748_00L, 10000L, 5000L, 3000L, System.currentTimeMillis());
+        Quote expected = new Quote(testInstrument, 750_00L, 751_00L, 749_00L, 752_00L, 748_00L, 10000L, 5000L, 3000L, 0L, System.currentTimeMillis());
         when(delegate.getQuote(testKey)).thenReturn(expected);
 
         Quote result = observable.getQuote(testKey);
@@ -95,7 +95,7 @@ class ObservableMarketDataProviderTest {
 
     @Test
     void delegatesGetOhlcSnapshot() {
-        Quote expected = new Quote(testInstrument, 750_00L, 0, 0, 0, 0, 0, 0, 0, 0);
+        Quote expected = new Quote(testInstrument, 750_00L, 0, 0, 0, 0, 0, 0, 0, 0L, 0);
         when(delegate.getOhlcSnapshot(testKey)).thenReturn(expected);
 
         Quote result = observable.getOhlcSnapshot(testKey);

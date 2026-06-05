@@ -146,9 +146,12 @@ public final class DuckDbFeatureStore implements FeatureStore, AutoCloseable {
                     last_trade_quantity bigint,
                     cumulative_volume bigint,
                     exchange_timestamp_ms bigint,
-                    ingested_at_ms bigint
+                    ingested_at_ms bigint,
+                    exchange_segment varchar,
+                    depth_json varchar
                 )
                 """);
+        migrateFeatureTicksColumns();
         connection.createStatement().execute("""
                 create table if not exists feature_candles (
                     event_id varchar,
@@ -168,27 +171,40 @@ public final class DuckDbFeatureStore implements FeatureStore, AutoCloseable {
                 """);
     }
 
+    private void migrateFeatureTicksColumns() throws SQLException {
+        try {
+            connection.createStatement().execute(
+                    "alter table feature_ticks add column if not exists exchange_segment varchar");
+            connection.createStatement().execute(
+                    "alter table feature_ticks add column if not exists depth_json varchar");
+        } catch (SQLException ignored) {
+            // Legacy table layout without new columns
+        }
+    }
+
     // ── Insert / upsert ──
 
     private void insertMarketTick(MarketTickEvent tick) throws SQLException {
         try (PreparedStatement ps = connection.prepareStatement("""
-                insert into feature_ticks values (?, ?, ?, ?, ?, ?, ?, ?)
+                insert into feature_ticks values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """)) {
             ps.setString(1, tick.eventId());
             ps.setString(2, tick.symbol());
-            ps.setString(3, "");  // MarketTickEvent has no interval; store empty for backward compat
+            ps.setString(3, "");
             ps.setLong(4, tick.ltpPaisa());
             ps.setLong(5, tick.lastTradeQuantity());
             ps.setLong(6, tick.cumulativeVolume());
             ps.setLong(7, tick.exchangeTimestampEpochMs());
             ps.setLong(8, System.currentTimeMillis());
+            ps.setString(9, tick.segment() != null ? tick.segment().name() : null);
+            ps.setString(10, tick.depth().map(d -> "").orElse(null));
             ps.executeUpdate();
         }
     }
 
     private void insertTick(TickReceived tick) throws SQLException {
         try (PreparedStatement ps = connection.prepareStatement("""
-                insert into feature_ticks values (?, ?, ?, ?, ?, ?, ?, ?)
+                insert into feature_ticks values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """)) {
             ps.setString(1, tick.eventId());
             ps.setString(2, tick.symbol());
@@ -198,6 +214,8 @@ public final class DuckDbFeatureStore implements FeatureStore, AutoCloseable {
             ps.setLong(6, tick.cumulativeVolume());
             ps.setLong(7, tick.exchangeTimestampMs());
             ps.setLong(8, System.currentTimeMillis());
+            ps.setString(9, null);
+            ps.setString(10, null);
             ps.executeUpdate();
         }
     }

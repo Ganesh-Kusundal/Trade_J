@@ -17,7 +17,17 @@ public record TokenState(
 
     /** Returns {@code true} if the token should be refreshed soon (within the configured buffer). */
     public boolean refreshRecommended(long bufferMs) {
-        return expiryEpochMs - System.currentTimeMillis() < bufferMs;
+        long remaining = remainingMs();
+        if (remaining <= 0) {
+            return true;
+        }
+        long lifespan = expiryEpochMs - issuedAtEpochMs;
+        if (lifespan > 0 && lifespan <= bufferMs) {
+            // Short-lived tokens (lifespan shorter than refresh buffer) should not
+            // trigger proactive refresh while still valid.
+            return false;
+        }
+        return remaining < bufferMs;
     }
 
     /** Returns milliseconds until expiry (may be negative if already expired). */

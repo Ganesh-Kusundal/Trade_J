@@ -15,35 +15,53 @@ import java.util.Map;
 @FunctionalInterface
 public interface NetPositionProvider {
 
+    record Position(String symbol, long quantity, long averagePricePaisa) {
+        public long notionalValuePaisa(long ltpPaisa) {
+            return Math.abs(quantity) * ltpPaisa;
+        }
+
+        public long unrealizedPnlPaisa(long ltpPaisa) {
+            if (quantity == 0 || averagePricePaisa <= 0) return 0;
+            return (ltpPaisa - averagePricePaisa) * quantity;
+        }
+    }
+
     /**
      * Returns the current expected net positions.
      *
-     * <p>An empty map signals "no expectations" — reconciliation
-     * will not flag broker-held positions as mismatches since there
-     * is no expected quantity to compare against.
-     *
-     * @return unmodifiable map of symbol → expected net quantity
+     * @return unmodifiable map of symbol → expected Position
      */
-    Map<String, Long> getNetPositions();
+    Map<String, Position> getPositions();
 
     /**
-     * Returns the net position for a specific symbol.
+     * Returns the current net quantities (signed).
      *
-     * <p>Delegates to {@link #getNetPositions()} and returns {@code 0}
-     * if the symbol is absent. Implementations may override for efficiency.
-     *
-     * @param symbol the symbol to query (e.g. {@code "SBIN"} or {@code "NSE_EQ::SBIN"})
-     * @return expected net quantity, or {@code 0} if no position is held
+     * @return map of symbol → quantity
+     */
+    default Map<String, Long> getNetPositions() {
+        java.util.Map<String, Long> quantities = new java.util.HashMap<>();
+        getPositions().forEach((s, p) -> quantities.put(s, p.quantity()));
+        return quantities;
+    }
+
+    /**
+     * Returns the position for a specific symbol.
+     */
+    default Position getPosition(String symbol) {
+        return getPositions().getOrDefault(symbol, new Position(symbol, 0, 0));
+    }
+
+    /**
+     * Returns the net quantity for a specific symbol.
      */
     default long getNetPosition(String symbol) {
-        return getNetPositions().getOrDefault(symbol, 0L);
+        return getPosition(symbol).quantity();
     }
 
     /**
      * Returns a {@link NetPositionProvider} that always returns an empty map.
-     * Suitable as a default when no strategy engine is wired.
      */
     static NetPositionProvider empty() {
-        return () -> Collections.emptyMap();
+        return java.util.Collections::emptyMap;
     }
 }

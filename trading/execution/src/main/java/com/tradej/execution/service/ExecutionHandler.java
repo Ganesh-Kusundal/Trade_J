@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import com.tradej.core.domain.event.DomainEvent;
+import com.tradej.core.domain.event.DomainEventVisitor;
 import com.tradej.core.domain.event.EventMetadata;
 import com.tradej.core.domain.event.KillSwitchEngaged;
 import com.tradej.core.domain.event.OrderAccepted;
@@ -51,7 +52,7 @@ import java.util.function.Consumer;
 import java.util.stream.LongStream;
 
 @Service
-public final class ExecutionHandler {
+public final class ExecutionHandler implements com.tradej.core.domain.event.DomainEventVisitor {
     private static final Logger log = LoggerFactory.getLogger(ExecutionHandler.class);
     private static final int MAX_FILL_DEFER_ATTEMPTS = FillReconciliation.MAX_FILL_DEFER_ATTEMPTS;
     private static final long FILL_DEFER_DELAY_MS = FillReconciliation.FILL_DEFER_DELAY_MS;
@@ -193,47 +194,57 @@ public final class ExecutionHandler {
     }
 
     public void onDomainEvent(DomainEvent event, Consumer<DomainEvent> downstream) {
+        this.currentDownstream = downstream;
         MdcHelper.enrich(event, "execution");
         try {
-            if (event instanceof SignalPendingExecution pendingExecution) {
-                log.info("Signal enqueued symbol={} signalId={}", pendingExecution.orderRequest().symbol(), pendingExecution.signalId());
-                if (!queue.offer(new SignalCommand(pendingExecution, downstream))) {
-                    log.warn("Execution queue full — suppressing signal symbol={} signalId={}",
-                            pendingExecution.orderRequest().symbol(), pendingExecution.signalId());
-                    deadLetterQueue.append("execution-handler", pendingExecution, "Execution queue full");
-                    downstream.accept(new SignalSuppressed(
-                            EventMetadata.correlated(pendingExecution.signalId(), pendingExecution.sequenceId()),
-                            pendingExecution.signalId(),
-                            pendingExecution.orderRequest().symbol(),
-                            "Execution queue full",
-                            pendingExecution.decisionContext()
-                    ));
-                }
-                return;
-            }
-            if (event instanceof OrderFilled orderFilled) {
-                if (!queue.offer(new FillCommand(orderFilled, downstream, 0))) {
-                    log.warn("Execution queue full — deferring fill eventId={} orderId={}",
-                            orderFilled.eventId(), orderFilled.order().orderId());
-                    scheduleFillRetry(orderFilled, downstream, 0);
-                }
-                return;
-            }
-            if (event instanceof com.tradej.core.domain.event.OrderPartiallyFilled partial) {
-                if (!queue.offer(new BrokerFillCommand(partial.order(), partial.metadata(), partial.fills(), false, downstream, 0))) {
-                    scheduleBrokerFillRetry(partial.order(), partial.metadata(), partial.fills(), false, downstream, 0);
-                }
-                return;
-            }
-            if (event instanceof com.tradej.core.domain.event.OrderFullyFilled fullyFilled) {
-                if (!queue.offer(new BrokerFillCommand(
-                        fullyFilled.order(), fullyFilled.metadata(), fullyFilled.fills(), true, downstream, 0))) {
-                    scheduleBrokerFillRetry(
-                            fullyFilled.order(), fullyFilled.metadata(), fullyFilled.fills(), true, downstream, 0);
-                }
-            }
+            event.accept(this);
         } finally {
             MdcHelper.clear();
+            this.currentDownstream = null;
+        }
+    }
+
+    private Consumer<DomainEvent> currentDownstream;
+
+    @Override
+    public void visit(SignalPendingExecution pendingExecution) {
+        log.info("Signal enqueued symbol={} signalId={}", pendingExecution.orderRequest().symbol(), pendingExecution.signalId());
+        if (!queue.offer(new SignalCommand(pendingExecution, currentDownstream))) {
+            log.warn("Execution queue full — suppressing signal symbol={} signalId={}",
+                    pendingExecution.orderRequest().symbol(), pendingExecution.signalId());
+            deadLetterQueue.append("execution-handler", pendingExecution, "Execution queue full");
+            currentDownstream.accept(new SignalSuppressed(
+                    EventMetadata.correlated(pendingExecution.signalId(), pendingExecution.sequenceId()),
+                    pendingExecution.signalId(),
+                    pendingExecution.orderRequest().symbol(),
+                    "Execution queue full",
+                    pendingExecution.decisionContext()
+            ));
+        }
+    }
+
+    @Override
+    public void visit(OrderFilled orderFilled) {
+        if (!queue.offer(new FillCommand(orderFilled, currentDownstream, 0))) {
+            log.warn("Execution queue full — deferring fill eventId={} orderId={}",
+                    orderFilled.eventId(), orderFilled.order().orderId());
+            scheduleFillRetry(orderFilled, currentDownstream, 0);
+        }
+    }
+
+    @Override
+    public void visit(com.tradej.core.domain.event.OrderPartiallyFilled partial) {
+        if (!queue.offer(new BrokerFillCommand(partial.order(), partial.metadata(), partial.fills(), false, currentDownstream, 0))) {
+            scheduleBrokerFillRetry(partial.order(), partial.metadata(), partial.fills(), false, currentDownstream, 0);
+        }
+    }
+
+    @Override
+    public void visit(com.tradej.core.domain.event.OrderFullyFilled fullyFilled) {
+        if (!queue.offer(new BrokerFillCommand(
+                fullyFilled.order(), fullyFilled.metadata(), fullyFilled.fills(), true, currentDownstream, 0))) {
+            scheduleBrokerFillRetry(
+                    fullyFilled.order(), fullyFilled.metadata(), fullyFilled.fills(), true, currentDownstream, 0);
         }
     }
 

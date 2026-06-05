@@ -23,7 +23,7 @@ import java.util.function.Supplier;
  * <p>
  * Thread-safe.
  */
-public final class RetryExecutor {
+public class RetryExecutor {
 
     private final MultiBucketRateLimiter rateLimiter;
     private final CircuitBreaker circuitBreaker;
@@ -90,6 +90,18 @@ public final class RetryExecutor {
      * broker-specific error classification.
      */
     protected BrokerErrorCategory classify(RuntimeException ex) {
+        if (ex instanceof IllegalArgumentException) {
+            return BrokerErrorCategory.VALIDATION_ERROR;
+        }
+        String message = ex.getMessage();
+        if (message != null) {
+            if (message.contains("429")) {
+                return BrokerErrorCategory.RATE_LIMITED;
+            }
+            if (message.contains("503") || message.contains("502") || message.contains("500")) {
+                return BrokerErrorCategory.SERVICE_DOWN;
+            }
+        }
         return BrokerErrorCategory.UNKNOWN;
     }
 }

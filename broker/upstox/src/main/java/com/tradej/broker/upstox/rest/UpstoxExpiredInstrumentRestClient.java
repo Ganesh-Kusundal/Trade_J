@@ -2,7 +2,7 @@ package com.tradej.broker.upstox.rest;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.tradej.broker.upstox.http.UpstoxJsonHttpClient;
-import com.tradej.broker.upstox.resilience.UpstoxResilienceExecutor;
+import com.tradej.broker.upstox.resilience.UpstoxRetryExecutor;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -18,19 +18,21 @@ public final class UpstoxExpiredInstrumentRestClient {
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
     private final UpstoxJsonHttpClient httpClient;
-    private final UpstoxResilienceExecutor resilienceExecutor;
+    private final UpstoxRetryExecutor retryExecutor;
 
     public UpstoxExpiredInstrumentRestClient(
             UpstoxJsonHttpClient httpClient,
-            UpstoxResilienceExecutor resilienceExecutor
+            UpstoxRetryExecutor retryExecutor
     ) {
         this.httpClient = httpClient;
-        this.resilienceExecutor = resilienceExecutor;
+        this.retryExecutor = retryExecutor;
     }
 
     public JsonNode getExpiredExpiries(String underlyingInstrumentKey) {
-        return resilienceExecutor.executeExpiredInstrument(
+        return retryExecutor.execute(
+                UpstoxRetryExecutor.CATEGORY_EXPIRED_INSTRUMENT,
                 "expired-expiries",
+                UpstoxRetryExecutor.EXPIRED_INSTRUMENT_POLICY,
                 () -> httpClient.getJson(EXPIRED_EXPIRIES_PATH + "?instrument_key=" + encodeQuery(underlyingInstrumentKey))
         );
     }
@@ -39,7 +41,11 @@ public final class UpstoxExpiredInstrumentRestClient {
         String path = EXPIRED_OPTION_CONTRACT_PATH
                 + "?instrument_key=" + encodeQuery(underlyingInstrumentKey)
                 + "&expiry_date=" + expiryDate.format(DATE_FMT);
-        return resilienceExecutor.executeExpiredInstrument("expired-option-contracts", () -> httpClient.getJson(path));
+        return retryExecutor.execute(
+                UpstoxRetryExecutor.CATEGORY_EXPIRED_INSTRUMENT,
+                "expired-option-contracts",
+                UpstoxRetryExecutor.EXPIRED_INSTRUMENT_POLICY,
+                () -> httpClient.getJson(path));
     }
 
     public JsonNode getExpiredHistoricalCandles(
@@ -53,7 +59,11 @@ public final class UpstoxExpiredInstrumentRestClient {
                 .replace("{interval}", encodePath(interval))
                 .replace("{toDate}", toDate.format(DATE_FMT))
                 .replace("{fromDate}", fromDate.format(DATE_FMT));
-        return resilienceExecutor.executeExpiredInstrument("expired-historical-candle", () -> httpClient.getJson(path));
+        return retryExecutor.execute(
+                UpstoxRetryExecutor.CATEGORY_EXPIRED_INSTRUMENT,
+                "expired-historical-candle",
+                UpstoxRetryExecutor.EXPIRED_INSTRUMENT_POLICY,
+                () -> httpClient.getJson(path));
     }
 
     private static String encodePath(String value) {

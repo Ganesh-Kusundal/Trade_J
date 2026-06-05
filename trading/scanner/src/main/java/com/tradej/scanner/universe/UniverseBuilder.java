@@ -5,7 +5,7 @@ import com.tradej.broker.api.port.InstrumentResolver;
 import com.tradej.core.domain.model.Instrument;
 import com.tradej.core.domain.model.InstrumentKey;
 import com.tradej.core.domain.value.ExchangeSegment;
-import com.tradej.scanner.model.AssetClass;
+import com.tradej.core.domain.scan.AssetClass;
 import com.tradej.scanner.model.ScanAsset;
 import com.tradej.scanner.model.UniverseSpec;
 import org.slf4j.Logger;

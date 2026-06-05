@@ -227,24 +227,15 @@ class DisruptorEventBusStressTest {
         var cb = new TradingCircuitBreaker();
         var idReg = new OrderIdentityRegistry();
         var runtimeModeHolder = new com.tradej.core.domain.runtime.RuntimeModeHolder();
-        var execHandler = new ExecutionHandler(null, runtimeModeHolder, cb, idReg, DeadLetterQueue.noop());
-
-        InstrumentResolver noopResolver = new InstrumentResolver() {
-            public Instrument resolve(InstrumentKey key) { throw new UnsupportedOperationException(); }
-            public Instrument getBySymbol(InstrumentKey key) { throw new UnsupportedOperationException(); }
-            public List<Instrument> allInstruments() { return List.of(); }
-            public Instrument resolveBySecurityId(String id) { throw new UnsupportedOperationException(); }
-            public Instrument requireDefinition(InstrumentKey key) { throw new UnsupportedOperationException(); }
-            public Instrument resolvePayload(Object p) { throw new UnsupportedOperationException(); }
-            public boolean isLoaded() { return true; }
-            public int catalogSize() { return 0; }
-        };
+        var execHandler = new ExecutionHandler(null, runtimeModeHolder,
+                new com.tradej.core.domain.time.LiveTradingClock(), cb, idReg, DeadLetterQueue.noop());
 
         var riskHandler = new PositionRiskHandler(RiskLimits.conservative(), () -> java.util.Collections.emptyMap());
+        var bridge = com.tradej.disruptor.testsupport.PassthroughNode.passthroughBridge();
 
         return new DisruptorEventBus(
                 riskHandler, candleAgg, strategy, execHandler,
-                portfolio, StageTimings.NO_OP, null, deadLetterQueue
+                portfolio, StageTimings.NO_OP, null, deadLetterQueue, bridge
         );
     }
 
@@ -255,24 +246,15 @@ class DisruptorEventBusStressTest {
         var cb = new TradingCircuitBreaker();
         var idReg = new OrderIdentityRegistry();
         var runtimeModeHolder = new com.tradej.core.domain.runtime.RuntimeModeHolder();
-        var execHandler = new ExecutionHandler(null, runtimeModeHolder, cb, idReg, DeadLetterQueue.noop());
-
-        InstrumentResolver noopResolver = new InstrumentResolver() {
-            public Instrument resolve(InstrumentKey key) { throw new UnsupportedOperationException(); }
-            public Instrument getBySymbol(InstrumentKey key) { throw new UnsupportedOperationException(); }
-            public List<Instrument> allInstruments() { return List.of(); }
-            public Instrument resolveBySecurityId(String id) { throw new UnsupportedOperationException(); }
-            public Instrument requireDefinition(InstrumentKey key) { throw new UnsupportedOperationException(); }
-            public Instrument resolvePayload(Object p) { throw new UnsupportedOperationException(); }
-            public boolean isLoaded() { return true; }
-            public int catalogSize() { return 0; }
-        };
+        var execHandler = new ExecutionHandler(null, runtimeModeHolder,
+                new com.tradej.core.domain.time.LiveTradingClock(), cb, idReg, DeadLetterQueue.noop());
 
         var riskHandler = new PositionRiskHandler(RiskLimits.conservative(), () -> java.util.Collections.emptyMap());
+        var bridge = com.tradej.disruptor.testsupport.PassthroughNode.passthroughBridge();
 
         return new DisruptorEventBus(
                 riskHandler, candleAgg, strategy, execHandler,
-                portfolio, StageTimings.NO_OP, null, DeadLetterQueue.noop()
+                portfolio, StageTimings.NO_OP, null, DeadLetterQueue.noop(), bridge
         );
     }
 }

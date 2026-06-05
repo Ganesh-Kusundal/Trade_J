@@ -3,6 +3,11 @@ package com.tradej.core.domain.event;
 public interface DomainEvent {
     EventMetadata metadata();
 
+    /**
+     * Accepts a visitor to process this event in a type-safe, non-branching manner.
+     */
+    void accept(DomainEventVisitor visitor);
+
     default String eventId() {
         return metadata().eventId();
     }

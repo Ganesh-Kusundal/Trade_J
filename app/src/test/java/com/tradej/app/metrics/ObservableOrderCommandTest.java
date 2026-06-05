@@ -1,6 +1,7 @@
 package com.tradej.app.metrics;
 
 import com.tradej.broker.api.port.OrderCommand;
+import com.tradej.broker.core.observability.ObservableOrderCommand;
 import com.tradej.core.domain.model.*;
 import com.tradej.core.domain.value.*;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -25,7 +26,7 @@ class ObservableOrderCommandTest {
     void setUp() {
         delegate = mock(OrderCommand.class);
         registry = new SimpleMeterRegistry();
-        observable = new ObservableOrderCommand(delegate, registry);
+        observable = new ObservableOrderCommand("dhan", delegate, registry);
     }
 
     @Test

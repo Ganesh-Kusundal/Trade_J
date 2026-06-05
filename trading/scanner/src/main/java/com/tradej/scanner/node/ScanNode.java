@@ -5,7 +5,7 @@ import com.tradej.core.domain.event.DomainEvent;
 import com.tradej.pipeline.runtime.BasePipelineNode;
 import com.tradej.scanner.engine.ScanEngine;
 import com.tradej.scanner.model.ScanProfile;
-import com.tradej.scanner.model.ScanResult;
+import com.tradej.core.domain.scan.ScanResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

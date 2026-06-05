@@ -24,4 +24,9 @@ public record TickReceived(
     public long sequenceId() {
         return metadata.sequenceId();
     }
+
+    @Override
+    public void accept(DomainEventVisitor visitor) {
+        visitor.visit(this);
+    }
 }

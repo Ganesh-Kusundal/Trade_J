@@ -39,6 +39,11 @@ public final class AsyncDuckDbEventStore implements DomainEventHandler<DomainEve
         public com.tradej.core.domain.event.EventMetadata metadata() {
             return com.tradej.core.domain.event.EventMetadata.root();
         }
+
+        @Override
+        public void accept(com.tradej.core.domain.event.DomainEventVisitor visitor) {
+            // PoisonPill is internal and doesn't need to be visited by risk/engine
+        }
     }
     private static final PoisonPill POISON_PILL = new PoisonPill();
 
@@ -61,6 +66,10 @@ public final class AsyncDuckDbEventStore implements DomainEventHandler<DomainEve
             worker.start();
             log.info("AsyncDuckDbEventStore started");
         }
+    }
+
+    public long droppedEventCount() {
+        return droppedEventCount.get();
     }
 
     @Override

@@ -16,4 +16,9 @@ public record StrategyError(
         String symbol,
         String detail
 ) implements DomainEvent {
+
+    @Override
+    public void accept(DomainEventVisitor visitor) {
+        visitor.visit(this);
+    }
 }

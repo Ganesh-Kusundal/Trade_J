@@ -1,5 +1,6 @@
 package com.tradej.scanner.model;
 
+import com.tradej.core.domain.scan.AssetClass;
 import com.tradej.core.domain.model.Instrument;
 import com.tradej.core.domain.model.InstrumentKey;
 

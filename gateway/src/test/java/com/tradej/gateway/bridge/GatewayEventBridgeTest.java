@@ -2,6 +2,7 @@ package com.tradej.gateway.bridge;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tradej.core.domain.event.DomainEvent;
+import com.tradej.core.domain.event.DomainEventVisitor;
 import com.tradej.core.domain.event.EventMetadata;
 import com.tradej.core.domain.event.PnlUpdatedEvent;
 import com.tradej.gateway.protocol.GatewayTopic;
@@ -52,6 +53,10 @@ class GatewayEventBridgeTest {
 
     /** Minimal DomainEvent implementation for dedup testing. */
     private record TestEvent(EventMetadata metadata) implements DomainEvent {
+        @Override
+        public void accept(DomainEventVisitor visitor) {
+            // No-op for test event
+        }
     }
 
     private static TestEvent eventWithId(String eventId) {

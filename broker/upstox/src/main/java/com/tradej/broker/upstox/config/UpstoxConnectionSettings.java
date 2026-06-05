@@ -10,6 +10,7 @@ public record UpstoxConnectionSettings(
         String accessToken,
         String refreshToken,
         String analyticsToken,
+        String extendedToken,
         boolean analyticsOnly,
         boolean isSandbox,
         int redirectServerPort,
@@ -32,7 +33,7 @@ public record UpstoxConnectionSettings(
     public static UpstoxConnectionSettings sandbox(String clientId, String clientSecret, String redirectUri) {
         return new UpstoxConnectionSettings(
                 clientId, clientSecret, redirectUri,
-                null, null, null, false, true, 18080,
+                null, null, null, null, false, true, 18080,
                 1_800_000L, 600_000L
         );
     }
@@ -41,7 +42,7 @@ public record UpstoxConnectionSettings(
     public static UpstoxConnectionSettings live(String clientId, String clientSecret, String redirectUri) {
         return new UpstoxConnectionSettings(
                 clientId, clientSecret, redirectUri,
-                null, null, null, false, false, 18080,
+                null, null, null, null, false, false, 18080,
                 1_800_000L, 600_000L
         );
     }

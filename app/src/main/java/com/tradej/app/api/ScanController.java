@@ -1,9 +1,9 @@
 package com.tradej.app.api;
 
 import com.tradej.app.scanner.ScanService;
-import com.tradej.scanner.model.ScanHit;
-import com.tradej.scanner.model.ScanResult;
-import com.tradej.scanner.model.ScanRun;
+import com.tradej.core.domain.scan.ScanHit;
+import com.tradej.core.domain.scan.ScanResult;
+import com.tradej.core.domain.scan.ScanRun;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;

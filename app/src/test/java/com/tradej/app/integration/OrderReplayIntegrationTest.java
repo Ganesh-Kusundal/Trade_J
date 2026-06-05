@@ -22,6 +22,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -74,7 +75,7 @@ class OrderReplayIntegrationTest {
     void replaysSingleOrderAcceptedEvent() throws Exception {
         // Seed one order via DuckDbEventStore (the same path live code uses)
         Order order = createOrder("ORD-SINGLE", "corr-single", "SBIN", 100, 150_00L, OrderStatus.OPEN);
-        eventStore.onEvent(new OrderAccepted(EventMetadata.correlated("corr-single", 1L), order));
+        eventStore.onEvent(new OrderAccepted(metadataAt(INGEST_BASE_MS, "corr-single", 1L), order));
 
         // Set up a simple EventBus that captures OrderAccepted events
         List<OrderAccepted> received = new CopyOnWriteArrayList<>();
@@ -105,15 +106,15 @@ class OrderReplayIntegrationTest {
     void replaysMultipleOrdersInIngestionOrder() throws Exception {
         // Seed three orders in a known sequence
         eventStore.onEvent(new OrderAccepted(
-                EventMetadata.correlated("corr-a", 1L),
+                metadataAt(INGEST_BASE_MS, "corr-a", 1L),
                 createOrder("ORD-A", "corr-a", "SBIN", 100, 150_00L, OrderStatus.OPEN)
         ));
         eventStore.onEvent(new OrderAccepted(
-                EventMetadata.correlated("corr-b", 1L),
+                metadataAt(INGEST_BASE_MS + INGEST_STEP_MS, "corr-b", 1L),
                 createOrder("ORD-B", "corr-b", "TCS", 50, 3_200_00L, OrderStatus.OPEN)
         ));
         eventStore.onEvent(new OrderAccepted(
-                EventMetadata.correlated("corr-c", 1L),
+                metadataAt(INGEST_BASE_MS + 2 * INGEST_STEP_MS, "corr-c", 1L),
                 createOrder("ORD-C", "corr-c", "RELIANCE", 200, 2_500_00L, OrderStatus.TRADED)
         ));
 
@@ -152,11 +153,11 @@ class OrderReplayIntegrationTest {
     void filtersBySymbol() throws Exception {
         // Seed orders for two different symbols
         eventStore.onEvent(new OrderAccepted(
-                EventMetadata.correlated("corr-sbin", 1L),
+                metadataAt(INGEST_BASE_MS, "corr-sbin", 1L),
                 createOrder("ORD-SBIN", "corr-sbin", "SBIN", 100, 150_00L, OrderStatus.OPEN)
         ));
         eventStore.onEvent(new OrderAccepted(
-                EventMetadata.correlated("corr-tcs", 1L),
+                metadataAt(INGEST_BASE_MS + INGEST_STEP_MS, "corr-tcs", 1L),
                 createOrder("ORD-TCS", "corr-tcs", "TCS", 50, 3_200_00L, OrderStatus.OPEN)
         ));
 
@@ -192,7 +193,7 @@ class OrderReplayIntegrationTest {
                 OrderStatus.REJECTED, 50, 0L, 2_800_00L, 0L, 0L, "Insufficient margin"
         );
         eventStore.onEvent(new OrderAccepted(
-                EventMetadata.correlated("corr-rej", 1L), rejected
+                metadataAt(INGEST_BASE_MS, "corr-rej", 1L), rejected
         ));
         // Seed a cancelled order
         Order cancelled = new Order(
@@ -201,7 +202,7 @@ class OrderReplayIntegrationTest {
                 OrderStatus.CANCELLED, 25, 0L, 2_800_00L, 0L, 0L, "User requested cancellation"
         );
         eventStore.onEvent(new OrderAccepted(
-                EventMetadata.correlated("corr-can", 1L), cancelled
+                metadataAt(INGEST_BASE_MS + INGEST_STEP_MS, "corr-can", 1L), cancelled
         ));
 
         List<OrderAccepted> received = new CopyOnWriteArrayList<>();
@@ -247,14 +248,15 @@ class OrderReplayIntegrationTest {
 
     @Test
     void onlyReplaysOrdersWithinTimeRange() throws Exception {
-        // Seed first order and capture its timestamp as the cutoff boundary
+        long earlyEventTimeMs = INGEST_BASE_MS;
         eventStore.onEvent(new OrderAccepted(
-                EventMetadata.correlated("corr-early", 1L),
+                metadataAt(earlyEventTimeMs, "corr-early", 1L),
                 createOrder("ORD-EARLY", "corr-early", "SBIN", 100, 150_00L, OrderStatus.OPEN)
         ));
+        long lateEventTimeMs = INGEST_BASE_MS + INGEST_STEP_MS;
         long midMs = INGEST_BASE_MS + (INGEST_STEP_MS / 2);
         eventStore.onEvent(new OrderAccepted(
-                EventMetadata.correlated("corr-late", 1L),
+                metadataAt(lateEventTimeMs, "corr-late", 1L),
                 createOrder("ORD-LATE", "corr-late", "TCS", 50, 3_200_00L, OrderStatus.OPEN)
         ));
 
@@ -287,7 +289,7 @@ class OrderReplayIntegrationTest {
     void replayedEventsCanBeStoredByIdempotentSubscriber() throws Exception {
         // Seed an order
         eventStore.onEvent(new OrderAccepted(
-                EventMetadata.correlated("corr-cycle", 1L),
+                metadataAt(INGEST_BASE_MS, "corr-cycle", 1L),
                 createOrder("ORD-CYCLE", "corr-cycle", "SBIN", 100, 150_00L, OrderStatus.OPEN)
         ));
 
@@ -326,6 +328,17 @@ class OrderReplayIntegrationTest {
     }
 
     // ── Helpers ──
+
+    private static EventMetadata metadataAt(long eventTimeMs, String correlationId, long sequenceId) {
+        return new EventMetadata(
+                UUID.randomUUID().toString(),
+                eventTimeMs,
+                System.nanoTime(),
+                sequenceId,
+                correlationId,
+                1
+        );
+    }
 
     private static Order createOrder(String orderId, String correlationId, String symbol,
                                      long quantity, long pricePaisa, OrderStatus status) {

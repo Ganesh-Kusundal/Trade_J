@@ -2,7 +2,6 @@ package com.tradej.broker.dhan.adapter;
 
 import com.tradej.broker.api.port.InstrumentResolver;
 import com.tradej.broker.dhan.instrument.DhanInstrumentDefinition;
-import com.tradej.broker.dhan.mapper.DhanSdkResponse;
 import com.tradej.core.domain.model.InstrumentKey;
 import com.tradej.core.domain.value.ExchangeSegment;
 import com.tradej.core.domain.value.OptionType;
@@ -34,11 +33,6 @@ public interface DhanInstrumentResolver extends InstrumentResolver {
 
     /** Resolve an arbitrary Dhan SDK payload to a DhanInstrumentDefinition. */
     DhanInstrumentDefinition resolveDhanPayload(Object payload);
-
-    /** Resolve a typed Dhan SDK response to a DhanInstrumentDefinition. */
-    default DhanInstrumentDefinition resolveDhanPayload(DhanSdkResponse<?> response) {
-        return resolveDhanPayload(response.raw());
-    }
 
     /** Look up by broker security ID. */
     DhanInstrumentDefinition requireSecurityId(String securityId);

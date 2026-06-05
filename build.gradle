@@ -11,7 +11,6 @@ ext {
         caffeine      : '3.2.4',
         chronicleQueue: '2026.2',
         duckdb        : '1.5.3.0',
-        dhanSdk       : '2.2.0',
         junitBom      : '5.12.2'
     ]
     chronicleJvmArgs = [
@@ -45,6 +44,8 @@ subprojects {
         toolchain {
             languageVersion = JavaLanguageVersion.of(21)
         }
+        compileJava.options.compilerArgs.add('-parameters')
+        compileTestJava.options.compilerArgs.add('-parameters')
     }
 
     dependencyLocking {

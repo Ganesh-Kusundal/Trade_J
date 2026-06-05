@@ -21,4 +21,9 @@ public record ScanHitProduced(
         List<String> reasons,
         Map<String, Object> snapshotFields
 ) implements DomainEvent {
+
+    @Override
+    public void accept(DomainEventVisitor visitor) {
+        visitor.visit(this);
+    }
 }

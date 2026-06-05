@@ -137,6 +137,52 @@ export const adminApi = {
     request<{success: boolean; message: string}>('/admin/reconcile', {method: 'POST'}),
 };
 
+// ── Orders ───────────────────────────────────────────────────────
+export const ordersApi = {
+  list: (status: 'active' | 'completed' | 'all' = 'active') =>
+    request<import('@/dto/types').OrderProjectionResponse[]>(`/api/v1/orders?status=${status}`),
+
+  place: (body: import('@/dto/types').PlaceOrderRequest) =>
+    request<import('@/dto/types').OrderResponse>('/api/v1/orders', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  cancel: (orderId: string) =>
+    request<{orderId: string; cancelled: boolean}>(`/api/v1/orders/${encodeURIComponent(orderId)}/cancel`, {
+      method: 'POST',
+    }),
+
+  modify: (orderId: string, body: Record<string, unknown>) =>
+    request<import('@/dto/types').OrderResponse>(`/api/v1/orders/${encodeURIComponent(orderId)}`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    }),
+};
+
+// ── Replay Studio ──────────────────────────────────────────────────
+export const replayApi = {
+  status: () => request<import('@/dto/types').ReplayStatus>('/api/v1/replay/status'),
+
+  start: (symbol: string, exchange: string, from: string, to: string, interval = '1m') =>
+    request<import('@/dto/types').ReplayStatus>(
+      `/api/v1/replay/start?symbol=${encodeURIComponent(symbol)}&exchange=${exchange}&from=${from}&to=${to}&interval=${interval}`,
+      {method: 'POST'}
+    ),
+
+  play: () => request<import('@/dto/types').ReplayStatus>('/api/v1/replay/play', {method: 'POST'}),
+  pause: () => request<import('@/dto/types').ReplayStatus>('/api/v1/replay/pause', {method: 'POST'}),
+  step: () => request<import('@/dto/types').ReplayStatus>('/api/v1/replay/step', {method: 'POST'}),
+  stop: () => request<import('@/dto/types').ReplayStatus>('/api/v1/replay/stop', {method: 'POST'}),
+  speed: (multiplier: number) =>
+    request<import('@/dto/types').ReplayStatus>(`/api/v1/replay/speed?multiplier=${multiplier}`, {method: 'POST'}),
+};
+
+// ── Portfolio ────────────────────────────────────────────────────
+export const portfolioApi = {
+  snapshot: () => request<import('@/dto/types').PortfolioSnapshot>('/api/v1/portfolio'),
+};
+
 // ── Health ───────────────────────────────────────────────────────
 export const healthApi = {
   check: () => request<{status: string; [key: string]: unknown}>('/actuator/health'),

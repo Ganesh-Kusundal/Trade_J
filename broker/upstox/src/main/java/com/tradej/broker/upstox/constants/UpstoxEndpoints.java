@@ -51,6 +51,9 @@ public final class UpstoxEndpoints {
     // ─── Margin ──────────────────────────────────────────────────────────
     public static final String MARGIN_REQUIREMENT_PATH = "/margin/requirement";
 
+    // ─── News ───────────────────────────────────────────────────────────
+    public static final String NEWS_PATH = "/news";
+
     // ─── Instrument ────────────────────────────────────────────────────────
     public static final String INSTRUMENT_MASTER_PATH = "/instrument/master/{segment}";
 

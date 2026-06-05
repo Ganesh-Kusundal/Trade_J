@@ -18,4 +18,9 @@ public record TradeExecutionEvent(
         long executedPricePaisa,
         long exchangeTimestampMs
 ) implements DomainEvent {
+
+    @Override
+    public void accept(DomainEventVisitor visitor) {
+        visitor.visit(this);
+    }
 }

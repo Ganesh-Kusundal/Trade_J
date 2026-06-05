@@ -14,6 +14,9 @@
 /out/
 /.DS_Store
 test_output.txt
+**/readmodel-snapshot.json
+**/risk-state.json
+app/data/
 /config/dhan-local.properties
 /config/upstox-sandbox.properties
 /config/upstox-live.properties

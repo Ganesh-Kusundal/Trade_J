@@ -28,9 +28,15 @@ public final class GatewayWebSocketHandler extends BinaryWebSocketHandler {
     private static final Logger log = LoggerFactory.getLogger(GatewayWebSocketHandler.class);
 
     private final GatewayTopicRouter router;
+    private final GatewayReplayCommandProcessor replayCommandProcessor;
 
     public GatewayWebSocketHandler(GatewayTopicRouter router) {
+        this(router, null);
+    }
+
+    public GatewayWebSocketHandler(GatewayTopicRouter router, GatewayReplayCommandProcessor replayCommandProcessor) {
         this.router = router;
+        this.replayCommandProcessor = replayCommandProcessor;
     }
 
     @Override
@@ -47,11 +53,6 @@ public final class GatewayWebSocketHandler extends BinaryWebSocketHandler {
         buf.get(data);
 
         if (data.length == 0) {
-            return;
-        }
-
-        if (GatewayBinaryCodec.isGatewayFrame(data)) {
-            handleControlFrame(session, data);
             return;
         }
 
@@ -72,6 +73,12 @@ public final class GatewayWebSocketHandler extends BinaryWebSocketHandler {
             } else {
                 router.subscribe(session, GatewayTopic.valueOf(topicName));
             }
+            return;
+        }
+
+        if (GatewayBinaryCodec.isGatewayFrame(data)) {
+            handleControlFrame(session, data);
+            return;
         }
     }
 
@@ -81,6 +88,9 @@ public final class GatewayWebSocketHandler extends BinaryWebSocketHandler {
             if (frame.topic() == GatewayTopic.REPLAY_CONTROL) {
                 String payload = GatewayBinaryCodec.decodeUtf8(frame.payload());
                 log.debug("Gateway replay control from session={}: {}", session.getId(), payload);
+                if (replayCommandProcessor != null) {
+                    replayCommandProcessor.processCommand(payload);
+                }
             }
         } catch (RuntimeException e) {
             log.debug("Invalid gateway control frame session={}: {}", session.getId(), e.getMessage());

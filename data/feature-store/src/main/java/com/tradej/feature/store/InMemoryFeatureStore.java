@@ -11,6 +11,7 @@ import com.tradej.core.domain.model.FeatureVector;
 import com.tradej.core.domain.port.FeatureStore;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -110,6 +111,33 @@ public final class InMemoryFeatureStore implements FeatureStore {
             }
         }
         return lo; // insertion point
+    }
+
+    /**
+     * Captures candle state for replay isolation (PR-11).
+     */
+    public StateSnapshot snapshot() {
+        Map<CandleKey, List<Candle>> copy = new HashMap<>();
+        candlesByKey.forEach((key, candles) -> copy.put(key, List.copyOf(candles)));
+        return new StateSnapshot(copy);
+    }
+
+    /**
+     * Restores candle state from a prior {@link #snapshot()}. A {@code null} snapshot is a no-op.
+     */
+    public void restore(StateSnapshot snapshot) {
+        if (snapshot == null) {
+            return;
+        }
+        candlesByKey.clear();
+        snapshot.candles().forEach((key, candles) ->
+                candlesByKey.put(key, new ArrayList<>(candles)));
+    }
+
+    public record StateSnapshot(Map<CandleKey, List<Candle>> candles) {
+        public StateSnapshot {
+            candles = Map.copyOf(candles);
+        }
     }
 
     private record CandleKey(String symbol, String interval) {

@@ -80,7 +80,7 @@ public class ScannerLabService {
                 1,
                 5
             );
-            ScanAsset asset = new ScanAsset(instrument, com.tradej.scanner.model.AssetClass.EQUITY, symbol);
+            ScanAsset asset = new ScanAsset(instrument, com.tradej.core.domain.scan.AssetClass.EQUITY, symbol);
             for (int i = 10; i < candles.size(); i++) {
                 List<Candle> window = candles.subList(0, i + 1);
                 Candle lastCandle = candles.get(i);

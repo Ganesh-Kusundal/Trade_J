@@ -3,6 +3,7 @@ package com.tradej.app.config;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tradej.app.scanner.RuntimeSubscriptionManager;
 import com.tradej.app.scanner.ScanService;
+import com.tradej.app.subscription.SubscriptionCoordinator;
 import com.tradej.broker.api.IBrokerConnection;
 import com.tradej.gateway.router.GatewayTopicRouter;
 import com.tradej.persistence.duckdb.DuckDbScanStore;
@@ -13,7 +14,6 @@ import com.tradej.scanner.engine.ScanDependencies;
 import com.tradej.scanner.engine.ScanEngine;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -21,7 +21,6 @@ import java.nio.file.Path;
 import java.util.Optional;
 
 @Configuration
-@EnableConfigurationProperties(ScanProperties.class)
 @ConditionalOnProperty(prefix = "trade.scan", name = "enabled", havingValue = "true")
 public class ScanConfiguration {
 
@@ -48,9 +47,10 @@ public class ScanConfiguration {
     @Bean
     RuntimeSubscriptionManager runtimeSubscriptionManager(
             IBrokerConnection brokerConnection,
-            TradingProperties tradingProperties
+            TradingProperties tradingProperties,
+            @Autowired(required = false) SubscriptionCoordinator coordinator
     ) {
-        return new RuntimeSubscriptionManager(brokerConnection.websocket(), tradingProperties);
+        return new RuntimeSubscriptionManager(brokerConnection.websocket(), coordinator, tradingProperties);
     }
 
     @Bean

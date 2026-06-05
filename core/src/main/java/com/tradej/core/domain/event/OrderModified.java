@@ -9,4 +9,9 @@ public record OrderModified(
         EventMetadata metadata,
         Order order
 ) implements OrderUpdateEvent {
+
+    @Override
+    public void accept(DomainEventVisitor visitor) {
+        visitor.visit(this);
+    }
 }

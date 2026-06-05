@@ -33,11 +33,12 @@ import com.tradej.broker.icici.rest.BreezeOptionChainRestClient;
 import com.tradej.broker.icici.rest.BreezeOrderRestClient;
 import com.tradej.broker.icici.rest.BreezePortfolioRestClient;
 import com.tradej.broker.icici.websocket.BreezeWebSocketMultiplexer;
+import com.tradej.broker.core.reconnect.ReconnectListenerRegistry;
 import com.tradej.core.domain.event.EventMetadataFactory;
 import com.tradej.core.domain.value.ExchangeSegment;
 import com.tradej.core.domain.value.FeedMode;
 import io.micrometer.core.instrument.MeterRegistry;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
@@ -49,7 +50,7 @@ import java.util.EnumSet;
 import java.util.Map;
 
 @Configuration
-@ConditionalOnProperty(name = "trade.broker-type", havingValue = "icici")
+@ConditionalOnExpression("'${trade.broker-type:}' == 'icici' || '${trade.broker-type:}' == 'gateway'")
 public class IciciConfiguration {
 
     @Bean
@@ -248,13 +249,15 @@ public class IciciConfiguration {
     BreezeWebSocketMultiplexer iciciWebSocketMultiplexer(
             BreezeTokenProvider iciciTokenProvider,
             BreezeInstrumentResolver iciciInstrumentResolver,
-            EventMetadataFactory metadataFactory
+            EventMetadataFactory metadataFactory,
+            ReconnectListenerRegistry reconnectListenerRegistry
     ) {
-        return new BreezeWebSocketMultiplexer(iciciTokenProvider, iciciInstrumentResolver, metadataFactory);
+        return new BreezeWebSocketMultiplexer(
+                iciciTokenProvider, iciciInstrumentResolver, metadataFactory,
+                reconnectListenerRegistry);
     }
 
     @Bean
-    @Primary
     IBrokerConnection iciciBrokerConnection(
             com.tradej.broker.api.port.MarketDataProvider iciciMarketDataProvider,
             com.tradej.broker.api.port.FuturesProvider iciciFuturesProvider,

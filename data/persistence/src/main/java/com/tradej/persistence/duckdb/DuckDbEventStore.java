@@ -117,12 +117,14 @@ public final class DuckDbEventStore implements DomainEventHandler<DomainEvent>, 
                     status varchar,
                     quantity bigint,
                     price_paisa bigint,
-                    ingested_at_ms bigint
+                    ingested_at_ms bigint,
+                    event_time_ms bigint
                 )
                 """);
-        // Migrate existing databases that lack the ingested_at_ms column
         connection.createStatement().execute(
                 "alter table orders add column if not exists ingested_at_ms bigint");
+        connection.createStatement().execute(
+                "alter table orders add column if not exists event_time_ms bigint");
         connection.createStatement().execute("""
                 create table if not exists fills (
                     event_id varchar,
@@ -131,12 +133,14 @@ public final class DuckDbEventStore implements DomainEventHandler<DomainEvent>, 
                     symbol varchar,
                     quantity bigint,
                     price_paisa bigint,
-                    ingested_at_ms bigint
+                    ingested_at_ms bigint,
+                    event_time_ms bigint
                 )
                 """);
-        // Migrate existing databases that lack the ingested_at_ms column
         connection.createStatement().execute(
                 "alter table fills add column if not exists ingested_at_ms bigint");
+        connection.createStatement().execute(
+                "alter table fills add column if not exists event_time_ms bigint");
         // Use a single CREATE TABLE with all columns (fixes DF-01).
         // ALTER TABLE migrations for columns added in later versions are kept
         // for backward compatibility with existing databases.
@@ -154,9 +158,12 @@ public final class DuckDbEventStore implements DomainEventHandler<DomainEvent>, 
                     filled_quantity bigint default 0,
                     exchange_segment varchar default '',
                     side varchar default '',
-                    ingested_at_ms bigint
+                    ingested_at_ms bigint,
+                    event_time_ms bigint
                 )
                 """);
+        connection.createStatement().execute(
+                "alter table fill_events add column if not exists event_time_ms bigint");
         connection.createStatement().execute("""
                 create table if not exists trade_lifecycle (
                     event_id varchar,
@@ -173,9 +180,24 @@ public final class DuckDbEventStore implements DomainEventHandler<DomainEvent>, 
                     exit_price_paisa bigint default 0,
                     realized_pnl_paisa bigint default 0,
                     close_reason varchar default '',
-                    ingested_at_ms bigint
+                    ingested_at_ms bigint,
+                    event_time_ms bigint
                 )
                 """);
+        connection.createStatement().execute(
+                "alter table trade_lifecycle add column if not exists event_time_ms bigint");
+        backfillEventTimeColumns();
+    }
+
+    private void backfillEventTimeColumns() throws SQLException {
+        connection.createStatement().execute(
+                "update orders set event_time_ms = ingested_at_ms where event_time_ms is null and ingested_at_ms is not null");
+        connection.createStatement().execute(
+                "update fills set event_time_ms = ingested_at_ms where event_time_ms is null and ingested_at_ms is not null");
+        connection.createStatement().execute(
+                "update fill_events set event_time_ms = ingested_at_ms where event_time_ms is null and ingested_at_ms is not null");
+        connection.createStatement().execute(
+                "update trade_lifecycle set event_time_ms = ingested_at_ms where event_time_ms is null and ingested_at_ms is not null");
     }
 
     private void insertCandle(CandleClosed event) throws SQLException {
@@ -198,7 +220,7 @@ public final class DuckDbEventStore implements DomainEventHandler<DomainEvent>, 
 
     private void insertOrder(OrderAccepted event) throws SQLException {
         try (PreparedStatement statement = connection.prepareStatement("""
-                insert into orders values (?, ?, ?, ?, ?, ?, ?, ?)
+                insert into orders values (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """)) {
             statement.setString(1, event.eventId());
             statement.setString(2, event.order().orderId());
@@ -208,15 +230,17 @@ public final class DuckDbEventStore implements DomainEventHandler<DomainEvent>, 
             statement.setLong(6, event.order().quantity());
             statement.setLong(7, event.order().pricePaisa());
             statement.setLong(8, ingestTimestamp());
+            statement.setLong(9, eventTimeMs(event));
             statement.executeUpdate();
         }
     }
 
     private void insertFill(OrderFilled event) throws SQLException {
-        long now = ingestTimestamp();
+        long ingested = ingestTimestamp();
+        long eventTime = eventTimeMs(event);
         for (var fill : event.fills()) {
             try (PreparedStatement statement = connection.prepareStatement("""
-                    insert into fills values (?, ?, ?, ?, ?, ?, ?)
+                    insert into fills values (?, ?, ?, ?, ?, ?, ?, ?)
                     """)) {
                 statement.setString(1, event.eventId());
                 statement.setString(2, fill.orderId());
@@ -224,24 +248,26 @@ public final class DuckDbEventStore implements DomainEventHandler<DomainEvent>, 
                 statement.setString(4, fill.symbol());
                 statement.setLong(5, fill.quantity());
                 statement.setLong(6, fill.pricePaisa());
-                statement.setLong(7, now);
+                statement.setLong(7, ingested);
+                statement.setLong(8, eventTime);
                 statement.executeUpdate();
             }
         }
     }
 
     private void insertFillEvent(String eventType, OrderPartiallyFilled event) throws SQLException {
-        insertFillEventToTable(eventType, event.eventId(), event.order(), event.fills());
+        insertFillEventToTable(eventType, event, event.order(), event.fills());
     }
 
     private void insertFillEvent(String eventType, OrderFullyFilled event) throws SQLException {
-        insertFillEventToTable(eventType, event.eventId(), event.order(), event.fills());
+        insertFillEventToTable(eventType, event, event.order(), event.fills());
     }
 
-    private void insertFillEventToTable(String eventType, String eventId, Order order, List<Trade> fills) throws SQLException {
+    private void insertFillEventToTable(String eventType, DomainEvent event, Order order, List<Trade> fills) throws SQLException {
         try (PreparedStatement statement = connection.prepareStatement("""
-                insert into fill_events values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                insert into fill_events values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """)) {
+            String eventId = event.eventId();
             statement.setString(1, eventId);
             statement.setString(2, eventType);
             statement.setString(3, order.orderId());
@@ -258,6 +284,7 @@ public final class DuckDbEventStore implements DomainEventHandler<DomainEvent>, 
             statement.setString(11, order.exchangeSegment().name());
             statement.setString(12, order.side().name());
             statement.setLong(13, ingestTimestamp());
+            statement.setLong(14, eventTimeMs(event));
             statement.executeUpdate();
         }
     }
@@ -269,8 +296,8 @@ public final class DuckDbEventStore implements DomainEventHandler<DomainEvent>, 
                     symbol, side, size, entry_price_paisa,
                     stop_loss_paisa, take_profit_paisa,
                     exit_price_paisa, realized_pnl_paisa, close_reason,
-                    ingested_at_ms
-                ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ingested_at_ms, event_time_ms
+                ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """)) {
             statement.setString(1, event.eventId());
             statement.setString(2, "TRADE_OPENED");
@@ -287,6 +314,7 @@ public final class DuckDbEventStore implements DomainEventHandler<DomainEvent>, 
             statement.setLong(13, 0L);   // realized_pnl — not yet known
             statement.setString(14, ""); // close_reason — not yet known
             statement.setLong(15, ingestTimestamp());
+            statement.setLong(16, eventTimeMs(event));
             statement.executeUpdate();
         }
     }
@@ -298,8 +326,8 @@ public final class DuckDbEventStore implements DomainEventHandler<DomainEvent>, 
                     symbol, side, size, entry_price_paisa,
                     stop_loss_paisa, take_profit_paisa,
                     exit_price_paisa, realized_pnl_paisa, close_reason,
-                    ingested_at_ms
-                ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ingested_at_ms, event_time_ms
+                ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """)) {
             statement.setString(1, event.eventId());
             statement.setString(2, "TRADE_CLOSED");
@@ -316,8 +344,14 @@ public final class DuckDbEventStore implements DomainEventHandler<DomainEvent>, 
             statement.setLong(13, event.realizedPnlPaisa());
             statement.setString(14, event.reason());
             statement.setLong(15, ingestTimestamp());
+            statement.setLong(16, eventTimeMs(event));
             statement.executeUpdate();
         }
+    }
+
+    private long eventTimeMs(DomainEvent event) {
+        long domainTime = event.timestampMs();
+        return domainTime > 0L ? domainTime : ingestTimestamp();
     }
 
     private long ingestTimestamp() {

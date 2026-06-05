@@ -7,7 +7,7 @@ import com.tradej.core.domain.model.OptionQuote;
 import com.tradej.core.domain.value.Exchange;
 import com.tradej.core.domain.value.ExchangeSegment;
 import com.tradej.core.domain.value.OptionType;
-import com.tradej.scanner.model.AssetClass;
+import com.tradej.core.domain.scan.AssetClass;
 import com.tradej.scanner.model.ScanAsset;
 import com.tradej.scanner.model.ScanContext;
 import org.junit.jupiter.api.Tag;

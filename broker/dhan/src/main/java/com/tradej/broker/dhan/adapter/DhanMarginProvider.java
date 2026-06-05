@@ -9,21 +9,16 @@ import com.tradej.broker.dhan.constants.DhanApiUrlResolver;
 import com.tradej.broker.dhan.http.DhanAuthenticatedHttpClient;
 import com.tradej.broker.dhan.instrument.DhanInstrumentDefinition;
 import com.tradej.broker.dhan.mapper.DhanJsonResponse;
-import com.tradej.broker.dhan.mapper.DhanSdkConverters;
-import com.tradej.broker.dhan.mapper.DhanSdkResponse;
+import com.tradej.broker.dhan.mapper.DhanApiConverters;
 import com.tradej.broker.dhan.rate.ApiCategory;
 import com.tradej.broker.dhan.resilience.DhanRetryExecutor;
 import com.tradej.core.domain.model.MarginEstimate;
 import com.tradej.core.domain.model.MarginEstimateRequest;
 import com.tradej.core.domain.value.PriceMath;
 
-import java.lang.reflect.Method;
-import java.math.BigDecimal;
-
 public final class DhanMarginProvider extends DhanBaseRestAdapter implements MarginProvider {
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
-    private final DhanClientHolder clientHolder;
     private final DhanAuthenticatedHttpClient httpClient;
     private final DhanApiUrlResolver apiUrlResolver;
     private final DhanConnectionSettings settings;
@@ -37,7 +32,6 @@ public final class DhanMarginProvider extends DhanBaseRestAdapter implements Mar
             DhanConnectionSettings settings
     ) {
         super(clientHolder, resolver, resilienceExecutor);
-        this.clientHolder = clientHolder;
         this.httpClient = httpClient;
         this.apiUrlResolver = apiUrlResolver;
         this.settings = settings;
@@ -47,46 +41,20 @@ public final class DhanMarginProvider extends DhanBaseRestAdapter implements Mar
     public MarginEstimate estimateMargin(MarginEstimateRequest request) {
         DhanInstrumentDefinition definition = resolveDef(request.symbol(), request.exchangeSegment());
         return execute(ApiCategory.ORDER, "margin-calculator", () -> {
-            try {
-                Object raw = invokeMarginCalculator(
-                        definition.securityId(),
-                        DhanSdkConverters.segment(definition.exchangeSegment()),
-                        DhanSdkConverters.transactionType(request.side()),
-                        (int) request.quantity(),
-                        DhanSdkConverters.productType(request.productType()),
-                        PriceMath.fromPaisa(request.pricePaisa()).doubleValue(),
-                        PriceMath.fromPaisa(request.triggerPricePaisa()).doubleValue()
-                );
-                return mapSdkMargin(new DhanSdkResponse<>(raw));
-            } catch (IllegalStateException sdkUnavailable) {
-                return estimateMarginViaRest(definition, request);
-            }
+            ObjectNode payload = MAPPER.createObjectNode();
+            payload.put("dhanClientId", settings.clientId());
+            payload.put("exchangeSegment", definition.exchangeSegment().name());
+            payload.put("transactionType", DhanApiConverters.transactionType(request.side()));
+            payload.put("quantity", (int) request.quantity());
+            payload.put("productType", restProductType(request.productType()));
+            payload.put("securityId", definition.securityId());
+            payload.put("price", PriceMath.fromPaisa(request.pricePaisa()).doubleValue());
+            payload.put("triggerPrice", PriceMath.fromPaisa(request.triggerPricePaisa()).doubleValue());
+
+            DhanJsonResponse body = httpClient.postJson(apiUrlResolver.marginCalculatorUrl(), payload);
+            DhanJsonResponse data = body.has("data") ? body.path("data") : body;
+            return mapRestMargin(data);
         });
-    }
-
-    private MarginEstimate estimateMarginViaRest(DhanInstrumentDefinition definition, MarginEstimateRequest request) {
-        ObjectNode payload = MAPPER.createObjectNode();
-        payload.put("dhanClientId", settings.clientId());
-        payload.put("exchangeSegment", definition.exchangeSegment().name());
-        payload.put("transactionType", request.side().name());
-        payload.put("quantity", (int) request.quantity());
-        payload.put("productType", restProductType(request.productType()));
-        payload.put("securityId", definition.securityId());
-        payload.put("price", PriceMath.fromPaisa(request.pricePaisa()).doubleValue());
-        payload.put("triggerPrice", PriceMath.fromPaisa(request.triggerPricePaisa()).doubleValue());
-
-        DhanJsonResponse body = httpClient.postJson(apiUrlResolver.marginCalculatorUrl(), payload);
-        DhanJsonResponse data = body.has("data") ? body.path("data") : body;
-        return mapRestMargin(data);
-    }
-
-    private static MarginEstimate mapSdkMargin(DhanSdkResponse<?> data) {
-        return new MarginEstimate(
-                PriceMath.toPaisa(data.decimal("getTotalMargin")),
-                PriceMath.toPaisa(data.optionalDecimal("getSpanMargin").orElse(BigDecimal.ZERO)),
-                PriceMath.toPaisa(data.optionalDecimal("getExposureMargin").orElse(BigDecimal.ZERO)),
-                PriceMath.toPaisa(data.optionalDecimal("getBrokerage").orElse(BigDecimal.ZERO))
-        );
     }
 
     private static MarginEstimate mapRestMargin(DhanJsonResponse data) {
@@ -105,22 +73,5 @@ public final class DhanMarginProvider extends DhanBaseRestAdapter implements Mar
             case MARGIN -> "MARGIN";
             case CARRY_FORWARD -> "CNC";
         };
-    }
-
-    private Object invokeMarginCalculator(Object... args) {
-        for (Method method : clientHolder.client().getClass().getMethods()) {
-            if (!"marginCalculator".equals(method.getName())) {
-                continue;
-            }
-            if (method.getParameterCount() != args.length) {
-                continue;
-            }
-            try {
-                return method.invoke(clientHolder.client(), args);
-            } catch (Exception ignored) {
-                // try next overload
-            }
-        }
-        throw new IllegalStateException("Dhan SDK method not available: marginCalculator");
     }
 }

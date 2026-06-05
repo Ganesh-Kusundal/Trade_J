@@ -277,3 +277,87 @@ export interface ScannerFilter {
   minScore?: number;
   assetClass?: string;
 }
+
+// ── Orders ───────────────────────────────────────────────────────
+export interface PlaceOrderRequest {
+  symbol: string;
+  exchangeSegment: string;
+  side: 'BUY' | 'SELL';
+  quantity: number;
+  orderType: string;
+  pricePaisa: number;
+  triggerPricePaisa?: number;
+  productType: string;
+  validity: string;
+  correlationId?: string;
+}
+
+export interface OrderResponse {
+  orderId: string;
+  correlationId: string;
+  symbol: string;
+  exchangeSegment: string;
+  side: string;
+  status: string;
+  quantity: number;
+  filledQuantity: number;
+  pricePaisa: number;
+  rejectionReason?: string | null;
+}
+
+export interface OrderProjectionResponse {
+  orderId: string;
+  symbol: string;
+  totalQuantity: number;
+  filledQuantity: number;
+  averagePricePaisa: number;
+  status: string;
+}
+
+// ── Portfolio ────────────────────────────────────────────────────
+export interface PortfolioSnapshot {
+  netPositions: Record<string, number>;
+  allocations: {strategy: string; allocatedCapitalPaisa: number; usedCapitalPaisa: number}[];
+  realizedLossPaisa: number;
+  unrealizedLossPaisa: number;
+  openTrades: number;
+  killSwitchActive: boolean;
+}
+
+// ── Replay ─────────────────────────────────────────────────────────
+export interface ReplayStatus {
+  state: string;
+  currentIndex: number;
+  totalCandles: number;
+  speedMultiplier: number;
+  currentTimeMs: number;
+}
+
+export interface DepthLevel {
+  pricePaisa: number;
+  quantity: number;
+  orders: number;
+}
+
+export interface MarketDepthState {
+  symbol: string;
+  bids: DepthLevel[];
+  asks: DepthLevel[];
+}
+
+export interface PipelineHealthState {
+  catalogLoaded?: boolean;
+  catalogSize?: number;
+  brokerPreflightPassed?: boolean;
+  startupCompleted?: boolean;
+  brokerNodes?: number;
+}
+
+export interface StrategySignalToast {
+  signalId: string;
+  symbol: string;
+  side?: string;
+  setup?: string;
+  type: string;
+  timestamp: number;
+}

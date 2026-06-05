@@ -7,6 +7,7 @@ import com.tradej.broker.api.port.WebSocketMultiplexer;
 import com.tradej.broker.icici.auth.BreezeTokenProvider;
 import com.tradej.broker.icici.constants.BreezeApiEndpoints;
 import com.tradej.broker.icici.instrument.BreezeInstrumentResolver;
+import com.tradej.broker.core.reconnect.ReconnectListenerRegistry;
 import com.tradej.core.domain.event.EventMetadataFactory;
 import com.tradej.core.domain.event.MarketTickEvent;
 import com.tradej.core.domain.model.InstrumentKey;
@@ -34,6 +35,7 @@ public final class BreezeWebSocketMultiplexer implements WebSocketMultiplexer {
     private final BreezeTokenProvider tokenProvider;
     private final BreezeInstrumentResolver instrumentResolver;
     private final EventMetadataFactory metadataFactory;
+    private final ReconnectListenerRegistry reconnectRegistry;
     private final AtomicLong sequenceCounter = new AtomicLong();
 
     private final Map<MarketSubscriptionRequest, FeedMode> subscriptions = new ConcurrentHashMap<>();
@@ -49,9 +51,19 @@ public final class BreezeWebSocketMultiplexer implements WebSocketMultiplexer {
             BreezeInstrumentResolver instrumentResolver,
             EventMetadataFactory metadataFactory
     ) {
+        this(tokenProvider, instrumentResolver, metadataFactory, null);
+    }
+
+    public BreezeWebSocketMultiplexer(
+            BreezeTokenProvider tokenProvider,
+            BreezeInstrumentResolver instrumentResolver,
+            EventMetadataFactory metadataFactory,
+            ReconnectListenerRegistry reconnectRegistry
+    ) {
         this.tokenProvider = tokenProvider;
         this.instrumentResolver = instrumentResolver;
         this.metadataFactory = metadataFactory;
+        this.reconnectRegistry = reconnectRegistry;
     }
 
     @Override
@@ -61,7 +73,8 @@ public final class BreezeWebSocketMultiplexer implements WebSocketMultiplexer {
         quoteSocket = openSocket(BreezeApiEndpoints.LIVE_STREAM_URL, session.userId(), session.sessionKey(), true);
         orderSocket = openSocket(BreezeApiEndpoints.LIVE_FEEDS_URL, session.userId(), session.sessionKey(), false);
         connected = true;
-        resubscribeAll();
+        // Initial resubscribe is handled by the EVENT_CONNECT handler in openSocket().
+        // Reconnect re-subscription is handled by ReconnectListenerRegistry → SubscriptionCoordinator.
     }
 
     @Override
@@ -131,7 +144,21 @@ public final class BreezeWebSocketMultiplexer implements WebSocketMultiplexer {
             } else {
                 socket.on("order", args -> handleOrder(args));
             }
-            socket.on(Socket.EVENT_CONNECT, args -> log.info("ICICI websocket connected: {}", url));
+            // Track first connect to distinguish initial connect from socket.io reconnects.
+            // Socket.io fires EVENT_CONNECT on both initial connect and reconnect.
+            java.util.concurrent.atomic.AtomicBoolean firstConnect = new java.util.concurrent.atomic.AtomicBoolean(true);
+            socket.on(Socket.EVENT_CONNECT, args -> {
+                log.info("ICICI websocket connected: {}", url);
+                if (firstConnect.compareAndSet(true, false)) {
+                    // First connect — resubscribe directly (coordinator has no desired state yet).
+                    resubscribeAll();
+                } else {
+                    // Socket.io reconnect — let SubscriptionCoordinator handle via registry.
+                    if (reconnectRegistry != null) {
+                        reconnectRegistry.notifyReconnect();
+                    }
+                }
+            });
             socket.on(Socket.EVENT_CONNECT_ERROR, args -> log.warn("ICICI websocket connect error {}: {}", url, args));
             socket.connect();
             return socket;
@@ -188,7 +215,7 @@ public final class BreezeWebSocketMultiplexer implements WebSocketMultiplexer {
                     tick.optLong("ttq", 0L),
                     System.currentTimeMillis(),
                     java.util.Optional.empty()
-            );
+            , 0L, 0L);
             for (MarketDataListener listener : marketListeners) {
                 listener.onEvent(event);
             }

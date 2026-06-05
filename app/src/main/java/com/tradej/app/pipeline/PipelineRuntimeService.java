@@ -159,6 +159,7 @@ public final class PipelineRuntimeService implements PipelineRuntimeBridge {
     }
 
     public synchronized void reloadFromApi(PipelineGraph graph) {
+        com.tradej.pipeline.graph.PipelineGraphValidator.validate(graph);
         reload(graph, hotPathPublisher);
         persistGraph(graph);
     }

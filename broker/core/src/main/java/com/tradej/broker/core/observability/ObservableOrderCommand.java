@@ -3,6 +3,7 @@ package com.tradej.broker.core.observability;
 import com.tradej.broker.api.port.OrderCommand;
 import com.tradej.core.domain.model.ModifyOrderRequest;
 import com.tradej.core.domain.model.Order;
+import com.tradej.core.domain.model.OrderPreview;
 import com.tradej.core.domain.model.OrderRequest;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -67,6 +68,11 @@ public final class ObservableOrderCommand implements OrderCommand {
     @Override
     public boolean setKillSwitch(boolean enabled) {
         return recordCall("setKillSwitch", () -> delegate.setKillSwitch(enabled));
+    }
+
+    @Override
+    public OrderPreview previewOrder(OrderRequest request) {
+        return delegate.previewOrder(request);
     }
 
     private <T> T recordCall(String action, Callable<T> call) {

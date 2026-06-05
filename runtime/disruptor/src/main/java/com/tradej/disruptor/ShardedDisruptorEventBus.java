@@ -42,21 +42,6 @@ public final class ShardedDisruptorEventBus implements EventBus, DisruptorBusMet
             PortfolioEngine portfolioEngine,
             StageTimings stageTimings,
             FeatureStore hotPathFeatureStore,
-            DeadLetterQueue deadLetterQueue
-    ) {
-        this(shardCount, positionRiskHandler, candleAggregationService, strategyEngine, executionHandler,
-                portfolioEngine, stageTimings, hotPathFeatureStore, deadLetterQueue, null);
-    }
-
-    public ShardedDisruptorEventBus(
-            int shardCount,
-            PositionRiskHandler positionRiskHandler,
-            CandleAggregationService candleAggregationService,
-            StrategyEngine strategyEngine,
-            ExecutionHandler executionHandler,
-            PortfolioEngine portfolioEngine,
-            StageTimings stageTimings,
-            FeatureStore hotPathFeatureStore,
             DeadLetterQueue deadLetterQueue,
             PipelineRuntimeBridge pipelineRuntimeBridge
     ) {

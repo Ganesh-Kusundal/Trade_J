@@ -6,6 +6,7 @@ import com.tradej.app.pipeline.DagPipelineIngressBridge;
 import com.tradej.app.pipeline.PositionStateRebuilder;
 import com.tradej.app.readmodel.ReadModelStore;
 import com.tradej.app.scanner.RuntimeSubscriptionManager;
+import com.tradej.app.subscription.SubscriptionCoordinator;
 import com.tradej.app.startup.BrokerStartupOrchestrator;
 import com.tradej.broker.api.IBrokerConnection;
 import com.tradej.broker.api.model.BrokerCapabilities;
@@ -56,6 +57,7 @@ public class StartupConfiguration {
             ReadModelStore readModelStore,
             EventSourcedNetPositionProvider netPositionProvider,
             ObjectProvider<RuntimeSubscriptionManager> subscriptionManagerProvider,
+            ObjectProvider<SubscriptionCoordinator> subscriptionCoordinatorProvider,
             DagPipelineIngressBridge dagPipelineIngressBridge,
             PositionStateRebuilder positionStateRebuilder,
             OrderManagementService orderManagementService,
@@ -80,6 +82,7 @@ public class StartupConfiguration {
                 readModelStore,
                 netPositionProvider,
                 subscriptionManagerProvider,
+                subscriptionCoordinatorProvider,
                 dagPipelineIngressBridge,
                 positionStateRebuilder,
                 orderManagementService

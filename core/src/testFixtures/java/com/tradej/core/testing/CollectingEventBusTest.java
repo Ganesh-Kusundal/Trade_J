@@ -142,7 +142,7 @@ class CollectingEventBusTest {
                 1L,
                 100L,
                 System.currentTimeMillis(),
-                Optional.empty()
+                Optional.empty(), 0L, 0L
         );
     }
 

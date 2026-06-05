@@ -21,4 +21,9 @@ public record OrderRejected(
     public com.tradej.core.domain.oms.OrderRejected toOsmEvent(String omsOrderId) {
         return new com.tradej.core.domain.oms.OrderRejected(omsOrderId, reason);
     }
+
+    @Override
+    public void accept(DomainEventVisitor visitor) {
+        visitor.visit(this);
+    }
 }

@@ -3,7 +3,7 @@ package com.tradej.broker.dhan.orders;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tradej.broker.dhan.instrument.DhanInstrumentDefinition;
 import com.tradej.broker.dhan.mapper.DhanJsonResponse;
-import com.tradej.broker.dhan.mapper.DhanSdkMapper;
+import com.tradej.broker.dhan.mapper.DhanJsonMapper;
 import com.tradej.core.domain.model.Order;
 import com.tradej.core.domain.value.Exchange;
 import com.tradej.core.domain.value.ExchangeSegment;
@@ -40,7 +40,7 @@ class DhanRestOrderClientFixtureTest {
                 "11536"
         );
 
-        Order order = mapPlaceOrderResponse(response, definition);
+        Order order = DhanJsonMapper.toOrder(response, null, definition);
 
         assertEquals("SANDBOX-ORDER-001", order.orderId());
         assertEquals("itest-redacted-001", order.correlationId());
@@ -85,27 +85,6 @@ class DhanRestOrderClientFixtureTest {
     void optionChainFixtureHasNestedData() throws Exception {
         DhanJsonResponse response = fixture("optionchain-response.json");
         assertEquals("NIFTY", response.path("data").string("underlyingSymbol"));
-    }
-
-    private Order mapPlaceOrderResponse(DhanJsonResponse response, DhanInstrumentDefinition definition) {
-        DhanJsonResponse data = response.has("data") ? response.path("data") : response;
-        String orderId = data.string("orderId", "id");
-        return new Order(
-                orderId,
-                data.string("correlationId"),
-                definition.canonicalSymbol(),
-                definition.exchangeSegment(),
-                DhanSdkMapper.side(data.string("transactionType")),
-                DhanSdkMapper.productType(data.string("productType")),
-                DhanSdkMapper.orderType(data.string("orderType")),
-                DhanSdkMapper.orderStatus(data.string("orderStatus", "status")),
-                data.longValue("quantity"),
-                data.longValue("filledQty", "filledQuantity"),
-                data.decimalPrice("price"),
-                data.decimalPrice("triggerPrice"),
-                0L,
-                data.string("remarks", "message")
-        );
     }
 
     private DhanJsonResponse fixture(String name) throws Exception {

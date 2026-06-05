@@ -15,7 +15,7 @@ import com.tradej.strategy.portfolio.PortfolioEngine;
 import com.tradej.strategy.service.CandleAggregationService;
 import com.tradej.strategy.service.GraphStrategySandbox;
 import com.tradej.strategy.service.StrategyEngine;
-import com.tradej.feature.store.InMemoryFeatureStore;
+import com.tradej.feature.store.OptionsAwareFeatureStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Bean;
@@ -55,7 +55,7 @@ public class EventBusConfiguration {
             ExecutionHandler executionHandler,
             PortfolioEngine portfolioEngine,
             StageTimings stageTimings,
-            InMemoryFeatureStore hotPathFeatureStore,
+            OptionsAwareFeatureStore hotPathFeatureStore,
             DeadLetterQueue deadLetterQueue,
             PipelineRuntimeService pipelineRuntimeService
     ) {

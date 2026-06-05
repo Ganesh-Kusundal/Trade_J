@@ -20,7 +20,7 @@ class UpstoxAnalyticsTokenHolderTest {
                 + ".signature";
         UpstoxConnectionSettings settings = new UpstoxConnectionSettings(
                 "client", "secret", "http://127.0.0.1:18080/callback",
-                null, null, jwt, true, false, 18080, 1_800_000L, 600_000L
+                null, null, jwt, null, true, false, 18080, 1_800_000L, 600_000L
         );
         UpstoxAnalyticsTokenHolder holder = new UpstoxAnalyticsTokenHolder(settings);
         assertEquals(jwt, holder.bearerToken());
@@ -33,7 +33,7 @@ class UpstoxAnalyticsTokenHolderTest {
     void rejectsMissingAnalyticsToken() {
         assertThrows(IllegalArgumentException.class, () -> new UpstoxConnectionSettings(
                 "client", "secret", "http://127.0.0.1:18080/callback",
-                null, null, null, true, false, 18080, 1_800_000L, 600_000L
+                null, null, null, null, true, false, 18080, 1_800_000L, 600_000L
         ));
     }
 
@@ -63,7 +63,7 @@ class UpstoxAnalyticsTokenHolderTest {
                 + ".signature";
         return new UpstoxConnectionSettings(
                 "client", "secret", "http://127.0.0.1:18080/callback",
-                null, null, jwt, true, false, 18080, 1_800_000L, 600_000L
+                null, null, jwt, null, true, false, 18080, 1_800_000L, 600_000L
         );
     }
 }

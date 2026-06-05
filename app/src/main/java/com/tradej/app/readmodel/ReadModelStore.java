@@ -105,7 +105,10 @@ public final class ReadModelStore {
             }
             case TradeClosed closed -> {
                 if (activeTradeIds.remove(closed.tradeId())) {
-                    positions.remove(closed.symbol());
+            positions.computeIfPresent(closed.symbol(), (sym, existing) -> {
+                long remaining = existing.netQuantity() - closed.size();
+                return remaining <= 0 ? null : new PositionView(sym, remaining, existing.avgPricePaisa());
+            });
                 }
             }
             case TickReceived tick -> ticks.put(tick.symbol(), new TickView(

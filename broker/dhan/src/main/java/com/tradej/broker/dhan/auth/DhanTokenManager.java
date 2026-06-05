@@ -11,16 +11,20 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantLock;
 
 public class DhanTokenManager implements DhanTokenProvider {
     private static final Logger log = LoggerFactory.getLogger(DhanTokenManager.class);
+    private static final long TOKEN_ACQUISITION_COOLDOWN_MS = 130_000L;
+
     private final DhanConnectionSettings settings;
     private final DhanAuthClient authClient;
     private final DhanTotpGenerator totpGenerator;
     private final DhanTokenStateStore stateStore;
     private final Clock clock;
     private final ReentrantLock refreshLock = new ReentrantLock();
+    private final AtomicLong lastAcquisitionAttemptMs = new AtomicLong(0L);
 
     private volatile DhanTokenState currentState;
 
@@ -158,6 +162,14 @@ public class DhanTokenManager implements DhanTokenProvider {
     }
 
     private DhanTokenState generateFreshToken(long now) {
+        long lastAttempt = lastAcquisitionAttemptMs.get();
+        if (lastAttempt > 0 && now - lastAttempt < TOKEN_ACQUISITION_COOLDOWN_MS) {
+            throw new DhanAuthRejectedException(
+                    "Dhan token generation cooldown active; retry after "
+                            + ((TOKEN_ACQUISITION_COOLDOWN_MS - (now - lastAttempt)) / 1000) + "s",
+                    true);
+        }
+        lastAcquisitionAttemptMs.set(now);
         return switch (settings.authMode()) {
             case TOTP_GENERATED -> authClient.generateViaTotp(
                     settings.clientId(),

@@ -4,6 +4,7 @@ import com.tradej.core.domain.port.FeatureStore;
 import com.tradej.feature.store.AsyncDuckDbWriter;
 import com.tradej.feature.store.DuckDbFeatureStore;
 import com.tradej.feature.store.InMemoryFeatureStore;
+import com.tradej.feature.store.OptionsAwareFeatureStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Bean;
@@ -22,13 +23,13 @@ public class FeatureStoreConfiguration {
     private static final String FEATURES_DB = "-features.duckdb";
 
     @Bean
-    InMemoryFeatureStore hotPathFeatureStore() {
-        return new InMemoryFeatureStore();
+    OptionsAwareFeatureStore hotPathFeatureStore() {
+        return new OptionsAwareFeatureStore(new InMemoryFeatureStore());
     }
 
     @Bean
     @Primary
-    FeatureStore featureStore(InMemoryFeatureStore hotPathFeatureStore) {
+    FeatureStore featureStore(OptionsAwareFeatureStore hotPathFeatureStore) {
         return hotPathFeatureStore;
     }
 
