@@ -1,0 +1,1 @@
+Java 17+ with Gradle multi-project build; uses Protocol Buffers for Upstox market data feeds (`MarketDataFeed.proto`) and Jackson for JSON mapping.

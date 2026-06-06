@@ -230,6 +230,26 @@ class OrderStateMachineUnitTest {
         assertEquals(85, oms.filledQuantity());
     }
 
+    @Test
+    void overfillGuardRejectsExcessiveFilledQuantity() {
+        // Use fromProjection to create PARTIALLY_FILLED with filled == total
+        // (edge case: race condition where fill and state transition arrive out of order)
+        OrderStateMachine oms = OrderStateMachine.fromProjection(
+                ORDER_ID, SYMBOL, TOTAL_QTY,
+                LifecycleState.PARTIALLY_FILLED, TOTAL_QTY, 150_50L);
+        assertEquals(TOTAL_QTY, oms.filledQuantity());
+        long vwapAtFull = oms.averagePricePaisa();
+
+        // Receive another FullyFilled reporting 120 total (overfill)
+        // additional = min(max(100, 120), 100) - 100 = 0
+        // Should NOT update VWAP or filledQuantity
+        oms.on(OrderFullyFilled.event(ORDER_ID, 120, 999_00L));
+
+        assertEquals(TOTAL_QTY, oms.filledQuantity(), "Filled quantity should not exceed total");
+        assertEquals(vwapAtFull, oms.averagePricePaisa(), "VWAP should not change on overfill");
+        assertEquals(LifecycleState.FILLED, oms.currentStatus());
+    }
+
     // ── replay() static factory ─────────────────────────────────────────────
 
     @Test

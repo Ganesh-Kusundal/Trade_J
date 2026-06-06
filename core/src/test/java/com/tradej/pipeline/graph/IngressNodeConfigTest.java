@@ -3,7 +3,10 @@ package com.tradej.pipeline.graph;
 import com.tradej.core.domain.event.CandleClosed;
 import com.tradej.core.domain.event.DomainEvent;
 import com.tradej.core.domain.event.EventMetadata;
-import com.tradej.core.domain.event.TickReceived;
+import com.tradej.core.domain.event.MarketTickEvent;
+import java.util.Optional;
+import com.tradej.core.domain.value.ExchangeSegment;
+import com.tradej.core.domain.value.FeedMode;
 import com.tradej.core.domain.model.Candle;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -45,13 +48,11 @@ class IngressNodeConfigTest {
     }
 
     @Test
-    void acceptsTickReceivedWhenConfigured() {
+    void acceptsMarketTickEventWhenConfigured() {
         IngressNodeConfig config = IngressNodeConfig.fromMap(java.util.Map.of(
-                "eventTypes", List.of("TickReceived")
+                "eventTypes", List.of("MarketTickEvent")
         ));
-        TickReceived tick = new TickReceived(
-                EventMetadata.root(), "SBIN", "5m", 100L, 1L, 1L, 1000L, null
-        );
+        MarketTickEvent tick = new MarketTickEvent(EventMetadata.root(), 0L, "SBIN", ExchangeSegment.NSE_EQ, FeedMode.TICKER, 100L, 1L, 1L, 1000L, Optional.empty(), 0L, 0L);
         assertTrue(config.accepts(tick));
     }
 }

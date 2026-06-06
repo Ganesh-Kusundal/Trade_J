@@ -1,0 +1,1 @@
+Uses Java `ScheduledExecutorService` for time-based replay stepping and custom `VirtualClock` integration for deterministic event timestamping during bulk replays.

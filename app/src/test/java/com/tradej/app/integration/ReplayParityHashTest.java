@@ -2,7 +2,10 @@ package com.tradej.app.integration;
 
 import com.tradej.core.domain.event.CandleClosed;
 import com.tradej.core.domain.event.EventMetadataFactory;
-import com.tradej.core.domain.event.TickReceived;
+import com.tradej.core.domain.event.MarketTickEvent;
+import java.util.Optional;
+import com.tradej.core.domain.value.ExchangeSegment;
+import com.tradej.core.domain.value.FeedMode;
 import com.tradej.core.domain.model.Candle;
 import com.tradej.core.domain.time.LiveTradingClock;
 import com.tradej.core.domain.time.TradingClock;
@@ -40,16 +43,7 @@ class ReplayParityHashTest {
 
     long baseMs = FIXED_CLOCK.millis();
     for (int i = 0; i < 120; i++) {
-      TickReceived tick = new TickReceived(
-          metadata.root(),
-          "SBIN",
-          "1s",
-          100_000L + i,
-          10L,
-          1_000L + i,
-          baseMs + (i * 1_000L),
-          null
-      );
+      MarketTickEvent tick = new MarketTickEvent(metadata.root(), 0L, "SBIN", ExchangeSegment.NSE_EQ, FeedMode.TICKER, 100_000L + i, 10L, 1_000L + i, baseMs + (i * 1_000L), Optional.empty(), 0L, 0L);
       live.onDomainEvent(tick, event -> {
         if (event instanceof CandleClosed closed) {
           liveCloses.add(closed.candle());

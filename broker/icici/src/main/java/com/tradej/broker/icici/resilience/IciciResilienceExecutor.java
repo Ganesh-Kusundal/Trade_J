@@ -3,6 +3,7 @@ package com.tradej.broker.icici.resilience;
 import com.tradej.broker.core.rate.MultiBucketRateLimiter;
 import com.tradej.broker.core.resilience.BackoffStrategy;
 import com.tradej.broker.core.resilience.CircuitBreaker;
+import com.tradej.broker.core.resilience.CircuitBreakerConfig;
 import com.tradej.broker.core.resilience.RetryPolicy;
 import com.tradej.broker.icici.http.BreezeHttpException;
 
@@ -10,6 +11,7 @@ import java.util.function.Supplier;
 
 public final class IciciResilienceExecutor {
 
+    public static final String CATEGORY_ORDER = "ORDER";
     public static final String CATEGORY_DATA = "DATA";
     public static final String CATEGORY_DAILY = "DAILY";
 
@@ -20,7 +22,7 @@ public final class IciciResilienceExecutor {
     private final CircuitBreaker circuitBreaker;
 
     public IciciResilienceExecutor(MultiBucketRateLimiter rateLimiter) {
-        this(rateLimiter, new CircuitBreaker());
+        this(rateLimiter, new CircuitBreaker(CircuitBreakerConfig.CONSERVATIVE));
     }
 
     public IciciResilienceExecutor(MultiBucketRateLimiter rateLimiter, CircuitBreaker circuitBreaker) {
@@ -36,6 +38,10 @@ public final class IciciResilienceExecutor {
         return execute(CATEGORY_DAILY, operation, supplier);
     }
 
+    public <T> T executeOrder(String operation, Supplier<T> supplier) {
+        return execute(CATEGORY_ORDER, operation, supplier);
+    }
+
     private <T> T execute(String category, String operation, Supplier<T> supplier) {
         circuitBreaker.assertCanExecute(operation);
         RuntimeException lastFailure = null;
@@ -44,12 +50,18 @@ public final class IciciResilienceExecutor {
                 rateLimiter.acquire(category);
                 T value = supplier.get();
                 circuitBreaker.onSuccess(operation);
+                if (lastFailure != null) {
+                    onSuccess(category);
+                }
                 return value;
             } catch (RuntimeException ex) {
                 if (!isRetryable(ex)) {
                     throw ex;
                 }
                 lastFailure = ex;
+                if (ex instanceof BreezeHttpException breeze && breeze.httpStatus() == 429) {
+                    onRateLimitResponse(category);
+                }
                 if (attempt < DATA_POLICY.maxAttempts()) {
                     sleepBackoff(attempt);
                 }
@@ -60,6 +72,28 @@ public final class IciciResilienceExecutor {
                 "ICICI operation failed after " + DATA_POLICY.maxAttempts() + " attempts: " + operation,
                 lastFailure
         );
+    }
+
+    /**
+     * Reduce rate on 429 to prevent repeated throttling.
+     * Multiplicative decrease: halve the fill rate for the bucket.
+     */
+    private void onRateLimitResponse(String category) {
+        try {
+            rateLimiter.reduceRate(category, 0.5);
+        } catch (Exception ignored) {
+        }
+    }
+
+    /**
+     * Gradually restore rate after successful call following a throttle.
+     * Additive increase: +10% per success.
+     */
+    private void onSuccess(String category) {
+        try {
+            rateLimiter.increaseRate(category, 0.1);
+        } catch (Exception ignored) {
+        }
     }
 
     private static boolean isRetryable(RuntimeException ex) {

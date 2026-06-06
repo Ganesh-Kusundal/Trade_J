@@ -1,0 +1,5 @@
+- Entry point: `build.gradle` defines a custom `architectureTest` task that aggregates compiled classes from all core and optional research modules into a single test classpath.
+- Test suite: Three ArchUnit test classes (`ModuleBoundaryArchitectureTest`, `SpringFreeArchitectureTest`, `ProfileIsolationArchitectureTest`) import all `com.tradej` packages once via `@BeforeAll` and apply static rules.
+- Boundary enforcement: `ModuleBoundaryArchitectureTest` asserts that inner modules (e.g., `core`, `broker-api`) do not depend on outer or sibling modules, preserving a directed acyclic dependency graph.
+- Framework isolation: `SpringFreeArchitectureTest` prohibits Spring Framework imports and annotations in business modules, ensuring they remain runtime-agnostic.
+- Profile safety: `ProfileIsolationArchitectureTest` verifies that replay-specific configurations carry `@Profile` annotations and that replay-related classes reside in designated modules (`core`, `persistence`) rather than the composition root.

@@ -1,0 +1,4 @@
+- Persistence components implementing `AutoCloseable` manage their own resource lifecycle (Queue or Connection) and provide synchronized connection validation/reconnection logic for DuckDB stores.
+- Domain events are persisted with explicit type discriminators (e.g., `eventType` field) in JSON envelopes to support polymorphic deserialization during historical replay.
+- Historical query services use `PreparedStatement` with parameterized inputs and default limits to prevent SQL injection and unbounded result sets.
+- Ingestion timestamps (`ingested_at_ms`) and event timestamps (`event_time_ms`) are stored separately in DuckDB tables to distinguish between system arrival time and domain occurrence time.

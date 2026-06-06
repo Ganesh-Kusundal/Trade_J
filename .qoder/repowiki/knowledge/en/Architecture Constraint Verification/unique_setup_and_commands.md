@@ -1,0 +1,1 @@
+Run via Gradle task `architectureTest` (`./gradlew architectureTest`), which depends on `classes` tasks of all scanned modules and sets system property `research` based on project flag. Optional research modules are included only when `-Presearch` is passed.

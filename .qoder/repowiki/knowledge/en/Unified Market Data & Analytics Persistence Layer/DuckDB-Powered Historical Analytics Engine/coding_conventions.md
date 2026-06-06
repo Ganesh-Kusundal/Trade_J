@@ -1,0 +1,4 @@
+- SQL injection prevention is handled by `AnalyticsSqlGuard`, which strictly allows only SELECT/WITH/DESCRIBE/SHOW statements and blocks multi-statement queries.
+- Domain objects (e.g., `Candle`, `RollingOptionBar`) are constructed from `ResultSet` or `Map<String, Object>` rows using static helper methods like `mapRows` or `readCandleRows`.
+- Checked `SQLException`s from the DuckDB engine are consistently wrapped into `IllegalStateException` with contextual messages in repository and service layers.
+- Time-based queries consistently convert `LocalDate` ranges to millisecond timestamps using the `Asia/Kolkata` (IST) timezone for partition filtering.

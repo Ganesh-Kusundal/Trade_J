@@ -15,11 +15,6 @@ public final class PipelineNodeTypes {
     public static final String INGRESS = "Ingress";
     public static final String SCAN = "Scan";
 
-    // Decomposed execution nodes
-    public static final String SIGNAL_GATE = "SignalGate";
-    public static final String ORDER_PLACEMENT = "OrderPlacement";
-    public static final String FILL_RECONCILIATION = "FillReconciliation";
-
     // Scanner streaming nodes
     public static final String SCAN_CRITERION = "ScanCriterion";
     public static final String SCAN_AGGREGATOR = "ScanAggregator";

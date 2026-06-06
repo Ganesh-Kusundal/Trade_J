@@ -1,0 +1,1 @@
+Enforces module boundary, framework isolation, and profile separation rules using ArchUnit to prevent architectural drift across the codebase.

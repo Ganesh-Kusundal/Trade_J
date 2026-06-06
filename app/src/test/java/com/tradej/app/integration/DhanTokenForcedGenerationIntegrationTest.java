@@ -2,6 +2,7 @@ package com.tradej.app.integration;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tradej.broker.dhan.auth.DhanAuthClient;
+import com.tradej.broker.dhan.auth.DhanAuthRejectedException;
 import com.tradej.broker.dhan.auth.DhanTokenManager;
 import com.tradej.broker.dhan.auth.DhanTokenState;
 import com.tradej.broker.dhan.config.DhanAuthMode;
@@ -9,7 +10,6 @@ import com.tradej.broker.dhan.config.DhanConnectionSettings;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -52,13 +52,28 @@ class DhanTokenForcedGenerationIntegrationTest {
     );
 
     DhanTokenManager manager = new DhanTokenManager(settings);
-    String token = manager.getAccessToken();
+    String token = generateWithRateLimitSkip(manager);
 
     assertTrue(Files.exists(tokenStateFile), "Token state should be written to the configured override file.");
     DhanTokenState persisted = new ObjectMapper().readValue(Files.readString(tokenStateFile), DhanTokenState.class);
     assertEquals("TOTP_GENERATED", persisted.source());
     assertNotEquals(INVALID_BOOTSTRAP, token);
     assertTrue(new DhanAuthClient().fetchProfile(token, settings.refreshBufferMillis()).valid());
+  }
+
+  /**
+   * Generates a token but skips the test if Dhan's rate limit is active.
+   * Dhan enforces ~2 minutes between TOTP generations.
+   */
+  private static String generateWithRateLimitSkip(DhanTokenManager manager) {
+    try {
+      return manager.getAccessToken();
+    } catch (DhanAuthRejectedException e) {
+      if (e.rateLimited()) {
+        Assumptions.abort("Dhan TOTP generation rate limited. Wait ~2 minutes between generations.");
+      }
+      throw e; // Not a rate limit issue — rethrow
+    }
   }
 
   private static void assumeTotpCredentialsPresent(DhanConnectionSettings settings) {

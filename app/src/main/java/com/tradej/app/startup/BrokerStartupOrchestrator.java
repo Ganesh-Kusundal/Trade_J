@@ -1,20 +1,21 @@
 package com.tradej.app.startup;
 
 import com.tradej.app.admin.RuntimeHealthState;
-import com.tradej.app.config.BrokerRuntimeMode;
-import com.tradej.app.config.BrokerRuntimeModeResolver;
-import com.tradej.app.config.ScanProperties;
+import com.tradej.app.config.BrokerTransportProfile;
+import com.tradej.composition.config.ScanProperties;
 import com.tradej.app.config.TradingProperties;
+import org.springframework.core.env.Environment;
 import com.tradej.app.health.BrokerErrorTracker;
-import com.tradej.app.pipeline.DagPipelineIngressBridge;
-import com.tradej.app.pipeline.PositionStateRebuilder;
-import com.tradej.app.readmodel.ReadModelStore;
+import com.tradej.pipeline.service.DagPipelineIngressBridge;
+import com.tradej.replay.engine.PositionStateRebuilder;
+import com.tradej.execution.readmodel.ReadModelStore;
 import com.tradej.app.scanner.RuntimeSubscriptionManager;
-import com.tradej.app.subscription.SubscriptionCoordinator;
+import com.tradej.execution.subscription.SubscriptionCoordinator;
 import com.tradej.broker.api.IBrokerConnection;
 import com.tradej.broker.api.model.BrokerCapabilities;
 import com.tradej.broker.api.model.MarketSubscriptionRequest;
 import com.tradej.broker.core.routing.LoadBalancedBrokerGateway;
+import com.tradej.broker.core.startup.BrokerLifecycleManager;
 import com.tradej.broker.dhan.DhanBrokerConnection;
 import com.tradej.broker.dhan.auth.DhanTokenProvider;
 import com.tradej.broker.dhan.config.DhanApiEnvironment;
@@ -34,13 +35,13 @@ import com.tradej.core.domain.event.OrderRejected;
 import com.tradej.core.domain.event.PnlUpdatedEvent;
 import com.tradej.core.domain.event.PositionMismatch;
 import com.tradej.core.domain.event.SignalGenerated;
-import com.tradej.core.domain.event.TickReceived;
 import com.tradej.core.domain.event.TradeClosed;
 import com.tradej.core.domain.event.TradeOpened;
 import com.tradej.core.domain.model.CandleHistoryRequest;
 import com.tradej.core.domain.model.InstrumentKey;
 import com.tradej.core.domain.port.EventBus;
 import com.tradej.execution.position.EventSourcedNetPositionProvider;
+import com.tradej.execution.reconcile.OrderReconciler;
 import com.tradej.execution.reconcile.ReconciliationAlertLogger;
 import com.tradej.execution.service.OrderManagementService;
 import com.tradej.feature.store.AsyncDuckDbWriter;
@@ -48,32 +49,34 @@ import com.tradej.hotpath.MarketDataPipeline;
 import com.tradej.hotpath.OrderPipeline;
 import com.tradej.persistence.chronicle.ChronicleAuditLogWriter;
 import com.tradej.persistence.duckdb.AsyncDuckDbEventStore;
-import com.tradej.persistence.duckdb.DuckDbEventStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.DayOfWeek;
 import java.time.LocalDate;
-import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Component
 public final class BrokerStartupOrchestrator {
 
     private static final Logger log = LoggerFactory.getLogger(BrokerStartupOrchestrator.class);
-    private static final ZoneId INDIA = ZoneId.of("Asia/Kolkata");
 
-    private final BrokerRuntimeModeResolver runtimeModeResolver;
+    private final Environment environment;
+    private final TradingProperties tradingProperties;
+    private final BrokerLifecycleManager lifecycleManager;
 
-    public BrokerStartupOrchestrator(BrokerRuntimeModeResolver runtimeModeResolver) {
-        this.runtimeModeResolver = runtimeModeResolver;
+    public BrokerStartupOrchestrator(
+            Environment environment,
+            TradingProperties tradingProperties,
+            BrokerLifecycleManager lifecycleManager
+    ) {
+        this.environment = environment;
+        this.tradingProperties = tradingProperties;
+        this.lifecycleManager = lifecycleManager;
     }
 
     public void runStartup(
@@ -98,27 +101,28 @@ public final class BrokerStartupOrchestrator {
             ObjectProvider<SubscriptionCoordinator> subscriptionCoordinatorProvider,
             DagPipelineIngressBridge dagPipelineIngressBridge,
             PositionStateRebuilder positionStateRebuilder,
-            OrderManagementService orderManagementService
+            OrderManagementService orderManagementService,
+            OrderReconciler orderReconciler
     ) {
-        BrokerRuntimeMode mode = runtimeModeResolver.resolve();
+        BrokerTransportProfile profile = BrokerTransportProfile.resolve(environment, tradingProperties);
 
-        loadCatalog(properties, brokerConnection, runtimeHealthState, mode);
+        loadCatalog(properties, brokerConnection, runtimeHealthState, profile);
         boolean scanEnabled = scanPropertiesProvider.getIfAvailable() != null
                 && scanPropertiesProvider.getIfAvailable().enabled();
         List<MarketSubscriptionRequest> subscriptions = validateSubscriptions(
-                properties, brokerConnection, brokerCapabilities, scanEnabled, mode);
+                properties, brokerConnection, brokerCapabilities, scanEnabled, profile);
 
-        if (mode != BrokerRuntimeMode.UPSTOX_ANALYTICS_REST) {
+        if (!profile.isAnalyticsRest()) {
             dhanTokenProvider.ifAvailable(DhanTokenProvider::ensureValid);
             breezeTokenProvider.ifAvailable(BreezeTokenProvider::ensureValid);
         }
 
         if (!subscriptions.isEmpty()) {
-            DhanApiEnvironment environment = properties.broker() != null
+            DhanApiEnvironment env = properties.broker() != null
                     ? properties.broker().environment()
                     : DhanApiEnvironment.LIVE;
-            verifyBrokerPreflight(brokerConnection, subscriptions, environment, mode);
-        } else if (mode.isAnalyticsRest()) {
+            verifyBrokerPreflight(brokerConnection, subscriptions, env, profile);
+        } else if (profile.isAnalyticsRest()) {
             verifyAnalyticsRestPreflight(brokerConnection, properties);
         }
         runtimeHealthState.markBrokerPreflightPassed();
@@ -126,22 +130,24 @@ public final class BrokerStartupOrchestrator {
         subscribeEventHandlers(eventBus, asyncDuckDbWriter, chronicleAuditLogWriter,
                 asyncDuckDbEventStore, brokerErrorTracker, readModelStore,
                 netPositionProvider, reconciliationAlertLogger, dagPipelineIngressBridge);
-        if (mode.expectsWebSocket()) {
+        if (profile.expectsWebSocket()) {
             setupWebSocketHandlers(brokerConnection, marketDataPipeline, orderPipeline, eventBus);
         } else {
-            log.info(
-                    "Skipping WebSocket handler wiring in {} mode (REST-only transport).",
-                    mode);
+            log.info("Skipping WebSocket handler wiring in REST-only mode.");
         }
 
         eventBus.start();
         orderManagementService.replayAll();
+        try {
+            orderReconciler.reconcileAll(eventBus::publish);
+            log.info("OMS crash recovery reconciliation completed");
+        } catch (Exception e) {
+            log.error("OMS reconciliation failed during startup — manual intervention may be required", e);
+        }
         positionStateRebuilder.rebuild(eventBus);
 
-        if (!mode.expectsWebSocket()) {
-            log.warn(
-                    "Skipping broker WebSocket connect in {} mode. REST APIs remain available.",
-                    mode);
+        if (!profile.expectsWebSocket()) {
+            log.warn("Skipping broker WebSocket connect. REST APIs remain available.");
         } else {
             brokerConnection.connect();
             RuntimeSubscriptionManager subscriptionManager = subscriptionManagerProvider.getIfAvailable();
@@ -158,35 +164,19 @@ public final class BrokerStartupOrchestrator {
         }
     }
 
-    private void verifyAnalyticsRestPreflight(IBrokerConnection brokerConnection, TradingProperties properties) {
-        List<TradingProperties.SubscriptionProperties> configured = properties.subscriptions();
-        InstrumentKey seed;
-        if (configured != null && !configured.isEmpty()) {
-            TradingProperties.SubscriptionProperties first = configured.get(0);
-            seed = new InstrumentKey(first.symbol(), first.exchangeSegment());
-        } else {
-            seed = new InstrumentKey("SBIN", com.tradej.core.domain.value.ExchangeSegment.NSE_EQ);
-        }
-        verifyUpstoxPreflight(brokerConnection, seed);
-    }
-
     private void loadCatalog(
             TradingProperties properties,
             IBrokerConnection brokerConnection,
             RuntimeHealthState runtimeHealthState,
-            BrokerRuntimeMode mode
+            BrokerTransportProfile profile
     ) {
         TradingProperties.InstrumentProperties instruments = properties.instruments();
         String csvPath = instruments == null ? null : instruments.csvPath();
         Path loadedPath = null;
         if (csvPath != null && !csvPath.isBlank()) {
-            Path path = Path.of(csvPath);
-            if (!Files.exists(path)) {
-                throw new IllegalStateException("Instrument catalog file does not exist: " + path);
-            }
-            brokerConnection.loadInstrumentCatalog(path);
-            loadedPath = path;
-        } else if (instruments != null && instruments.autoDownload() && !mode.isUpstox()) {
+            loadedPath = Path.of(csvPath);
+            lifecycleManager.loadInstrumentCatalog(brokerConnection, loadedPath);
+        } else if (instruments != null && instruments.autoDownload() && !profile.isUpstox()) {
             if (!(brokerConnection instanceof DhanBrokerConnection dhanConnection)) {
                 throw new IllegalStateException("Dhan auto-download requires DhanBrokerConnection");
             }
@@ -195,23 +185,21 @@ public final class BrokerStartupOrchestrator {
                 throw new IllegalStateException("Dhan runtime requires `trade.instruments.cache-directory` when auto-download is enabled");
             }
             loadedPath = dhanConnection.loadDailyInstrumentCatalog(Path.of(cacheDirectory), false);
-        } else if (mode == BrokerRuntimeMode.BROKER_GATEWAY) {
+        } else if (profile.gateway()) {
             String cacheDirectory = instruments != null ? instruments.cacheDirectory() : null;
             if (cacheDirectory == null || cacheDirectory.isBlank()) {
                 cacheDirectory = "runtime-prod/instruments";
             }
-            Path cachePath = Path.of(cacheDirectory);
-            brokerConnection.loadInstrumentCatalog(cachePath);
-            loadedPath = cachePath;
-        } else if (mode.isUpstox()) {
+            loadedPath = Path.of(cacheDirectory);
+            lifecycleManager.loadInstrumentCatalog(brokerConnection, loadedPath);
+        } else if (profile.isUpstox()) {
             String cacheDirectory = instruments != null ? instruments.cacheDirectory() : null;
             if (cacheDirectory == null || cacheDirectory.isBlank()) {
                 cacheDirectory = "runtime-dev/upstox-instruments";
             }
-            Path cachePath = Path.of(cacheDirectory);
-            brokerConnection.loadInstrumentCatalog(cachePath);
-            loadedPath = cachePath;
-        } else if (mode.isIcici()) {
+            loadedPath = Path.of(cacheDirectory);
+            lifecycleManager.loadInstrumentCatalog(brokerConnection, loadedPath);
+        } else if (profile.isIcici()) {
             String cacheDirectory = instruments != null ? instruments.cacheDirectory() : null;
             if (cacheDirectory == null || cacheDirectory.isBlank()) {
                 cacheDirectory = "runtime/icici-instruments";
@@ -220,8 +208,8 @@ public final class BrokerStartupOrchestrator {
             if (instruments != null && instruments.autoDownload()) {
                 brokerConnection.loadInstrumentCatalog(null);
                 loadedPath = cachePath;
-            } else if (Files.exists(cachePath)) {
-                brokerConnection.loadInstrumentCatalog(cachePath);
+            } else if (java.nio.file.Files.exists(cachePath)) {
+                lifecycleManager.loadInstrumentCatalog(brokerConnection, cachePath);
                 loadedPath = cachePath;
             } else if (brokerConnection instanceof IciciBrokerConnection) {
                 brokerConnection.loadInstrumentCatalog(null);
@@ -232,9 +220,6 @@ public final class BrokerStartupOrchestrator {
         } else {
             throw new IllegalStateException("Runtime requires `trade.instruments.csv-path` or instrument auto-download");
         }
-        if (brokerConnection.instruments().allInstruments().isEmpty()) {
-            throw new IllegalStateException("Instrument catalog loaded zero instruments from " + loadedPath);
-        }
         runtimeHealthState.markCatalogLoaded(brokerConnection.instruments().allInstruments().size());
     }
 
@@ -243,31 +228,40 @@ public final class BrokerStartupOrchestrator {
             IBrokerConnection brokerConnection,
             BrokerCapabilities brokerCapabilities,
             boolean scanEnabled,
-            BrokerRuntimeMode mode
+            BrokerTransportProfile profile
     ) {
         List<TradingProperties.SubscriptionProperties> configured = properties.subscriptions();
         if (configured == null || configured.isEmpty()) {
-            if (!scanEnabled && !mode.isUpstox()) {
+            if (!scanEnabled && !profile.isUpstox()) {
                 throw new IllegalStateException(
                         "Runtime requires at least one explicit market subscription, or enable trade.scan");
             }
             return List.of();
         }
-        List<MarketSubscriptionRequest> requests = configured.stream()
-                .map(subscription -> new MarketSubscriptionRequest(subscription.symbol(), Objects.requireNonNull(subscription.exchangeSegment(),
-                        "Subscription exchange segment is required for " + subscription.symbol())))
+        List<BrokerLifecycleManager.SubscriptionConfig> configs = configured.stream()
+                .map(sub -> new BrokerLifecycleManager.SubscriptionConfig(
+                        sub.symbol(), sub.exchangeSegment(), sub.feedMode()))
                 .toList();
-        for (TradingProperties.SubscriptionProperties subscription : configured) {
-            if (subscription.feedMode() == null) {
-                throw new IllegalStateException("Subscription feed mode is required for " + subscription.symbol());
-            }
-            brokerCapabilities.validateFeedMode(subscription.exchangeSegment(), subscription.feedMode());
-            if (brokerConnection instanceof DhanBrokerConnection) {
+        List<MarketSubscriptionRequest> requests = lifecycleManager.validateSubscriptions(
+                configs, brokerCapabilities, brokerConnection);
+        if (brokerConnection instanceof DhanBrokerConnection) {
+            for (TradingProperties.SubscriptionProperties subscription : configured) {
                 DhanBrokerStartup.validateNoDepth200(subscription.exchangeSegment(), subscription.feedMode());
             }
-            brokerConnection.instruments().resolve(new InstrumentKey(subscription.symbol(), subscription.exchangeSegment()));
         }
         return requests;
+    }
+
+    private void verifyAnalyticsRestPreflight(IBrokerConnection brokerConnection, TradingProperties properties) {
+        List<TradingProperties.SubscriptionProperties> configured = properties.subscriptions();
+        InstrumentKey seed;
+        if (configured != null && !configured.isEmpty()) {
+            TradingProperties.SubscriptionProperties first = configured.get(0);
+            seed = new InstrumentKey(first.symbol(), first.exchangeSegment());
+        } else {
+            seed = new InstrumentKey("SBIN", com.tradej.core.domain.value.ExchangeSegment.NSE_EQ);
+        }
+        verifyUpstoxPreflight(brokerConnection, seed);
     }
 
     private void subscribeExplicitly(
@@ -295,18 +289,15 @@ public final class BrokerStartupOrchestrator {
             IBrokerConnection brokerConnection,
             List<MarketSubscriptionRequest> subscriptions,
             DhanApiEnvironment environment,
-            BrokerRuntimeMode mode
+            BrokerTransportProfile profile
     ) {
-        if (subscriptions.isEmpty()) {
-            throw new IllegalStateException("Broker preflight requires at least one validated subscription");
-        }
         MarketSubscriptionRequest seed = subscriptions.get(0);
         InstrumentKey instrumentKey = new InstrumentKey(seed.symbol(), seed.exchangeSegment());
-        if (mode.isUpstox()) {
+        if (profile.isUpstox()) {
             verifyUpstoxPreflight(brokerConnection, instrumentKey);
             return;
         }
-        if (mode.isIcici()) {
+        if (profile.isIcici()) {
             verifyIciciPreflight(brokerConnection, instrumentKey);
             return;
         }
@@ -317,26 +308,7 @@ public final class BrokerStartupOrchestrator {
                 log.warn("Broker preflight balance check skipped in sandbox: {}", ex.getMessage());
             }
         } else {
-            brokerConnection.portfolio().getBalance();
-        }
-        try {
-            brokerConnection.marketData().getQuote(instrumentKey);
-        } catch (RuntimeException ex) {
-            log.warn("Broker preflight quote check failed for {} (expected outside market hours): {}", instrumentKey, ex.getMessage());
-        }
-        LocalDate latestTradingDate = latestTradingDate();
-        try {
-            var candles = brokerConnection.marketData().getCandles(new CandleHistoryRequest(
-                    instrumentKey,
-                    "1d",
-                    latestTradingDate.minusDays(7),
-                    latestTradingDate
-            ));
-            if (candles.isEmpty()) {
-                log.warn("Broker preflight historical request returned zero candles for {} (expected outside market hours)", instrumentKey);
-            }
-        } catch (RuntimeException ex) {
-            log.warn("Broker preflight candle check failed for {} (expected outside market hours): {}", instrumentKey, ex.getMessage());
+            lifecycleManager.verifyPreflight(brokerConnection, instrumentKey);
         }
     }
 
@@ -346,31 +318,7 @@ public final class BrokerStartupOrchestrator {
         } catch (RuntimeException ex) {
             throw new IllegalStateException("ICICI preflight funds check failed", ex);
         }
-        try {
-            long ltp = brokerConnection.marketData().getLtpPaisa(instrumentKey);
-            if (ltp <= 0) {
-                log.warn("ICICI preflight LTP non-positive for {} (expected outside market hours)", instrumentKey);
-            }
-        } catch (RuntimeException ex) {
-            log.warn("ICICI preflight quote check failed for {} (expected outside market hours): {}",
-                    instrumentKey, ex.getMessage());
-        }
-        LocalDate latestTradingDate = latestTradingDate();
-        try {
-            var candles = brokerConnection.marketData().getCandles(new CandleHistoryRequest(
-                    instrumentKey,
-                    "1d",
-                    latestTradingDate.minusDays(7),
-                    latestTradingDate
-            ));
-            if (candles.isEmpty()) {
-                log.warn("ICICI preflight historical request returned zero candles for {} (expected outside market hours)",
-                        instrumentKey);
-            }
-        } catch (RuntimeException ex) {
-            log.warn("ICICI preflight candle check failed for {} (expected outside market hours): {}",
-                    instrumentKey, ex.getMessage());
-        }
+        lifecycleManager.verifyPreflight(brokerConnection, instrumentKey);
     }
 
     private void verifyUpstoxPreflight(IBrokerConnection brokerConnection, InstrumentKey instrumentKey) {
@@ -386,13 +334,11 @@ public final class BrokerStartupOrchestrator {
             log.warn("Upstox preflight LTP check failed for {} (expected outside market hours): {}",
                     instrumentKey, ex.getMessage());
         }
-        LocalDate latestTradingDate = latestTradingDate();
+        LocalDate latestTradingDate = BrokerLifecycleManager.latestTradingDate();
         try {
             var candles = brokerConnection.marketData().getCandles(new CandleHistoryRequest(
-                    instrumentKey,
-                    "1d",
-                    latestTradingDate.minusDays(7),
-                    latestTradingDate
+                    instrumentKey, "1d",
+                    latestTradingDate.minusDays(7), latestTradingDate
             ));
             if (candles.isEmpty()) {
                 log.warn("Upstox preflight historical request returned zero candles for {} (expected outside market hours)",
@@ -418,18 +364,6 @@ public final class BrokerStartupOrchestrator {
         return false;
     }
 
-    private LocalDate latestTradingDate() {
-        LocalDate date = LocalDate.now(INDIA);
-        if (date.getDayOfWeek() == DayOfWeek.SATURDAY) {
-            return date.minusDays(1);
-        }
-        if (date.getDayOfWeek() == DayOfWeek.SUNDAY) {
-            return date.minusDays(2);
-        }
-        return date;
-    }
-
-    @SuppressWarnings({"removal", "deprecation"})
     private void subscribeEventHandlers(
             EventBus eventBus,
             AsyncDuckDbWriter asyncDuckDbWriter,
@@ -441,8 +375,6 @@ public final class BrokerStartupOrchestrator {
             ReconciliationAlertLogger reconciliationAlertLogger,
             DagPipelineIngressBridge dagPipelineIngressBridge
     ) {
-        // DuckDB feature store writes happen asynchronously on a dedicated thread
-        // to avoid blocking the event dispatch thread with JDBC I/O (fixes FS-01).
         eventBus.subscribe(DomainEvent.class, asyncDuckDbWriter);
         eventBus.subscribe(DomainEvent.class, chronicleAuditLogWriter::onEvent);
         eventBus.subscribe(DomainEvent.class, asyncDuckDbEventStore::onEvent);
@@ -454,7 +386,6 @@ public final class BrokerStartupOrchestrator {
         eventBus.subscribe(TradeOpened.class, readModelStore::onDomainEvent);
         eventBus.subscribe(TradeClosed.class, readModelStore::onDomainEvent);
         eventBus.subscribe(MarketTickEvent.class, readModelStore::onDomainEvent);
-        eventBus.subscribe(TickReceived.class, readModelStore::onDomainEvent);
         eventBus.subscribe(DepthUpdateEvent.class, readModelStore::onDomainEvent);
         eventBus.subscribe(CandleDeveloping.class, readModelStore::onDomainEvent);
         eventBus.subscribe(CandleClosed.class, readModelStore::onDomainEvent);
@@ -468,7 +399,6 @@ public final class BrokerStartupOrchestrator {
 
         eventBus.subscribe(CandleClosed.class, dagPipelineIngressBridge::onEvent);
         eventBus.subscribe(MarketTickEvent.class, dagPipelineIngressBridge::onEvent);
-        eventBus.subscribe(TickReceived.class, dagPipelineIngressBridge::onEvent);
     }
 
     private void setupWebSocketHandlers(

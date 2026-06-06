@@ -1,0 +1,7 @@
+- Entry point is `ScanEngine`, which orchestrates a two-phase scan: coarse pass on quote snapshots, then optional fine pass fetching option chains for criteria implementing `OptionAwareCriterion`.
+- Criteria follow the `ScanCriterion` interface (`matches`, `score`, `reason`) and are composed via `CriterionGroup` (AND logic, summed scores).
+- Fetchers (`SnapshotFetcher`, `OptionChainFetcher`) encapsulate batched external data retrieval with partial-failure tracking.
+- `ScanProfile` (record) bundles universe spec, mode, criteria list, and promotion config; validated in its compact constructor.
+- Pipeline integration via `ScanNode` (extends `BasePipelineNode`), triggered on `CandleClosed` events with debounce via `minIntervalMs`.
+- `ScanCriterionRegistry` provides runtime lookup of named criteria by type string for dynamic pipeline node creation.
+- Dependencies injected through `ScanDependencies` (port interfaces from `:core` and `:broker-api` modules).

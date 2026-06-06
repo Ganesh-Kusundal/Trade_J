@@ -157,6 +157,10 @@ class UpstoxMarketFeedIntegrationTest {
                 futuresProvider,
                 optionsProvider,
                 newsProvider,
+                null, // conditionalAlertProvider - not needed for market feed test
+                null, // sliceOrderCommand - not needed for market feed test
+                null, // dataServicesProvider - not needed for market feed test
+                null, // profileProvider - not needed for market feed test
                 instrumentLoader
         );
 

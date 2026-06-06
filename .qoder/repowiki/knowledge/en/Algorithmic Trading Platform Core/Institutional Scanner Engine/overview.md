@@ -1,0 +1,1 @@
+Identifies and ranks stocks exhibiting institutional-grade momentum using multi-factor scoring, sector-relative adjustments, and time-aware candidate selection.

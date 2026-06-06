@@ -8,11 +8,13 @@ import com.tradej.broker.api.capability.MarginCapable;
 import com.tradej.broker.api.capability.OptionsCapable;
 import com.tradej.broker.api.port.BracketOrderProvider;
 import com.tradej.broker.api.port.ConditionalAlertProvider;
+import com.tradej.broker.api.port.CoverOrderProvider;
 import com.tradej.broker.api.port.FuturesProvider;
 import com.tradej.broker.api.port.GttOrderProvider;
 import com.tradej.broker.api.port.InstrumentResolver;
 import com.tradej.broker.api.port.MarginProvider;
 import com.tradej.broker.api.port.MarketDataProvider;
+import com.tradej.broker.api.port.MarketStatusProvider;
 import com.tradej.broker.api.port.OptionsProvider;
 import com.tradej.broker.api.port.OrderCommand;
 import com.tradej.broker.api.port.OrderQuery;
@@ -21,17 +23,22 @@ import com.tradej.broker.api.port.SessionRiskProvider;
 import com.tradej.broker.api.port.SliceOrderCommand;
 import com.tradej.broker.api.port.WebSocketMultiplexer;
 import com.tradej.broker.icici.instrument.BreezeInstrumentResolver;
+import com.tradej.broker.icici.adapter.IciciBracketOrderAdapter;
+import com.tradej.broker.icici.adapter.IciciCoverOrderAdapter;
+import com.tradej.broker.icici.adapter.IciciGttOrderAdapter;
+import com.tradej.broker.icici.adapter.IciciMarketStatusProvider;
+import com.tradej.broker.icici.adapter.IciciSliceOrderAdapter;
 
 import java.nio.file.Path;
 import java.util.Optional;
 import java.util.Objects;
 
 public final class IciciBrokerConnection implements IBrokerConnection {
-    private static final OptionsCapable OPTIONS_CAPABLE = new OptionsCapable() {};
-    private static final FuturesCapable FUTURES_CAPABLE = new FuturesCapable() {};
-    private static final MarginCapable MARGIN_CAPABLE = new MarginCapable() {};
-    private static final AlertCapable ALERT_CAPABLE = new AlertCapable() {};
-    private static final AdvancedOrderCapable ADVANCED_ORDER_CAPABLE = new AdvancedOrderCapable() {};
+    private static final OptionsCapable OPTIONS_CAPABLE = new OptionsCapable() { };
+    private static final FuturesCapable FUTURES_CAPABLE = new FuturesCapable() { };
+    private static final MarginCapable MARGIN_CAPABLE = new MarginCapable() { };
+    private static final AlertCapable ALERT_CAPABLE = new AlertCapable() { };
+    private static final AdvancedOrderCapable ADVANCED_ORDER_CAPABLE = new AdvancedOrderCapable() { };
 
     private final MarketDataProvider marketDataProvider;
     private final FuturesProvider futuresProvider;
@@ -42,6 +49,11 @@ public final class IciciBrokerConnection implements IBrokerConnection {
     private final MarginProvider marginProvider;
     private final BreezeInstrumentResolver instrumentResolver;
     private final WebSocketMultiplexer webSocketMultiplexer;
+    private final MarketStatusProvider marketStatusProvider;
+    private final BracketOrderProvider bracketOrderProvider;
+    private final GttOrderProvider gttOrderProvider;
+    private final SliceOrderCommand sliceOrderCommand;
+    private final CoverOrderProvider coverOrderProvider;
 
     public IciciBrokerConnection(
             MarketDataProvider marketDataProvider,
@@ -63,6 +75,11 @@ public final class IciciBrokerConnection implements IBrokerConnection {
         this.marginProvider = Objects.requireNonNull(marginProvider);
         this.instrumentResolver = Objects.requireNonNull(instrumentResolver);
         this.webSocketMultiplexer = Objects.requireNonNull(webSocketMultiplexer);
+        this.marketStatusProvider = new IciciMarketStatusProvider();
+        this.bracketOrderProvider = new IciciBracketOrderAdapter();
+        this.gttOrderProvider = new IciciGttOrderAdapter();
+        this.sliceOrderCommand = new IciciSliceOrderAdapter();
+        this.coverOrderProvider = new IciciCoverOrderAdapter();
     }
 
     @Override
@@ -92,17 +109,17 @@ public final class IciciBrokerConnection implements IBrokerConnection {
 
     @Override
     public SliceOrderCommand sliceOrders() {
-        throw new UnsupportedOperationException("Slice orders not supported by ICICI adapter");
+        return sliceOrderCommand;
     }
 
     @Override
     public BracketOrderProvider bracketOrders() {
-        throw new UnsupportedOperationException("Bracket orders not supported by ICICI adapter");
+        return bracketOrderProvider;
     }
 
     @Override
     public GttOrderProvider gttOrders() {
-        throw new UnsupportedOperationException("GTT orders not supported by ICICI adapter");
+        return gttOrderProvider;
     }
 
     @Override
@@ -185,6 +202,21 @@ public final class IciciBrokerConnection implements IBrokerConnection {
         }
         if (capabilityClass.isInstance(webSocketMultiplexer)) {
             return Optional.of(capabilityClass.cast(webSocketMultiplexer));
+        }
+        if (capabilityClass.isInstance(marketStatusProvider)) {
+            return Optional.of(capabilityClass.cast(marketStatusProvider));
+        }
+        if (capabilityClass.isInstance(bracketOrderProvider)) {
+            return Optional.of(capabilityClass.cast(bracketOrderProvider));
+        }
+        if (capabilityClass.isInstance(gttOrderProvider)) {
+            return Optional.of(capabilityClass.cast(gttOrderProvider));
+        }
+        if (capabilityClass.isInstance(sliceOrderCommand)) {
+            return Optional.of(capabilityClass.cast(sliceOrderCommand));
+        }
+        if (capabilityClass.isInstance(coverOrderProvider)) {
+            return Optional.of(capabilityClass.cast(coverOrderProvider));
         }
         if (OptionsCapable.class.equals(capabilityClass)) {
             return Optional.of(capabilityClass.cast(OPTIONS_CAPABLE));

@@ -1,8 +1,8 @@
 package com.tradej.app.integration;
 
-import com.tradej.app.pipeline.DagPipelineRuntimeService;
-import com.tradej.app.pipeline.PipelineRuntimeService;
-import com.tradej.app.studio.StudioChartService;
+import com.tradej.pipeline.service.DagPipelineRuntimeService;
+import com.tradej.pipeline.service.PipelineRuntimeService;
+import com.tradej.strategy.studio.StudioChartService;
 import com.tradej.broker.api.port.OrderCommand;
 import com.tradej.pipeline.graph.PipelineExecutionMode;
 import com.tradej.pipeline.graph.PipelineGraph;

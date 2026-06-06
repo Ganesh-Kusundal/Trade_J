@@ -11,14 +11,13 @@ import com.tradej.core.domain.value.FeedMode;
 import com.tradej.gateway.protocol.GatewayBinaryCodec;
 import com.tradej.gateway.protocol.GatewayTopic;
 import com.tradej.gateway.router.GatewayTopicRouter;
+import com.tradej.gateway.transport.WebSocketTransport;
 import com.tradej.gateway.websocket.GatewayWebSocketHandler;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
-import org.springframework.web.socket.BinaryMessage;
-import org.springframework.web.socket.WebSocketSession;
 
 import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -29,15 +28,6 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
-/**
- * Integration tests for the gateway event delivery pipeline.
- *
- * <p>Wires together real instances of {@link GatewayEventBridge},
- * {@link GatewayTopicRouter}, and {@link GatewayWebSocketHandler}
- * to verify end-to-end flows: domain event ingestion, dedup, topic
- * routing, session subscription, connection lifecycle, and binary
- * frame delivery over mocked {@link WebSocketSession}s.
- */
 @Tag("integration")
 class GatewayEventBridgeIntegrationTest {
 
@@ -62,14 +52,13 @@ class GatewayEventBridgeIntegrationTest {
 
     // ── Helpers ─────────────────────────────────────────────────────────
 
-    private static WebSocketSession openSession(String id) {
-        WebSocketSession session = mock(WebSocketSession.class);
-        when(session.getId()).thenReturn(id);
-        when(session.isOpen()).thenReturn(true);
-        return session;
+    private static WebSocketTransport openTransport(String id) {
+        WebSocketTransport transport = mock(WebSocketTransport.class);
+        when(transport.id()).thenReturn(id);
+        when(transport.isOpen()).thenReturn(true);
+        return transport;
     }
 
-    /** Await {@link GatewayTopicRouter#sentEventCount()} to reach target. */
     private static boolean awaitSent(GatewayTopicRouter router, long target, long timeoutMs)
             throws InterruptedException {
         long deadline = System.currentTimeMillis() + timeoutMs;
@@ -79,14 +68,11 @@ class GatewayEventBridgeIntegrationTest {
         return router.sentEventCount() >= target;
     }
 
-    /** Decode the BinaryMessage payload sent to a session into a GatewayFrame. */
-    private static GatewayBinaryCodec.GatewayFrame decodeSentFrame(WebSocketSession session)
+    private static GatewayBinaryCodec.GatewayFrame decodeSentFrame(WebSocketTransport transport)
             throws Exception {
-        var captor = ArgumentCaptor.forClass(BinaryMessage.class);
-        verify(session).sendMessage(captor.capture());
-        byte[] raw = new byte[captor.getValue().getPayload().remaining()];
-        captor.getValue().getPayload().get(raw);
-        return GatewayBinaryCodec.decode(raw);
+        var captor = ArgumentCaptor.forClass(byte[].class);
+        verify(transport).sendBinary(captor.capture());
+        return GatewayBinaryCodec.decode(captor.getValue());
     }
 
     private static MarketTickEvent sampleTick(String symbol) {
@@ -100,9 +86,9 @@ class GatewayEventBridgeIntegrationTest {
     // ── End-to-end event flow ───────────────────────────────────────────
 
     @Test
-    void eventFlowsFromBridgeThroughRouterToSession() throws Exception {
-        WebSocketSession session = openSession("s1");
-        router.subscribe(session, GatewayTopic.PNL_UPDATE);
+    void eventFlowsFromBridgeThroughRouterToTransport() throws Exception {
+        WebSocketTransport transport = openTransport("s1");
+        router.subscribe(transport, GatewayTopic.PNL_UPDATE);
         router.start();
 
         var event = new PnlUpdatedEvent(
@@ -112,13 +98,12 @@ class GatewayEventBridgeIntegrationTest {
         assertTrue(awaitSent(router, 1, 5000),
                 "Timeout waiting for event delivery");
 
-        GatewayBinaryCodec.GatewayFrame frame = decodeSentFrame(session);
+        GatewayBinaryCodec.GatewayFrame frame = decodeSentFrame(transport);
         assertEquals(GatewayTopic.PNL_UPDATE, frame.topic(),
                 "Frame should be routed to PNL_UPDATE");
         assertTrue(frame.sequence() > 0, "Frame should have a positive sequence number");
         assertTrue(frame.payload().length > 0, "Frame should contain JSON payload");
 
-        // Verify payload contains expected fields
         String json = new String(frame.payload());
         assertTrue(json.contains("1000"), "Payload should contain realizedPnlPaisa");
         assertTrue(json.contains("\"realizedPnlPaisa\""), "Payload should include realizedPnlPaisa key");
@@ -126,8 +111,8 @@ class GatewayEventBridgeIntegrationTest {
 
     @Test
     void marketTickEventRoutedToMarketTickTopic() throws Exception {
-        WebSocketSession session = openSession("s1");
-        router.subscribe(session, GatewayTopic.MARKET_TICK);
+        WebSocketTransport transport = openTransport("s1");
+        router.subscribe(transport, GatewayTopic.MARKET_TICK);
         router.start();
 
         bridge.onDomainEvent(sampleTick("SBIN"));
@@ -135,7 +120,7 @@ class GatewayEventBridgeIntegrationTest {
         assertTrue(awaitSent(router, 1, 5000),
                 "Timeout waiting for tick delivery");
 
-        GatewayBinaryCodec.GatewayFrame frame = decodeSentFrame(session);
+        GatewayBinaryCodec.GatewayFrame frame = decodeSentFrame(transport);
         assertEquals(GatewayTopic.MARKET_TICK, frame.topic(),
                 "MarketTickEvent should route to MARKET_TICK");
 
@@ -146,11 +131,10 @@ class GatewayEventBridgeIntegrationTest {
 
     @Test
     void unknownEventTypeIsSilentlyDropped() throws Exception {
-        WebSocketSession session = openSession("s1");
-        router.subscribe(session, GatewayTopic.PNL_UPDATE);
+        WebSocketTransport transport = openTransport("s1");
+        router.subscribe(transport, GatewayTopic.PNL_UPDATE);
         router.start();
 
-        // A DomainEvent type not handled in the bridge switch
         var unhandled = new DomainEvent() {
             @Override
             public EventMetadata metadata() {
@@ -164,10 +148,10 @@ class GatewayEventBridgeIntegrationTest {
         };
         bridge.onDomainEvent(unhandled);
 
-        Thread.sleep(200); // give publisher thread time to NOT deliver
+        Thread.sleep(200);
         router.stop();
 
-        verify(session, never()).sendMessage(any(BinaryMessage.class));
+        verify(transport, never()).sendBinary(any(byte[].class));
         assertEquals(0, router.sentEventCount(),
                 "No events should be sent for unhandled types");
     }
@@ -176,11 +160,10 @@ class GatewayEventBridgeIntegrationTest {
 
     @Test
     void duplicateEventsAreDeduplicatedThroughFullPipeline() throws Exception {
-        WebSocketSession session = openSession("s1");
-        router.subscribe(session, GatewayTopic.PNL_UPDATE);
+        WebSocketTransport transport = openTransport("s1");
+        router.subscribe(transport, GatewayTopic.PNL_UPDATE);
         router.start();
 
-        // Same event ID — use a fixed eventId
         String fixedEventId = "dedup-test-id";
         var metadata = new EventMetadata(fixedEventId, 0L, 0L, 0L, "", 1);
         var event = new PnlUpdatedEvent(metadata, 100L, 50L, 200L);
@@ -192,7 +175,7 @@ class GatewayEventBridgeIntegrationTest {
         assertTrue(awaitSent(router, 1, 5000),
                 "Only one copy should be delivered despite 3 publishes");
 
-        verify(session, times(1)).sendMessage(any(BinaryMessage.class));
+        verify(transport, times(1)).sendBinary(any(byte[].class));
         assertEquals(1, bridge.eventCount(),
                 "Bridge should report 1 processed event");
         assertEquals(2, bridge.dedupHitCount(),
@@ -201,8 +184,8 @@ class GatewayEventBridgeIntegrationTest {
 
     @Test
     void uniqueEventsAreNotDeduplicated() throws Exception {
-        WebSocketSession session = openSession("s1");
-        router.subscribe(session, GatewayTopic.PNL_UPDATE);
+        WebSocketTransport transport = openTransport("s1");
+        router.subscribe(transport, GatewayTopic.PNL_UPDATE);
         router.start();
 
         bridge.onDomainEvent(
@@ -213,7 +196,7 @@ class GatewayEventBridgeIntegrationTest {
         assertTrue(awaitSent(router, 2, 5000),
                 "Two unique events should both be delivered");
 
-        verify(session, times(2)).sendMessage(any(BinaryMessage.class));
+        verify(transport, times(2)).sendBinary(any(byte[].class));
         assertEquals(2, bridge.eventCount());
         assertEquals(0, bridge.dedupHitCount());
     }
@@ -221,115 +204,68 @@ class GatewayEventBridgeIntegrationTest {
     // ── Connection lifecycle ────────────────────────────────────────────
 
     @Test
-    void subscribeThenCloseConnectionStopsEventDelivery() throws Exception {
-        WebSocketSession session = openSession("s1");
-        router.subscribe(session, GatewayTopic.PNL_UPDATE);
+    void subscribeThenUnsubscribeStopsEventDelivery() throws Exception {
+        WebSocketTransport transport = openTransport("s1");
+        router.subscribe(transport, GatewayTopic.PNL_UPDATE);
         router.start();
 
-        // First event — delivered
         bridge.onDomainEvent(
                 new PnlUpdatedEvent(EventMetadata.root(), 100L, 50L, 200L));
         assertTrue(awaitSent(router, 1, 5000),
                 "First event should be delivered");
 
-        // Disconnect via handler — removes session from all subscriptions
-        handler.afterConnectionClosed(session,
-                new org.springframework.web.socket.CloseStatus(1000, "Normal"));
+        router.unsubscribeAll(transport);
 
-        // Second event — should NOT be delivered (session unsubscribed)
         bridge.onDomainEvent(
                 new PnlUpdatedEvent(EventMetadata.root(), 200L, 100L, 400L));
         Thread.sleep(200);
         router.stop();
 
-        // Session should only have received the first message
-        verify(session, times(1)).sendMessage(any(BinaryMessage.class));
+        verify(transport, times(1)).sendBinary(any(byte[].class));
         assertEquals(1, router.sentEventCount(),
-                "Only the pre-disconnect event should have been sent");
+                "Only the pre-unsubscribe event should have been sent");
     }
 
-    @Test
-    void afterConnectionEstablishedPublishesHealthEvent() throws Exception {
-        WebSocketSession session = openSession("health-check");
-        router.subscribe(session, GatewayTopic.PIPELINE_HEALTH);
-        router.start();
-
-        handler.afterConnectionEstablished(session);
-
-        assertTrue(awaitSent(router, 1, 5000),
-                "Health event should be sent on connection");
-
-        verify(session).sendMessage(any(BinaryMessage.class));
-        assertEquals(1, router.sentEventCount(),
-                "Router should report 1 health event sent");
-    }
+    // ── Multiple transports, different topics ───────────────────────────
 
     @Test
-    void multipleConnectionsAllReceiveHealthEvents() throws Exception {
-        WebSocketSession s1 = openSession("client-1");
-        WebSocketSession s2 = openSession("client-2");
-        router.subscribe(s1, GatewayTopic.PIPELINE_HEALTH);
-        router.subscribe(s2, GatewayTopic.PIPELINE_HEALTH);
+    void multipleTransportsReceiveOnlyTheirSubscribedTopics() throws Exception {
+        WebSocketTransport pnlTransport = openTransport("pnl-subscriber");
+        WebSocketTransport tickTransport = openTransport("tick-subscriber");
+        router.subscribe(pnlTransport, GatewayTopic.PNL_UPDATE);
+        router.subscribe(tickTransport, GatewayTopic.MARKET_TICK);
         router.start();
 
-        handler.afterConnectionEstablished(s1);
-        handler.afterConnectionEstablished(s2);
-
-        assertTrue(awaitSent(router, 2, 5000),
-                "Both health events should be sent");
-
-        verify(s1).sendMessage(any(BinaryMessage.class));
-        verify(s2).sendMessage(any(BinaryMessage.class));
-    }
-
-    // ── Multiple sessions, different topics ─────────────────────────────
-
-    @Test
-    void multipleSessionsReceiveOnlyTheirSubscribedTopics() throws Exception {
-        WebSocketSession pnlSession = openSession("pnl-subscriber");
-        WebSocketSession tickSession = openSession("tick-subscriber");
-        router.subscribe(pnlSession, GatewayTopic.PNL_UPDATE);
-        router.subscribe(tickSession, GatewayTopic.MARKET_TICK);
-        router.start();
-
-        // Push events for both topics
         bridge.onDomainEvent(
                 new PnlUpdatedEvent(EventMetadata.root(), 100L, 50L, 200L));
         bridge.onDomainEvent(sampleTick("SBIN"));
 
         assertTrue(awaitSent(router, 2, 5000),
-                "Both events should be delivered (one per session)");
+                "Both events should be delivered (one per transport)");
 
-        // Each session should have received exactly one message
-        verify(pnlSession, times(1)).sendMessage(any(BinaryMessage.class));
-        verify(tickSession, times(1)).sendMessage(any(BinaryMessage.class));
+        verify(pnlTransport, times(1)).sendBinary(any(byte[].class));
+        verify(tickTransport, times(1)).sendBinary(any(byte[].class));
 
-        // PNL session should have received PNL frame
         {
-            var captor = ArgumentCaptor.forClass(BinaryMessage.class);
-            verify(pnlSession).sendMessage(captor.capture());
-            byte[] raw = new byte[captor.getValue().getPayload().remaining()];
-            captor.getValue().getPayload().get(raw);
-            var frame = GatewayBinaryCodec.decode(raw);
+            var captor = ArgumentCaptor.forClass(byte[].class);
+            verify(pnlTransport).sendBinary(captor.capture());
+            var frame = GatewayBinaryCodec.decode(captor.getValue());
             assertEquals(GatewayTopic.PNL_UPDATE, frame.topic());
         }
 
-        // Tick session should have received MARKET_TICK frame
         {
-            var captor = ArgumentCaptor.forClass(BinaryMessage.class);
-            verify(tickSession).sendMessage(captor.capture());
-            byte[] raw = new byte[captor.getValue().getPayload().remaining()];
-            captor.getValue().getPayload().get(raw);
-            var frame = GatewayBinaryCodec.decode(raw);
+            var captor = ArgumentCaptor.forClass(byte[].class);
+            verify(tickTransport).sendBinary(captor.capture());
+            var frame = GatewayBinaryCodec.decode(captor.getValue());
             assertEquals(GatewayTopic.MARKET_TICK, frame.topic());
         }
     }
 
     @Test
-    void sameSessionSubscribedToMultipleTopicsReceivesAll() throws Exception {
-        WebSocketSession session = openSession("multi-topic");
-        router.subscribe(session, GatewayTopic.PNL_UPDATE);
-        router.subscribe(session, GatewayTopic.MARKET_TICK);
+    void sameTransportSubscribedToMultipleTopicsReceivesAll() throws Exception {
+        WebSocketTransport transport = openTransport("multi-topic");
+        router.subscribe(transport, GatewayTopic.PNL_UPDATE);
+        router.subscribe(transport, GatewayTopic.MARKET_TICK);
         router.start();
 
         bridge.onDomainEvent(
@@ -337,20 +273,19 @@ class GatewayEventBridgeIntegrationTest {
         bridge.onDomainEvent(sampleTick("SBIN"));
 
         assertTrue(awaitSent(router, 2, 5000),
-                "Session subscribed to two topics should receive both events");
+                "Transport subscribed to two topics should receive both events");
 
-        verify(session, times(2)).sendMessage(any(BinaryMessage.class));
+        verify(transport, times(2)).sendBinary(any(byte[].class));
     }
 
     // ── Backpressure integration ────────────────────────────────────────
 
     @Test
     void eventsUpToQueueCapacityAllDelivered() throws Exception {
-        WebSocketSession session = openSession("capacity-test");
-        router.subscribe(session, GatewayTopic.PNL_UPDATE);
+        WebSocketTransport transport = openTransport("capacity-test");
+        router.subscribe(transport, GatewayTopic.PNL_UPDATE);
         router.start();
 
-        // Default queue capacity is 1024 — send 50 events as a smoke test
         int count = 50;
         for (int i = 0; i < count; i++) {
             bridge.onDomainEvent(
@@ -361,7 +296,7 @@ class GatewayEventBridgeIntegrationTest {
                 "All " + count + " events should be delivered");
         assertEquals(0, router.droppedEventCount(),
                 "No drops when queue has capacity");
-        verify(session, times(count)).sendMessage(any(BinaryMessage.class));
+        verify(transport, times(count)).sendBinary(any(byte[].class));
     }
 
     // ── Bridge metrics through integration ──────────────────────────────
@@ -405,74 +340,71 @@ class GatewayEventBridgeIntegrationTest {
 
     @Test
     void restartRouterAfterStopContinuesDelivery() throws Exception {
-        WebSocketSession session = openSession("restart-test");
-        router.subscribe(session, GatewayTopic.PNL_UPDATE);
+        WebSocketTransport transport = openTransport("restart-test");
+        router.subscribe(transport, GatewayTopic.PNL_UPDATE);
         router.start();
 
-        // First batch — delivered
         bridge.onDomainEvent(new PnlUpdatedEvent(EventMetadata.root(), 1L, 0L, 0L));
         assertTrue(awaitSent(router, 1, 5000), "First event delivered");
         router.stop();
 
-        // Restart — same router instance
         router.start();
 
-        // Second batch — should be delivered after restart
         bridge.onDomainEvent(new PnlUpdatedEvent(EventMetadata.root(), 2L, 0L, 0L));
         assertTrue(awaitSent(router, 2, 5000),
                 "Second event should be delivered after restart");
 
-        verify(session, times(2)).sendMessage(any(BinaryMessage.class));
+        verify(transport, times(2)).sendBinary(any(byte[].class));
     }
 
     @Test
-    void sessionIOExceptionDuringPublishDoesNotBlockOthers() throws Exception {
+    void transportExceptionDuringPublishDoesNotBlockOthers() throws Exception {
         CopyOnWriteArrayList<String> received = new CopyOnWriteArrayList<>();
         CountDownLatch latch = new CountDownLatch(3);
 
-        WebSocketSession liveSession = mock(WebSocketSession.class);
-        when(liveSession.getId()).thenReturn("live");
-        when(liveSession.isOpen()).thenReturn(true);
+        WebSocketTransport liveTransport = mock(WebSocketTransport.class);
+        when(liveTransport.id()).thenReturn("live");
+        when(liveTransport.isOpen()).thenReturn(true);
         doAnswer(invocation -> {
             received.add("live");
             latch.countDown();
             return null;
-        }).when(liveSession).sendMessage(any(BinaryMessage.class));
+        }).when(liveTransport).sendBinary(any(byte[].class));
 
-        WebSocketSession failingSession = mock(WebSocketSession.class);
-        when(failingSession.getId()).thenReturn("failing");
-        when(failingSession.isOpen()).thenReturn(true);
+        WebSocketTransport failingTransport = mock(WebSocketTransport.class);
+        when(failingTransport.id()).thenReturn("failing");
+        when(failingTransport.isOpen()).thenReturn(true);
         doAnswer(invocation -> {
             received.add("failing");
             latch.countDown();
             throw new java.io.IOException("Connection reset");
-        }).when(failingSession).sendMessage(any(BinaryMessage.class));
+        }).when(failingTransport).sendBinary(any(byte[].class));
 
-        WebSocketSession thirdSession = mock(WebSocketSession.class);
-        when(thirdSession.getId()).thenReturn("third");
-        when(thirdSession.isOpen()).thenReturn(true);
+        WebSocketTransport thirdTransport = mock(WebSocketTransport.class);
+        when(thirdTransport.id()).thenReturn("third");
+        when(thirdTransport.isOpen()).thenReturn(true);
         doAnswer(invocation -> {
             received.add("third");
             latch.countDown();
             return null;
-        }).when(thirdSession).sendMessage(any(BinaryMessage.class));
+        }).when(thirdTransport).sendBinary(any(byte[].class));
 
-        router.subscribe(liveSession, GatewayTopic.PNL_UPDATE);
-        router.subscribe(failingSession, GatewayTopic.PNL_UPDATE);
-        router.subscribe(thirdSession, GatewayTopic.PNL_UPDATE);
+        router.subscribe(liveTransport, GatewayTopic.PNL_UPDATE);
+        router.subscribe(failingTransport, GatewayTopic.PNL_UPDATE);
+        router.subscribe(thirdTransport, GatewayTopic.PNL_UPDATE);
         router.start();
 
         bridge.onDomainEvent(new PnlUpdatedEvent(EventMetadata.root(), 100L, 50L, 200L));
 
         assertTrue(latch.await(5, TimeUnit.SECONDS),
-                "All 3 sessions should have attempted send");
+                "All 3 transports should have attempted send");
         router.stop();
 
-        assertTrue(received.contains("live"), "Live session should have received");
-        assertTrue(received.contains("failing"), "Failing session should have attempted send");
-        assertTrue(received.contains("third"), "Third session should have received");
-        verify(liveSession).sendMessage(any(BinaryMessage.class));
-        verify(failingSession).sendMessage(any(BinaryMessage.class));
-        verify(thirdSession).sendMessage(any(BinaryMessage.class));
+        assertTrue(received.contains("live"), "Live transport should have received");
+        assertTrue(received.contains("failing"), "Failing transport should have attempted send");
+        assertTrue(received.contains("third"), "Third transport should have received");
+        verify(liveTransport).sendBinary(any(byte[].class));
+        verify(failingTransport).sendBinary(any(byte[].class));
+        verify(thirdTransport).sendBinary(any(byte[].class));
     }
 }

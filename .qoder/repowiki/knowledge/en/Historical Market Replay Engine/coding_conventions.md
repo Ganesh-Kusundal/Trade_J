@@ -1,0 +1,3 @@
+- Stateful components implement a snapshot/restore pattern via dedicated `StateSnapshot` records or interfaces to support replay isolation.
+- Replay controllers and contexts use `synchronized` methods or blocks to ensure thread-safe state transitions during playback.
+- Event publication is decoupled via an `EventBus` interface, allowing replay events to be intercepted for virtual clock synchronization.

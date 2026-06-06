@@ -4,7 +4,9 @@ import com.tradej.broker.api.port.InstrumentResolver;
 import com.tradej.core.domain.event.CandleClosed;
 import com.tradej.core.domain.event.DomainEvent;
 import com.tradej.core.domain.event.EventMetadata;
-import com.tradej.core.domain.event.TickReceived;
+import com.tradej.core.domain.event.MarketTickEvent;
+import com.tradej.core.domain.value.ExchangeSegment;
+import com.tradej.core.domain.value.FeedMode;
 import com.tradej.core.domain.model.Candle;
 import com.tradej.core.domain.model.Instrument;
 import com.tradej.core.domain.model.InstrumentKey;
@@ -64,8 +66,8 @@ class DisruptorGraphReplayParityTest {
 
         long baseMs = 1_700_000_000_000L;
         for (int i = 0; i < 120; i++) {
-            TickReceived tick = tick("SBIN", baseMs + (i * 1_000L), 100_000L + i, i);
-            clock.advanceVirtualTimeMs(tick.exchangeTimestampMs());
+            MarketTickEvent tick = tick("SBIN", baseMs + (i * 1_000L), 100_000L + i, i);
+            clock.advanceVirtualTimeMs(tick.exchangeTimestampEpochMs());
             directRuntime.processSequential(tick);
             disruptorBus.publish(tick);
         }
@@ -225,17 +227,8 @@ class DisruptorGraphReplayParityTest {
         );
     }
 
-    private static TickReceived tick(String symbol, long exchangeMs, long ltpPaisa, int sequence) {
-        return new TickReceived(
-                EventMetadata.correlated("parity", sequence),
-                symbol,
-                "1s",
-                ltpPaisa,
-                10L,
-                1_000L + sequence,
-                exchangeMs,
-                null
-        );
+    private static MarketTickEvent tick(String symbol, long exchangeMs, long ltpPaisa, int sequence) {
+        return new MarketTickEvent(EventMetadata.correlated("parity", sequence), 0L, symbol, ExchangeSegment.NSE_EQ, FeedMode.TICKER, ltpPaisa, 10L, 1_000L + sequence, exchangeMs, Optional.empty(), 0L, 0L);
     }
 
     private static long hashCloses(List<Candle> candles) {

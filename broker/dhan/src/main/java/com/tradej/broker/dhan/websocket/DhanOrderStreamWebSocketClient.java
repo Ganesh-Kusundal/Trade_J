@@ -16,7 +16,6 @@ import java.nio.ByteBuffer;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.function.Consumer;
 
 /**
  * Native Java WebSocket client for Dhan live order updates ({@code wss://api-order-update.dhan.co}).
@@ -158,12 +157,41 @@ public final class DhanOrderStreamWebSocketClient implements AutoCloseable {
                 boolean last
         ) {
             textBuffer.append(data);
-            if (last) {
-                handleMessage(textBuffer.toString());
+            // Attempt to parse the accumulated text on every fragment.
+            // If the buffer holds complete JSON (valid message), process it immediately
+            // to avoid unbounded buffer growth from fragmented frames.
+            // Partial JSON will fail to parse (missing closing braces) and will be
+            // retried when more fragments arrive or handled on last=true.
+            String accumulated = textBuffer.toString();
+            if (tryHandleMessage(accumulated)) {
+                textBuffer.setLength(0);
+            } else if (last) {
+                // Last fragment and still not valid JSON — flush whatever we have
+                handleMessage(accumulated);
                 textBuffer.setLength(0);
             }
             webSocket.request(1);
             return CompletableFuture.completedFuture(null);
+        }
+
+        /**
+         * Attempt to parse and handle {@code text} as a complete Dhan order-stream message.
+         * Returns {@code true} if the text was valid JSON and was processed;
+         * returns {@code false} if the text is not yet complete (partial fragment).
+         * This avoids {@link #handleMessage(String)} reporting parse errors for
+         * incomplete fragments during multi-frame messages.
+         */
+        private boolean tryHandleMessage(String text) {
+            try {
+                // Fast parse check — if this throws, the JSON is incomplete
+                objectMapper.readTree(text);
+                // JSON is complete — delegate to the standard message handler
+                handleMessage(text);
+                return true;
+            } catch (Exception ignored) {
+                // Not valid JSON yet — keep buffering
+                return false;
+            }
         }
 
         @Override

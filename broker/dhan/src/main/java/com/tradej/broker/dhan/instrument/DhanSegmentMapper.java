@@ -34,6 +34,25 @@ public final class DhanSegmentMapper {
             Map.entry("BSE_CURRENCY", ExchangeSegment.BSE_CURRENCY)
     );
 
+    /**
+     * Canonical {@link ExchangeSegment} → Dhan REST wire code.
+     * <p>Dhan's REST API accepts the canonical segment names directly (e.g. {@code NSE_FNO},
+     * {@code MCX_COMM}, {@code IDX_I}). Centralising the mapping here means callers must
+     * not pass {@code ExchangeSegment.name()} directly — the contract is that any
+     * canonical → wire translation flows through this method, so future Dhan wire-code
+     * drift can be patched in one place.
+     */
+    private static final Map<ExchangeSegment, String> INTERNAL_TO_WIRE = Map.ofEntries(
+            Map.entry(ExchangeSegment.NSE_EQ, "NSE_EQ"),
+            Map.entry(ExchangeSegment.NSE_FNO, "NSE_FNO"),
+            Map.entry(ExchangeSegment.BSE_EQ, "BSE_EQ"),
+            Map.entry(ExchangeSegment.BSE_FNO, "BSE_FNO"),
+            Map.entry(ExchangeSegment.IDX_I, "IDX_I"),
+            Map.entry(ExchangeSegment.MCX_COMM, "MCX_COMM"),
+            Map.entry(ExchangeSegment.NSE_CURRENCY, "NSE_CURRENCY"),
+            Map.entry(ExchangeSegment.BSE_CURRENCY, "BSE_CURRENCY")
+    );
+
     private DhanSegmentMapper() {
     }
 
@@ -51,6 +70,27 @@ public final class DhanSegmentMapper {
     public static Exchange toExchange(String value) {
         ExchangeSegment segment = fromValue(value);
         return segment == ExchangeSegment.UNKNOWN ? Exchange.UNKNOWN : segment.venueExchange();
+    }
+
+    /**
+     * Returns the Dhan REST wire code for a canonical {@link ExchangeSegment}.
+     * <p>Currently the wire codes coincide with the canonical enum names, but all
+     * Dhan REST callers must route through this method so the mapping remains a
+     * single point of change if Dhan ever renames a segment on its API.
+     *
+     * @throws IllegalArgumentException when the segment is {@link ExchangeSegment#UNKNOWN}
+     *         or otherwise not supported by the Dhan REST surface.
+     */
+    public static String toWireValue(ExchangeSegment segment) {
+        if (segment == null) {
+            throw new IllegalArgumentException("segment is null");
+        }
+        String wire = INTERNAL_TO_WIRE.get(segment);
+        if (wire == null) {
+            throw new IllegalArgumentException(
+                    "No Dhan REST wire code for canonical segment: " + segment);
+        }
+        return wire;
     }
 
     private static String normalize(String value) {

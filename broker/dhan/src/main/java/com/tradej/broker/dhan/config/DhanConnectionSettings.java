@@ -23,8 +23,7 @@ public record DhanConnectionSettings(
 ) {
     private static final String LIVE_BASE_URL = "https://api.dhan.co/v2";
     private static final String SANDBOX_BASE_URL = "https://sandbox.dhan.co/v2";
-    private static final String LIVE_DEPTH_WS_URL = "wss://depth-api-feed.dhan.co/twentydepth";
-    private static final String SANDBOX_DEPTH_WS_URL = "wss://depth-api-feed.dhan.co/twentydepth"; // Not available in sandbox per Dhan docs
+    private static final String DEPTH_WS_URL = "wss://depth-api-feed.dhan.co/twentydepth";
 
     public DhanConnectionSettings {
         environment = Objects.requireNonNullElse(environment, DhanApiEnvironment.LIVE);
@@ -131,8 +130,8 @@ public record DhanConnectionSettings(
         return environment == DhanApiEnvironment.SANDBOX ? SANDBOX_BASE_URL : LIVE_BASE_URL;
     }
 
-    public static String defaultDepthWsUrl(DhanApiEnvironment environment) {
-        return environment == DhanApiEnvironment.SANDBOX ? SANDBOX_DEPTH_WS_URL : LIVE_DEPTH_WS_URL;
+    public static String defaultDepthWsUrl(@SuppressWarnings("unused") DhanApiEnvironment environment) {
+        return DEPTH_WS_URL;
     }
 
     public long refreshBufferMillis() {

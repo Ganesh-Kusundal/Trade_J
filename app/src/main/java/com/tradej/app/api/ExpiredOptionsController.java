@@ -1,6 +1,6 @@
 package com.tradej.app.api;
 
-import com.tradej.app.service.broker.BrokerExpiredOptionQueryService;
+import com.tradej.broker.upstox.expired.BrokerExpiredOptionQueryService;
 import com.tradej.core.domain.instrument.ExpiredOptionContractKey;
 import com.tradej.core.domain.value.ExchangeSegment;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;

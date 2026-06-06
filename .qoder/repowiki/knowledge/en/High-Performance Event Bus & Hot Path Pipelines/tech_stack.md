@@ -1,0 +1,1 @@
+LMAX Disruptor 3.x with `BusySpinWaitStrategy` for ultra-low latency event processing; Java records for immutable configuration (`DisruptorPipelineConfig`, `PipelineComponents`).

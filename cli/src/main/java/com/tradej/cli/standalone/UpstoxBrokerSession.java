@@ -3,6 +3,8 @@ package com.tradej.cli.standalone;
 import com.tradej.broker.api.IBrokerConnection;
 import com.tradej.broker.dhan.config.DhanConfigPaths;
 import com.tradej.broker.upstox.config.UpstoxConnectionSettings;
+import com.tradej.composition.BrokerComposition;
+import com.tradej.composition.config.BrokerProfile;
 import com.tradej.cli.config.CliConfig;
 
 import java.nio.file.Files;
@@ -13,7 +15,7 @@ public final class UpstoxBrokerSession implements BrokerSession {
 
     private final CliConfig.Profile profile;
     private final UpstoxConnectionSettings settings;
-    private IBrokerConnection connection;
+    private BrokerComposition composition;
     private boolean catalogLoaded;
     private Path lastCatalogPath;
 
@@ -38,10 +40,26 @@ public final class UpstoxBrokerSession implements BrokerSession {
 
     @Override
     public IBrokerConnection connection() {
-        if (connection == null) {
-            connection = UpstoxCliConnectionFactory.create(settings);
+        if (composition == null) {
+            BrokerProfile.UpstoxConfig upstoxConfig = new BrokerProfile.UpstoxConfig(
+                    settings.clientId(),
+                    settings.clientSecret(),
+                    settings.redirectUri(),
+                    settings.accessToken(),
+                    settings.refreshToken(),
+                    settings.analyticsToken(),
+                    settings.extendedToken(),
+                    settings.analyticsOnly(),
+                    settings.isSandbox(),
+                    settings.redirectServerPort(),
+                    settings.refreshBufferMs(),
+                    settings.tokenExpiryBufferMs()
+            );
+            BrokerProfile brokerProfile = new BrokerProfile(
+                    BrokerProfile.BrokerType.UPSTOX, null, upstoxConfig, null);
+            composition = BrokerComposition.create(brokerProfile);
         }
-        return connection;
+        return composition.brokerConnection();
     }
 
     @Override
@@ -72,7 +90,6 @@ public final class UpstoxBrokerSession implements BrokerSession {
                         try {
                             Files.deleteIfExists(path);
                         } catch (Exception ignored) {
-                            // best-effort cache wipe before re-download
                         }
                     });
                 }
@@ -91,9 +108,9 @@ public final class UpstoxBrokerSession implements BrokerSession {
 
     @Override
     public void close() {
-        if (connection != null) {
-            connection.disconnect();
-            connection = null;
+        if (composition != null) {
+            composition.brokerConnection().disconnect();
+            composition = null;
         }
         catalogLoaded = false;
     }

@@ -4,7 +4,10 @@ import com.tradej.core.domain.event.CandleClosed;
 import com.tradej.core.domain.event.EventMetadata;
 import com.tradej.core.domain.event.OrderFilled;
 import com.tradej.core.domain.event.SignalGenerated;
-import com.tradej.core.domain.event.TickReceived;
+import com.tradej.core.domain.event.MarketTickEvent;
+import java.util.Optional;
+import com.tradej.core.domain.value.ExchangeSegment;
+import com.tradej.core.domain.value.FeedMode;
 import com.tradej.core.domain.model.Candle;
 import com.tradej.core.domain.model.Order;
 import org.junit.jupiter.api.Tag;
@@ -51,9 +54,7 @@ class ReactorBridgeTest {
                 10L, 10L, 100L, 0L, 1000L, ""
         );
         OrderFilled filled = new OrderFilled(EventMetadata.root(), order, List.of());
-        TickReceived tick = new TickReceived(
-                EventMetadata.root(), "SBIN", "5m", 100L, 1L, 1L, 1000L, null
-        );
+        MarketTickEvent tick = new MarketTickEvent(EventMetadata.root(), 0L, "SBIN", ExchangeSegment.NSE_EQ, FeedMode.TICKER, 100L, 1L, 1L, 1000L, Optional.empty(), 0L, 0L);
 
         assertTrue(ReactorBridge.isColdPathCandidate(candleClosed));
         assertTrue(ReactorBridge.isColdPathCandidate(signal));

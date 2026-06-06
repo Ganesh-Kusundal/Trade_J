@@ -1,7 +1,10 @@
 package com.tradej.app.integration;
 
 import com.tradej.core.domain.event.EventMetadata;
-import com.tradej.core.domain.event.TickReceived;
+import com.tradej.core.domain.event.MarketTickEvent;
+import java.util.Optional;
+import com.tradej.core.domain.value.ExchangeSegment;
+import com.tradej.core.domain.value.FeedMode;
 import com.tradej.core.domain.model.Candle;
 import com.tradej.persistence.replay.HistoricalRangeService.HistoricalFill;
 import com.tradej.persistence.replay.HistoricalRangeService.HistoricalFillEvent;
@@ -55,8 +58,7 @@ class AdminHistoricalQueryTest extends AdminTestBase {
     @SuppressWarnings("unchecked")
     @Test
     void historicalTicksReturnsData() {
-        var tick = new TickReceived(
-                EventMetadata.root(), "SBIN", "1s", 10050, 100, 5000L, 1700000000500L, null);
+        var tick = new MarketTickEvent(EventMetadata.root(), 0L, "SBIN", ExchangeSegment.NSE_EQ, FeedMode.TICKER, 10050, 100, 5000L, 1700000000500L, Optional.empty(), 0L, 0L);
         when(historicalRangeService.queryTicks(
                 eq("SBIN"), eq(1700000000000L), eq(1700003600000L), eq(5000))
         ).thenReturn(List.of(tick));

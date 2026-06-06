@@ -16,7 +16,13 @@ public enum GatewayTopic {
     PNL_UPDATE(7, 8),
     REPLAY_CONTROL(8, 9),
     PIPELINE_HEALTH(9, 10),
-    SCAN_COMPLETED(10, 1);
+    SCAN_COMPLETED(10, 1),
+    DEPTH_IMBALANCE(11, 1),
+    HEATMAP_CHUNK(12, 1),
+    ICEBERG_ALERT(13, 1),
+    ABSORPTION_ALERT(14, 1),
+    SR_LEVELS_UPDATE(15, 1),
+    ORDER_BOOK_SNAPSHOT(16, 1);
 
     private final int wireId;
     private final int version;

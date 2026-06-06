@@ -33,8 +33,84 @@ public final class UpstoxHttpClient {
      * Executes an authenticated GET request.
      */
     public HttpResponse<String> get(String path) {
+        return getUrl(baseUrl + path);
+    }
+
+    /**
+     * Executes an authenticated POST request with a JSON body.
+     */
+    public HttpResponse<String> post(String path, String jsonBody) {
+        return postUrl(baseUrl + path, jsonBody);
+    }
+
+    /**
+     * Executes an authenticated PUT request with a JSON body.
+     */
+    public HttpResponse<String> put(String path, String jsonBody) {
+        return putUrl(baseUrl + path, jsonBody);
+    }
+
+    /**
+     * Executes an authenticated DELETE request.
+     */
+    public HttpResponse<String> delete(String path) {
+        return deleteUrl(baseUrl + path);
+    }
+
+    /**
+     * Executes an authenticated DELETE with a JSON body
+     * (e.g. GTT cancel: DELETE with {"gtt_order_id":"..."}).
+     */
+    public HttpResponse<String> deleteJsonBody(String path, String jsonBody) {
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(baseUrl + path))
+                .header(UpstoxEndpoints.HEADER_AUTHORIZATION, authorizationHeader())
+                .header(UpstoxEndpoints.HEADER_CONTENT_TYPE, "application/json")
+                .header(UpstoxEndpoints.HEADER_ACCEPT, "application/json")
+                .timeout(REQUEST_TIMEOUT)
+                .method("DELETE", HttpRequest.BodyPublishers.ofString(jsonBody))
+                .build();
+        return send(request);
+    }
+
+    /**
+     * Executes an authenticated DELETE request to an arbitrary full URL,
+     * bypassing the configured baseUrl. Used for cross-version API calls (e.g. GTT v3).
+     */
+    public HttpResponse<String> deleteUrl(String fullUrl) {
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(fullUrl))
+                .header(UpstoxEndpoints.HEADER_AUTHORIZATION, authorizationHeader())
+                .header(UpstoxEndpoints.HEADER_ACCEPT, "application/json")
+                .timeout(REQUEST_TIMEOUT)
+                .DELETE()
+                .build();
+        return send(request);
+    }
+
+    /**
+     * Executes an authenticated DELETE request with a JSON body to an arbitrary full URL,
+     * bypassing the configured baseUrl. Used for GTT v3 cancel which requires DELETE body.
+     */
+    public HttpResponse<String> deleteUrlJsonBody(String fullUrl, String jsonBody) {
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(fullUrl))
+                .header(UpstoxEndpoints.HEADER_AUTHORIZATION, authorizationHeader())
+                .header(UpstoxEndpoints.HEADER_CONTENT_TYPE, "application/json")
+                .header(UpstoxEndpoints.HEADER_ACCEPT, "application/json")
+                .timeout(REQUEST_TIMEOUT)
+                .method("DELETE", HttpRequest.BodyPublishers.ofString(jsonBody))
+                .build();
+        return send(request);
+    }
+
+    /**
+     * Executes an authenticated GET request to an arbitrary full URL,
+     * bypassing the configured baseUrl. Used for cross-version API calls (e.g. GTT v3).
+     */
+    public HttpResponse<String> getUrl(String fullUrl) {
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(fullUrl))
                 .header(UpstoxEndpoints.HEADER_AUTHORIZATION, authorizationHeader())
                 .header(UpstoxEndpoints.HEADER_ACCEPT, "application/json")
                 .timeout(REQUEST_TIMEOUT)
@@ -44,11 +120,12 @@ public final class UpstoxHttpClient {
     }
 
     /**
-     * Executes an authenticated POST request with a JSON body.
+     * Executes an authenticated POST request to an arbitrary full URL,
+     * bypassing the configured baseUrl. Used for cross-version API calls (e.g. GTT v3).
      */
-    public HttpResponse<String> post(String path, String jsonBody) {
+    public HttpResponse<String> postUrl(String fullUrl, String jsonBody) {
         HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(baseUrl + path))
+                .uri(URI.create(fullUrl))
                 .header(UpstoxEndpoints.HEADER_AUTHORIZATION, authorizationHeader())
                 .header(UpstoxEndpoints.HEADER_CONTENT_TYPE, "application/json")
                 .header(UpstoxEndpoints.HEADER_ACCEPT, "application/json")
@@ -59,30 +136,17 @@ public final class UpstoxHttpClient {
     }
 
     /**
-     * Executes an authenticated PUT request with a JSON body.
+     * Executes an authenticated PUT request to an arbitrary full URL,
+     * bypassing the configured baseUrl. Used for cross-version API calls (e.g. GTT v3).
      */
-    public HttpResponse<String> put(String path, String jsonBody) {
+    public HttpResponse<String> putUrl(String fullUrl, String jsonBody) {
         HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(baseUrl + path))
+                .uri(URI.create(fullUrl))
                 .header(UpstoxEndpoints.HEADER_AUTHORIZATION, authorizationHeader())
                 .header(UpstoxEndpoints.HEADER_CONTENT_TYPE, "application/json")
                 .header(UpstoxEndpoints.HEADER_ACCEPT, "application/json")
                 .timeout(REQUEST_TIMEOUT)
                 .PUT(HttpRequest.BodyPublishers.ofString(jsonBody))
-                .build();
-        return send(request);
-    }
-
-    /**
-     * Executes an authenticated DELETE request.
-     */
-    public HttpResponse<String> delete(String path) {
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(baseUrl + path))
-                .header(UpstoxEndpoints.HEADER_AUTHORIZATION, authorizationHeader())
-                .header(UpstoxEndpoints.HEADER_ACCEPT, "application/json")
-                .timeout(REQUEST_TIMEOUT)
-                .DELETE()
                 .build();
         return send(request);
     }

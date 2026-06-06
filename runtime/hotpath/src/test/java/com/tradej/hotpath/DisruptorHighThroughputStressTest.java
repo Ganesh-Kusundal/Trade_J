@@ -4,7 +4,10 @@ import com.tradej.core.domain.port.DeadLetterQueue;
 import com.tradej.core.domain.event.DomainEvent;
 import com.tradej.core.domain.event.EventMetadata;
 import com.tradej.core.domain.model.RiskLimits;
-import com.tradej.core.domain.event.TickReceived;
+import com.tradej.core.domain.event.MarketTickEvent;
+import com.tradej.core.domain.value.ExchangeSegment;
+import com.tradej.core.domain.value.FeedMode;
+import java.util.Optional;
 import com.tradej.core.domain.model.Instrument;
 import com.tradej.core.domain.model.InstrumentKey;
 import com.tradej.broker.api.port.InstrumentResolver;
@@ -78,7 +81,7 @@ public class DisruptorHighThroughputStressTest {
         AtomicLong tickCount = new AtomicLong();
         CountDownLatch latch = new CountDownLatch(TARGET_TICK_COUNT);
 
-        bus.subscribe(TickReceived.class, e -> {
+        bus.subscribe(MarketTickEvent.class, e -> {
             long currentTick = tickCount.incrementAndGet();
             if (currentTick > WARMUP_TICKS) {
                 long latency = System.currentTimeMillis() - e.metadata().timestampMs();
@@ -102,23 +105,14 @@ public class DisruptorHighThroughputStressTest {
                 long nextTickTime = System.nanoTime();
                 for (int i = 0; i < ticksPerThread; i++) {
                     String symbol = "SYM-" + ((threadIndex * ticksPerThread + i) % 500);
-                    TickReceived tick = new TickReceived(
-                        new EventMetadata(
+                    MarketTickEvent tick = new MarketTickEvent(new EventMetadata(
                             UUID.randomUUID().toString(),
                             System.currentTimeMillis(),
                             System.nanoTime(),
                             0L,
                             "",
                             1
-                        ),
-                        symbol,
-                        "1m",
-                        100000L,
-                        10L,
-                        1000L,
-                        System.currentTimeMillis(),
-                        null
-                    );
+                        ), 0L, symbol, ExchangeSegment.NSE_EQ, FeedMode.TICKER, 100000L, 10L, 1000L, System.currentTimeMillis(), Optional.empty(), 0L, 0L);
                     bus.publish(tick);
 
                     // Throttle to exactly 500 ticks/sec per thread (5000 total across 10 threads)

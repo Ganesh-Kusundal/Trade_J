@@ -4,6 +4,7 @@ import com.tradej.broker.api.port.OptionsProvider;
 import com.tradej.broker.dhan.exceptions.DhanBrokerException;
 import com.tradej.broker.dhan.exceptions.DhanHttpException;
 import com.tradej.broker.dhan.instrument.DhanInstrumentDefinition;
+import com.tradej.broker.dhan.instrument.DhanSegmentMapper;
 import com.tradej.broker.dhan.mapper.DhanJsonResponse;
 import com.tradej.broker.dhan.options.DhanOptionChainClient;
 import com.tradej.broker.dhan.options.DhanOptionChainResponseMapper;
@@ -216,7 +217,7 @@ public final class DhanOptionsAdapter extends DhanBaseRestAdapter implements Opt
     }
 
     private static String expiryCacheKey(DhanInstrumentDefinition underlyingDefinition) {
-        return underlyingDefinition.securityId() + "|" + underlyingDefinition.exchangeSegment().name();
+        return underlyingDefinition.securityId() + "|" + DhanSegmentMapper.toWireValue(underlyingDefinition.exchangeSegment());
     }
 
     private DhanInstrumentDefinition resolveUnderlying(String underlying, ExchangeSegment exchangeSegment) {

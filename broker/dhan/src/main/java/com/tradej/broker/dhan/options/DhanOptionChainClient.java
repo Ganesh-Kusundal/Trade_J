@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.tradej.broker.dhan.constants.DhanApiUrlResolver;
 import com.tradej.broker.dhan.http.DhanAuthenticatedHttpClient;
 import com.tradej.broker.dhan.instrument.DhanInstrumentDefinition;
+import com.tradej.broker.dhan.instrument.DhanSegmentMapper;
 import com.tradej.broker.dhan.mapper.DhanJsonResponse;
 import com.tradej.broker.dhan.rate.ApiCategory;
 import com.tradej.broker.dhan.resilience.DhanRetryExecutor;
@@ -60,7 +61,7 @@ public final class DhanOptionChainClient {
     private ObjectNode underlyingPayload(DhanInstrumentDefinition underlying) {
         ObjectNode request = objectMapper.createObjectNode();
         request.put("UnderlyingScrip", Integer.parseInt(underlying.securityId()));
-        request.put("UnderlyingSeg", underlying.exchangeSegment().name());
+        request.put("UnderlyingSeg", DhanSegmentMapper.toWireValue(underlying.exchangeSegment()));
         return request;
     }
 }

@@ -1,0 +1,11 @@
+schema_version: 1
+module_path: trading/options_analytics
+title: Options Pricing and Greeks Analytics
+scope:
+    - trading/options-analytics/
+source_files: []
+depends_on: []
+related_to:
+    - path: trading/scanner
+    - path: frontend
+    - path: trading/indicators

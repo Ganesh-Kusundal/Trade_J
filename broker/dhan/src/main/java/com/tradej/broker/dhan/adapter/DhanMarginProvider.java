@@ -8,6 +8,7 @@ import com.tradej.broker.dhan.config.DhanConnectionSettings;
 import com.tradej.broker.dhan.constants.DhanApiUrlResolver;
 import com.tradej.broker.dhan.http.DhanAuthenticatedHttpClient;
 import com.tradej.broker.dhan.instrument.DhanInstrumentDefinition;
+import com.tradej.broker.dhan.instrument.DhanSegmentMapper;
 import com.tradej.broker.dhan.mapper.DhanJsonResponse;
 import com.tradej.broker.dhan.mapper.DhanApiConverters;
 import com.tradej.broker.dhan.rate.ApiCategory;
@@ -43,7 +44,7 @@ public final class DhanMarginProvider extends DhanBaseRestAdapter implements Mar
         return execute(ApiCategory.ORDER, "margin-calculator", () -> {
             ObjectNode payload = MAPPER.createObjectNode();
             payload.put("dhanClientId", settings.clientId());
-            payload.put("exchangeSegment", definition.exchangeSegment().name());
+            payload.put("exchangeSegment", DhanSegmentMapper.toWireValue(definition.exchangeSegment()));
             payload.put("transactionType", DhanApiConverters.transactionType(request.side()));
             payload.put("quantity", (int) request.quantity());
             payload.put("productType", restProductType(request.productType()));
@@ -71,7 +72,7 @@ public final class DhanMarginProvider extends DhanBaseRestAdapter implements Mar
             case INTRADAY -> "INTRADAY";
             case CNC -> "CNC";
             case MARGIN -> "MARGIN";
-            case CARRY_FORWARD -> "CNC";
+            case CARRY_FORWARD -> "CARRY_FORWARD";
         };
     }
 }

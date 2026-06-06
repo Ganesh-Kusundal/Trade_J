@@ -1,8 +1,10 @@
 package com.tradej.app.health;
 
 import com.tradej.core.domain.event.EventMetadata;
-import com.tradej.core.domain.event.TickReceived;
+import com.tradej.core.domain.event.MarketTickEvent;
 import com.tradej.broker.api.model.BrokerTransportCapabilities;
+import com.tradej.core.domain.value.ExchangeSegment;
+import com.tradej.core.domain.value.FeedMode;
 import com.tradej.hotpath.MarketDataPipeline;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -12,6 +14,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -43,11 +46,13 @@ class MarketDataHealthIndicatorTest {
 
     @Test
     void healthIsUpAfterReceivingTicks() {
-        var tick = new TickReceived(
-                EventMetadata.root(), "SBIN", "5m", 750_00L, 10L, 1_000L,
-                System.currentTimeMillis(), null
+        var tick = new MarketTickEvent(
+                EventMetadata.root(), 0L, "SBIN",
+                ExchangeSegment.NSE_EQ, FeedMode.TICKER,
+                750_00L, 10L, 1_000L,
+                System.currentTimeMillis(), Optional.empty(), 0L, 0L
         );
-        pipeline.onTickReceived(tick);
+        pipeline.onMarketTickEvent(tick);
 
         var health = indicator.health();
         assertEquals("UP", health.getStatus().getCode());
@@ -55,11 +60,13 @@ class MarketDataHealthIndicatorTest {
 
     @Test
     void healthReportsActiveAfterRecentTick() {
-        var tick = new TickReceived(
-                EventMetadata.root(), "SBIN", "5m", 750_00L, 10L, 1_000L,
-                System.currentTimeMillis(), null
+        var tick = new MarketTickEvent(
+                EventMetadata.root(), 0L, "SBIN",
+                ExchangeSegment.NSE_EQ, FeedMode.TICKER,
+                750_00L, 10L, 1_000L,
+                System.currentTimeMillis(), Optional.empty(), 0L, 0L
         );
-        pipeline.onTickReceived(tick);
+        pipeline.onMarketTickEvent(tick);
 
         var health = indicator.health();
         assertEquals("ACTIVE", health.getDetails().get("status"));
@@ -72,7 +79,7 @@ class MarketDataHealthIndicatorTest {
         Instant baseTime = Instant.parse("2026-01-01T00:00:00Z");
         long tickTimestampMs = baseTime.toEpochMilli();
 
-        pipeline.onTickReceived(tickAt(tickTimestampMs));
+        pipeline.onMarketTickEvent(tickAt(tickTimestampMs));
 
         // Initially active — clock matches tick timestamp
         var activeIndicator = new MarketDataHealthIndicator(
@@ -90,11 +97,13 @@ class MarketDataHealthIndicatorTest {
 
     @Test
     void healthDetailsIncludeTimestampAndThreshold() {
-        var tick = new TickReceived(
-                EventMetadata.root(), "SBIN", "5m", 750_00L, 10L, 1_000L,
-                System.currentTimeMillis(), null
+        var tick = new MarketTickEvent(
+                EventMetadata.root(), 0L, "SBIN",
+                ExchangeSegment.NSE_EQ, FeedMode.TICKER,
+                750_00L, 10L, 1_000L,
+                System.currentTimeMillis(), Optional.empty(), 0L, 0L
         );
-        pipeline.onTickReceived(tick);
+        pipeline.onMarketTickEvent(tick);
 
         var health = indicator.health();
         assertEquals(tick.metadata().timestampMs(), health.getDetails().get("lastTickTimestampMs"));
@@ -117,7 +126,7 @@ class MarketDataHealthIndicatorTest {
 
         // Send 3 ticks at baseTime+0ms, baseTime+5ms, baseTime+10ms
         for (int i = 0; i < 3; i++) {
-            pipeline.onTickReceived(tickAt(baseTime.toEpochMilli() + (i * 5)));
+            pipeline.onMarketTickEvent(tickAt(baseTime.toEpochMilli() + (i * 5)));
         }
 
         // Still active — last tick was 10ms ago, threshold is 200ms
@@ -125,7 +134,7 @@ class MarketDataHealthIndicatorTest {
                 pipeline, Duration.ofMillis(200), null, Clock.fixed(baseTime, ZoneOffset.UTC));
         assertEquals("ACTIVE", activeIndicator.health().getDetails().get("status"));
 
-        // Advance clock 250ms past the last tick (10 + 250 = 260 > 200ms threshold)
+        // Advance clock 260ms past the last tick (10 + 260 = 270 > 200ms threshold)
         var staleIndicator = new MarketDataHealthIndicator(
                 pipeline, Duration.ofMillis(200), null, Clock.fixed(baseTime.plusMillis(260), ZoneOffset.UTC));
 
@@ -135,14 +144,16 @@ class MarketDataHealthIndicatorTest {
         assertEquals(3L, health.getDetails().get("totalTicks"));
     }
 
-    /** Creates a TickReceived with a controlled metadata timestamp for deterministic time tests. */
-    private static TickReceived tickAt(long timestampMs) {
+    /** Creates a MarketTickEvent with a controlled metadata timestamp for deterministic time tests. */
+    private static MarketTickEvent tickAt(long timestampMs) {
         var metadata = new EventMetadata(
                 UUID.randomUUID().toString(),
                 timestampMs, System.nanoTime(), 0L, "", 1);
-        return new TickReceived(
-                metadata, "SBIN", "5m", 750_00L, 10L, 1_000L,
-                timestampMs, null);
+        return new MarketTickEvent(
+                metadata, 0L, "SBIN",
+                ExchangeSegment.NSE_EQ, FeedMode.TICKER,
+                750_00L, 10L, 1_000L,
+                timestampMs, Optional.empty(), 0L, 0L);
     }
 
     @Test

@@ -1,0 +1,14 @@
+dependencies {
+    api project(':core')
+    api project(':broker-api')
+    implementation project(':broker-core')
+    implementation project(':composition')
+
+    implementation 'org.slf4j:slf4j-api'
+    implementation 'com.fasterxml.jackson.core:jackson-databind'
+    implementation "org.duckdb:duckdb_jdbc:${versions.duckdb}"
+
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testImplementation 'org.mockito:mockito-core'
+    testImplementation 'org.mockito:mockito-junit-jupiter'
+}

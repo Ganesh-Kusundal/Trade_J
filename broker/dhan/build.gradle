@@ -1,6 +1,4 @@
 dependencies {
-  implementation platform('org.springframework.boot:spring-boot-dependencies:3.4.13')
-
   api project(':broker-api')
   api project(':broker-core')
   testImplementation testFixtures(project(':broker-api'))

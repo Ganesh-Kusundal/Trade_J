@@ -1,0 +1,3 @@
+- Build: Gradle with Spring Boot plugin; integrates a Vite/React frontend build into the `processResources` lifecycle.
+- Data: DuckDB for historical analytics and pipeline graph storage; Chronicle Queue for low-latency event sourcing.
+- Observability: Micrometer with Prometheus registry and Logstash encoder for structured logging.

@@ -6,7 +6,7 @@ import com.tradej.core.domain.model.Candle;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
-import org.springframework.context.ApplicationEventPublisher;
+import com.tradej.core.domain.port.EventBus;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -21,8 +21,8 @@ public class ReplayControllerTest {
 
     @Test
     public void testReplayControllerFlow() {
-        // 1. Mock event publisher
-        ApplicationEventPublisher mockPublisher = Mockito.mock(ApplicationEventPublisher.class);
+        // 1. Mock event bus
+        EventBus mockEventBus = Mockito.mock(EventBus.class);
 
         // 2. Generate 10 consecutive 1m candles
         List<Candle> candles = new ArrayList<>();
@@ -37,7 +37,7 @@ public class ReplayControllerTest {
         }
 
         // 3. Create controller and start
-        ReplayController controller = new ReplayController(mockPublisher);
+        ReplayController controller = new ReplayController(mockEventBus);
         controller.start(candles);
 
         assertEquals(ReplayController.ReplayState.PAUSED, controller.getState());
@@ -57,10 +57,10 @@ public class ReplayControllerTest {
         assertEquals(6, controller.getCurrentIndex());
 
         // 5. Verify published events using Mockito Captors
-        ArgumentCaptor<Object> eventCaptor = ArgumentCaptor.forClass(Object.class);
-        verify(mockPublisher, atLeastOnce()).publishEvent(eventCaptor.capture());
+        ArgumentCaptor<com.tradej.core.domain.event.DomainEvent> eventCaptor = ArgumentCaptor.forClass(com.tradej.core.domain.event.DomainEvent.class);
+        verify(mockEventBus, atLeastOnce()).publish(eventCaptor.capture());
 
-        List<Object> publishedEvents = eventCaptor.getAllValues();
+        List<com.tradej.core.domain.event.DomainEvent> publishedEvents = eventCaptor.getAllValues();
         assertTrue(publishedEvents.size() >= 10, "Should have published multiple events");
 
         boolean found1m = false;

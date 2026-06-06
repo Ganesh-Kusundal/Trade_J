@@ -4,8 +4,6 @@ import com.tradej.core.domain.port.EventBus;
 import com.tradej.core.domain.port.NetPositionProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.stereotype.Service;
 
 /**
  * Periodically triggers broker position reconciliation via {@link OrderReconciler}.
@@ -28,7 +26,6 @@ import org.springframework.stereotype.Service;
  * <p>If no {@link NetPositionProvider} bean is available in the context, the expected-vs-broker
  * pass is skipped with an empty map (no mismatches flagged).
  */
-@Service
 public class ReconciliationScheduler {
 
     private static final Logger log = LoggerFactory.getLogger(ReconciliationScheduler.class);
@@ -53,11 +50,7 @@ public class ReconciliationScheduler {
      * <p>Publishes all {@link com.tradej.core.domain.event.PositionMismatch PositionMismatch}
      * events through the event bus for downstream alerting/logging.
      */
-    @Scheduled(
-            fixedRateString = "${trade.reconciliation.interval-seconds}000",
-            initialDelayString = "${trade.reconciliation.initial-delay-seconds}000"
-    )
-    void reconcilePeriodically() {
+    public void reconcilePeriodically() {
         log.debug("Starting periodic reconciliation");
 
         // Pass 1: expected net positions (from strategy engine) vs broker positions

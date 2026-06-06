@@ -3,6 +3,8 @@ package com.tradej.gateway.websocket;
 import com.tradej.gateway.protocol.GatewayBinaryCodec;
 import com.tradej.gateway.protocol.GatewayTopic;
 import com.tradej.gateway.router.GatewayTopicRouter;
+import com.tradej.gateway.transport.SpringWebSocketTransport;
+import com.tradej.gateway.transport.WebSocketTransport;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.socket.BinaryMessage;
@@ -12,16 +14,12 @@ import org.springframework.web.socket.handler.BinaryWebSocketHandler;
 
 import java.nio.ByteBuffer;
 import java.util.Locale;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * WebSocket handler for the gateway. Accepts binary messages for subscription
- * control and text-based topic subscription commands.
- *
- * Protocol:
- * - Single-byte message: interpreted as {@link GatewayTopic#fromWireId(int)} for subscribe
- * - Text message starting with "SUBSCRIBE": subscribes to the named topic
- * - "SUBSCRIBE ALL": subscribes to all topics
- * - Binary gateway frames: handled as control frames (e.g. REPLAY_CONTROL)
+ * Spring WebSocket handler adapter. Bridges Spring's {@link WebSocketSession} lifecycle
+ * to the transport-agnostic {@link GatewayTopicRouter} via {@link SpringWebSocketTransport}.
  */
 public final class GatewayWebSocketHandler extends BinaryWebSocketHandler {
 
@@ -29,6 +27,7 @@ public final class GatewayWebSocketHandler extends BinaryWebSocketHandler {
 
     private final GatewayTopicRouter router;
     private final GatewayReplayCommandProcessor replayCommandProcessor;
+    private final Map<String, WebSocketTransport> transports = new ConcurrentHashMap<>();
 
     public GatewayWebSocketHandler(GatewayTopicRouter router) {
         this(router, null);
@@ -41,6 +40,8 @@ public final class GatewayWebSocketHandler extends BinaryWebSocketHandler {
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) {
+        WebSocketTransport transport = new SpringWebSocketTransport(session);
+        transports.put(session.getId(), transport);
         log.info("Gateway client connected session={}", session.getId());
         router.publish(GatewayTopic.PIPELINE_HEALTH,
                 GatewayBinaryCodec.utf8("connected:" + session.getId()));
@@ -48,7 +49,11 @@ public final class GatewayWebSocketHandler extends BinaryWebSocketHandler {
 
     @Override
     protected void handleBinaryMessage(WebSocketSession session, BinaryMessage message) {
-        ByteBuffer buf = (ByteBuffer) message.getPayload();
+        WebSocketTransport transport = transports.get(session.getId());
+        if (transport == null) {
+            return;
+        }
+        ByteBuffer buf = message.getPayload();
         byte[] data = new byte[buf.remaining()];
         buf.get(data);
 
@@ -57,28 +62,25 @@ public final class GatewayWebSocketHandler extends BinaryWebSocketHandler {
         }
 
         if (data.length == 1) {
-            // Single-byte subscribe by wire ID
-            router.subscribe(session, GatewayTopic.fromWireId(data[0]));
+            router.subscribe(transport, GatewayTopic.fromWireId(data[0]));
             return;
         }
 
-        // Text-based subscription command
         String text = GatewayBinaryCodec.decodeUtf8(data).trim().toUpperCase(Locale.ROOT);
         if (text.startsWith("SUBSCRIBE")) {
             String topicName = text.substring("SUBSCRIBE".length()).trim();
             if ("ALL".equals(topicName)) {
                 for (GatewayTopic topic : GatewayTopic.values()) {
-                    router.subscribe(session, topic);
+                    router.subscribe(transport, topic);
                 }
             } else {
-                router.subscribe(session, GatewayTopic.valueOf(topicName));
+                router.subscribe(transport, GatewayTopic.valueOf(topicName));
             }
             return;
         }
 
         if (GatewayBinaryCodec.isGatewayFrame(data)) {
             handleControlFrame(session, data);
-            return;
         }
     }
 
@@ -99,7 +101,10 @@ public final class GatewayWebSocketHandler extends BinaryWebSocketHandler {
 
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
-        router.unsubscribeAll(session);
+        WebSocketTransport transport = transports.remove(session.getId());
+        if (transport != null) {
+            router.unsubscribeAll(transport);
+        }
         log.info("Gateway client disconnected session={} status={}", session.getId(), status);
     }
 }

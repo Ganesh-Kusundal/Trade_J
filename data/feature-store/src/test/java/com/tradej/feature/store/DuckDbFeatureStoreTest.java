@@ -3,7 +3,9 @@ package com.tradej.feature.store;
 import com.tradej.core.domain.event.CandleClosed;
 import com.tradej.core.domain.event.CandleDeveloping;
 import com.tradej.core.domain.event.EventMetadata;
-import com.tradej.core.domain.event.TickReceived;
+import com.tradej.core.domain.event.MarketTickEvent;
+import com.tradej.core.domain.value.ExchangeSegment;
+import com.tradej.core.domain.value.FeedMode;
 import com.tradej.core.domain.model.Candle;
 import com.tradej.core.domain.model.FeatureVector;
 import org.junit.jupiter.api.BeforeEach;
@@ -65,10 +67,8 @@ class DuckDbFeatureStoreTest {
     }
 
     @Test
-    void ingestsTickReceived() {
-        store.feed(new TickReceived(
-                EventMetadata.root(), "RELIANCE", "1d", 250_000L, 100L, 1_000_000L, 1_710_000_000_000L, null
-        ));
+    void ingestsMarketTickEvent() {
+        store.feed(new MarketTickEvent(EventMetadata.root(), 0L, "RELIANCE", ExchangeSegment.NSE_EQ, FeedMode.TICKER, 250_000L, 100L, 1_000_000L, 1_710_000_000_000L, Optional.empty(), 0L, 0L));
         feedCandle("RELIANCE", "1d", 1_710_000_000_000L, 1_710_086_400_000L, 248_000L, 252_000L, 247_000L, 250_000L, 500_000L);
         feedCandle("RELIANCE", "1d", 1_710_086_400_000L, 1_710_172_800_000L, 250_000L, 253_000L, 249_000L, 252_000L, 600_000L);
         feedCandle("RELIANCE", "1d", 1_710_172_800_000L, 1_710_259_200_000L, 252_000L, 255_000L, 251_000L, 254_000L, 450_000L);

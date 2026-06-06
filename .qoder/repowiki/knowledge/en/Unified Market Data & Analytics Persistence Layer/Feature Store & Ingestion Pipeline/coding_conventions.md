@@ -1,0 +1,3 @@
+- All feature store implementations adhere to the `FeatureStore` port interface, ensuring interchangeability between persistent and in-memory backends.
+- Domain events are ingested via a unified `feed(DomainEvent)` method that uses pattern matching or switch statements to route specific event types (e.g., `CandleClosed`, `MarketTickEvent`).
+- Resource management follows the `AutoCloseable` pattern for database connections and async writers to ensure clean shutdown and resource release.

@@ -7,6 +7,7 @@ import com.tradej.broker.dhan.constants.DhanApiUrlResolver;
 import com.tradej.broker.dhan.historical.DhanHistoricalDataClient;
 import com.tradej.broker.dhan.http.DhanAuthenticatedHttpClient;
 import com.tradej.broker.dhan.instrument.DhanInstrumentDefinition;
+import com.tradej.broker.dhan.instrument.DhanSegmentMapper;
 import com.tradej.broker.dhan.mapper.DhanJsonResponse;
 import com.tradej.broker.dhan.rate.ApiCategory;
 import com.tradej.broker.dhan.resilience.DhanRetryExecutor;
@@ -15,7 +16,6 @@ import com.tradej.core.domain.model.RollingOptionBar;
 import com.tradej.core.domain.model.RollingOptionHistoryRequest;
 import com.tradej.core.domain.model.RollingOptionSeries;
 import com.tradej.core.domain.value.ExchangeSegment;
-import com.tradej.core.domain.value.OptionType;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -93,9 +93,9 @@ public final class DhanRollingOptionClient {
 
     private static String rollingExchangeSegment(DhanInstrumentDefinition underlying) {
         return switch (underlying.exchangeSegment()) {
-            case IDX_I, NSE_EQ, NSE_FNO -> "NSE_FNO";
-            case BSE_EQ, BSE_FNO -> "BSE_FNO";
-            default -> underlying.exchangeSegment().name();
+            case IDX_I, NSE_EQ, NSE_FNO -> DhanSegmentMapper.toWireValue(ExchangeSegment.NSE_FNO);
+            case BSE_EQ, BSE_FNO -> DhanSegmentMapper.toWireValue(ExchangeSegment.BSE_FNO);
+            default -> DhanSegmentMapper.toWireValue(underlying.exchangeSegment());
         };
     }
 

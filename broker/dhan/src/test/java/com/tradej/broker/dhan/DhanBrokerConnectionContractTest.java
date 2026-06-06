@@ -23,6 +23,7 @@ class DhanBrokerConnectionContractTest extends IBrokerConnectionContractTest {
                 mock(OrderQuery.class),
                 mock(SliceOrderCommand.class),
                 mock(BracketOrderProvider.class),
+                mock(CoverOrderProvider.class),
                 mock(GttOrderProvider.class),
                 mock(PortfolioProvider.class),
                 mock(MarginProvider.class),

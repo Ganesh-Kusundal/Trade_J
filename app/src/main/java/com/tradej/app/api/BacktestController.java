@@ -1,6 +1,6 @@
 package com.tradej.app.api;
 
-import com.tradej.app.research.AppBacktestService;
+import com.tradej.replay.engine.BacktestExecutionService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -14,9 +14,9 @@ import java.util.Map;
 @RequestMapping("/api/v1/backtest")
 public class BacktestController {
 
-    private final AppBacktestService backtestService;
+    private final BacktestExecutionService backtestService;
 
-    public BacktestController(AppBacktestService backtestService) {
+    public BacktestController(BacktestExecutionService backtestService) {
         this.backtestService = backtestService;
     }
 

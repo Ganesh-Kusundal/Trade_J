@@ -1,0 +1,1 @@
+Defines the core node execution contract, descriptors, and adapter infrastructure for composable trading pipeline nodes.

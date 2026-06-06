@@ -3,6 +3,7 @@ package com.tradej.broker.dhan.resilience;
 import com.tradej.broker.api.resilience.BrokerErrorCategory;
 import com.tradej.broker.core.rate.MultiBucketRateLimiter;
 import com.tradej.broker.core.resilience.CircuitBreaker;
+import com.tradej.broker.core.resilience.CircuitBreakerConfig;
 import com.tradej.broker.core.resilience.RetryExecutor;
 import com.tradej.broker.core.resilience.RetryPolicy;
 import com.tradej.broker.dhan.auth.DhanAuthenticationException;
@@ -19,6 +20,16 @@ public final class DhanRetryExecutor extends RetryExecutor {
 
     public DhanRetryExecutor(MultiBucketRateLimiter rateLimiter, CircuitBreaker circuitBreaker) {
         super(rateLimiter, circuitBreaker);
+    }
+
+    /**
+     * Creates a {@code DhanRetryExecutor} with an {@link CircuitBreakerConfig#AGGRESSIVE}
+     * circuit breaker, suitable for Dhan's strict rate limits.
+     *
+     * @param rateLimiter rate limiter for Dhan API calls
+     */
+    public DhanRetryExecutor(MultiBucketRateLimiter rateLimiter) {
+        super(rateLimiter, CircuitBreakerConfig.AGGRESSIVE);
     }
 
     public <T> T execute(ApiCategory category, String operation, Supplier<T> supplier) {

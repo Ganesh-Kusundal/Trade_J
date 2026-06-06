@@ -4,7 +4,10 @@ import com.tradej.core.domain.event.CandleClosed;
 import com.tradej.core.domain.event.CandleDeveloping;
 import com.tradej.core.domain.event.DomainEvent;
 import com.tradej.core.domain.event.EventMetadata;
-import com.tradej.core.domain.event.TickReceived;
+import com.tradej.core.domain.event.MarketTickEvent;
+import com.tradej.core.domain.value.ExchangeSegment;
+import com.tradej.core.domain.value.FeedMode;
+import java.util.Optional;
 import com.tradej.core.testing.ConcurrentStressTester;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -41,8 +44,7 @@ class CandleAggregationServiceStressTest {
             long ts = baseTs + (threadIndex * 100) + 10;
             long ltp = 100_00L + threadIndex * 10L;
             service.onDomainEvent(
-                    new TickReceived(EventMetadata.root(), "SBIN", "1s",
-                            ltp, 1L, 1L, ts, null),
+                    new MarketTickEvent(EventMetadata.root(), 0L, "SBIN", ExchangeSegment.NSE_EQ, FeedMode.TICKER, ltp, 1L, 1L, ts, Optional.empty(), 0L, 0L),
                     emitted::add);
         });
 
@@ -70,8 +72,7 @@ class CandleAggregationServiceStressTest {
             long ts = 1_710_000_000_000L + (threadIndex * 1000L);
             long ltp = 100_00L + threadIndex * 100L;
             service.onDomainEvent(
-                    new TickReceived(EventMetadata.root(), symbol, "5m",
-                            ltp, 10L, 10L, ts, null),
+                    new MarketTickEvent(EventMetadata.root(), 0L, symbol, ExchangeSegment.NSE_EQ, FeedMode.TICKER, ltp, 10L, 10L, ts, Optional.empty(), 0L, 0L),
                     e -> {});
         });
 
@@ -99,13 +100,11 @@ class CandleAggregationServiceStressTest {
             long ltp = 100_00L + threadIndex * 10L;
             // Tick to bucket 0
             service.onDomainEvent(
-                    new TickReceived(EventMetadata.root(), "SBIN", "1s",
-                            ltp, 1L, 1L, ts0, null),
+                    new MarketTickEvent(EventMetadata.root(), 0L, "SBIN", ExchangeSegment.NSE_EQ, FeedMode.TICKER, ltp, 1L, 1L, ts0, Optional.empty(), 0L, 0L),
                     emitted::add);
             // Tick to bucket 1 — if bucket 0 already exists, this triggers a rollover
             service.onDomainEvent(
-                    new TickReceived(EventMetadata.root(), "SBIN", "1s",
-                            ltp + 5, 1L, 1L, ts1, null),
+                    new MarketTickEvent(EventMetadata.root(), 0L, "SBIN", ExchangeSegment.NSE_EQ, FeedMode.TICKER, ltp + 5, 1L, 1L, ts1, Optional.empty(), 0L, 0L),
                     emitted::add);
         });
 

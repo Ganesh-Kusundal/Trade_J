@@ -1,0 +1,1 @@
+Orchestrates a unified, event-driven execution engine across live, replay, and backtest modes using a dual-pipeline architecture (Disruptor hot-path and DAG graph runtime) with hexagonal broker adapters.

@@ -1,0 +1,16 @@
+schema_version: 1
+module_path: research
+title: Trading Strategy Research & Backtesting Lab
+scope:
+    - research/
+    - mcp-server/
+source_files: []
+depends_on: []
+related_to:
+    - path: trading/simulation
+    - path: trading/scanner
+    - path: data/analytics
+    - path: trading/institutional_scanner
+    - path: data/persistence
+    - path: trading/strategy
+    - path: pipeline

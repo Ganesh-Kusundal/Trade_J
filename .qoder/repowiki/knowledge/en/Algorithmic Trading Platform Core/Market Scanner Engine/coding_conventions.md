@@ -1,0 +1,4 @@
+- All criterion implementations implement `ScanCriterion` with `type()`, `matches(ScanContext)`, `score(ScanContext)`, and optionally override `reason(ScanContext)` to return a human-readable explanation.
+- Criteria that require option chain data implement the `OptionAwareCriterion` marker interface so the engine can decide whether to trigger the fine pass without fragile string checks.
+- Fetchers return result records (e.g., `FetchResult`) that bundle successful data alongside a partial-failure count, enabling callers to track degraded scans.
+- Record types (`ScanProfile`, `ScanAsset`, `ScanContext`, etc.) use compact constructors for validation and defaulting of optional fields.

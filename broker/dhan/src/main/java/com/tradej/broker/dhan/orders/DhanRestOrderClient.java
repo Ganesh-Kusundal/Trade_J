@@ -6,6 +6,7 @@ import com.tradej.broker.dhan.config.DhanConnectionSettings;
 import com.tradej.broker.dhan.constants.DhanApiUrlResolver;
 import com.tradej.broker.dhan.http.DhanAuthenticatedHttpClient;
 import com.tradej.broker.dhan.instrument.DhanInstrumentDefinition;
+import com.tradej.broker.dhan.instrument.DhanSegmentMapper;
 import com.tradej.broker.dhan.mapper.DhanJsonMapper;
 import com.tradej.broker.dhan.mapper.DhanJsonResponse;
 import com.tradej.broker.dhan.rate.ApiCategory;
@@ -16,6 +17,8 @@ import com.tradej.core.domain.model.OrderRequest;
 import com.tradej.core.domain.model.Position;
 import com.tradej.core.domain.model.SliceOrderRequest;
 import com.tradej.core.domain.model.Trade;
+import com.tradej.core.domain.value.Exchange;
+import com.tradej.core.domain.value.ExchangeSegment;
 import com.tradej.core.domain.value.PriceMath;
 
 import java.util.ArrayList;
@@ -41,6 +44,104 @@ public final class DhanRestOrderClient {
   }
 
   // ---------- REST-based methods for live mode ----------
+
+  public List<Object> fetchTradesViaApi(DhanConnectionSettings settings) {
+    DhanJsonResponse response = resilienceExecutor.execute(
+        ApiCategory.ORDER,
+        "get-trades",
+        () -> httpClient.getJson(apiUrlResolver.tradesUrl())
+    );
+    if (!response.has("data") || !response.path("data").isArray()) {
+      return List.of();
+    }
+    List<Object> trades = new ArrayList<>();
+    for (DhanJsonResponse item : response.path("data").asList()) {
+      trades.add(item.raw());
+    }
+    return List.copyOf(trades);
+  }
+
+  public List<Object> fetchTradesForOrderViaApi(String orderId, DhanConnectionSettings settings) {
+    DhanJsonResponse response = resilienceExecutor.execute(
+        ApiCategory.ORDER,
+        "get-trades-for-order",
+        () -> httpClient.getJson(apiUrlResolver.tradesUrlForOrder(orderId))
+    );
+    if (!response.has("data") || !response.path("data").isArray()) {
+      return List.of();
+    }
+    List<Object> trades = new ArrayList<>();
+    for (DhanJsonResponse item : response.path("data").asList()) {
+      trades.add(item.raw());
+    }
+    return List.copyOf(trades);
+  }
+
+  public Object fetchOrderByIdViaApi(String orderId, DhanConnectionSettings settings) {
+    return resilienceExecutor.execute(
+        ApiCategory.ORDER,
+        "get-order-by-id",
+        () -> httpClient.getJson(apiUrlResolver.orderUrl(orderId))
+    ).raw();
+  }
+
+  public Object fetchOrderByCorrelationIdViaApi(String correlationId, DhanConnectionSettings settings) {
+    return resilienceExecutor.execute(
+        ApiCategory.ORDER,
+        "get-order-by-correlation",
+        () -> httpClient.getJson(apiUrlResolver.orderByCorrelationIdUrl(correlationId))
+    ).raw();
+  }
+
+  public Object modifySuperOrderViaApi(
+      String orderId, long quantity, long pricePaisa, long triggerPricePaisa, DhanConnectionSettings settings
+  ) {
+    ObjectNode payload = mapper.createObjectNode();
+    payload.put("dhanClientId", settings.clientId());
+    payload.put("orderId", orderId);
+    payload.put("quantity", quantity);
+    payload.put("price", PriceMath.fromPaisa(pricePaisa).doubleValue());
+    payload.put("triggerPrice", PriceMath.fromPaisa(triggerPricePaisa).doubleValue());
+    return resilienceExecutor.execute(
+        ApiCategory.ORDER,
+        "modify-super-order",
+        () -> httpClient.putJson(apiUrlResolver.superOrderByIdUrl(orderId), payload)
+    ).raw();
+  }
+
+  public boolean cancelSuperOrderViaApi(String orderId, String legName, DhanConnectionSettings settings) {
+    resilienceExecutor.execute(
+        ApiCategory.ORDER,
+        "cancel-super-order",
+        () -> { httpClient.deleteJson(apiUrlResolver.superOrderLegUrl(orderId, legName)); return true; }
+    );
+    return true;
+  }
+
+  public List<Object> fetchSuperOrdersViaApi(DhanConnectionSettings settings) {
+    DhanJsonResponse response = resilienceExecutor.execute(
+        ApiCategory.ORDER,
+        "get-super-orders",
+        () -> httpClient.getJson(apiUrlResolver.superOrdersListUrl())
+    );
+    if (!response.has("data") || !response.path("data").isArray()) {
+      return List.of();
+    }
+    List<Object> orders = new ArrayList<>();
+    for (DhanJsonResponse item : response.path("data").asList()) {
+      orders.add(item.raw());
+    }
+    return List.copyOf(orders);
+  }
+
+  public String getKillSwitchStatusViaApi(DhanConnectionSettings settings) {
+    DhanJsonResponse response = resilienceExecutor.execute(
+        ApiCategory.ORDER,
+        "get-kill-switch-status",
+        () -> httpClient.getJson(apiUrlResolver.killSwitchUrl())
+    );
+    return response.string("killSwitchStatus", "status");
+  }
 
   public Object placeOrderViaApi(OrderRequest request, DhanInstrumentDefinition definition, DhanConnectionSettings settings) {
     ObjectNode payload = baseOrderPayload(request, definition);
@@ -119,38 +220,30 @@ public final class DhanRestOrderClient {
   }
 
   private static DhanInstrumentDefinition resolvePayload(DhanJsonResponse item, DhanConnectionSettings settings) {
-    String exchange = item.string("exchangeSegment");
-    String securityId = item.string("securityId");
-    if (exchange == null || securityId == null) {
-      return new DhanInstrumentDefinition(
-          item.string("tradingSymbol"),
-          item.string("tradingSymbol"),
-          com.tradej.core.domain.value.Exchange.valueOf(exchange.contains("NSE") ? "NSE" : "BSE"),
-          com.tradej.core.domain.value.ExchangeSegment.valueOf(exchange),
-          securityId,
-          item.string("instrumentType"),
-          item.string("underlying"),
-          null,
-          null,
-          null,
-          1,
-          1,
-          null
-      );
+    String exchange = item.string("exchangeSegment").trim();
+    String securityId = item.string("securityId").trim();
+    if (exchange.isBlank() || securityId.isBlank()) {
+      throw new IllegalArgumentException("Dhan position response missing exchangeSegment or securityId");
     }
+    String symbol = item.string("tradingSymbol");
+    String canonicalSymbol = item.string("tradingSymbol");
+    Exchange exchangeEnum = exchange.contains("NSE") ? Exchange.NSE : Exchange.BSE;
+    ExchangeSegment segment = ExchangeSegment.valueOf(exchange);
+    String instrumentType = item.string("instrumentType");
+    String underlying = item.string("underlying");
     return new DhanInstrumentDefinition(
-        item.string("tradingSymbol"),
-        item.string("tradingSymbol"),
-        com.tradej.core.domain.value.Exchange.valueOf(exchange.contains("NSE") ? "NSE" : "BSE"),
-        com.tradej.core.domain.value.ExchangeSegment.valueOf(exchange),
+        symbol,
+        canonicalSymbol,
+        exchangeEnum,
+        segment,
         securityId,
-        item.string("instrumentType"),
-        item.string("underlying"),
+        instrumentType,
+        underlying,
         null,
         null,
         null,
-        1,
-        1,
+        1L,
+        1L,
         null
     );
   }
@@ -369,7 +462,7 @@ public final class DhanRestOrderClient {
     ObjectNode payload = mapper.createObjectNode();
     payload.put("dhanClientId", settings.clientId());
     payload.put("securityId", definition.securityId());
-    payload.put("exchangeSegment", definition.exchangeSegment().name());
+    payload.put("exchangeSegment", DhanSegmentMapper.toWireValue(definition.exchangeSegment()));
     payload.put("transactionType", request.side().name());
     payload.put("productType", request.productType().name());
     payload.put("orderType", request.orderType().name());

@@ -4,7 +4,10 @@ dependencies {
     implementation project(':trading-strategy')
     implementation project(':trading-execution')
     implementation project(':trading-simulation')
-    implementation 'org.springframework:spring-context'
+    implementation project(':data-persistence')
+    implementation project(':gateway')
+    implementation project(':pipeline-runtime')
+    implementation 'com.fasterxml.jackson.core:jackson-databind'
     implementation 'org.slf4j:slf4j-api'
 
     testImplementation testFixtures(project(':core'))

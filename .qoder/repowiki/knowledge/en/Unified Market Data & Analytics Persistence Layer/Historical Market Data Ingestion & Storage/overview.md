@@ -1,0 +1,1 @@
+Manages the ingestion, storage, and querying of historical equity and options market data using DuckDB and Parquet files.

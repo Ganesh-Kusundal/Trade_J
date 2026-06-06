@@ -14,7 +14,7 @@ import java.nio.file.Path;
  * envelope so that replay can deserialize each entry to its concrete type.
  *
  * <p>Envelope format:
- * <pre>{"eventType":"TickReceived","event":{...}}</pre>
+ * <pre>{"eventType":"MarketTickEvent","event":{...}}</pre>
  *
  * <p>This fixes RP-01 (Chronicle replay deserializes all events as same type).
  */

@@ -43,4 +43,26 @@ public final class MultiBucketRateLimiter {
             limiter.acquire();
         }
     }
+
+    /**
+     * Reduces the fill rate of an existing bucket by a multiplicative factor.
+     * No-op if the category does not exist.
+     */
+    public void reduceRate(String categoryName, double factor) {
+        TokenBucketRateLimiter limiter = buckets.get(categoryName);
+        if (limiter != null) {
+            limiter.reduceRate(factor);
+        }
+    }
+
+    /**
+     * Increases the fill rate of an existing bucket by an additive factor.
+     * No-op if the category does not exist.
+     */
+    public void increaseRate(String categoryName, double factor) {
+        TokenBucketRateLimiter limiter = buckets.get(categoryName);
+        if (limiter != null) {
+            limiter.increaseRate(factor);
+        }
+    }
 }

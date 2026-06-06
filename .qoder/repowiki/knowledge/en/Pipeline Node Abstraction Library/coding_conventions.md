@@ -1,0 +1,4 @@
+- All node implementations implement the `NodeExecutor` interface and declare a public static `NODE_TYPE` constant identifying the node type.
+- Every `NodeExecutor` implementation provides a `descriptor()` method that constructs a `NodeDescriptor` with typed `PortDescriptor` inputs/outputs and a metadata map containing a `family` key.
+- Immutable record types (`NodeDescriptor`, `NodeContext`, `NodeResult`, `PortDescriptor`) use defensive copying in their compact constructors, converting null collections to empty unmodifiable copies via `List.copyOf` / `Map.copyOf`.
+- Node results are produced exclusively through the static factory methods `NodeResult.ok(port, payload)` and `NodeResult.fail(error)`, never via direct constructor invocation.

@@ -5,6 +5,7 @@ import com.tradej.broker.dhan.auth.DhanTokenProvider;
 import com.tradej.broker.dhan.config.DhanConnectionSettings;
 import com.tradej.broker.dhan.constants.DhanApiEndpoints;
 import com.tradej.broker.dhan.constants.DhanProtocolConstants;
+import com.tradej.broker.dhan.instrument.DhanSegmentMapper;
 import com.tradej.broker.dhan.websocket.feed.DhanMarketFeedBinaryParser;
 import com.tradej.broker.dhan.websocket.feed.DhanMarketFeedPacket;
 import com.tradej.core.domain.value.ExchangeSegment;
@@ -25,7 +26,6 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.function.Consumer;
 
 /**
  * Native Java WebSocket client for Dhan live market feed ({@code wss://api-feed.dhan.co}).
@@ -195,7 +195,7 @@ public final class DhanMarketFeedWebSocketClient implements AutoCloseable {
                 instrumentList.append(',');
             }
             instrumentList.append("{\"ExchangeSegment\":\"")
-                    .append(key.exchangeSegment().name())
+                    .append(DhanSegmentMapper.toWireValue(key.exchangeSegment()))
                     .append("\",\"SecurityId\":\"")
                     .append(key.securityId())
                     .append("\"}");
@@ -249,14 +249,18 @@ public final class DhanMarketFeedWebSocketClient implements AutoCloseable {
                 boolean last
         ) {
             textBuffer.append(data);
-            if (last) {
-                String text = textBuffer.toString();
+            // Check for server error indicators on every fragment, not just the last.
+            // Error text may arrive in a single frame or be split across multiple fragments.
+            // Detecting early prevents unbounded buffer growth and surfaces the error promptly.
+            String accumulated = textBuffer.toString();
+            String lower = accumulated.toLowerCase();
+            if (lower.contains("error") || lower.contains("invalid")
+                    || lower.contains("unauthorized") || lower.contains("failed")) {
+                notifyError(new IllegalStateException("Dhan market feed server message: " + accumulated));
                 textBuffer.setLength(0);
-                String lower = text.toLowerCase();
-                if (lower.contains("error") || lower.contains("invalid")
-                        || lower.contains("unauthorized") || lower.contains("failed")) {
-                    notifyError(new IllegalStateException("Dhan market feed server message: " + text));
-                }
+            } else if (last) {
+                // Last fragment and no error — discard the (normal) accumulated text
+                textBuffer.setLength(0);
             }
             webSocket.request(1);
             return CompletableFuture.completedFuture(null);

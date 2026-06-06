@@ -17,7 +17,6 @@ import com.tradej.core.domain.event.PnlUpdatedEvent;
 import com.tradej.core.domain.event.ReplayTimeChangedEvent;
 import com.tradej.core.domain.event.ScanResultsPublished;
 import com.tradej.core.domain.event.SignalGenerated;
-import com.tradej.core.domain.event.TickReceived;
 import com.tradej.core.domain.event.TradeClosed;
 import com.tradej.core.domain.event.TradeOpened;
 import com.tradej.core.domain.model.Candle;
@@ -95,7 +94,6 @@ public final class GatewayEventBridge implements AutoCloseable {
      */
     public void register(EventBus eventBus) {
         eventBus.subscribe(MarketTickEvent.class, this::onDomainEvent);
-        eventBus.subscribe(TickReceived.class, this::onDomainEvent);
         eventBus.subscribe(DepthUpdateEvent.class, this::onDomainEvent);
         eventBus.subscribe(CandleDeveloping.class, this::onDomainEvent);
         eventBus.subscribe(CandleClosed.class, this::onDomainEvent);
@@ -130,8 +128,6 @@ public final class GatewayEventBridge implements AutoCloseable {
             switch (event) {
                 case MarketTickEvent tick ->
                         router.publish(GatewayTopic.MARKET_TICK, writeJson(marketTickPayload(tick)));
-                case TickReceived tick ->
-                        router.publish(GatewayTopic.MARKET_TICK, writeJson(tickPayload(tick)));
                 case DepthUpdateEvent depth ->
                         router.publish(GatewayTopic.MARKET_DEPTH, writeJson(depthPayload(depth)));
                 case CandleDeveloping dev ->
@@ -257,16 +253,6 @@ public final class GatewayEventBridge implements AutoCloseable {
         return map;
     }
 
-    private Map<String, Object> tickPayload(TickReceived tick) {
-        Map<String, Object> map = new LinkedHashMap<>();
-        putSymbolFields(map, tick.symbol(), ExchangeSegment.NSE_EQ);
-        map.put("ltpPaisa", tick.ltpPaisa());
-        map.put("lastTradeQuantity", tick.lastTradeQuantity());
-        map.put("cumulativeVolume", tick.cumulativeVolume());
-        map.put("exchangeTimestampMs", tick.exchangeTimestampMs());
-        map.put("sequence", tick.sequenceId());
-        return map;
-    }
 
     private Map<String, Object> depthPayload(DepthUpdateEvent depth) {
         Map<String, Object> map = new LinkedHashMap<>();
@@ -464,6 +450,34 @@ public final class GatewayEventBridge implements AutoCloseable {
         } catch (Exception ex) {
             return symbol;
         }
+    }
+
+    // ── Depth Analytics Publishing ──
+
+    /**
+     * Publish depth analytics events to WebSocket clients.
+     * Called by DepthAnalyticsPipeline consumers.
+     */
+    public void publishDepthAnalytics(Object analyticsEvent) {
+        try {
+            byte[] payload = objectMapper.writeValueAsBytes(analyticsEvent);
+            GatewayTopic topic = resolveAnalyticsTopic(analyticsEvent);
+            router.publish(topic, payload);
+        } catch (Exception ex) {
+            log.warn("Failed to publish depth analytics event: {}", ex.getMessage());
+        }
+    }
+
+    private GatewayTopic resolveAnalyticsTopic(Object event) {
+        String className = event.getClass().getSimpleName();
+        return switch (className) {
+            case "DepthImbalanceSnapshot" -> GatewayTopic.DEPTH_IMBALANCE;
+            case "HeatmapChunk" -> GatewayTopic.HEATMAP_CHUNK;
+            case "IcebergSignal" -> GatewayTopic.ICEBERG_ALERT;
+            case "AbsorptionSignal" -> GatewayTopic.ABSORPTION_ALERT;
+            case "SRLevelsUpdate" -> GatewayTopic.SR_LEVELS_UPDATE;
+            default -> GatewayTopic.MARKET_DEPTH;
+        };
     }
 
 }

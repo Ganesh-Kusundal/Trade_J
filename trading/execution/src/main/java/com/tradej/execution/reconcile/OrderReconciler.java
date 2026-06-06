@@ -2,7 +2,6 @@ package com.tradej.execution.reconcile;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Service;
 import com.tradej.broker.api.IBrokerConnection;
 import com.tradej.core.domain.event.DomainEvent;
 import com.tradej.core.domain.event.EventMetadataFactory;
@@ -16,7 +15,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 
-@Service
 public final class OrderReconciler {
 
     private static final Logger log = LoggerFactory.getLogger(OrderReconciler.class);

@@ -20,6 +20,23 @@ public final class UpstoxPortfolioProvider implements PortfolioProvider {
         this.restClient = restClient;
     }
 
+    /**
+     * Converts an existing intraday position to delivery or vice versa.
+     *
+     * @param instrumentToken  the Upstox instrument key
+     * @param oldProduct       current product type (MIS, CNC, NRML)
+     * @param newProduct       desired product type (MIS, CNC, NRML)
+     * @param transactionType  BUY or SELL
+     * @param quantity         quantity to convert
+     * @return true if the conversion was successful
+     */
+    public boolean convertPosition(
+            String instrumentToken, String oldProduct, String newProduct,
+            String transactionType, long quantity) {
+        var response = restClient.convertPosition(instrumentToken, oldProduct, newProduct, transactionType, quantity);
+        return response.has("status") && "success".equals(response.get("status").asText());
+    }
+
     @Override
     public List<Position> getPositions() {
         JsonNode root = restClient.getPositions();

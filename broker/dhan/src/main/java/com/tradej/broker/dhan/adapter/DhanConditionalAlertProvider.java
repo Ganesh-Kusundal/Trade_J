@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.tradej.broker.api.port.ConditionalAlertProvider;
 import com.tradej.broker.dhan.constants.DhanApiUrlResolver;
 import com.tradej.broker.dhan.http.DhanAuthenticatedHttpClient;
+import com.tradej.broker.dhan.instrument.DhanSegmentMapper;
 import com.tradej.broker.dhan.mapper.DhanApiConverters;
 import com.tradej.broker.dhan.rate.ApiCategory;
 import com.tradej.broker.dhan.resilience.DhanRetryExecutor;
@@ -36,7 +37,7 @@ public final class DhanConditionalAlertProvider extends DhanBaseRestAdapter impl
         var definition = resolveDef(request.symbol(), request.exchangeSegment());
         ObjectNode payload = mapper.createObjectNode();
         payload.put("securityId", definition.securityId());
-        payload.put("exchangeSegment", definition.exchangeSegment().name());
+            payload.put("exchangeSegment", DhanSegmentMapper.toWireValue(definition.exchangeSegment()));
         payload.put("transactionType", DhanApiConverters.transactionType(request.side()));
         payload.put("orderType", DhanApiConverters.orderType(request.orderType()));
         payload.put("productType", DhanApiConverters.productType(request.productType()));
@@ -45,14 +46,30 @@ public final class DhanConditionalAlertProvider extends DhanBaseRestAdapter impl
         payload.put("triggerPrice", PriceMath.fromPaisa(request.triggerPricePaisa()).doubleValue());
         payload.put("validity", request.validity().name());
         payload.put("comparisonType", request.comparisonType());
-        if (request.operator() != null) payload.put("operator", request.operator());
-        if (request.timeFrame() != null) payload.put("timeFrame", request.timeFrame());
-        if (request.comparingValue() != null) payload.put("comparingValue", request.comparingValue());
-        if (request.indicatorName() != null) payload.put("indicatorName", request.indicatorName());
-        if (request.comparingIndicatorName() != null) payload.put("comparingIndicatorName", request.comparingIndicatorName());
-        if (request.frequency() != null) payload.put("frequency", request.frequency());
-        if (request.expiryDate() != null) payload.put("expDate", request.expiryDate());
-        if (request.userNote() != null) payload.put("userNote", request.userNote());
+        if (request.operator() != null) {
+            payload.put("operator", request.operator());
+        }
+        if (request.timeFrame() != null) {
+            payload.put("timeFrame", request.timeFrame());
+        }
+        if (request.comparingValue() != null) {
+            payload.put("comparingValue", request.comparingValue());
+        }
+        if (request.indicatorName() != null) {
+            payload.put("indicatorName", request.indicatorName());
+        }
+        if (request.comparingIndicatorName() != null) {
+            payload.put("comparingIndicatorName", request.comparingIndicatorName());
+        }
+        if (request.frequency() != null) {
+            payload.put("frequency", request.frequency());
+        }
+        if (request.expiryDate() != null) {
+            payload.put("expDate", request.expiryDate());
+        }
+        if (request.userNote() != null) {
+            payload.put("userNote", request.userNote());
+        }
         return execute(ApiCategory.ORDER, "alerts-place", () -> {
             var response = httpClient.postJson(apiUrlResolver.alertOrdersUrl(), payload);
             var data = response.has("data") ? response.path("data") : response;

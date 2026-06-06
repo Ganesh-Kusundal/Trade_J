@@ -1,9 +1,10 @@
 package com.tradej.app.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tradej.composition.config.ScanProperties;
 import com.tradej.app.scanner.RuntimeSubscriptionManager;
 import com.tradej.app.scanner.ScanService;
-import com.tradej.app.subscription.SubscriptionCoordinator;
+import com.tradej.execution.subscription.SubscriptionCoordinator;
 import com.tradej.broker.api.IBrokerConnection;
 import com.tradej.gateway.router.GatewayTopicRouter;
 import com.tradej.persistence.duckdb.DuckDbScanStore;

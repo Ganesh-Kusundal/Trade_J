@@ -6,6 +6,7 @@ import com.tradej.pipeline.graph.PipelineGraph;
 import com.tradej.pipeline.graph.PipelineGraphValidator;
 import com.tradej.pipeline.graph.PipelineNodeDef;
 import com.tradej.pipeline.runtime.PipelineNodeTypes;
+import com.tradej.pipeline.service.PipelineRuntimeService;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
@@ -47,7 +48,7 @@ class PipelineCompileRoutingTest {
                 null,
                 new com.tradej.pipeline.clock.VirtualClock(com.tradej.pipeline.clock.VirtualClock.Mode.LIVE),
                 null,
-                new com.tradej.app.pipeline.reactor.ReactorBridgeMetrics(),
+                new com.tradej.pipeline.service.reactor.ReactorBridgeMetrics(),
                 new com.tradej.pipeline.reactor.ReactorBridge()
         );
         assertThrows(IllegalArgumentException.class, () -> service.reload(dagGraph, event -> {}));

@@ -5,7 +5,7 @@ import com.tradej.core.domain.port.EventBus;
 import com.tradej.core.domain.runtime.RuntimeMode;
 import com.tradej.core.domain.runtime.RuntimeModeHolder;
 import com.tradej.disruptor.DisruptorBusMetrics;
-import com.tradej.app.pipeline.ReplayOrchestrator;
+import com.tradej.replay.engine.ReplayOrchestrator;
 import com.tradej.execution.reconcile.OrderReconciler;
 import com.tradej.execution.service.ExecutionHandler;
 import com.tradej.execution.service.TradingCircuitBreaker;
@@ -245,11 +245,11 @@ public class AdminController {
                 "to", to,
                 "count", ticks.size(),
                 "ticks", ticks.stream().map(t -> Map.of(
-                        "exchangeTimestampMs", t.exchangeTimestampMs(),
+                        "exchangeTimestampMs", t.exchangeTimestampEpochMs(),
                         "ltpPaisa", t.ltpPaisa(),
                         "lastTradeQuantity", t.lastTradeQuantity(),
                         "cumulativeVolume", t.cumulativeVolume(),
-                        "interval", t.interval()
+                        "interval", ""
                 )).toList()
         ));
     }

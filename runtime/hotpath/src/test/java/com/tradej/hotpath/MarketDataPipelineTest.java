@@ -2,7 +2,10 @@ package com.tradej.hotpath;
 
 import com.tradej.core.domain.event.DomainEvent;
 import com.tradej.core.domain.event.EventMetadata;
-import com.tradej.core.domain.event.TickReceived;
+import com.tradej.core.domain.event.MarketTickEvent;
+import com.tradej.core.domain.value.ExchangeSegment;
+import com.tradej.core.domain.value.FeedMode;
+import java.util.Optional;
 import com.tradej.core.support.MdcHelper;
 import com.tradej.hotpath.rate.TokenBucket;
 import org.junit.jupiter.api.BeforeEach;
@@ -29,41 +32,32 @@ class MarketDataPipelineTest {
 
     @Test
     void nullTickIsIgnored() {
-        pipeline.onTickReceived(null);
+        pipeline.onMarketTickEvent(null);
         assertTrue(emitted.isEmpty(), "Null tick should not be forwarded");
         assertEquals(0, pipeline.totalTicksProcessed());
     }
 
     @Test
     void tickIsForwardedToDownstream() {
-        var tick = new TickReceived(
-                EventMetadata.root(),
-                "SBIN",
-                "5m",
-                750_00L,
-                10L,
-                1_000L,
-                System.currentTimeMillis(),
-                null
-        );
+        var tick = new MarketTickEvent(EventMetadata.root(), 0L, "SBIN", ExchangeSegment.NSE_EQ, FeedMode.TICKER, 750_00L, 10L, 1_000L, System.currentTimeMillis(), Optional.empty(), 0L, 0L);
 
-        pipeline.onTickReceived(tick);
+        pipeline.onMarketTickEvent(tick);
 
         assertEquals(1, emitted.size(), "One event should be emitted");
-        assertInstanceOf(TickReceived.class, emitted.get(0));
-        assertEquals("SBIN", ((TickReceived) emitted.get(0)).symbol());
+        assertInstanceOf(MarketTickEvent.class, emitted.get(0));
+        assertEquals("SBIN", ((MarketTickEvent) emitted.get(0)).symbol());
     }
 
     @Test
     void multipleTicksAreAllForwarded() {
         long t0 = System.currentTimeMillis();
-        var tick1 = new TickReceived(EventMetadata.root(), "SBIN", "5m", 750_00L, 10L, 1_000L, t0, null);
-        var tick2 = new TickReceived(EventMetadata.root(), "RELIANCE", "5m", 2_500_00L, 5L, 500L, t0 + 10L, null);
-        var tick3 = new TickReceived(EventMetadata.root(), "TCS", "5m", 3_500_00L, 2L, 200L, t0 + 20L, null);
+        var tick1 = new MarketTickEvent(EventMetadata.root(), 0L, "SBIN", ExchangeSegment.NSE_EQ, FeedMode.TICKER, 750_00L, 10L, 1_000L, t0, Optional.empty(), 0L, 0L);
+        var tick2 = new MarketTickEvent(EventMetadata.root(), 0L, "RELIANCE", ExchangeSegment.NSE_EQ, FeedMode.TICKER, 2_500_00L, 5L, 500L, t0 + 10L, Optional.empty(), 0L, 0L);
+        var tick3 = new MarketTickEvent(EventMetadata.root(), 0L, "TCS", ExchangeSegment.NSE_EQ, FeedMode.TICKER, 3_500_00L, 2L, 200L, t0 + 20L, Optional.empty(), 0L, 0L);
 
-        pipeline.onTickReceived(tick1);
-        pipeline.onTickReceived(tick2);
-        pipeline.onTickReceived(tick3);
+        pipeline.onMarketTickEvent(tick1);
+        pipeline.onMarketTickEvent(tick2);
+        pipeline.onMarketTickEvent(tick3);
 
         assertEquals(3, emitted.size());
         assertEquals(3, pipeline.totalTicksProcessed());
@@ -72,18 +66,9 @@ class MarketDataPipelineTest {
     @Test
     void lastTickTimestampMatchesTickMetadata() {
         long tickTimestamp = System.currentTimeMillis() - 5_000L; // 5 seconds ago
-        var tick = new TickReceived(
-                EventMetadata.root(),
-                "SBIN",
-                "5m",
-                750_00L,
-                10L,
-                1_000L,
-                tickTimestamp,
-                null
-        );
+        var tick = new MarketTickEvent(EventMetadata.root(), 0L, "SBIN", ExchangeSegment.NSE_EQ, FeedMode.TICKER, 750_00L, 10L, 1_000L, tickTimestamp, Optional.empty(), 0L, 0L);
 
-        pipeline.onTickReceived(tick);
+        pipeline.onMarketTickEvent(tick);
 
         // Should use the tick's metadata timestamp, not wall clock
         assertEquals(tick.metadata().timestampMs(), pipeline.lastTickTimestampMs());
@@ -99,10 +84,10 @@ class MarketDataPipelineTest {
     void returnsTotalTicksProcessed() {
         assertEquals(0, pipeline.totalTicksProcessed());
 
-        var tick = new TickReceived(EventMetadata.root(), "SBIN", "5m", 750_00L, 10L, 1_000L, 1_000_000L, null);
-        pipeline.onTickReceived(tick);
-        pipeline.onTickReceived(tick);
-        pipeline.onTickReceived(tick);
+        var tick = new MarketTickEvent(EventMetadata.root(), 0L, "SBIN", ExchangeSegment.NSE_EQ, FeedMode.TICKER, 750_00L, 10L, 1_000L, 1_000_000L, Optional.empty(), 0L, 0L);
+        pipeline.onMarketTickEvent(tick);
+        pipeline.onMarketTickEvent(tick);
+        pipeline.onMarketTickEvent(tick);
 
         assertEquals(3, pipeline.totalTicksProcessed());
     }
@@ -117,23 +102,23 @@ class MarketDataPipelineTest {
 
     @Test
     void mdcIsEnrichedDuringProcessing() {
-        var tick = new TickReceived(EventMetadata.root(), "SBIN", "5m", 750_00L, 10L, 1_000L, System.currentTimeMillis(), null);
+        var tick = new MarketTickEvent(EventMetadata.root(), 0L, "SBIN", ExchangeSegment.NSE_EQ, FeedMode.TICKER, 750_00L, 10L, 1_000L, System.currentTimeMillis(), Optional.empty(), 0L, 0L);
 
         // Verify MDC values are set inside the downstream consumer
         var verifyingPipeline = new MarketDataPipeline(e -> {
-            assertEquals("TickReceived", MDC.get("eventType"), "eventType should be set during processing");
+            assertEquals("MarketTickEvent", MDC.get("eventType"), "eventType should be set during processing");
             assertEquals("SBIN", MDC.get("symbol"), "symbol should be set during processing");
             assertEquals("market-data", MDC.get("stage"), "stage should be 'market-data'");
             assertNotNull(MDC.get("eventId"), "eventId should be set");
         });
-        verifyingPipeline.onTickReceived(tick);
+        verifyingPipeline.onMarketTickEvent(tick);
     }
 
     @Test
     void mdcIsClearedAfterTickProcessing() {
-        var tick = new TickReceived(EventMetadata.root(), "SBIN", "5m", 750_00L, 10L, 1_000L, System.currentTimeMillis(), null);
+        var tick = new MarketTickEvent(EventMetadata.root(), 0L, "SBIN", ExchangeSegment.NSE_EQ, FeedMode.TICKER, 750_00L, 10L, 1_000L, System.currentTimeMillis(), Optional.empty(), 0L, 0L);
 
-        pipeline.onTickReceived(tick);
+        pipeline.onMarketTickEvent(tick);
 
         // After processing completes, MDC should be clean — clear is a no-op
         assertNull(MDC.get("eventType"));
@@ -147,12 +132,12 @@ class MarketDataPipelineTest {
         // Create a broken downstream consumer that throws
         var broken = new MarketDataPipeline(e -> {
             // Verify MDC is enriched before the exception
-            assertEquals("TickReceived", MDC.get("eventType"));
+            assertEquals("MarketTickEvent", MDC.get("eventType"));
             throw new RuntimeException("fail");
         });
-        var tick = new TickReceived(EventMetadata.root(), "SBIN", "5m", 750_00L, 10L, 1_000L, System.currentTimeMillis(), null);
+        var tick = new MarketTickEvent(EventMetadata.root(), 0L, "SBIN", ExchangeSegment.NSE_EQ, FeedMode.TICKER, 750_00L, 10L, 1_000L, System.currentTimeMillis(), Optional.empty(), 0L, 0L);
 
-        assertThrows(RuntimeException.class, () -> broken.onTickReceived(tick));
+        assertThrows(RuntimeException.class, () -> broken.onMarketTickEvent(tick));
 
         // MDC should still be clean after the exception
         assertNull(MDC.get("eventType"));
@@ -167,33 +152,33 @@ class MarketDataPipelineTest {
 
     @Test
     void tickRateIsZeroAfterFirstTick() {
-        var tick = new TickReceived(EventMetadata.root(), "SBIN", "5m", 750_00L, 10L, 1_000L, System.currentTimeMillis(), null);
-        pipeline.onTickReceived(tick);
+        var tick = new MarketTickEvent(EventMetadata.root(), 0L, "SBIN", ExchangeSegment.NSE_EQ, FeedMode.TICKER, 750_00L, 10L, 1_000L, System.currentTimeMillis(), Optional.empty(), 0L, 0L);
+        pipeline.onMarketTickEvent(tick);
         assertEquals(0.0, pipeline.tickRate(), "Tick rate should be 0 after a single tick (no interval)");
     }
 
     @Test
     void tickRateIncreasesAfterMultipleTicks() throws InterruptedException {
-        var tick = new TickReceived(EventMetadata.root(), "SBIN", "5m", 750_00L, 10L, 1_000L, System.currentTimeMillis(), null);
+        var tick = new MarketTickEvent(EventMetadata.root(), 0L, "SBIN", ExchangeSegment.NSE_EQ, FeedMode.TICKER, 750_00L, 10L, 1_000L, System.currentTimeMillis(), Optional.empty(), 0L, 0L);
 
         // First tick — rate stays 0
-        pipeline.onTickReceived(tick);
+        pipeline.onMarketTickEvent(tick);
         assertEquals(0.0, pipeline.tickRate());
 
         // Second tick after a short delay — rate should be positive
         Thread.sleep(50);
-        pipeline.onTickReceived(tick);
+        pipeline.onMarketTickEvent(tick);
         assertTrue(pipeline.tickRate() > 0.0,
                 "Tick rate should be positive after at least two ticks with elapsed time");
     }
 
     @Test
     void tickRateIsStableWithManyTicks() throws InterruptedException {
-        var tick = new TickReceived(EventMetadata.root(), "SBIN", "5m", 750_00L, 10L, 1_000L, System.currentTimeMillis(), null);
+        var tick = new MarketTickEvent(EventMetadata.root(), 0L, "SBIN", ExchangeSegment.NSE_EQ, FeedMode.TICKER, 750_00L, 10L, 1_000L, System.currentTimeMillis(), Optional.empty(), 0L, 0L);
 
         // Feed 10 ticks at ~100ms intervals
         for (int i = 0; i < 10; i++) {
-            pipeline.onTickReceived(tick);
+            pipeline.onMarketTickEvent(tick);
             Thread.sleep(100);
         }
 
@@ -216,12 +201,11 @@ class MarketDataPipelineTest {
     void unlimitedPipelineAcceptsAllTicks() {
         // Default constructor = no rate limiting
         var unlimited = new MarketDataPipeline(e -> { });
-        var tick = new TickReceived(EventMetadata.root(), "SBIN", "5m", 750_00L, 10L, 1_000L,
-                System.currentTimeMillis(), null);
+        var tick = new MarketTickEvent(EventMetadata.root(), 0L, "SBIN", ExchangeSegment.NSE_EQ, FeedMode.TICKER, 750_00L, 10L, 1_000L, System.currentTimeMillis(), Optional.empty(), 0L, 0L);
 
         // Unlimited pipeline should accept all ticks
         for (int i = 0; i < 1000; i++) {
-            unlimited.onTickReceived(tick);
+            unlimited.onMarketTickEvent(tick);
         }
         assertEquals(1000, unlimited.totalTicksProcessed());
         assertEquals(0, unlimited.tickRateLimitedCount());
@@ -232,17 +216,16 @@ class MarketDataPipelineTest {
         // 10 ticks/s, burst 2 — very restrictive
         var limiter = new TokenBucket(10.0, 2);
         var limited = new MarketDataPipeline(e -> { }, limiter);
-        var tick = new TickReceived(EventMetadata.root(), "SBIN", "5m", 750_00L, 10L, 1_000L,
-                System.currentTimeMillis(), null);
+        var tick = new MarketTickEvent(EventMetadata.root(), 0L, "SBIN", ExchangeSegment.NSE_EQ, FeedMode.TICKER, 750_00L, 10L, 1_000L, System.currentTimeMillis(), Optional.empty(), 0L, 0L);
 
         // Burst of 2 should pass
-        limited.onTickReceived(tick);
-        limited.onTickReceived(tick);
+        limited.onMarketTickEvent(tick);
+        limited.onMarketTickEvent(tick);
         assertEquals(2, limited.totalTicksProcessed());
         assertEquals(0, limited.tickRateLimitedCount());
 
         // Third tick should be rate limited
-        limited.onTickReceived(tick);
+        limited.onMarketTickEvent(tick);
         assertEquals(2, limited.totalTicksProcessed());
         assertEquals(1, limited.tickRateLimitedCount());
     }
@@ -252,19 +235,18 @@ class MarketDataPipelineTest {
         // 20 ticks/s, burst 1
         var limiter = new TokenBucket(20.0, 1);
         var limited = new MarketDataPipeline(e -> { }, limiter);
-        var tick = new TickReceived(EventMetadata.root(), "SBIN", "5m", 750_00L, 10L, 1_000L,
-                System.currentTimeMillis(), null);
+        var tick = new MarketTickEvent(EventMetadata.root(), 0L, "SBIN", ExchangeSegment.NSE_EQ, FeedMode.TICKER, 750_00L, 10L, 1_000L, System.currentTimeMillis(), Optional.empty(), 0L, 0L);
 
-        limited.onTickReceived(tick);
+        limited.onMarketTickEvent(tick);
         assertEquals(1, limited.totalTicksProcessed());
 
         // Immediate next tick should be rate limited, no refill yet
-        limited.onTickReceived(tick);
+        limited.onMarketTickEvent(tick);
         assertEquals(1, limited.tickRateLimitedCount());
 
         // Wait 100ms — at 20/s, that's 2 tokens, but burst=1 so only 1
         Thread.sleep(100);
-        limited.onTickReceived(tick);
+        limited.onMarketTickEvent(tick);
         assertEquals(2, limited.totalTicksProcessed());
     }
 
@@ -273,13 +255,12 @@ class MarketDataPipelineTest {
         // Very low rate — all ticks will be rate limited after burst
         var limiter = new TokenBucket(1.0, 1);
         var limited = new MarketDataPipeline(e -> { }, limiter);
-        var tick = new TickReceived(EventMetadata.root(), "SBIN", "5m", 750_00L, 10L, 1_000L,
-                System.currentTimeMillis(), null);
+        var tick = new MarketTickEvent(EventMetadata.root(), 0L, "SBIN", ExchangeSegment.NSE_EQ, FeedMode.TICKER, 750_00L, 10L, 1_000L, System.currentTimeMillis(), Optional.empty(), 0L, 0L);
 
-        limited.onTickReceived(tick);  // 1 accepted (burst token)
-        limited.onTickReceived(tick);  // rate limited
-        limited.onTickReceived(tick);  // rate limited
-        limited.onTickReceived(tick);  // rate limited
+        limited.onMarketTickEvent(tick);  // 1 accepted (burst token)
+        limited.onMarketTickEvent(tick);  // rate limited
+        limited.onMarketTickEvent(tick);  // rate limited
+        limited.onMarketTickEvent(tick);  // rate limited
 
         assertEquals(1, limited.totalTicksProcessed());
         assertEquals(3, limited.tickRateLimitedCount());

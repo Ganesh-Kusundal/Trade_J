@@ -251,6 +251,10 @@ class UpstoxNewsIntegrationTest {
                         instrumentResolver
                 ),
                 new UpstoxNewsProvider(new UpstoxNewsRestClient(jsonClient)),
+                null, // conditionalAlertProvider - not needed for news test
+                null, // sliceOrderCommand - not needed for news test
+                null, // dataServicesProvider - not needed for news test
+                null, // profileProvider - not needed for news test
                 instrumentLoader
         );
 

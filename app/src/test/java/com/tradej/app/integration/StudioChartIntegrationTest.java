@@ -3,7 +3,7 @@ package com.tradej.app.integration;
 import com.tradej.analytics.config.DuckDbAnalyticsConfig;
 import com.tradej.analytics.engine.DuckDbAnalyticsEngine;
 import com.tradej.analytics.repository.FederatedHistoricalBarRepository;
-import com.tradej.app.studio.StudioChartService;
+import com.tradej.strategy.studio.StudioChartService;
 import com.tradej.core.domain.value.ExchangeSegment;
 import com.tradej.historical.ingest.universe.HistoricalEquityPaths;
 import com.tradej.indicators.IndicatorEngine;

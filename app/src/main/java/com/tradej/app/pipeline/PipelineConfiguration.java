@@ -1,12 +1,8 @@
 package com.tradej.app.pipeline;
 
 import com.tradej.core.domain.port.FeatureStore;
-import com.tradej.core.domain.runtime.RuntimeModeHolder;
-import com.tradej.execution.identity.OrderIdentityRegistry;
 import com.tradej.execution.risk.PositionRiskHandler;
 import com.tradej.execution.service.ExecutionHandler;
-import com.tradej.execution.service.OrderManagementService;
-import com.tradej.execution.service.TradingCircuitBreaker;
 import com.tradej.feature.store.OptionsAwareFeatureStore;
 import com.tradej.persistence.oms.EventSourcedOrderRepository;
 import com.tradej.persistence.pipeline.DuckDbPipelineGraphStore;
@@ -18,9 +14,13 @@ import com.tradej.pipeline.registry.NodeRegistry;
 import com.tradej.pipeline.registry.NodeTypeDescriptor;
 import com.tradej.pipeline.runtime.IngressNode;
 import com.tradej.pipeline.runtime.PipelineNodeTypes;
+import com.tradej.pipeline.service.DagPipelineRuntimeService;
+import com.tradej.pipeline.service.PipelineNodeFactory;
+import com.tradej.pipeline.service.PipelineRuntimeService;
+import com.tradej.pipeline.service.reactor.ReactorBridgeMetrics;
 import com.tradej.scanner.engine.ScanEngine;
 import com.tradej.scanner.model.ScanProfile;
-import com.tradej.app.config.ScanProperties;
+import com.tradej.composition.config.ScanProperties;
 import com.tradej.app.scanner.ScanProfileMapper;
 import com.tradej.strategy.portfolio.PortfolioEngine;
 import com.tradej.strategy.service.CandleAggregationService;
@@ -79,7 +79,7 @@ public class PipelineConfiguration {
                 "Aggregates ticks into OHLCV candles",
                 List.of(
                         new NodeTypeDescriptor.EventType(com.tradej.core.domain.event.MarketTickEvent.class, "Canonical tick"),
-                        new NodeTypeDescriptor.EventType(com.tradej.core.domain.event.TickReceived.class, "Incoming tick (deprecated)")
+                        new NodeTypeDescriptor.EventType(com.tradej.core.domain.event.MarketTickEvent.class, "Incoming tick (deprecated)")
                 ),
                 List.of(
                         new NodeTypeDescriptor.EventType(com.tradej.core.domain.event.CandleDeveloping.class, "Developing candle"),
@@ -118,43 +118,12 @@ public class PipelineConfiguration {
                         "triggerInterval", NodeTypeDescriptor.ConfigField.of("triggerInterval", NodeTypeDescriptor.ConfigField.FieldType.STRING, "Trigger Interval", "5m")
                 )));
 
-        // Decomposed execution nodes
-        registry.register(descriptor(PipelineNodeTypes.SIGNAL_GATE, "Signal Gate", "oms",
-                "Pre-trade signal gating: kill switch, circuit breaker, capacity checks",
-                List.of(new NodeTypeDescriptor.EventType(com.tradej.core.domain.event.SignalPendingExecution.class, "Incoming signal")),
-                List.of(
-                        new NodeTypeDescriptor.EventType(com.tradej.core.domain.event.SignalPendingExecution.class, "Approved signal"),
-                        new NodeTypeDescriptor.EventType(com.tradej.core.domain.event.SignalSuppressed.class, "Rejected signal")
-                ),
-                Map.of()));
-
-        registry.register(descriptor(PipelineNodeTypes.ORDER_PLACEMENT, "Order Placement", "oms",
-                "Broker order placement with OMS event sourcing and timeout",
-                List.of(new NodeTypeDescriptor.EventType(com.tradej.core.domain.event.SignalPendingExecution.class, "Approved signal")),
-                List.of(
-                        new NodeTypeDescriptor.EventType(com.tradej.core.domain.event.OrderAccepted.class, "Order accepted"),
-                        new NodeTypeDescriptor.EventType(com.tradej.core.domain.event.OrderRejected.class, "Order rejected"),
-                        new NodeTypeDescriptor.EventType(com.tradej.core.domain.event.SignalSuppressed.class, "Placement failed")
-                ),
-                Map.of()));
-
-        registry.register(descriptor(PipelineNodeTypes.FILL_RECONCILIATION, "Fill Reconciliation", "oms",
-                "Broker fill reconciliation with OMS state and trade lifecycle",
-                List.of(new NodeTypeDescriptor.EventType(com.tradej.core.domain.event.OrderFilled.class, "Broker fill report")),
-                List.of(
-                        new NodeTypeDescriptor.EventType(com.tradej.core.domain.event.OrderFullyFilled.class, "Order fully filled"),
-                        new NodeTypeDescriptor.EventType(com.tradej.core.domain.event.OrderPartiallyFilled.class, "Order partially filled"),
-                        new NodeTypeDescriptor.EventType(com.tradej.core.domain.event.TradeOpened.class, "Trade opened"),
-                        new NodeTypeDescriptor.EventType(com.tradej.core.domain.event.TradeUpdated.class, "Trade updated")
-                ),
-                Map.of()));
-
         // Streaming scanner nodes
         registry.register(descriptor(PipelineNodeTypes.SCAN_CRITERION, "Scan Criterion", "scanner",
                 "Evaluates a single scan criterion against incoming events",
                 List.of(
                         new NodeTypeDescriptor.EventType(com.tradej.core.domain.event.MarketTickEvent.class, "Canonical tick"),
-                        new NodeTypeDescriptor.EventType(com.tradej.core.domain.event.TickReceived.class, "Tick data (deprecated)"),
+                        new NodeTypeDescriptor.EventType(com.tradej.core.domain.event.MarketTickEvent.class, "Tick data (deprecated)"),
                         new NodeTypeDescriptor.EventType(com.tradej.core.domain.event.CandleClosed.class, "Completed candle")
                 ),
                 List.of(new NodeTypeDescriptor.EventType(com.tradej.core.domain.event.ScanHitProduced.class, "Matched hit")),
@@ -204,11 +173,7 @@ public class PipelineConfiguration {
             OptionsAwareFeatureStore hotPathFeatureStore,
             ReactorBridge reactorBridge,
             @Autowired(required = false) ScanEngine scanEngine,
-            ScanProperties scanProperties,
-            TradingCircuitBreaker circuitBreaker,
-            OrderManagementService orderManagementService,
-            OrderIdentityRegistry identityRegistry,
-            RuntimeModeHolder runtimeModeHolder
+            ScanProperties scanProperties
     ) {
         FeatureStore featureStore = hotPathFeatureStore;
         Map<String, ScanProfile> scanProfilesById = scanProperties.profiles().stream()
@@ -225,11 +190,7 @@ public class PipelineConfiguration {
                 featureStore,
                 reactorBridge,
                 scanEngine,
-                scanProfilesById,
-                circuitBreaker,
-                orderManagementService,
-                identityRegistry,
-                runtimeModeHolder
+                scanProfilesById
         );
     }
 

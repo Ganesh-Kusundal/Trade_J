@@ -1,0 +1,1 @@
+Provides a unified, capability-based interface for interacting with multiple Indian stock brokers (Dhan, Upstox, ICICI) with built-in resilience and load balancing.

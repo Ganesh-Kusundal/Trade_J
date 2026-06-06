@@ -6,7 +6,7 @@ import com.tradej.disruptor.DisruptorBusMetrics;
 import com.tradej.disruptor.config.StageTimings;
 import com.tradej.execution.risk.PositionRiskHandler;
 import com.tradej.execution.service.ExecutionHandler;
-import com.tradej.app.pipeline.PipelineRuntimeService;
+import com.tradej.pipeline.service.PipelineRuntimeService;
 import com.tradej.app.health.MarketDataHealthIndicator;
 import com.tradej.hotpath.MarketDataPipeline;
 import com.tradej.hotpath.OrderPipeline;

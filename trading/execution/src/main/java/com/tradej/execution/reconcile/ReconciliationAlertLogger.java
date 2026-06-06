@@ -7,13 +7,10 @@ import com.tradej.core.domain.port.DomainEventHandler;
 import com.tradej.core.domain.port.EventBus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
 
 /**
  * Handles {@link PositionMismatch} events published by the reconciliation pipeline.
  */
-@Service
 public class ReconciliationAlertLogger implements DomainEventHandler<PositionMismatch> {
 
     private static final Logger log = LoggerFactory.getLogger(ReconciliationAlertLogger.class);
@@ -24,8 +21,8 @@ public class ReconciliationAlertLogger implements DomainEventHandler<PositionMis
 
     public ReconciliationAlertLogger(
             EventBus eventBus,
-            @Value("${trade.reconciliation.auto-halt:false}") boolean autoHalt,
-            @Value("${trade.reconciliation.mismatch-tolerance-qty:0}") long mismatchToleranceQty
+            boolean autoHalt,
+            long mismatchToleranceQty
     ) {
         this.eventBus = eventBus;
         this.autoHalt = autoHalt;

@@ -36,18 +36,15 @@ public record PropertyDescriptor(
 
  public static PropertyDescriptor required(String name, PropertyType type, String displayName) {
  return new PropertyDescriptor(name, type, displayName, "", null, true, List.of(), Map.of());
- }
-
- @SuppressWarnings("unchecked")
- public <T> T defaultValue(Class<T> expectedType) {
- if (defaultValue == null) return null;
- if (!expectedType.isInstance(defaultValue)) {
- throw new ClassCastException("Default value for '" + name
- + "' is " + defaultValue.getClass().getName()
- + ", expected " + expectedType.getName());
- }
- return (T) defaultValue;
- }
+ }    public <T> T defaultValue(Class<T> expectedType) {
+        if (defaultValue == null) return null;
+        if (!expectedType.isInstance(defaultValue)) {
+            throw new ClassCastException("Default value for '" + name
+                    + "' is " + defaultValue.getClass().getName()
+                    + ", expected " + expectedType.getName());
+        }
+        return expectedType.cast(defaultValue);
+    }
 
  public boolean hasDefault() {
  return defaultValue != null;

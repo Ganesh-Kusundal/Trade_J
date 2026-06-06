@@ -2,6 +2,7 @@ package com.tradej.broker.icici.adapter;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.tradej.broker.api.port.PortfolioProvider;
+import com.tradej.broker.icici.mapper.IciciExchangeSegmentMapper;
 import com.tradej.broker.icici.rest.BreezePortfolioRestClient;
 import com.tradej.core.domain.model.Balance;
 import com.tradej.core.domain.model.Holding;
@@ -31,9 +32,11 @@ public final class IciciPortfolioProvider implements PortfolioProvider {
             if (quantity == 0L) {
                 continue;
             }
+            String stockCode = node.path("stock_code").asText("");
+            ExchangeSegment segment = resolveSegmentForStock(stockCode);
             positions.add(new Position(
-                    node.path("stock_code").asText(""),
-                    ExchangeSegment.NSE_EQ,
+                    stockCode,
+                    segment,
                     quantity >= 0 ? Side.BUY : Side.SELL,
                     Math.abs(quantity),
                     pricePaisa(node.path("average_price").asText("0")),
@@ -52,9 +55,11 @@ public final class IciciPortfolioProvider implements PortfolioProvider {
             return holdings;
         }
         for (JsonNode node : success) {
+            String stockCode = node.path("stock_code").asText("");
+            ExchangeSegment segment = resolveSegmentForStock(stockCode);
             holdings.add(new Holding(
-                    node.path("stock_code").asText(""),
-                    ExchangeSegment.NSE_EQ,
+                    stockCode,
+                    segment,
                     parseLong(node.path("quantity").asText("0")),
                     parseLong(node.path("demat_avail_quantity").asText("0")),
                     0L,
@@ -62,6 +67,13 @@ public final class IciciPortfolioProvider implements PortfolioProvider {
             ));
         }
         return holdings;
+    }
+
+    private ExchangeSegment resolveSegmentForStock(String stockCode) {
+        if (stockCode == null || stockCode.isBlank()) {
+            return ExchangeSegment.NSE_EQ;
+        }
+        return IciciExchangeSegmentMapper.resolveSegmentFromStockCode(stockCode);
     }
 
     @Override

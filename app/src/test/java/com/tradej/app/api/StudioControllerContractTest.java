@@ -1,6 +1,6 @@
 package com.tradej.app.api;
 
-import com.tradej.app.studio.StudioChartService;
+import com.tradej.strategy.studio.StudioChartService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;

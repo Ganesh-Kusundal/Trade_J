@@ -1,0 +1,1 @@
+Uses Project Reactor (`reactor-core`) for reactive stream bridging and ArchUnit (`archunit-junit5`) for architectural constraint testing.

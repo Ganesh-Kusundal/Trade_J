@@ -1,0 +1,1 @@
+Orchestrates historical data ingestion, real-time feature computation, and event-sourced persistence using a shared DuckDB infrastructure for backtesting and live trading.

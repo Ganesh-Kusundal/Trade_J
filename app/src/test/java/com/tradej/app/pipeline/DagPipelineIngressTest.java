@@ -13,6 +13,8 @@ import com.tradej.pipeline.runtime.BasePipelineNode;
 import com.tradej.pipeline.runtime.GraphRuntime;
 import com.tradej.pipeline.runtime.PipelineNode;
 import com.tradej.pipeline.runtime.PipelineNodeTypes;
+import com.tradej.pipeline.service.DagPipelineIngressBridge;
+import com.tradej.pipeline.service.DagPipelineRuntimeService;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 

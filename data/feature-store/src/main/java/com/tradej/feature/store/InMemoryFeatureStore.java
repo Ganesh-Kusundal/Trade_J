@@ -4,7 +4,6 @@ import com.tradej.core.domain.event.CandleClosed;
 import com.tradej.core.domain.event.CandleDeveloping;
 import com.tradej.core.domain.event.DomainEvent;
 import com.tradej.core.domain.event.MarketTickEvent;
-import com.tradej.core.domain.event.TickReceived;
 import com.tradej.core.domain.model.Candle;
 import com.tradej.core.domain.model.FeatureGenerator;
 import com.tradej.core.domain.model.FeatureVector;
@@ -33,7 +32,6 @@ public final class InMemoryFeatureStore implements FeatureStore {
         switch (event) {
             case CandleDeveloping developing -> upsertCandle(developing.candle(), false);
             case CandleClosed closed -> upsertCandle(closed.candle(), true);
-            case TickReceived ignored -> { }
             case MarketTickEvent ignored -> { }
             default -> { }
         }

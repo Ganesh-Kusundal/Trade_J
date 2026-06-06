@@ -6,7 +6,6 @@ import com.tradej.broker.upstox.historical.UpstoxHistoricalDataService;
 import com.tradej.broker.upstox.instrument.UpstoxInstrumentResolver;
 import com.tradej.broker.upstox.rest.UpstoxHistoricalDataRestClient;
 import com.tradej.broker.upstox.rest.UpstoxMarketDataRestClient;
-import com.tradej.core.domain.model.Balance;
 import com.tradej.core.domain.model.Candle;
 import com.tradej.core.domain.model.CandleHistoryRequest;
 import com.tradej.core.domain.model.DepthLevel;

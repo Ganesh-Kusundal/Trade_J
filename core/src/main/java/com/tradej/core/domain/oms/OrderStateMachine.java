@@ -68,8 +68,8 @@ public final class OrderStateMachine {
                 long additional = targetFilled - this.filledQuantity;
                 if (additional > 0) {
                     this.accumulatedValuePaisa += additional * fill.pricePaisa();
+                    this.filledQuantity = targetFilled;
                 }
-                this.filledQuantity = targetFilled;
             }
             case CancelRequested ignored -> {}
             case OrderSubmitted ignored -> {}
@@ -82,14 +82,20 @@ public final class OrderStateMachine {
         this.state = next;
     }
 
+    /** @deprecated Use {@link #toProjection()} for a consistent snapshot. */
+    @Deprecated
     public synchronized LifecycleState currentStatus() {
         return state;
     }
 
+    /** @deprecated Use {@link #toProjection()} for a consistent snapshot. */
+    @Deprecated
     public synchronized long filledQuantity() {
         return filledQuantity;
     }
 
+    /** @deprecated Use {@link #toProjection()} for a consistent snapshot. */
+    @Deprecated
     public synchronized long averagePricePaisa() {
         return filledQuantity == 0L ? 0L : accumulatedValuePaisa / filledQuantity;
     }

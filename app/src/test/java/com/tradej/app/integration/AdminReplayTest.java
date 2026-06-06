@@ -169,14 +169,14 @@ class AdminReplayTest extends AdminTestBase {
         when(replayOrchestrator.replayChronicle(any())).thenReturn(new ReplayResult(50, 50, 0));
 
         ResponseEntity<Map> response = rest.postForEntity(
-                "/admin/chronicle/replay?eventType=com.tradej.core.domain.event.TickReceived",
+                "/admin/chronicle/replay?eventType=com.tradej.core.domain.event.MarketTickEvent",
                 null, Map.class);
 
         assertThat(response.getStatusCode().value()).isEqualTo(200);
 
         Map<String, Object> body = response.getBody();
         assertThat(body).isNotNull();
-        assertThat(body.get("eventType")).isEqualTo("com.tradej.core.domain.event.TickReceived");
+        assertThat(body.get("eventType")).isEqualTo("com.tradej.core.domain.event.MarketTickEvent");
         assertThat(body.get("totalRead")).isEqualTo(50);
         assertThat(body.get("replayed")).isEqualTo(50);
         assertThat(body.get("failed")).isEqualTo(0);

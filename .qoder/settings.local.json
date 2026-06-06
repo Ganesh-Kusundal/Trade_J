@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find /Users/apple/Downloads/Trade_J/trading/execution/src/main/java -type f -name \"*.java\" | head -20)",
+      "Bash(mkdir -p /Users/apple/Downloads/Trade_J/trading/execution/src/main/java/com/tradej/execution/journal && mkdir -p /Users/apple/Downloads/Trade_J/trading/options-analytics/src/main/java/com/tradej/options/service && mkdir -p /Users/apple/Downloads/Trade_J/data/historical-ingest/src/main/java/com/tradej/historical/service && mkdir -p /Users/apple/Downloads/Trade_J/broker/core/src/main/java/com/tradej/broker/core/capability)",
+      "Bash(rm:*)",
+      "Bash(ls /Users/apple/Downloads/Trade_J/app/src/main/java/com/tradej/app/service/broker/ 2>/dev/null; ls /Users/apple/Downloads/Trade_J/app/src/main/java/com/tradej/app/service/ 2>/dev/null)",
+      "Bash(rmdir /Users/apple/Downloads/Trade_J/app/src/main/java/com/tradej/app/service/broker 2>/dev/null; rmdir /Users/apple/Downloads/Trade_J/app/src/main/java/com/tradej/app/service 2>/dev/null; echo \"Done\")",
+      "Bash(find /Users/apple/Downloads/Trade_J -name \"*.lockfile\" -path \"*/gradle/*\" | head -5)",
+      "Bash(find /Users/apple/Downloads/Trade_J -name \"*.lock\" -path \"*gradle*\" | head -10)",
+      "Bash(cd /Users/apple/Downloads/Trade_J && ./gradlew compileJava -x checkstyleMain -x spotbugsMain --no-daemon -q 2>&1 | tail -50)",
+      "Bash(cd /Users/apple/Downloads/Trade_J && ./gradlew compileJava --no-daemon 2>&1 | tail -80)",
+      "Bash(cd /Users/apple/Downloads/Trade_J && ./gradlew :trading-execution:compileJava --no-daemon 2>&1 | tail -30)",
+      "Bash(cd /Users/apple/Downloads/Trade_J && ./gradlew --version --no-daemon 2>&1 | head -10)",
+      "Bash(cd /Users/apple/Downloads/Trade_J && bash -c './gradlew :trading-execution:compileJava --no-daemon 2>&1' | tail -30)",
+      "Bash(cd /Users/apple/Downloads/Trade_J && bash -c './gradlew :broker-core:compileJava :broker-upstox:compileJava :trading-options-analytics:compileJava :data-historical-ingest:compileJava :replay-engine:compileJava --no-daemon 2>&1' | tail -30)",
+      "Bash(cd /Users/apple/Downloads/Trade_J && bash -c './gradlew :app:compileJava :app:compileTestJava --no-daemon 2>&1' | tail -40)"
+    ]
+  }
+}

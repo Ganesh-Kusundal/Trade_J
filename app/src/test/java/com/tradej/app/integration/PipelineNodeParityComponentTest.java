@@ -22,10 +22,7 @@ class PipelineNodeParityComponentTest {
             PipelineNodeTypes.FEATURE,
             PipelineNodeTypes.STRATEGY,
             PipelineNodeTypes.RISK,
-            PipelineNodeTypes.PORTFOLIO,
-            PipelineNodeTypes.SIGNAL_GATE,
-            PipelineNodeTypes.ORDER_PLACEMENT,
-            PipelineNodeTypes.FILL_RECONCILIATION
+            PipelineNodeTypes.PORTFOLIO
     );
 
     @Test

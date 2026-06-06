@@ -1,0 +1,12 @@
+schema_version: 1
+module_path: trading/scanner
+title: Market Scanner Engine
+scope:
+    - trading/scanner/
+source_files: []
+depends_on: []
+related_to:
+    - path: trading/institutional_scanner
+    - path: trading/options_analytics
+    - path: research
+    - path: trading/indicators

@@ -1,0 +1,3 @@
+- Command handlers are implemented as static inner classes within `TradeCli` that extend a common `BaseCmd` or nested base class, delegating logic to `CliOperations`.
+- Standalone broker operations check for attach mode reachability first, often falling back to local broker sessions if the remote app is unavailable.
+- Output formatting is centralized in `OutputFormatter`, which switches between JSON and human-readable table formats based on a global `--json` flag.

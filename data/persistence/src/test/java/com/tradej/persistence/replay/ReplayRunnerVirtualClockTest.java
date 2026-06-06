@@ -1,6 +1,6 @@
 package com.tradej.persistence.replay;
 
-import com.tradej.core.domain.event.TickReceived;
+import com.tradej.core.domain.event.MarketTickEvent;
 import com.tradej.core.domain.port.EventBus;
 import com.tradej.core.testing.CollectingEventBus;
 import com.tradej.pipeline.clock.VirtualClock;
@@ -34,7 +34,7 @@ class ReplayRunnerVirtualClockTest {
         clock.enterReplayMode();
 
         try (ReplayRunner runner = new ReplayRunner(queuePath, bus, clock)) {
-            runner.replayAll(TickReceived.class);
+            runner.replayAll(MarketTickEvent.class);
         }
 
         assertTrue(clock.currentTimeMillis() >= 5000L);

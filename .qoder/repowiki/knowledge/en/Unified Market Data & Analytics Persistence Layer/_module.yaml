@@ -1,0 +1,8 @@
+schema_version: 1
+module_path: data
+title: Unified Market Data & Analytics Persistence Layer
+scope:
+    - data/
+source_files: []
+depends_on: []
+related_to: []

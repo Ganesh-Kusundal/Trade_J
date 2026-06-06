@@ -1,0 +1,4 @@
+com.tradej.brokergateway.spi.impl.DhanBrokerProvider
+com.tradej.brokergateway.spi.impl.UpstoxBrokerProvider
+com.tradej.brokergateway.spi.impl.IciciBrokerProvider
+com.tradej.brokergateway.simulation.SimulationBrokerProvider

@@ -1,0 +1,1 @@
+Spring Boot entry point orchestrating multi-broker trading, real-time market data pipelines, and administrative APIs for live/replay modes.

@@ -4,7 +4,7 @@ import com.tradej.app.admin.AdminController;
 import com.tradej.app.api.PipelineController;
 import com.tradej.app.api.StudioController;
 import com.tradej.app.config.RateLimitFilter;
-import com.tradej.app.config.ScanProperties;
+import com.tradej.composition.config.ScanProperties;
 import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.context.annotation.Bean;

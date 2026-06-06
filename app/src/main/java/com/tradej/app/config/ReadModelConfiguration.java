@@ -1,6 +1,6 @@
 package com.tradej.app.config;
 
-import com.tradej.app.readmodel.ReadModelStore;
+import com.tradej.execution.readmodel.ReadModelStore;
 import com.tradej.execution.position.EventSourcedNetPositionProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

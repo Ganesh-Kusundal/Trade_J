@@ -5,7 +5,10 @@ import com.tradej.core.domain.event.CandleDeveloping;
 import com.tradej.core.domain.event.DomainEvent;
 import com.tradej.core.domain.event.EventMetadata;
 import com.tradej.core.domain.event.EventMetadataFactory;
-import com.tradej.core.domain.event.TickReceived;
+import com.tradej.core.domain.event.MarketTickEvent;
+import java.util.Optional;
+import com.tradej.core.domain.value.ExchangeSegment;
+import com.tradej.core.domain.value.FeedMode;
 import com.tradej.core.domain.time.LiveTradingClock;
 import com.tradej.core.domain.time.TradingClock;
 import com.tradej.core.domain.model.RiskLimits;
@@ -94,9 +97,9 @@ class DisruptorTickToCandleComponentTest {
         eventBus.start();
 
         long t0 = 1_710_000_000_000L;
-        eventBus.publish(new TickReceived(EventMetadata.root(), "SBIN", "5m", 75_000L, 10L, 10L, t0, null));
-        eventBus.publish(new TickReceived(EventMetadata.root(), "SBIN", "5m", 75_500L, 5L, 15L, t0 + 60_000L, null));
-        eventBus.publish(new TickReceived(EventMetadata.root(), "SBIN", "5m", 76_000L, 7L, 22L, t0 + 300_000L, null));
+        eventBus.publish(new MarketTickEvent(EventMetadata.root(), 0L, "SBIN", ExchangeSegment.NSE_EQ, FeedMode.TICKER, 75_000L, 10L, 10L, t0, Optional.empty(), 0L, 0L));
+        eventBus.publish(new MarketTickEvent(EventMetadata.root(), 0L, "SBIN", ExchangeSegment.NSE_EQ, FeedMode.TICKER, 75_500L, 5L, 15L, t0 + 60_000L, Optional.empty(), 0L, 0L));
+        eventBus.publish(new MarketTickEvent(EventMetadata.root(), 0L, "SBIN", ExchangeSegment.NSE_EQ, FeedMode.TICKER, 76_000L, 7L, 22L, t0 + 300_000L, Optional.empty(), 0L, 0L));
 
         assertTrue(closedLatch.await(5, TimeUnit.SECONDS), "Disruptor pipeline should emit CandleClosed for bucket rollover.");
         assertTrue(developingCount.get() >= 2, "Expected at least two CandleDeveloping events.");

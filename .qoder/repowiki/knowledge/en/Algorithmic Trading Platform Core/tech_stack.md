@@ -1,0 +1,1 @@
+Java 21+ Virtual Threads (used in `GraphStrategySandbox` for isolated plugin execution), Gradle Multi-project Build (managing 7+ sub-modules with shared `:core` dependency)

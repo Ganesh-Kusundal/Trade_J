@@ -150,10 +150,10 @@ public final class DhanProtocolConstants {
     public static final int RATE_LIMIT_ORDER_CAPACITY = 10;
 
     /** Token-bucket fill rate (tokens/s) for DATA-category operations. */
-    public static final double RATE_LIMIT_DATA_RATE = 2.0d;
+    public static final double RATE_LIMIT_DATA_RATE = 5.0d;
 
-    /** Token-bucket capacity for DATA-category operations. */
-    public static final int RATE_LIMIT_DATA_CAPACITY = 1;
+    /** Token-bucket capacity for DATA-category operations. Allows bursting up to 5. */
+    public static final int RATE_LIMIT_DATA_CAPACITY = 5;
 
     /** Token-bucket fill rate (tokens/s) for QUOTE-category operations. */
     public static final double RATE_LIMIT_QUOTE_RATE = 0.5d;

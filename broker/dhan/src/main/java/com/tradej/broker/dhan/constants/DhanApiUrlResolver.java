@@ -73,6 +73,50 @@ public final class DhanApiUrlResolver {
         return baseUrl + (sandboxBaseUrl() ? "/forever-orders" : "/forever/all");
     }
 
+    public String orderByCorrelationIdUrl(String correlationId) {
+        return ordersUrl() + "/external/" + correlationId;
+    }
+
+    public String tradesUrlForOrder(String orderId) {
+        return tradesUrl() + "/" + orderId;
+    }
+
+    public String superOrdersListUrl() {
+        return baseUrl + (sandboxBaseUrl() ? "/super-order" : "/super/orders");
+    }
+
+    public String superOrderByIdUrl(String orderId) {
+        return superOrdersListUrl() + "/" + orderId;
+    }
+
+    public String superOrderLegUrl(String orderId, String legName) {
+        return superOrderByIdUrl(orderId) + "/" + legName;
+    }
+
+    public String killSwitchUrl() {
+        return baseUrl + "/killswitch";
+    }
+
+    public String ledgerUrl() {
+        return baseUrl + "/ledger";
+    }
+
+    public String edisTpinUrl() {
+        return baseUrl + "/edis/tpin";
+    }
+
+    public String edisFormUrl() {
+        return baseUrl + "/edis/form";
+    }
+
+    public String edisInquiryUrl(String isin) {
+        return baseUrl + "/edis/inquire/" + isin;
+    }
+
+    public String profileUrl() {
+        return baseUrl + "/fundlimit/userprofile";
+    }
+
     private boolean sandboxBaseUrl() {
         return baseUrl.contains("sandbox");
     }
@@ -81,23 +125,23 @@ public final class DhanApiUrlResolver {
         return baseUrl + "/orders/slicing";
     }
 
-  public String fundLimitUrl() {
-    return baseUrl + "/fundlimit";
-  }
+    public String fundLimitUrl() {
+        return baseUrl + "/fundlimit";
+    }
 
-  public String positionsUrl() {
-    return baseUrl + "/positions";
-  }
+    public String positionsUrl() {
+        return baseUrl + "/positions";
+    }
 
-  public String holdingsUrl() {
-    return baseUrl + "/holdings";
-  }
+    public String holdingsUrl() {
+        return baseUrl + "/holdings";
+    }
 
-  public String marketFeedLtpUrl() {
-    return baseUrl + "/marketfeed/ltp";
-  }
+    public String marketFeedLtpUrl() {
+        return baseUrl + "/marketfeed/ltp";
+    }
 
-  public String marketFeedQuoteUrl() {
-    return baseUrl + "/marketfeed/quote";
-  }
+    public String marketFeedQuoteUrl() {
+        return baseUrl + "/marketfeed/quote";
+    }
 }

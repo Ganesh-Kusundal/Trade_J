@@ -1,6 +1,6 @@
 package com.tradej.app.config;
 
-import com.tradej.app.studio.StudioChartService;
+import com.tradej.strategy.studio.StudioChartService;
 import com.tradej.core.domain.port.HistoricalBarRepository;
 import com.tradej.core.domain.port.RollingOptionHistoricalRepository;
 import com.tradej.indicators.IndicatorEngine;

@@ -2,6 +2,7 @@ package com.tradej.gateway.router;
 
 import com.tradej.gateway.protocol.GatewayBinaryCodec;
 import com.tradej.gateway.protocol.GatewayTopic;
+import com.tradej.gateway.transport.WebSocketTransport;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -9,8 +10,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.web.socket.BinaryMessage;
-import org.springframework.web.socket.WebSocketSession;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -24,14 +23,6 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
-import org.mockito.Answers;
-
-/**
- * Unit tests for {@link GatewayTopicRouter}.
- *
- * <p>Covers async backpressure, lifecycle, subscribe/unsubscribe, publish,
- * publishFiltered, concurrency, shutdown drain, error handling, and metrics.
- */
 @Tag("unit")
 @ExtendWith(MockitoExtension.class)
 class GatewayTopicRouterTest {
@@ -81,8 +72,8 @@ class GatewayTopicRouterTest {
     @Test
     void subscribeAddsSessionToTopic() {
         router = new GatewayTopicRouter(NORMAL_QUEUE);
-        WebSocketSession session = mock(WebSocketSession.class);
-        when(session.getId()).thenReturn("s1");
+        WebSocketTransport session = mock(WebSocketTransport.class);
+        when(session.id()).thenReturn("s1");
 
         router.subscribe(session, GatewayTopic.MARKET_TICK);
         assertEquals(1, router.subscriberCount(GatewayTopic.MARKET_TICK));
@@ -91,8 +82,8 @@ class GatewayTopicRouterTest {
     @Test
     void subscribeMultipleTopics() {
         router = new GatewayTopicRouter(NORMAL_QUEUE);
-        WebSocketSession session = mock(WebSocketSession.class);
-        when(session.getId()).thenReturn("s1");
+        WebSocketTransport session = mock(WebSocketTransport.class);
+        when(session.id()).thenReturn("s1");
 
         router.subscribe(session, GatewayTopic.MARKET_TICK);
         router.subscribe(session, GatewayTopic.MARKET_DEPTH);
@@ -106,8 +97,8 @@ class GatewayTopicRouterTest {
     @Test
     void subscribeSameSessionTwiceIsIdempotent() {
         router = new GatewayTopicRouter(NORMAL_QUEUE);
-        WebSocketSession session = mock(WebSocketSession.class);
-        when(session.getId()).thenReturn("s1");
+        WebSocketTransport session = mock(WebSocketTransport.class);
+        when(session.id()).thenReturn("s1");
 
         router.subscribe(session, GatewayTopic.MARKET_TICK);
         router.subscribe(session, GatewayTopic.MARKET_TICK);
@@ -118,14 +109,13 @@ class GatewayTopicRouterTest {
     @Test
     void unsubscribeAllRemovesSessionFromAllTopics() {
         router = new GatewayTopicRouter(NORMAL_QUEUE);
-        WebSocketSession session = mock(WebSocketSession.class);
-        when(session.getId()).thenReturn("s1");
+        WebSocketTransport session = mock(WebSocketTransport.class);
+        when(session.id()).thenReturn("s1");
 
         router.subscribe(session, GatewayTopic.MARKET_TICK);
         router.subscribe(session, GatewayTopic.MARKET_DEPTH);
         router.subscribe(session, GatewayTopic.CANDLE_CLOSED);
 
-        // Verify subscribed before unsubscribe
         assertEquals(1, router.subscriberCount(GatewayTopic.MARKET_TICK));
 
         router.unsubscribeAll(session);
@@ -138,8 +128,8 @@ class GatewayTopicRouterTest {
     @Test
     void unsubscribeAllForUnknownSessionDoesNothing() {
         router = new GatewayTopicRouter(NORMAL_QUEUE);
-        WebSocketSession session = mock(WebSocketSession.class);
-        when(session.getId()).thenReturn("unknown");
+        WebSocketTransport session = mock(WebSocketTransport.class);
+        when(session.id()).thenReturn("unknown");
 
         router.unsubscribeAll(session);
     }
@@ -155,7 +145,7 @@ class GatewayTopicRouterTest {
     @Test
     void publishSendsToSubscribedSession() throws Exception {
         router = new GatewayTopicRouter(NORMAL_QUEUE);
-        WebSocketSession session = openSession("s1");
+        WebSocketTransport session = openSession("s1");
 
         router.subscribe(session, GatewayTopic.MARKET_TICK);
         router.start();
@@ -165,15 +155,15 @@ class GatewayTopicRouterTest {
         assertTrue(awaitSentCount(router, 1, 3000), "Timeout waiting for sent events");
         router.stop();
 
-        verify(session).sendMessage(any(BinaryMessage.class));
+        verify(session).sendBinary(any(byte[].class));
     }
 
     @Test
     void publishSendsToAllSubscribedSessions() throws Exception {
         router = new GatewayTopicRouter(NORMAL_QUEUE);
-        WebSocketSession s1 = openSession("s1");
-        WebSocketSession s2 = openSession("s2");
-        WebSocketSession s3 = openSession("s3");
+        WebSocketTransport s1 = openSession("s1");
+        WebSocketTransport s2 = openSession("s2");
+        WebSocketTransport s3 = openSession("s3");
 
         router.subscribe(s1, GatewayTopic.MARKET_TICK);
         router.subscribe(s2, GatewayTopic.MARKET_TICK);
@@ -185,18 +175,16 @@ class GatewayTopicRouterTest {
         assertTrue(awaitSentCount(router, 3, 3000), "Timeout waiting for sent events");
         router.stop();
 
-        verify(s1).sendMessage(any(BinaryMessage.class));
-        verify(s2).sendMessage(any(BinaryMessage.class));
-        verify(s3).sendMessage(any(BinaryMessage.class));
+        verify(s1).sendBinary(any(byte[].class));
+        verify(s2).sendBinary(any(byte[].class));
+        verify(s3).sendBinary(any(byte[].class));
     }
 
     @Test
     void publishToTopicWithNoSubscribersDoesNothing() throws Exception {
         router = new GatewayTopicRouter(SMALL_QUEUE);
-        // Only stub getId() — isOpen() is never called since session is
-        // subscribed to MARKET_TICK, not MARKET_DEPTH
-        WebSocketSession session = mock(WebSocketSession.class);
-        when(session.getId()).thenReturn("s1");
+        WebSocketTransport session = mock(WebSocketTransport.class);
+        when(session.id()).thenReturn("s1");
 
         router.subscribe(session, GatewayTopic.MARKET_TICK);
         router.start();
@@ -206,13 +194,13 @@ class GatewayTopicRouterTest {
         Thread.sleep(200);
         router.stop();
 
-        verify(session, never()).sendMessage(any(BinaryMessage.class));
+        verify(session, never()).sendBinary(any(byte[].class));
     }
 
     @Test
     void publishEncodesFrameWithHeader() throws Exception {
         router = new GatewayTopicRouter(NORMAL_QUEUE);
-        WebSocketSession session = openSession("s1");
+        WebSocketTransport session = openSession("s1");
 
         router.subscribe(session, GatewayTopic.MARKET_TICK);
         router.start();
@@ -223,11 +211,10 @@ class GatewayTopicRouterTest {
         assertTrue(awaitSentCount(router, 1, 3000), "Timeout waiting for sent events");
         router.stop();
 
-        ArgumentCaptor<BinaryMessage> captor = ArgumentCaptor.forClass(BinaryMessage.class);
-        verify(session).sendMessage(captor.capture());
+        ArgumentCaptor<byte[]> captor = ArgumentCaptor.forClass(byte[].class);
+        verify(session).sendBinary(captor.capture());
 
-        byte[] sentData = new byte[captor.getValue().getPayload().remaining()];
-        captor.getValue().getPayload().get(sentData);
+        byte[] sentData = captor.getValue();
 
         var frame = GatewayBinaryCodec.decode(sentData);
         assertEquals(GatewayTopic.MARKET_TICK, frame.topic());
@@ -240,8 +227,8 @@ class GatewayTopicRouterTest {
     @Test
     void publishFilteredOnlySendsToMatchingSessions() throws Exception {
         router = new GatewayTopicRouter(NORMAL_QUEUE);
-        WebSocketSession s1 = openSession("session-A");
-        WebSocketSession s2 = openSession("session-B");
+        WebSocketTransport s1 = openSession("session-A");
+        WebSocketTransport s2 = openSession("session-B");
 
         router.subscribe(s1, GatewayTopic.MARKET_TICK);
         router.subscribe(s2, GatewayTopic.MARKET_TICK);
@@ -253,15 +240,15 @@ class GatewayTopicRouterTest {
         assertTrue(awaitSentCount(router, 1, 3000), "Timeout waiting for sent events");
         router.stop();
 
-        verify(s1).sendMessage(any(BinaryMessage.class));
-        verify(s2, never()).sendMessage(any(BinaryMessage.class));
+        verify(s1).sendBinary(any(byte[].class));
+        verify(s2, never()).sendBinary(any(byte[].class));
     }
 
     @Test
     void publishFilteredWithNullFilterSendsToAll() throws Exception {
         router = new GatewayTopicRouter(NORMAL_QUEUE);
-        WebSocketSession s1 = openSession("s1");
-        WebSocketSession s2 = openSession("s2");
+        WebSocketTransport s1 = openSession("s1");
+        WebSocketTransport s2 = openSession("s2");
 
         router.subscribe(s1, GatewayTopic.MARKET_TICK);
         router.subscribe(s2, GatewayTopic.MARKET_TICK);
@@ -272,14 +259,14 @@ class GatewayTopicRouterTest {
         assertTrue(awaitSentCount(router, 2, 3000), "Timeout waiting for sent events");
         router.stop();
 
-        verify(s1).sendMessage(any(BinaryMessage.class));
-        verify(s2).sendMessage(any(BinaryMessage.class));
+        verify(s1).sendBinary(any(byte[].class));
+        verify(s2).sendBinary(any(byte[].class));
     }
 
     @Test
     void publishFilteredWithEmptyFilterSendsToNone() throws Exception {
         router = new GatewayTopicRouter(NORMAL_QUEUE);
-        WebSocketSession session = openSession("s1");
+        WebSocketTransport session = openSession("s1");
 
         router.subscribe(session, GatewayTopic.MARKET_TICK);
 
@@ -290,7 +277,7 @@ class GatewayTopicRouterTest {
         Thread.sleep(200);
         router.stop();
 
-        verify(session, never()).sendMessage(any(BinaryMessage.class));
+        verify(session, never()).sendBinary(any(byte[].class));
         assertEquals(0, router.sentEventCount());
     }
 
@@ -338,7 +325,7 @@ class GatewayTopicRouterTest {
     @Test
     void stopDrainsRemainingEvents() throws Exception {
         router = new GatewayTopicRouter(SMALL_QUEUE);
-        WebSocketSession session = openSession("s1");
+        WebSocketTransport session = openSession("s1");
 
         router.subscribe(session, GatewayTopic.MARKET_TICK);
         router.start();
@@ -365,13 +352,13 @@ class GatewayTopicRouterTest {
     void closedSessionIsSkippedDuringDispatch() throws Exception {
         router = new GatewayTopicRouter(NORMAL_QUEUE);
 
-        WebSocketSession openSession = openSession("open");
-        WebSocketSession closedSession = mock(WebSocketSession.class);
-        when(closedSession.getId()).thenReturn("closed");
-        when(closedSession.isOpen()).thenReturn(false);
+        WebSocketTransport open = openSession("open");
+        WebSocketTransport closed = mock(WebSocketTransport.class);
+        when(closed.id()).thenReturn("closed");
+        when(closed.isOpen()).thenReturn(false);
 
-        router.subscribe(openSession, GatewayTopic.MARKET_TICK);
-        router.subscribe(closedSession, GatewayTopic.MARKET_TICK);
+        router.subscribe(open, GatewayTopic.MARKET_TICK);
+        router.subscribe(closed, GatewayTopic.MARKET_TICK);
 
         router.start();
         router.publish(GatewayTopic.MARKET_TICK, "data".getBytes());
@@ -379,16 +366,16 @@ class GatewayTopicRouterTest {
         assertTrue(awaitSentCount(router, 1, 3000), "Timeout waiting for sent events");
         router.stop();
 
-        verify(openSession).sendMessage(any(BinaryMessage.class));
-        verify(closedSession, never()).sendMessage(any(BinaryMessage.class));
+        verify(open).sendBinary(any(byte[].class));
+        verify(closed, never()).sendBinary(any(byte[].class));
     }
 
     @Test
     void publishHandlesIOExceptionGracefully() throws Exception {
         router = new GatewayTopicRouter(NORMAL_QUEUE);
-        WebSocketSession session = openSession("s1");
+        WebSocketTransport session = openSession("s1");
         doThrow(new IOException("Connection reset"))
-                .when(session).sendMessage(any(BinaryMessage.class));
+                .when(session).sendBinary(any(byte[].class));
 
         router.subscribe(session, GatewayTopic.MARKET_TICK);
 
@@ -410,7 +397,7 @@ class GatewayTopicRouterTest {
 
         Thread.sleep(100);
 
-        WebSocketSession session = openSession("late-joiner");
+        WebSocketTransport session = openSession("late-joiner");
         router.subscribe(session, GatewayTopic.MARKET_TICK);
 
         router.publish(GatewayTopic.MARKET_TICK, "late".getBytes());
@@ -418,7 +405,7 @@ class GatewayTopicRouterTest {
         assertTrue(awaitSentCount(router, 1, 3000), "Timeout waiting for sent events");
         router.stop();
 
-        verify(session).sendMessage(any(BinaryMessage.class));
+        verify(session).sendBinary(any(byte[].class));
     }
 
     // ── Concurrency ─────────────────────────────────────────────────────
@@ -429,17 +416,17 @@ class GatewayTopicRouterTest {
         int publishCount = 50;
         router = new GatewayTopicRouter(1024);
 
-        List<WebSocketSession> sessions = new ArrayList<>();
+        List<WebSocketTransport> sessions = new ArrayList<>();
         for (int i = 0; i < sessionCount; i++) {
-            WebSocketSession s = mock(WebSocketSession.class);
-            when(s.getId()).thenReturn("s" + i);
+            WebSocketTransport s = mock(WebSocketTransport.class);
+            when(s.id()).thenReturn("s" + i);
             when(s.isOpen()).thenReturn(true);
             sessions.add(s);
         }
 
         ExecutorService exec = Executors.newFixedThreadPool(4);
         CountDownLatch subscribeLatch = new CountDownLatch(sessionCount);
-        for (WebSocketSession s : sessions) {
+        for (WebSocketTransport s : sessions) {
             exec.submit(() -> {
                 router.subscribe(s, GatewayTopic.MARKET_TICK);
                 subscribeLatch.countDown();
@@ -480,11 +467,11 @@ class GatewayTopicRouterTest {
     void concurrentSubscribeAndUnsubscribeDoesNotCauseExceptions() throws Exception {
         router = new GatewayTopicRouter(NORMAL_QUEUE);
         ExecutorService exec = Executors.newFixedThreadPool(4);
-        List<WebSocketSession> sessions = new ArrayList<>();
+        List<WebSocketTransport> sessions = new ArrayList<>();
 
         for (int i = 0; i < 20; i++) {
-            WebSocketSession s = mock(WebSocketSession.class, withSettings().lenient());
-            when(s.getId()).thenReturn("s" + i);
+            WebSocketTransport s = mock(WebSocketTransport.class, withSettings().lenient());
+            when(s.id()).thenReturn("s" + i);
             when(s.isOpen()).thenReturn(true);
             sessions.add(s);
             router.subscribe(s, GatewayTopic.MARKET_TICK);
@@ -492,7 +479,6 @@ class GatewayTopicRouterTest {
 
         router.start();
 
-        // 10 unsubscribe tasks + 20 publish tasks = 30 total countdowns
         CountDownLatch latch = new CountDownLatch(30);
         for (int i = 0; i < 20; i++) {
             int idx = i;
@@ -553,19 +539,13 @@ class GatewayTopicRouterTest {
 
     // ── Helpers ─────────────────────────────────────────────────────────
 
-    /** Create a mock session with the given ID that is open. */
-    private static WebSocketSession openSession(String id) {
-        WebSocketSession session = mock(WebSocketSession.class);
-        when(session.getId()).thenReturn(id);
+    private static WebSocketTransport openSession(String id) {
+        WebSocketTransport session = mock(WebSocketTransport.class);
+        when(session.id()).thenReturn(id);
         when(session.isOpen()).thenReturn(true);
         return session;
     }
 
-    /**
-     * Poll {@link GatewayTopicRouter#sentEventCount()} until it reaches or
-     * exceeds the target. Returns {@code true} if the target was reached
-     * within the timeout, {@code false} otherwise.
-     */
     private static boolean awaitSentCount(GatewayTopicRouter router, long target, long timeoutMs)
             throws InterruptedException {
         long deadline = System.currentTimeMillis() + timeoutMs;

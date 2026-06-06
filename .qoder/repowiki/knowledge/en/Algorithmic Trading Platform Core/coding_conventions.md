@@ -1,0 +1,3 @@
+- Pipeline Node Pattern: Functional modules expose their capabilities via classes extending `BasePipelineNode` to integrate into the event-driven runtime.
+- Event-Centric Communication: Inter-module data flow is strictly mediated by immutable `DomainEvent` records (e.g., `SignalGenerated`, `OrderFilled`) rather than direct method calls.
+- Dependency Injection via Constructors: Services and engines (e.g., `ScanEngine`, `PortfolioEngine`) use explicit constructor injection for testability and clear dependency boundaries.

@@ -25,10 +25,6 @@ public final class PipelineGraphValidator {
             PipelineNodeTypes.OMS,
             PipelineNodeTypes.REACTOR,
             PipelineNodeTypes.SCAN,
-            // Decomposed execution nodes
-            PipelineNodeTypes.SIGNAL_GATE,
-            PipelineNodeTypes.ORDER_PLACEMENT,
-            PipelineNodeTypes.FILL_RECONCILIATION,
             // Streaming scanner nodes
             PipelineNodeTypes.SCAN_CRITERION,
             PipelineNodeTypes.SCAN_AGGREGATOR
@@ -73,9 +69,8 @@ public final class PipelineGraphValidator {
             throw new IllegalArgumentException("Graph with Strategy must include Risk node for pre-trade checks");
         }
         if (presentTypes.contains(PipelineNodeTypes.STRATEGY)
-                && !presentTypes.contains(PipelineNodeTypes.OMS)
-                && !presentTypes.contains(PipelineNodeTypes.ORDER_PLACEMENT)) {
-            throw new IllegalArgumentException("Graph with Strategy must include OMS or OrderPlacement node");
+                && !presentTypes.contains(PipelineNodeTypes.OMS)) {
+            throw new IllegalArgumentException("Graph with Strategy must include OMS node");
         }
     }
 

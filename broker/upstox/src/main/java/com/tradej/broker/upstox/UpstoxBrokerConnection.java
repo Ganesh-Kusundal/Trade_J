@@ -2,16 +2,24 @@ package com.tradej.broker.upstox;
 
 import com.tradej.broker.api.IBrokerConnection;
 import com.tradej.broker.api.capability.NewsCapable;
+import com.tradej.broker.api.port.ConditionalAlertProvider;
+import com.tradej.broker.api.port.CoverOrderProvider;
 import com.tradej.broker.api.port.FuturesProvider;
 import com.tradej.broker.api.port.InstrumentResolver;
 import com.tradej.broker.api.port.MarginProvider;
 import com.tradej.broker.api.port.MarketDataProvider;
+import com.tradej.broker.api.port.MarketStatusProvider;
 import com.tradej.broker.api.port.NewsProvider;
 import com.tradej.broker.api.port.OptionsProvider;
 import com.tradej.broker.api.port.OrderCommand;
 import com.tradej.broker.api.port.OrderQuery;
 import com.tradej.broker.api.port.PortfolioProvider;
+import com.tradej.broker.api.port.SliceOrderCommand;
 import com.tradej.broker.api.port.WebSocketMultiplexer;
+import com.tradej.broker.upstox.adapter.UpstoxCoverOrderAdapter;
+import com.tradej.broker.upstox.adapter.UpstoxDataServicesProvider;
+import com.tradej.broker.upstox.adapter.UpstoxMarketStatusProvider;
+import com.tradej.broker.upstox.adapter.UpstoxProfileProvider;
 import com.tradej.broker.upstox.instrument.UpstoxInstrumentLoader;
 import com.tradej.broker.upstox.instrument.UpstoxInstrumentResolver;
 
@@ -36,8 +44,14 @@ public final class UpstoxBrokerConnection implements IBrokerConnection {
     private final FuturesProvider futuresProvider;
     private final OptionsProvider optionsProvider;
     private final NewsProvider newsProvider;
+    private final ConditionalAlertProvider conditionalAlertProvider;
+    private final SliceOrderCommand sliceOrderCommand;
+    private final UpstoxDataServicesProvider dataServicesProvider;
+    private final UpstoxProfileProvider profileProvider;
     private final UpstoxInstrumentLoader instrumentLoader;
     private final UpstoxInstrumentResolver upstoxInstrumentResolver;
+    private final MarketStatusProvider marketStatusProvider;
+    private final CoverOrderProvider coverOrderProvider;
 
     public UpstoxBrokerConnection(
             MarketDataProvider marketDataProvider,
@@ -50,6 +64,10 @@ public final class UpstoxBrokerConnection implements IBrokerConnection {
             FuturesProvider futuresProvider,
             OptionsProvider optionsProvider,
             NewsProvider newsProvider,
+            ConditionalAlertProvider conditionalAlertProvider,
+            SliceOrderCommand sliceOrderCommand,
+            UpstoxDataServicesProvider dataServicesProvider,
+            UpstoxProfileProvider profileProvider,
             UpstoxInstrumentLoader instrumentLoader
     ) {
         this.marketDataProvider = Objects.requireNonNull(marketDataProvider);
@@ -62,8 +80,14 @@ public final class UpstoxBrokerConnection implements IBrokerConnection {
         this.futuresProvider = futuresProvider;
         this.optionsProvider = optionsProvider;
         this.newsProvider = Objects.requireNonNull(newsProvider);
+        this.conditionalAlertProvider = Objects.requireNonNull(conditionalAlertProvider);
+        this.sliceOrderCommand = sliceOrderCommand;
+        this.dataServicesProvider = dataServicesProvider;
+        this.profileProvider = profileProvider;
         this.instrumentLoader = Objects.requireNonNull(instrumentLoader);
         this.upstoxInstrumentResolver = Objects.requireNonNull(instrumentResolver);
+        this.marketStatusProvider = new UpstoxMarketStatusProvider();
+        this.coverOrderProvider = new UpstoxCoverOrderAdapter();
     }
 
     @Override
@@ -139,7 +163,25 @@ public final class UpstoxBrokerConnection implements IBrokerConnection {
             return Optional.of(capabilityClass.cast(newsProvider));
         }
         if (NewsCapable.class.equals(capabilityClass)) {
-            return Optional.of(capabilityClass.cast(new NewsCapable() {}));
+            return Optional.of(capabilityClass.cast(new NewsCapable() { }));
+        }
+        if (capabilityClass.isInstance(conditionalAlertProvider)) {
+            return Optional.of(capabilityClass.cast(conditionalAlertProvider));
+        }
+        if (sliceOrderCommand != null && capabilityClass.isInstance(sliceOrderCommand)) {
+            return Optional.of(capabilityClass.cast(sliceOrderCommand));
+        }
+        if (dataServicesProvider != null && capabilityClass.isInstance(dataServicesProvider)) {
+            return Optional.of(capabilityClass.cast(dataServicesProvider));
+        }
+        if (profileProvider != null && capabilityClass.isInstance(profileProvider)) {
+            return Optional.of(capabilityClass.cast(profileProvider));
+        }
+        if (capabilityClass.isInstance(marketStatusProvider)) {
+            return Optional.of(capabilityClass.cast(marketStatusProvider));
+        }
+        if (capabilityClass.isInstance(coverOrderProvider)) {
+            return Optional.of(capabilityClass.cast(coverOrderProvider));
         }
         return Optional.empty();
     }

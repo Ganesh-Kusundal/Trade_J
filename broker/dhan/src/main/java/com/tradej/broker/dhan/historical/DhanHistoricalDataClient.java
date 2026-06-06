@@ -7,6 +7,7 @@ import com.tradej.broker.dhan.constants.DhanApiUrlResolver;
 import com.tradej.broker.dhan.constants.DhanProtocolConstants;
 import com.tradej.broker.dhan.http.DhanAuthenticatedHttpClient;
 import com.tradej.broker.dhan.instrument.DhanInstrumentDefinition;
+import com.tradej.broker.dhan.instrument.DhanSegmentMapper;
 import com.tradej.broker.dhan.mapper.DhanJsonResponse;
 import com.tradej.broker.dhan.rate.ApiCategory;
 import com.tradej.broker.dhan.resilience.DhanRetryExecutor;
@@ -87,7 +88,7 @@ public final class DhanHistoricalDataClient {
         String instrumentType = toHistoricalInstrumentType(definition.instrumentType());
         ObjectNode payload = objectMapper.createObjectNode();
         payload.put("securityId", definition.securityId());
-        payload.put("exchangeSegment", definition.exchangeSegment().name());
+        payload.put("exchangeSegment", DhanSegmentMapper.toWireValue(definition.exchangeSegment()));
         payload.put("instrument", instrumentType);
         payload.put("expiryCode", 0);
         payload.put("oi", carriesOi(instrumentType));
@@ -100,7 +101,7 @@ public final class DhanHistoricalDataClient {
         String instrumentType = toHistoricalInstrumentType(definition.instrumentType());
         ObjectNode payload = objectMapper.createObjectNode();
         payload.put("securityId", definition.securityId());
-        payload.put("exchangeSegment", definition.exchangeSegment().name());
+        payload.put("exchangeSegment", DhanSegmentMapper.toWireValue(definition.exchangeSegment()));
         payload.put("instrument", instrumentType);
         payload.put("interval", toDhanInterval(request.interval()));
         payload.put("oi", carriesOi(instrumentType));

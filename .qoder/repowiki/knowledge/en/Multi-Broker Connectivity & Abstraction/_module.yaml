@@ -1,0 +1,12 @@
+schema_version: 1
+module_path: broker
+title: Multi-Broker Connectivity & Abstraction
+scope:
+    - broker/
+source_files: []
+depends_on: []
+related_to:
+    - path: trading/execution
+    - path: cli
+    - path: runtime
+    - path: composition

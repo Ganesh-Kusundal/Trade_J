@@ -1,0 +1,1 @@
+Uses Java 21 Virtual Threads (`Executors.newVirtualThreadPerTaskExecutor`) for high-concurrency strategy isolation.

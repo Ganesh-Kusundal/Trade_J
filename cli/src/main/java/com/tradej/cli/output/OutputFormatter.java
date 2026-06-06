@@ -2,11 +2,9 @@ package com.tradej.cli.output;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
 
 public final class OutputFormatter {
-    private static final ObjectMapper PRETTY = new ObjectMapper()
-            .enable(SerializationFeature.INDENT_OUTPUT);
+    private static final ObjectMapper COMPACT = new ObjectMapper();
 
     private final boolean json;
 
@@ -16,7 +14,12 @@ public final class OutputFormatter {
 
     public void print(Object value) {
         if (json) {
-            System.out.println(PRETTY.valueToTree(value).toPrettyString());
+            // Emit single-line JSON to make it safe for machine parsing + CI log capture.
+            if (value instanceof JsonNode node) {
+                System.out.println(node.toString());
+                return;
+            }
+            System.out.println(COMPACT.valueToTree(value).toString());
             return;
         }
         if (value instanceof JsonNode node) {

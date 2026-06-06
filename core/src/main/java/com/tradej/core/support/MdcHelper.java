@@ -3,12 +3,12 @@ package com.tradej.core.support;
 import com.tradej.core.domain.event.CandleClosed;
 import com.tradej.core.domain.event.CandleDeveloping;
 import com.tradej.core.domain.event.DomainEvent;
+import com.tradej.core.domain.event.MarketTickEvent;
 import com.tradej.core.domain.event.OrderAccepted;
 import com.tradej.core.domain.event.OrderFilled;
 import com.tradej.core.domain.event.SignalGenerated;
 import com.tradej.core.domain.event.SignalPendingExecution;
 import com.tradej.core.domain.event.SignalSuppressed;
-import com.tradej.core.domain.event.TickReceived;
 import com.tradej.core.domain.event.TradeOpened;
 import org.slf4j.MDC;
 
@@ -86,7 +86,7 @@ public final class MdcHelper {
 
     private static Optional<String> resolveSymbol(DomainEvent event) {
         return switch (event) {
-            case TickReceived t -> Optional.of(t.symbol());
+            case MarketTickEvent t -> Optional.of(t.symbol());
             case CandleClosed c -> Optional.of(c.candle().symbol());
             case CandleDeveloping c -> Optional.of(c.candle().symbol());
             case OrderAccepted a -> Optional.of(a.order().symbol());

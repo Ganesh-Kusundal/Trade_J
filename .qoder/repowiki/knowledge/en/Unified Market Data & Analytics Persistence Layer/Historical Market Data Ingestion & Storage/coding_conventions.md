@@ -1,0 +1,4 @@
+- Use of 'paisa' (integer cents) for all price-related fields in storage and domain models to avoid floating-point precision issues.
+- Implementation of hive-style partitioning (e.g., `year_month=YYYY-MM`, `symbol=XYZ`) for organizing Parquet data on disk to enable efficient predicate pushdown.
+- Adoption of a job-task pattern for long-running ingestion processes, where a 'Job' defines the scope and 'Tasks' are atomic, claimable units of work tracked in DuckDB.
+- Centralized path resolution and glob generation via `HistoricalEquityPaths` and `HivePartitionResolver` to ensure consistent file layout across import, compaction, and query modules.

@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.tradej.broker.icici.constants.BreezeApiEndpoints;
 import com.tradej.broker.icici.http.BreezeAuthenticatedHttpClient;
-import com.tradej.broker.icici.http.BreezeJsonResponse;
 
 public final class BreezePortfolioRestClient {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();

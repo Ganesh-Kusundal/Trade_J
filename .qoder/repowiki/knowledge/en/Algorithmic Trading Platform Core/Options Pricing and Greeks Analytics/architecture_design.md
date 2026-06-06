@@ -1,0 +1,5 @@
+- Entry point: `GreeksCalcNode` extends `BasePipelineNode` to consume `OptionChainUpdated` domain events.
+- Calculation layer: Stateless utility classes (`BlackScholesCalculator`, `IVSolver`, `MaxPainCalculator`) perform numerical computations using Newton-Raphson for IV and standard BS formulas for Greeks.
+- Caching layer: `OptionsAnalyticsCache` uses Caffeine to store computed Greeks and volatility surfaces with short TTLs (30s).
+- Surface building: `VolatilitySurfaceBuilder` aggregates IV data across strikes into `VolatilitySurface` objects.
+- Dependencies: Relies on `:core` for domain models/events and `:trade-pipeline-platform` for the node runtime.

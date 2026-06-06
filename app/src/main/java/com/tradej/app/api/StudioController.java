@@ -1,6 +1,6 @@
 package com.tradej.app.api;
 
-import com.tradej.app.studio.StudioChartService;
+import com.tradej.strategy.studio.StudioChartService;
 import com.tradej.core.domain.model.RollingOptionSeriesRequest;
 import com.tradej.core.domain.value.ExchangeSegment;
 import com.tradej.core.domain.value.OptionType;

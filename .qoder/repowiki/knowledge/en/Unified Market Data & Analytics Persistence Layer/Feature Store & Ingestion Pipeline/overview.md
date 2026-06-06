@@ -1,0 +1,1 @@
+Manages time-series market data ingestion and feature vector computation using DuckDB, in-memory caches, and options analytics context.

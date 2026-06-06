@@ -6,7 +6,9 @@ import com.tradej.core.domain.event.EventMetadata;
 import com.tradej.core.domain.event.EventMetadataFactory;
 import com.tradej.core.domain.event.SignalGenerated;
 import com.tradej.core.domain.event.StrategyError;
-import com.tradej.core.domain.event.TickReceived;
+import com.tradej.core.domain.event.MarketTickEvent;
+import com.tradej.core.domain.value.ExchangeSegment;
+import com.tradej.core.domain.value.FeedMode;
 import com.tradej.core.domain.model.Candle;
 import com.tradej.core.domain.port.PositionSizer;
 import com.tradej.core.domain.time.LiveTradingClock;
@@ -41,10 +43,7 @@ class GraphStrategySandboxTest {
                     750_00L, 755_00L, 749_00L, 753_00L, 10_000L, true)
     );
 
-    private static final TickReceived TEST_TICK = new TickReceived(
-            EventMetadata.root(), "SBIN", "5m", 750_00L, 10L, 10L,
-            System.currentTimeMillis(), null
-    );
+    private static final MarketTickEvent TEST_TICK = new MarketTickEvent(EventMetadata.root(), 0L, "SBIN", ExchangeSegment.NSE_EQ, FeedMode.TICKER, 750_00L, 10L, 10L, System.currentTimeMillis(), Optional.empty(), 0L, 0L);
 
     @Test
     void healthyPluginProducesSignal() throws Exception {
@@ -144,7 +143,7 @@ class GraphStrategySandboxTest {
         var plugin = new GraphStrategyPlugin() {
             @Override public String name() { return "candle-only"; }
             @Override public List<Class<? extends DomainEvent>> subscribedEventTypes() {
-                return List.of(CandleClosed.class);  // does NOT subscribe to TickReceived
+                return List.of(CandleClosed.class);  // does NOT subscribe to MarketTickEvent
             }
             @Override public Optional<SignalGenerated> onEvent(DomainEvent event) {
                 return Optional.of(new SignalGenerated(
@@ -157,7 +156,7 @@ class GraphStrategySandboxTest {
         var sandbox = new GraphStrategySandbox(List.of(plugin), 500L, eventMetadataFactory);
         var emitted = new ArrayList<DomainEvent>();
 
-        // Send a TickReceived (not subscribed)
+        // Send a MarketTickEvent (not subscribed)
         sandbox.onDomainEvent(TEST_TICK, emitted::add);
 
         // Wait a bit — no events should be emitted

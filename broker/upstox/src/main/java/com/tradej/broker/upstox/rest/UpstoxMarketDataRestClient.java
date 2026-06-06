@@ -6,7 +6,10 @@ import com.tradej.broker.upstox.http.UpstoxJsonHttpClient;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 
-import static com.tradej.broker.upstox.constants.UpstoxEndpoints.*;
+import static com.tradej.broker.upstox.constants.UpstoxEndpoints.LTP_PATH;
+import static com.tradej.broker.upstox.constants.UpstoxEndpoints.QUOTE_PATH;
+import static com.tradej.broker.upstox.constants.UpstoxEndpoints.ORDER_BOOK_PATH;
+import static com.tradej.broker.upstox.constants.UpstoxEndpoints.OHLC_PATH;
 
 /**
  * REST client for Upstox market data endpoints.

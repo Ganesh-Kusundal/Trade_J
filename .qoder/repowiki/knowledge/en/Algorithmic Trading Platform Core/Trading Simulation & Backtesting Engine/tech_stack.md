@@ -1,0 +1,1 @@
+Uses Java records for immutable configuration (`SlippageConfig`) and result wrapping (`MatchResult`), leveraging modern Java features for concise data carrier definitions.

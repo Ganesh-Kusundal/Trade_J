@@ -55,6 +55,8 @@ public final class BreezeBrowserSessionCapture {
             By.cssSelector("input[type='submit']"),
             By.xpath("//button[contains(translate(normalize-space(.),'LOGIN','login'),'login')]")
     );
+    private static final int OTP_WAIT_TIMEOUT_SECONDS = 45;
+
     private static final List<By> OTP_CONTAINER_SELECTORS = List.of(
             By.cssSelector("input[tg-nm='otp']"),
             By.cssSelector("input[name='otp']"),
@@ -418,7 +420,7 @@ public final class BreezeBrowserSessionCapture {
 
         dismissTermsAlertIfPresent(driver, wait);
 
-        WebDriverWait otpWait = new WebDriverWait(driver, Duration.ofSeconds(45));
+        WebDriverWait otpWait = new WebDriverWait(driver, Duration.ofSeconds(OTP_WAIT_TIMEOUT_SECONDS));
         try {
             otpWait.until(ExpectedConditions.or(
                     ExpectedConditions.presenceOfElementLocated(By.cssSelector("input[tg-nm='otp']")),

@@ -1,0 +1,12 @@
+schema_version: 1
+module_path: architecture_test
+title: Architecture Constraint Verification
+scope:
+    - architecture-test/
+source_files: []
+depends_on: []
+related_to:
+    - path: core
+    - path: pipeline
+    - path: app
+    - path: composition

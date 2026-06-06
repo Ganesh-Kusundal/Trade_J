@@ -1,0 +1,1 @@
+Defines the trading domain model, event-driven architecture, and a declarative pipeline runtime for live, replay, and backtest execution modes.

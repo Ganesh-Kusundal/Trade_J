@@ -1,5 +1,6 @@
 package com.tradej.broker.api.port;
 
+import com.tradej.broker.api.annotation.BrokerInternal;
 import com.tradej.core.domain.instrument.ContractSymbolNormalizer;
 import com.tradej.core.domain.model.Instrument;
 import com.tradej.core.domain.model.InstrumentKey;
@@ -34,10 +35,19 @@ public interface InstrumentResolver {
     /**
      * Resolve a security ID (broker-specific identifier) to a domain Instrument.
      *
+     * <p><b>Broker-internal:</b> the {@code securityId} is a broker-specific concept
+     * (e.g. Dhan's numeric {@code securityId}, Upstox's instrument key string, ICICI's
+     * {@code stock_code}). Callers outside {@code broker.*} modules should prefer the
+     * canonical {@link #resolve(InstrumentKey)} / {@link #requireDefinition(InstrumentKey)}
+     * / {@link #resolveNormalized(String, ExchangeSegment)} surface. This method exists
+     * so the broker-gateway can bridge inbound broker events (e.g. WebSocket packets that
+     * carry only a security ID) to the canonical domain.
+     *
      * @param securityId the broker-specific security identifier
      * @return the resolved Instrument
      * @throws IllegalArgumentException if the security ID is unknown
      */
+    @BrokerInternal(reason = "Inbound bridge from broker wire codes (securityId, stock_code) to canonical domain.")
     Instrument resolveBySecurityId(String securityId);
 
     /**
@@ -52,10 +62,18 @@ public interface InstrumentResolver {
     /**
      * Resolve an arbitrary broker SDK payload to a domain Instrument.
      *
+     * <p><b>Broker-internal:</b> the {@code payload} is an opaque broker SDK object
+     * (e.g. Dhan's instrument master row, Upstox's {@code Instrument} record, ICICI's
+     * Breeze response). The caller must know the broker type to know what payload shape
+     * to pass in. This method exists so the broker modules can normalise inbound SDK
+     * objects without duplicating the resolution logic; callers outside {@code broker.*}
+     * modules should not invoke it.
+     *
      * @param payload the broker SDK payload object
      * @return the resolved Instrument
      * @throws IllegalArgumentException if the payload cannot be resolved
      */
+    @BrokerInternal(reason = "Outbound bridge from broker SDK payloads to canonical domain.")
     Instrument resolvePayload(Object payload);
 
     /**

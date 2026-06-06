@@ -2,14 +2,13 @@ package com.tradej.hotpath;
 
 import com.tradej.core.domain.event.DepthUpdateEvent;
 import com.tradej.core.domain.event.MarketTickEvent;
-import com.tradej.core.domain.event.TickReceived;
 import com.tradej.core.domain.model.MarketDepth;
 
 import java.util.Optional;
 
 /**
  * Static factory that extracts the optional {@link MarketDepth} from a
- * {@link TickReceived} or {@link MarketTickEvent} and produces a standalone
+ * {@link MarketTickEvent} and produces a standalone
  * {@link DepthUpdateEvent} when depth data is present and non-empty.
  *
  * <p>Returns {@code null} if the tick carries no depth book or if both
@@ -33,24 +32,6 @@ public final class DepthUpdateFactory {
      * @deprecated Use {@link #fromMarketTickEvent(MarketTickEvent)} instead.
      */
     @Deprecated(since = "2.0", forRemoval = true)
-    public static DepthUpdateEvent fromTick(TickReceived tick) {
-        MarketDepth depth = tick.marketDepth();
-        if (depth == null || depth.instrument() == null) {
-            return null;
-        }
-        if (depth.bids().isEmpty() && depth.asks().isEmpty()) {
-            return null;
-        }
-        return new DepthUpdateEvent(
-                tick.metadata(),
-                tick.symbol(),
-                depth.instrument().exchangeSegment(),
-                depth.bids(),
-                depth.asks(),
-                depth.levels(),
-                tick.exchangeTimestampMs()
-        );
-    }
 
     /**
      * Converts the embedded market depth from a canonical market tick into

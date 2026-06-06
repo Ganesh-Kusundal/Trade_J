@@ -2,6 +2,7 @@ package com.tradej.app.pipeline.reactor;
 
 import com.tradej.core.domain.event.DomainEvent;
 import com.tradej.pipeline.reactor.ReactorBridge;
+import com.tradej.pipeline.service.reactor.ReactorBridgeMetrics;
 import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

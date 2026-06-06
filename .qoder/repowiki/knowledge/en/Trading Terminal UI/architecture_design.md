@@ -1,0 +1,6 @@
+- Entry point: `main.tsx` renders `App`, which delegates to `TerminalApp` in `src/app/`.
+- State Management: Uses a single `zustand` store (`terminalStore.ts`) for global UI state, data mode, and domain DTOs (quotes, candles, options).
+- Layout: `TerminalLayout` implements a responsive grid layout with conditional rendering of panels (Watchlist, Charts, Option Chain, Orders, Positions, Logs) based on store state.
+- Domain Layer: `src/domain/dto/` defines strict TypeScript interfaces for financial instruments (Quote, Candle, OptionChain), decoupling UI from data sources.
+- Widget Composition: Panels in `src/ui/panels/` act as containers for specialized widgets in `src/ui/widgets/` (e.g., `CandlestickChart` using `lightweight-charts`).
+- Styling: Tailwind CSS v4 with PostCSS for utility-first styling, configured via `tailwind.config.js` and custom tokens in `src/theme/`.

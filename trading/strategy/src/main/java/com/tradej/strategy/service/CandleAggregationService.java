@@ -7,7 +7,6 @@ import com.tradej.core.domain.event.CandleDeveloping;
 import com.tradej.core.domain.event.DomainEvent;
 import com.tradej.core.domain.event.EventMetadata;
 import com.tradej.core.domain.event.MarketTickEvent;
-import com.tradej.core.domain.event.TickReceived;
 import com.tradej.core.domain.model.Candle;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -68,9 +67,6 @@ public final class CandleAggregationService {
 
     public void onDomainEvent(DomainEvent event, Consumer<DomainEvent> downstream) {
         switch (event) {
-            case TickReceived tick -> onTick(tick.symbol(), tick.ltpPaisa(), tick.lastTradeQuantity(),
-                    tick.exchangeTimestampMs(), tick.sequenceId(), tick.correlationId(),
-                    tick.metadata().timestampMs(), downstream);
             case MarketTickEvent tick -> onTick(tick.symbol(), tick.ltpPaisa(), tick.lastTradeQuantity(),
                     tick.exchangeTimestampEpochMs(), tick.sequenceId(), tick.correlationId(),
                     tick.metadata().timestampMs(), downstream);

@@ -1,0 +1,24 @@
+schema_version: 1
+module_path: ""
+title: Trade-J Institutional Trading Platform
+scope:
+    - README.md
+    - config/
+    - docs/
+    - .gitignore
+    - ARCHITECTURE.md
+    - AUDIT_REPORT.md
+    - CLI.md
+    - CONFIG.md
+    - CONTRACT_NAMING.md
+    - EOF
+    - FRONTEND_BACKEND_CONNECTION_TEST.md
+    - IMPLEMENTATION_ROADMAP.md
+    - REGRESSION_MANIFEST.md
+    - TESTING.md
+    - TRADEHULL_PARITY.md
+    - TRADEJ_ARCHITECTURE_CLASS_FLOWS_REPORT.md
+    - build.gradle
+source_files: []
+depends_on: []
+related_to: []

@@ -1,0 +1,28 @@
+dependencies {
+    api project(':core')
+    api project(':broker-api')
+    api project(':broker-core')
+    implementation project(':broker-dhan')
+    implementation project(':broker-upstox')
+    implementation project(':broker-icici')
+    implementation project(':trading-execution')
+    implementation project(':trading-strategy')
+    implementation project(':trading-simulation')
+    implementation project(':trading-scanner')
+    implementation project(':data-persistence')
+    implementation project(':data-feature-store')
+    implementation project(':data-historical-ingest')
+    implementation project(':data-analytics')
+    implementation project(':pipeline-runtime')
+    implementation project(':replay-engine')
+    implementation project(':runtime-disruptor')
+    implementation project(':runtime-hotpath')
+    implementation project(':trading-options-analytics')
+
+    implementation 'org.slf4j:slf4j-api'
+    api 'org.springframework.boot:spring-boot-autoconfigure'
+
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testImplementation 'org.mockito:mockito-core'
+    testImplementation 'org.mockito:mockito-junit-jupiter'
+}

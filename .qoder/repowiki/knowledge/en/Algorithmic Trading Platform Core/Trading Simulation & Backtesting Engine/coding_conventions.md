@@ -1,0 +1,3 @@
+- Prices are consistently represented in 'paisa' (integer cents) to avoid floating-point precision issues in financial calculations.
+- Slippage configuration is encapsulated in an immutable record with a builder pattern and predefined presets (DEFAULT, CONSERVATIVE).
+- Simulation components use `final` classes and dependency injection via constructors to ensure immutability and testability.

@@ -1,0 +1,1 @@
+Provides a dual-mode command-line interface for trading operations, supporting both standalone broker interactions and remote attachment to a running trade-app via HTTP.

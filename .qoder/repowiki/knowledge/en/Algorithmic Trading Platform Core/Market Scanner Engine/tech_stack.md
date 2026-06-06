@@ -1,0 +1,1 @@
+Gradle module depending on `:core` and `:broker-api`; uses SLF4J for logging and JUnit 5 for tests.

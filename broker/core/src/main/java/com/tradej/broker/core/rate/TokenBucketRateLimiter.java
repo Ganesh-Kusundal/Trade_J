@@ -10,7 +10,7 @@ import java.util.concurrent.locks.ReentrantLock;
  * Thread-safe via {@link ReentrantLock}.
  */
 public final class TokenBucketRateLimiter {
-    private final double ratePerSecond;
+    private volatile double ratePerSecond;
     private final long capacity;
     private final AtomicLong lastRefillNanos = new AtomicLong(System.nanoTime());
     private final ReentrantLock lock = new ReentrantLock();
@@ -45,6 +45,29 @@ public final class TokenBucketRateLimiter {
         } finally {
             lock.unlock();
         }
+    }
+
+    /**
+     * Reduce fill rate by a multiplicative factor (e.g. 0.5 halves the rate).
+     * Thread-safe via volatile write.
+     */
+    public void reduceRate(double factor) {
+        ratePerSecond = Math.max(0.1, ratePerSecond * factor);
+    }
+
+    /**
+     * Increase fill rate by an additive factor (e.g. 0.1 adds 10% to the rate).
+     * Thread-safe via volatile write.
+     */
+    public void increaseRate(double factor) {
+        ratePerSecond = Math.min(capacity, ratePerSecond * (1.0 + factor));
+    }
+
+    /**
+     * Current fill rate for observability.
+     */
+    public double currentRate() {
+        return ratePerSecond;
     }
 
     private void refill() {

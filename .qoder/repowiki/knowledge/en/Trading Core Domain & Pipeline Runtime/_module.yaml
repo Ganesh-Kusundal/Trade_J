@@ -1,0 +1,12 @@
+schema_version: 1
+module_path: core
+title: Trading Core Domain & Pipeline Runtime
+scope:
+    - core/
+source_files: []
+depends_on: []
+related_to:
+    - path: architecture_test
+    - path: trading/execution
+    - path: gateway
+    - path: trade_node_library

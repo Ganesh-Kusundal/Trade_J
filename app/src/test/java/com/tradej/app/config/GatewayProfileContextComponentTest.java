@@ -1,6 +1,6 @@
 package com.tradej.app.config;
 
-import com.tradej.app.subscription.SubscriptionCoordinator;
+import com.tradej.execution.subscription.SubscriptionCoordinator;
 import com.tradej.broker.api.IBrokerConnection;
 import com.tradej.broker.core.reconnect.ReconnectListenerRegistry;
 import com.tradej.broker.core.routing.LoadBalancedBrokerGateway;

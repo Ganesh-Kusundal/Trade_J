@@ -51,8 +51,9 @@ public final class IciciMarketDataProvider implements MarketDataProvider {
 
     @Override
     public MarketDepth getDepth(InstrumentKey instrumentKey) {
-        Quote quote = getQuote(instrumentKey);
-        return new MarketDepth(quote.instrument(), List.of(), List.of(), 0, quote.timestampMs());
+        BreezeInstrumentDefinition definition = instrumentResolver.requireBreezeDefinition(instrumentKey);
+        JsonNode node = marketDataRestClient.getDepth(mapper.toQuotesPayload(definition));
+        return mapper.toDepth(node, definition.toInstrument());
     }
 
     @Override

@@ -1,0 +1,1 @@
+Uses DuckDB via JDBC (`org.duckdb:duckdb_jdbc`) for high-performance analytical queries on local Parquet files, with Hive partitioning support for time-series data.

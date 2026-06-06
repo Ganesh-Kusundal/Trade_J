@@ -1,0 +1,1 @@
+Uses ArchUnit 1.4.0 (`com.tngtech.archunit:archunit-junit5`) for static code analysis of Java bytecode, integrated with JUnit 5 tagged execution (`@Tag("architecture")`).

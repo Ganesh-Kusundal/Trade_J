@@ -3,7 +3,7 @@ package com.tradej.app.config;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tradej.app.admin.RuntimeHealthState;
-import com.tradej.app.replay.CandleReplaySession;
+import com.tradej.replay.engine.CandleReplaySession;
 import com.tradej.broker.api.IBrokerConnection;
 import com.tradej.broker.core.routing.LoadBalancedBrokerGateway;
 import com.tradej.gateway.bridge.GatewayEventBridge;

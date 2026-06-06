@@ -1,0 +1,5 @@
+- **Dual-Store Architecture**: Separates high-throughput, append-only event logging (Chronicle Queue in `chronicle` and `oms` packages) from analytical, queryable historical storage (DuckDB in `duckdb` and `replay` packages).
+- **Event Sourcing Pattern**: The `EventSourcedOrderRepository` persists `OrderEvent`s to Chronicle Queue and rebuilds state via in-memory projection, ensuring auditability and state reconstruction.
+- **Replay Engine**: The `replay` package implements a `ReplayRunner` that reads from Chronicle Queue and publishes to an `EventBus`, synchronized with a `VirtualClock` for deterministic backtesting.
+- **Analytical Store**: `DuckDbEventStore` implements `DomainEventHandler` to persist diverse domain events (ticks, candles, orders, trades) into normalized DuckDB tables for complex historical queries via `HistoricalRangeService`.
+- **Interface Implementation**: Components implement core ports like `DomainEventHandler` and `HistoricalDataService`, decoupling persistence mechanics from business logic.

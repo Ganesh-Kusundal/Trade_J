@@ -6,7 +6,7 @@ import com.tradej.broker.upstox.http.UpstoxJsonHttpClient;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 
-import static com.tradej.broker.upstox.constants.UpstoxEndpoints.*;
+import static com.tradej.broker.upstox.constants.UpstoxEndpoints.NEWS_PATH;
 
 /**
  * REST client for Upstox news endpoints.

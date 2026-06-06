@@ -1,0 +1,1 @@
+Uses Chronicle Queue for low-latency, file-based event sourcing and DuckDB (via JDBC) for embedded analytical SQL storage. Jackson is used for custom JSON serialization of domain events in both stores.

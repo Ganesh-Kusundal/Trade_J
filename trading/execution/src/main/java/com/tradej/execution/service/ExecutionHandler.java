@@ -2,8 +2,6 @@ package com.tradej.execution.service;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
 import com.tradej.core.domain.event.DomainEvent;
 import com.tradej.core.domain.event.DomainEventVisitor;
 import com.tradej.core.domain.event.EventMetadata;
@@ -51,7 +49,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.stream.LongStream;
 
-@Service
 public final class ExecutionHandler implements com.tradej.core.domain.event.DomainEventVisitor {
     private static final Logger log = LoggerFactory.getLogger(ExecutionHandler.class);
     private static final int MAX_FILL_DEFER_ATTEMPTS = FillReconciliation.MAX_FILL_DEFER_ATTEMPTS;
@@ -93,7 +90,6 @@ public final class ExecutionHandler implements com.tradej.core.domain.event.Doma
     /**
      * Creates an execution handler with the default queue capacity ({@value DEFAULT_QUEUE_CAPACITY}).
      */
-    @Autowired
     public ExecutionHandler(
             OrderManagementService orderManagementService,
             RuntimeModeHolder runtimeModeHolder,
@@ -547,6 +543,7 @@ public final class ExecutionHandler implements com.tradej.core.domain.event.Doma
             return placement.get(orderPlacementTimeoutMs, TimeUnit.MILLISECONDS);
         } catch (TimeoutException e) {
             placement.cancel(true);
+            log.warn("Order placement timed out after {}ms", orderPlacementTimeoutMs);
             throw new RuntimeException("Order placement timed out after "
                     + orderPlacementTimeoutMs + "ms", e);
         } catch (ExecutionException e) {

@@ -69,8 +69,8 @@ class UpstoxOrderCommandAdapterTest {
         assertEquals(0L, preview.pricePaisa());
         assertEquals(0L, preview.triggerPricePaisa());
         assertEquals(ProductType.INTRADAY, preview.productType());
-        // For MARKET orders, estimatedNotional is placeholder (quantity * 100000)
-        assertEquals(10 * 100000L, preview.estimatedNotionalPaisa());
+        // For MARKET orders with pricePaisa=0, effectivePrice=0 so notional=0 and margin=0
+        assertEquals(0L, preview.estimatedNotionalPaisa());
         assertEquals(0L, preview.estimatedMarginPaisa());
         assertTrue(preview.issues().isEmpty());
     }
@@ -103,9 +103,9 @@ class UpstoxOrderCommandAdapterTest {
         assertEquals(Side.SELL, preview.side());
         assertEquals(5, preview.quantity());
         assertEquals(250000L, preview.pricePaisa());
-        // For LIMIT orders, estimatedNotional = quantity * pricePaisa
+        // For LIMIT CNC orders, estimatedNotional = quantity * pricePaisa, margin = notional (100% cash)
         assertEquals(5 * 250000L, preview.estimatedNotionalPaisa());
-        assertEquals(0L, preview.estimatedMarginPaisa());
+        assertEquals(5 * 250000L, preview.estimatedMarginPaisa());
         assertTrue(preview.issues().isEmpty());
     }
 

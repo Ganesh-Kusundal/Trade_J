@@ -1,0 +1,4 @@
+- **Pipeline Orchestration**: Children are composed as `BasePipelineNode` instances (e.g., `StrategyNode`, `OmsNode`, `ScanNode`) within a shared runtime platform, communicating via a standardized `DomainEvent` bus.
+- **Cross-Module Contracts**: The `execution` module acts as the central sink, consuming `SignalGenerated` events from `strategy` and `scanner` modules via the `SignalExecutionBridge` to initiate order lifecycles.
+- **Shared Infrastructure**: All modules depend on the `:core` module for domain models, event definitions, and pipeline interfaces, ensuring type-safe interoperability without direct service-to-service coupling.
+- **Simulation Integration**: The `simulation` module provides a pluggable `MatchingEngine` injected into the `execution` module's `OrderManagementService` for backtesting and replay scenarios, decoupling execution logic from live broker dependencies.

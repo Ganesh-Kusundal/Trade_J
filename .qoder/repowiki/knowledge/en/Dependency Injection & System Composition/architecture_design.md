@@ -1,0 +1,5 @@
+- The module acts as the application's composition root, replacing Spring Boot with manual dependency injection via static factory methods in `*Composition` classes.
+- `FullComposition` serves as the primary entry point, aggregating `BrokerComposition`, `DataComposition`, and `ExecutionComposition` to expose fully wired subsystems.
+- Configuration is managed through immutable Java records (`BrokerProfile`, `RiskProfile`, `StorageProfile`) and a custom `ConfigLoader` that resolves properties from files, system properties, and environment variables.
+- Broker instantiation uses a factory pattern within `BrokerComposition` to switch between Dhan, Upstox, and ICICI implementations based on the `BrokerProfile`.
+- Dependencies flow from this module to core domain interfaces (`IBrokerConnection`, `IdempotencyCachePort`) and concrete infrastructure implementations (Chronicle Queue, DuckDB), ensuring the rest of the system remains decoupled from specific infrastructure choices.

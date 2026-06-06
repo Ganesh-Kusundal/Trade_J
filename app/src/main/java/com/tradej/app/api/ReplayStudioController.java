@@ -1,6 +1,6 @@
 package com.tradej.app.api;
 
-import com.tradej.app.replay.CandleReplaySession;
+import com.tradej.replay.engine.CandleReplaySession;
 import com.tradej.core.domain.model.Candle;
 import com.tradej.core.domain.model.InstrumentKey;
 import com.tradej.core.domain.port.HistoricalBarRepository;

@@ -11,7 +11,7 @@ import com.tradej.execution.service.ExecutionHandler;
 import com.tradej.execution.service.TradingCircuitBreaker;
 import com.tradej.hotpath.MarketDataPipeline;
 import com.tradej.hotpath.OrderPipeline;
-import com.tradej.app.pipeline.ReplayOrchestrator;
+import com.tradej.replay.engine.ReplayOrchestrator;
 import com.tradej.persistence.replay.HistoricalRangeService;
 import com.tradej.strategy.service.StrategyEngine;
 import org.junit.jupiter.api.Tag;

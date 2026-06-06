@@ -1,0 +1,5 @@
+- **Domain Layer**: Centered on `DomainEvent` (Visitor pattern) and Hexagonal ports (`EventBus`, `MarketDataIngressPort`) in `com.tradej.core.domain`.
+- **Pipeline Engine**: A separate `com.tradej.pipeline` package provides a graph-based runtime (`PipelineRuntime`, `GraphCompiler`) that compiles declarative `PipelineGraph` definitions into executable plans.
+- **Execution Modes**: The runtime supports atomic hot-swapping between LIVE, REPLAY, and BACKTEST modes via `RuntimeMode` and `VirtualClock`.
+- **OMS Logic**: Includes a deterministic `OrderStateMachine` for tracking order lifecycle transitions.
+- **Dependencies**: Relies on `reactor-core` for reactive bridges and `slf4j-api` for logging, exposed via the `api` configuration in `build.gradle`.

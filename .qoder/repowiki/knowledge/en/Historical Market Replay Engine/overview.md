@@ -1,0 +1,1 @@
+Executes deterministic historical market replays with multi-timeframe aggregation and isolated state management for zero look-ahead bias.

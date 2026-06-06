@@ -107,6 +107,8 @@ public final class UpstoxInstrumentLoader {
         if (segment == ExchangeSegment.UNKNOWN) {
             segment = mapLegacyExchange(exchange);
         }
+
+
         String name = node.has("name") ? node.get("name").asText() : "";
         String isin = node.has("isin") ? node.get("isin").asText() : "";
         long lotSize = node.has("lot_size") ? node.get("lot_size").asLong() : 1L;

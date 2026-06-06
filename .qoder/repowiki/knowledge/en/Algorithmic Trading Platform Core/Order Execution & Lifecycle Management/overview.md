@@ -1,0 +1,1 @@
+Manages the end-to-end order lifecycle from signal ingestion to broker execution, including state tracking, risk enforcement, and position reconciliation.

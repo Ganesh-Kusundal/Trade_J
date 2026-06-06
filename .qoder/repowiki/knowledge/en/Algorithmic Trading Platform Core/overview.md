@@ -1,0 +1,1 @@
+Orchestrates a modular, event-driven trading lifecycle by wiring specialized child modules into a unified pipeline for signal generation, risk enforcement, and order execution.

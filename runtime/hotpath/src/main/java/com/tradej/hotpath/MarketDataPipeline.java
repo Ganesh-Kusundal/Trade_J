@@ -3,7 +3,6 @@ package com.tradej.hotpath;
 import com.tradej.core.domain.event.DepthUpdateEvent;
 import com.tradej.core.domain.event.DomainEvent;
 import com.tradej.core.domain.event.MarketTickEvent;
-import com.tradej.core.domain.event.TickReceived;
 import com.tradej.core.support.MdcHelper;
 import com.tradej.hotpath.rate.TokenBucket;
 import org.slf4j.Logger;
@@ -25,7 +24,7 @@ import java.util.function.Consumer;
  * <p>Usage:
  * <pre>{@code
  * MarketDataPipeline pipeline = new MarketDataPipeline(eventBus::publish);
- * pipeline.onTickReceived(tickReceived);  // feeds into the disruptor pipeline
+ * pipeline.onMarketTickEvent(marketTickEvent);  // feeds into the disruptor pipeline
  * }</pre>
  *
  * <p>Thread safety: all public methods are safe for multi-threaded access
@@ -97,35 +96,6 @@ public final class MarketDataPipeline {
      * @deprecated Use {@link #onMarketTickEvent(MarketTickEvent)} instead.
      */
     @Deprecated(since = "2.0", forRemoval = true)
-    public void onTickReceived(TickReceived tick) {
-        if (tick == null) {
-            log.warn("Ignoring null tick received");
-            return;
-        }
-        MdcHelper.enrich(tick, "market-data");
-        try {
-            // Rate limiting check — shed ticks that exceed the configured max rate
-            if (tickRateLimiter != null && !tickRateLimiter.tryConsume()) {
-                tickRateLimitedCount.incrementAndGet();
-                log.debug("Tick rate limited, dropping tick symbol={} ltp={}",
-                        tick.symbol(), tick.ltpPaisa());
-                return;
-            }
-            tickCount.incrementAndGet();
-            lastTickTimestampMs = tick.metadata().timestampMs();
-            updateTickRate();
-            log.trace("Processing tick symbol={} ltp={} qty={}",
-                    tick.symbol(), tick.ltpPaisa(), tick.lastTradeQuantity());
-            downstream.accept(tick);
-            DepthUpdateEvent depthUpdate = DepthUpdateFactory.fromTick(tick);
-            if (depthUpdate != null) {
-                depthCount.incrementAndGet();
-                downstream.accept(depthUpdate);
-            }
-        } finally {
-            MdcHelper.clear();
-        }
-    }
 
     /**
      * Process a canonical market tick event from the broker's market data feed.

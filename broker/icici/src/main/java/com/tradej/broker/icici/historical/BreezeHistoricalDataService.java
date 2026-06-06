@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public final class BreezeHistoricalDataService {
     private static final ZoneId INDIA = ZoneId.of("Asia/Kolkata");
@@ -35,11 +36,28 @@ public final class BreezeHistoricalDataService {
             DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.000'Z'").withZone(INDIA);
     private static final DateTimeFormatter BREEZE_CANDLE_DATETIME =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(INDIA);
+    /**
+     * TTL for cached historical candle responses.
+     * Historical data for closed candle windows is immutable — 30 min cache avoids
+     * redundant API calls and reduces 5000/day quota burn.
+     */
+    private static final long CACHE_TTL_MS = 30 * 60 * 1_000L;
 
     private final BreezeHistoricalRestClient historicalRestClient;
     private final BreezeDomainMapper mapper;
     private final IciciResilienceExecutor resilienceExecutor;
     private final HistoricalDataCapabilities capabilities;
+    private final ConcurrentHashMap<CandleHistoryRequest, CacheEntry> cache = new ConcurrentHashMap<>();
+
+    /** Holds cached candles with absolute expiry time. */
+    private record CacheEntry(List<Candle> candles, long expiresAtMs) {
+        CacheEntry {
+            if (candles == null) throw new IllegalArgumentException("candles must not be null");
+        }
+        boolean isExpired() {
+            return System.currentTimeMillis() > expiresAtMs;
+        }
+    }
 
     public BreezeHistoricalDataService(
             BreezeHistoricalRestClient historicalRestClient,
@@ -62,23 +80,35 @@ public final class BreezeHistoricalDataService {
     }
 
     public List<Candle> fetchCandles(CandleHistoryRequest request, BreezeInstrumentDefinition definition) {
+        // MED-3: TTL cache — 30-minute window. Historical candles for closed time ranges are immutable.
+        CacheEntry cached = cache.get(request);
+        if (cached != null && !cached.isExpired()) {
+            return cached.candles();
+        }
         LocalDate fromDate = request.fromDate();
         LocalDate toDate = request.toDate();
         if (fromDate == null || toDate == null || fromDate.isAfter(toDate)) {
             throw new IllegalArgumentException("Invalid historical date range");
         }
         String apiInterval = BreezeHistoricalIntervals.toApiInterval(request.interval());
+        List<Candle> result;
         if (BreezeHistoricalIntervals.isSecond(apiInterval)) {
-            return fetchSecondHistorical(request.interval(), fromDate, toDate, definition);
+            result = fetchSecondHistorical(request.interval(), fromDate, toDate, definition);
+        } else {
+            boolean daily = BreezeHistoricalIntervals.isDaily(apiInterval);
+            int maxDays = daily
+                    ? capabilities.maxDailyDaysPerRequest()
+                    : capabilities.maxIntradayDaysPerRequest();
+            Instrument instrument = definition.toInstrument();
+            List<Candle> merged = new ArrayList<>();
+            for (HistoricalDateWindowSplitter.DateWindow window
+                    : HistoricalDateWindowSplitter.split(fromDate, toDate, maxDays)) {
+                merged.addAll(fetchWindow(request.interval(), apiInterval, window, definition, instrument, daily));
+            }
+            result = HistoricalCandleMerger.dedupeAndSort(merged);
         }
-        boolean daily = BreezeHistoricalIntervals.isDaily(apiInterval);
-        int maxDays = daily ? capabilities.maxDailyDaysPerRequest() : capabilities.maxIntradayDaysPerRequest();
-        Instrument instrument = definition.toInstrument();
-        List<Candle> merged = new ArrayList<>();
-        for (HistoricalDateWindowSplitter.DateWindow window : HistoricalDateWindowSplitter.split(fromDate, toDate, maxDays)) {
-            merged.addAll(fetchWindow(request.interval(), apiInterval, window, definition, instrument, daily));
-        }
-        return HistoricalCandleMerger.dedupeAndSort(merged);
+        cache.put(request, new CacheEntry(result, System.currentTimeMillis() + CACHE_TTL_MS));
+        return result;
     }
 
     private List<Candle> fetchSecondHistorical(
@@ -93,8 +123,8 @@ public final class BreezeHistoricalDataService {
         Instrument instrument = definition.toInstrument();
         String v2Interval = BreezeHistoricalIntervals.toV2ApiInterval(requestInterval);
         List<Candle> merged = new ArrayList<>();
-        for (HistoricalDateWindowSplitter.DateWindow window :
-                HistoricalDateWindowSplitter.split(fromDate, toDate, capabilities.maxIntradayDaysPerRequest())) {
+        for (HistoricalDateWindowSplitter.DateWindow window
+                : HistoricalDateWindowSplitter.split(fromDate, toDate, capabilities.maxIntradayDaysPerRequest())) {
             merged.addAll(fetchSecondDayWindow(requestInterval, v2Interval, window, definition, instrument));
         }
         return HistoricalCandleMerger.dedupeAndSort(merged);

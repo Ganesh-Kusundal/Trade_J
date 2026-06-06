@@ -1,7 +1,7 @@
 package com.tradej.app.scanner;
 
 import com.tradej.app.config.TradingProperties;
-import com.tradej.app.subscription.SubscriptionCoordinator;
+import com.tradej.execution.subscription.SubscriptionCoordinator;
 import com.tradej.broker.api.model.MarketSubscriptionRequest;
 import com.tradej.broker.api.port.WebSocketMultiplexer;
 import com.tradej.core.domain.value.FeedMode;

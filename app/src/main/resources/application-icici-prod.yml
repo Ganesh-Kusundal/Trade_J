@@ -9,7 +9,7 @@ trade:
     passwordFile: config/icici-password.txt
     apiSessionFile: config/icici-api-session.txt
     tokenStateFile: runtime/icici-token-state.json
-    ordersEnabled: false
+    ordersEnabled: true
     refreshBufferMinutes: 10
     loginRedirectPort: 9080
     loginRedirectPath: /api

@@ -4,6 +4,13 @@ import com.tradej.cli.attach.AttachClient;
 import com.tradej.cli.config.CliConfig;
 import com.tradej.cli.standalone.BrokerSession;
 import com.tradej.cli.standalone.BrokerSessionFactory;
+import com.tradej.brokergateway.BrokerGateway;
+import com.tradej.brokergateway.BrokerHandle;
+import com.tradej.brokergateway.result.BrokerSource;
+import com.tradej.brokergateway.spi.BrokerDescriptor;
+import com.tradej.brokergateway.spi.BrokerRegistry;
+import com.tradej.brokergateway.spi.ServiceLoaderBrokerRegistry;
+import com.tradej.composition.config.BrokerProfile;
 
 public final class CliContext {
     private String attachUrl;
@@ -14,6 +21,8 @@ public final class CliContext {
 
     private AttachClient attachClient;
     private BrokerSession brokerSession;
+    private BrokerGateway gateway;
+    private ServiceLoaderBrokerRegistry registry;
 
     public CliContext(
             String attachUrl,
@@ -89,6 +98,55 @@ public final class CliContext {
             brokerSession.close();
             brokerSession = null;
         }
+    }
+
+    public BrokerGateway gateway() {
+        if (gateway == null) {
+            BrokerSource source = toSource(brokerType);
+            broker().ensureCatalogLoaded();
+            gateway = BrokerGateway.of(source, broker().connection());
+        }
+        return gateway;
+    }
+
+    public BrokerHandle brokerHandle() {
+        return gateway().first();
+    }
+
+    public BrokerHandle brokerHandle(String name) {
+        return gateway().broker(name);
+    }
+
+    private static BrokerSource toSource(CliConfig.BrokerType type) {
+        return switch (type) {
+            case DHAN -> BrokerSource.DHAN;
+            case UPSTOX -> BrokerSource.UPSTOX;
+        };
+    }
+
+    /**
+     * Returns the broker registry, auto-discovering providers via ServiceLoader.
+     */
+    public BrokerRegistry registry() {
+        if (registry == null) {
+            registry = new ServiceLoaderBrokerRegistry();
+        }
+        return registry;
+    }
+
+    /**
+     * Returns descriptors for all available brokers.
+     */
+    public java.util.List<BrokerDescriptor> availableBrokers() {
+        return registry().descriptors();
+    }
+
+    /**
+     * Creates a BrokerGateway using the registry and a broker profile.
+     * This is the preferred way to create a gateway — it uses SPI-discovered providers.
+     */
+    public BrokerGateway gatewayFromRegistry(BrokerProfile profile) {
+        return BrokerGateway.fromRegistry(registry(), profile);
     }
 
     public void close() {

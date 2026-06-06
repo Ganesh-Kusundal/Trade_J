@@ -1,6 +1,6 @@
 package com.tradej.app.api;
 
-import com.tradej.app.service.broker.BrokerHistoricalQueryService;
+import com.tradej.historical.service.BrokerHistoricalQueryService;
 import com.tradej.broker.api.port.InstrumentResolver;
 import com.tradej.core.domain.model.Candle;
 import com.tradej.core.domain.model.CandleHistoryRequest;

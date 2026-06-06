@@ -1,8 +1,8 @@
 package com.tradej.pipeline.graph;
 
 import com.tradej.core.domain.event.CandleClosed;
+import com.tradej.core.domain.event.MarketTickEvent;
 import com.tradej.core.domain.event.DomainEvent;
-import com.tradej.core.domain.event.TickReceived;
 
 import java.util.HashSet;
 import java.util.List;
@@ -42,7 +42,7 @@ public record IngressNodeConfig(
                 return false;
             }
         }
-        if (event instanceof TickReceived tick) {
+        if (event instanceof MarketTickEvent tick) {
             if (!symbols.isEmpty() && symbols.stream().noneMatch(s -> s.equalsIgnoreCase(tick.symbol()))) {
                 return false;
             }

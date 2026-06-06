@@ -3,7 +3,6 @@ package com.tradej.broker.upstox.adapter;
 import com.tradej.broker.api.port.NewsProvider;
 import com.tradej.broker.upstox.rest.UpstoxNewsRestClient;
 import com.tradej.core.domain.model.NewsArticle;
-import com.tradej.core.domain.model.NewsResponse;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 

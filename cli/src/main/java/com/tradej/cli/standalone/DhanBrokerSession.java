@@ -3,7 +3,8 @@ package com.tradej.cli.standalone;
 import com.tradej.broker.api.IBrokerConnection;
 import com.tradej.broker.dhan.DhanBrokerConnection;
 import com.tradej.broker.dhan.config.DhanConfigPaths;
-import com.tradej.broker.dhan.config.DhanConnectionSettings;
+import com.tradej.composition.BrokerComposition;
+import com.tradej.composition.config.BrokerProfile;
 import com.tradej.cli.config.CliConfig;
 
 import java.io.IOException;
@@ -14,8 +15,8 @@ public final class DhanBrokerSession implements BrokerSession {
     private static final String CATALOG_CACHE_DIR = "runtime/cli-instruments";
 
     private final CliConfig.Profile profile;
-    private final DhanConnectionSettings settings;
-    private IBrokerConnection connection;
+    private final com.tradej.broker.dhan.config.DhanConnectionSettings settings;
+    private BrokerComposition composition;
     private boolean catalogLoaded;
     private Path lastCatalogPath;
 
@@ -34,16 +35,31 @@ public final class DhanBrokerSession implements BrokerSession {
         return profile;
     }
 
-    public DhanConnectionSettings settings() {
+    public com.tradej.broker.dhan.config.DhanConnectionSettings settings() {
         return settings;
     }
 
     @Override
     public IBrokerConnection connection() {
-        if (connection == null) {
-            connection = DhanBrokerConnection.create(settings, new NoOpIdempotencyCache());
+        if (composition == null) {
+            BrokerProfile.DhanConfig dhanConfig = new BrokerProfile.DhanConfig(
+                    settings.clientId(),
+                    settings.accessToken(),
+                    settings.environment(),
+                    settings.restBaseUrl(),
+                    settings.authMode(),
+                    settings.pinFile(),
+                    settings.totpSecretFile(),
+                    settings.tokenStateFile(),
+                    settings.refreshBufferMinutes(),
+                    false,
+                    CATALOG_CACHE_DIR
+            );
+            BrokerProfile brokerProfile = new BrokerProfile(
+                    BrokerProfile.BrokerType.DHAN, dhanConfig, null, null);
+            composition = BrokerComposition.create(brokerProfile);
         }
-        return connection;
+        return composition.brokerConnection();
     }
 
     @Override
@@ -90,9 +106,9 @@ public final class DhanBrokerSession implements BrokerSession {
 
     @Override
     public void close() {
-        if (connection != null) {
-            connection.disconnect();
-            connection = null;
+        if (composition != null) {
+            composition.brokerConnection().disconnect();
+            composition = null;
         }
         catalogLoaded = false;
     }

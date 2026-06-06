@@ -5,6 +5,7 @@ import com.tradej.core.domain.model.DepthLevel;
 import java.util.Arrays;
 import java.util.List;
 
+
 /**
  * Parsed binary feed frame from Upstox WebSocket.
  */

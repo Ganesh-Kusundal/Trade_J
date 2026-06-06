@@ -1,8 +1,8 @@
 package com.tradej.app.api;
 
-import com.tradej.app.config.ScanProperties;
-import com.tradej.app.pipeline.DagPipelineRuntimeService;
-import com.tradej.app.pipeline.PipelineRuntimeService;
+import com.tradej.composition.config.ScanProperties;
+import com.tradej.pipeline.service.DagPipelineRuntimeService;
+import com.tradej.pipeline.service.PipelineRuntimeService;
 import com.tradej.persistence.pipeline.DuckDbPipelineGraphStore;
 import com.tradej.pipeline.graph.PipelineExecutionMode;
 import com.tradej.pipeline.graph.PipelineGraph;

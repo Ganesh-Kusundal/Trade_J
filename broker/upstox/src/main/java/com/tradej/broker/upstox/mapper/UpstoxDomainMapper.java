@@ -12,6 +12,9 @@ import com.tradej.core.domain.value.ProductType;
 import com.tradej.core.domain.value.Side;
 import com.tradej.core.domain.value.Validity;
 
+import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -124,8 +127,10 @@ public final class UpstoxDomainMapper {
 
     // ─── Mapping helpers ─────────────────────────────────────────────────────
 
-    static ExchangeSegment parseSegment(JsonNode node) {
-        if (!node.has("exchange")) return ExchangeSegment.NSE_EQ;
+    public static ExchangeSegment parseSegment(JsonNode node) {
+        if (!node.has("exchange")) {
+            return ExchangeSegment.NSE_EQ;
+        }
         return switch (node.get("exchange").asText().toUpperCase()) {
             case "NSE" -> ExchangeSegment.NSE_EQ;
             case "BSE" -> ExchangeSegment.BSE_EQ;
@@ -136,13 +141,17 @@ public final class UpstoxDomainMapper {
         };
     }
 
-    static Side parseSide(JsonNode node) {
-        if (!node.has("transaction_type")) return Side.BUY;
+    public static Side parseSide(JsonNode node) {
+        if (!node.has("transaction_type")) {
+            return Side.BUY;
+        }
         return "BUY".equalsIgnoreCase(node.get("transaction_type").asText()) ? Side.BUY : Side.SELL;
     }
 
-    static ProductType parseProductType(JsonNode node) {
-        if (!node.has("product")) return ProductType.INTRADAY;
+    public static ProductType parseProductType(JsonNode node) {
+        if (!node.has("product")) {
+            return ProductType.INTRADAY;
+        }
         return switch (node.get("product").asText().toUpperCase()) {
             case "CNC" -> ProductType.CNC;
             case "MIS" -> ProductType.INTRADAY;
@@ -152,8 +161,10 @@ public final class UpstoxDomainMapper {
         };
     }
 
-    static OrderType parseOrderType(JsonNode node) {
-        if (!node.has("order_type")) return OrderType.MARKET;
+    public static OrderType parseOrderType(JsonNode node) {
+        if (!node.has("order_type")) {
+            return OrderType.MARKET;
+        }
         return switch (node.get("order_type").asText().toUpperCase()) {
             case "MARKET" -> OrderType.MARKET;
             case "LIMIT" -> OrderType.LIMIT;
@@ -163,8 +174,10 @@ public final class UpstoxDomainMapper {
         };
     }
 
-    static OrderStatus parseStatus(JsonNode node) {
-        if (!node.has("status")) return OrderStatus.UNKNOWN;
+    public static OrderStatus parseStatus(JsonNode node) {
+        if (!node.has("status")) {
+            return OrderStatus.UNKNOWN;
+        }
         return switch (node.get("status").asText().toUpperCase()) {
             case "OPEN" -> OrderStatus.OPEN;
             case "PENDING" -> OrderStatus.PENDING;
@@ -207,9 +220,28 @@ public final class UpstoxDomainMapper {
 
     static long parseTimestamp(JsonNode node) {
         if (node == null) return System.currentTimeMillis();
+        // Numeric: epoch seconds or millis
         if (node.isNumber()) {
             long val = node.asLong();
             return val > 1_000_000_000_000L ? val : val * 1000L;
+        }
+        // String: ISO 8601 format (e.g. "2024-01-15T10:30:00+05:30" or "2024-01-15T10:30:00Z")
+        if (node.isTextual()) {
+            String text = node.asText().trim();
+            if (!text.isEmpty()) {
+                try {
+                    // OffsetDateTime handles offsets and Z suffix via ISO_OFFSET_DATE_TIME
+                    return OffsetDateTime.parse(text).toInstant().toEpochMilli();
+                } catch (DateTimeParseException ignored) {
+                    // fall through
+                }
+                try {
+                    // Instant handles ISO 8601 with Z suffix (UTC)
+                    return Instant.parse(text).toEpochMilli();
+                } catch (DateTimeParseException ignored) {
+                    // fall through
+                }
+            }
         }
         return System.currentTimeMillis();
     }

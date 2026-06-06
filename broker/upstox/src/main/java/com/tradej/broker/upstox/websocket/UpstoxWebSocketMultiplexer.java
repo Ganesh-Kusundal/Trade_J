@@ -11,6 +11,15 @@ import com.tradej.broker.upstox.instrument.UpstoxInstrumentResolver;
 import com.tradej.core.domain.event.EventMetadataFactory;
 import com.tradej.core.domain.event.MarketTickEvent;
 import com.tradej.core.domain.value.FeedMode;
+import com.tradej.core.domain.value.OrderStatus;
+import com.tradej.core.domain.event.OrderAccepted;
+import com.tradej.core.domain.event.OrderCancelled;
+import com.tradej.core.domain.event.OrderFilled;
+import com.tradej.core.domain.event.OrderFullyFilled;
+import com.tradej.core.domain.event.OrderModified;
+import com.tradej.core.domain.event.OrderPartiallyFilled;
+import com.tradej.core.domain.event.OrderRejected;
+import com.tradej.core.domain.event.OrderUpdateEvent;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -38,6 +47,7 @@ public final class UpstoxWebSocketMultiplexer implements WebSocketMultiplexer {
 
     private final UpstoxFeedAuthorizer feedAuthorizer;
     private final UpstoxStreamNormalizer streamNormalizer;
+    private final UpstoxPortfolioStreamParser portfolioStreamParser;
     private final UpstoxInstrumentResolver instrumentResolver;
     private final EventMetadataFactory metadataFactory;
     private final DefaultWebSocketSupervisor supervisor;
@@ -51,14 +61,17 @@ public final class UpstoxWebSocketMultiplexer implements WebSocketMultiplexer {
     private final ConcurrentHashMap<MarketSubscriptionRequest, FeedMode> subscriptions = new ConcurrentHashMap<>();
     private final CopyOnWriteArrayList<MarketDataListener> marketDataListeners = new CopyOnWriteArrayList<>();
     private final CopyOnWriteArrayList<OrderUpdateListener> orderUpdateListeners = new CopyOnWriteArrayList<>();
+    private final ConcurrentHashMap<String, OrderStatus> latestOrderStatuses = new ConcurrentHashMap<>();
 
     private final ScheduledExecutorService healthExecutor = Executors.newSingleThreadScheduledExecutor(
             r -> new Thread(r, "upstox-feed-health"));
+    private final StringBuilder orderMessageBuffer = new StringBuilder();
 
     private volatile java.net.http.WebSocket marketWs;
     private volatile java.net.http.WebSocket orderWs;
     private volatile boolean connected;
-    private volatile String currentWsUri = "";
+    private volatile String marketWsUri = "";
+    private volatile String orderWsUri = "";
     private volatile ConnectionState connectionState = ConnectionState.DISCONNECTED;
 
     public UpstoxWebSocketMultiplexer(
@@ -67,7 +80,8 @@ public final class UpstoxWebSocketMultiplexer implements WebSocketMultiplexer {
             UpstoxInstrumentResolver instrumentResolver,
             EventMetadataFactory metadataFactory
     ) {
-        this(feedAuthorizer, streamNormalizer, instrumentResolver, metadataFactory, null);
+        this(feedAuthorizer, streamNormalizer, new UpstoxPortfolioStreamParser(metadataFactory),
+                instrumentResolver, metadataFactory, null);
     }
 
     public UpstoxWebSocketMultiplexer(
@@ -77,8 +91,21 @@ public final class UpstoxWebSocketMultiplexer implements WebSocketMultiplexer {
             EventMetadataFactory metadataFactory,
             ReconnectListenerRegistry reconnectRegistry
     ) {
+        this(feedAuthorizer, streamNormalizer, new UpstoxPortfolioStreamParser(metadataFactory),
+                instrumentResolver, metadataFactory, reconnectRegistry);
+    }
+
+    public UpstoxWebSocketMultiplexer(
+            UpstoxFeedAuthorizer feedAuthorizer,
+            UpstoxStreamNormalizer streamNormalizer,
+            UpstoxPortfolioStreamParser portfolioStreamParser,
+            UpstoxInstrumentResolver instrumentResolver,
+            EventMetadataFactory metadataFactory,
+            ReconnectListenerRegistry reconnectRegistry
+    ) {
         this.feedAuthorizer = feedAuthorizer;
         this.streamNormalizer = streamNormalizer;
+        this.portfolioStreamParser = portfolioStreamParser;
         this.instrumentResolver = instrumentResolver;
         this.metadataFactory = metadataFactory;
         this.reconnectRegistry = reconnectRegistry;
@@ -92,19 +119,42 @@ public final class UpstoxWebSocketMultiplexer implements WebSocketMultiplexer {
     public void connect() {
         manuallyDisconnected.set(false);
         try {
-            var authorized = feedAuthorizer.authorize();
-            currentWsUri = authorized.wsUri();
+            // 1. Connect market data WebSocket
+            var marketAuth = feedAuthorizer.authorize();
+            marketWsUri = marketAuth.wsUri();
             marketWs = httpClient.newWebSocketBuilder()
-                    .buildAsync(URI.create(currentWsUri), new MarketFeedHandler())
+                    .buildAsync(URI.create(marketWsUri), new MarketFeedHandler())
                     .join();
             connected = true;
             connectionState = ConnectionState.CONNECTED;
             supervisor.onConnected();
+
+            // 2. Connect order/portfolio stream WebSocket (sequential, best-effort)
+            connectOrderWebSocket();
+
+            // 3. Start health checks
             healthExecutor.scheduleAtFixedRate(this::checkHealth,
                     HEALTH_CHECK_INTERVAL_MS, HEALTH_CHECK_INTERVAL_MS, TimeUnit.MILLISECONDS);
         } catch (Exception e) {
             connectionState = ConnectionState.FAILED;
-            throw new RuntimeException("Failed to connect Upstox WebSocket", e);
+            // If market WS failed, propagate; if only order WS failed, still consider connected
+            if (marketWs == null) {
+                throw new RuntimeException("Failed to connect Upstox WebSocket", e);
+            }
+        }
+    }
+
+    private void connectOrderWebSocket() {
+        try {
+            var orderAuth = feedAuthorizer.authorizePortfolioStream();
+            orderWsUri = orderAuth.wsUri();
+            orderWs = httpClient.newWebSocketBuilder()
+                    .buildAsync(URI.create(orderWsUri), new OrderFeedHandler())
+                    .join();
+        } catch (Exception e) {
+            // Best-effort: if order WS fails, log and continue with market data only
+            orderWsUri = "";
+            orderWs = null;
         }
     }
 
@@ -169,7 +219,9 @@ public final class UpstoxWebSocketMultiplexer implements WebSocketMultiplexer {
     private void handleBinaryFrame(ByteBuffer buffer) {
         try {
             ParsedFeedFrame frame = UpstoxBinaryParser.parse(buffer);
-            if (frame == null) return;
+            if (frame == null) {
+                return;
+            }
             supervisor.onMessage(buffer);
             long sequenceId = sequenceCounter.incrementAndGet();
             MarketSubscriptionRequest key = findKey(frame.instrumentToken());
@@ -248,10 +300,11 @@ public final class UpstoxWebSocketMultiplexer implements WebSocketMultiplexer {
 
     private void connectInternal() {
         var authorized = feedAuthorizer.authorize();
-        currentWsUri = authorized.wsUri();
+        marketWsUri = authorized.wsUri();
         marketWs = httpClient.newWebSocketBuilder()
-                .buildAsync(URI.create(currentWsUri), new MarketFeedHandler())
+                .buildAsync(URI.create(marketWsUri), new MarketFeedHandler())
                 .join();
+        connectOrderWebSocket();
         connected = true;
         connectionState = ConnectionState.CONNECTED;
         supervisor.onConnected();
@@ -308,16 +361,101 @@ public final class UpstoxWebSocketMultiplexer implements WebSocketMultiplexer {
             scheduleReconnect();
         }
     }
-}
 
-/**
- * Connection state for monitoring and diagnostics.
- */
-enum ConnectionState {
-    DISCONNECTED,
-    CONNECTING,
-    CONNECTED,
-    RECONNECTING,
-    ERROR,
-    FAILED
+    /**
+     * Handles text-based JSON messages from the Upstox portfolio stream WebSocket.
+     * Messages contain order, position, and holding updates in JSON format.
+     */
+    private final class OrderFeedHandler implements java.net.http.WebSocket.Listener {
+
+        @Override
+        public void onOpen(java.net.http.WebSocket ws) {
+            ws.request(Long.MAX_VALUE);
+        }
+
+        @Override
+        public java.util.concurrent.CompletionStage<?> onText(java.net.http.WebSocket ws, CharSequence data, boolean last) {
+            orderMessageBuffer.append(data);
+            if (last) {
+                String fullMessage = orderMessageBuffer.toString();
+                orderMessageBuffer.setLength(0);
+                handleOrderMessage(fullMessage);
+            }
+            ws.request(1);
+            return null;
+        }
+
+        @Override
+        public java.util.concurrent.CompletionStage<?> onClose(java.net.http.WebSocket ws, int statusCode, String reason) {
+            // Don't trigger full reconnect for order WS alone — market data is more critical
+            orderWs = null;
+            // Best-effort reconnection
+            java.util.concurrent.CompletableFuture.runAsync(() -> {
+                try { Thread.sleep(5_000L); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+                if (!manuallyDisconnected.get() && orderWs == null) {
+                    connectOrderWebSocket();
+                }
+            });
+            return null;
+        }
+
+        @Override
+        public void onError(java.net.http.WebSocket ws, Throwable error) {
+            orderWs = null;
+        }
+    }
+
+    private void handleOrderMessage(String message) {
+        var events = portfolioStreamParser.parseMessage(message);
+        for (var event : events) {
+            if (event instanceof OrderUpdateEvent orderEvent && isDuplicateOrderEvent(orderEvent)) {
+                continue;
+            }
+            for (var listener : orderUpdateListeners) {
+                listener.onEvent(event);
+            }
+        }
+    }
+
+    private boolean isDuplicateOrderEvent(OrderUpdateEvent event) {
+        String orderId = extractOrderId(event);
+        if (orderId == null || orderId.isBlank()) {
+            return false;
+        }
+        OrderStatus newStatus = extractStatus(event);
+        if (newStatus == null) {
+            return false;
+        }
+        OrderStatus previousStatus = latestOrderStatuses.put(orderId, newStatus);
+        if (previousStatus == null) {
+            return false;
+        }
+        return previousStatus == newStatus;
+    }
+
+    private static String extractOrderId(OrderUpdateEvent event) {
+        return switch (event) {
+            case OrderAccepted e -> e.order().orderId();
+            case OrderFilled e -> e.order().orderId();
+            case OrderPartiallyFilled e -> e.order().orderId();
+            case OrderFullyFilled e -> e.order().orderId();
+            case OrderRejected e -> e.order().orderId();
+            case OrderCancelled e -> e.order().orderId();
+            case OrderModified e -> e.order().orderId();
+            default -> null;
+        };
+    }
+
+    private static OrderStatus extractStatus(OrderUpdateEvent event) {
+        return switch (event) {
+            case OrderAccepted ignored -> OrderStatus.OPEN;
+            case OrderFilled ignored -> OrderStatus.TRADED;
+            case OrderPartiallyFilled ignored -> OrderStatus.PART_TRADED;
+            case OrderFullyFilled ignored -> OrderStatus.TRADED;
+            case OrderRejected ignored -> OrderStatus.REJECTED;
+            case OrderCancelled ignored -> OrderStatus.CANCELLED;
+            case OrderModified ignored -> OrderStatus.OPEN;
+            default -> null;
+        };
+    }
 }

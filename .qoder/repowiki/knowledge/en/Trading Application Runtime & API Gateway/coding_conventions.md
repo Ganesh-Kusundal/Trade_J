@@ -1,0 +1,3 @@
+- Controllers enforce runtime mode checks (e.g., `RuntimeMode.LIVE`) before executing state-changing operations like order placement or cancellation.
+- Configuration classes use `@ConditionalOnProperty` to selectively enable broker adapters or gateway features based on `application.yml` profiles.
+- Admin and API endpoints return consistent `ResponseEntity<Map<String, Object>>` structures for operational metrics and error reporting.

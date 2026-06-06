@@ -1,0 +1,15 @@
+schema_version: 1
+module_path: trading/strategy
+title: Strategy Execution & Portfolio Risk Management
+scope:
+    - trading/strategy/
+source_files: []
+depends_on: []
+related_to:
+    - path: trading/execution
+    - path: trading/institutional_scanner
+    - path: trading/indicators
+    - path: pipeline
+    - path: research
+    - path: replay
+    - path: trading/simulation

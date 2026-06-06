@@ -1,0 +1,5 @@
+- The module centers on `IndicatorEngine`, which composes five indicator implementations (`HalfTrend`, `CVD`, `BollingerSqueeze`, `SwingHighLow`, `HighProbabilityOrderBlock`) and orchestrates their execution via a single `enrich()` method that returns an `EnrichedChart` record bundling all computed results.
+- Each indicator is a stateless, final class with a public `calculate(List<Candle>)` method returning a typed list of result records (e.g., `Point`, `Marker`, `Zone`).
+- `VolumeProfile` diverges from the batch pattern — it is an incremental accumulator accepting individual trades via `addTrade()` and exposing query methods like `pointOfControl()` and `valueAreaHigh()`. It is not wired into `IndicatorEngine`.
+- Dependency direction: indicators depend only on `com.tradej.core.domain.model.Candle` from the `:core` project; no inter-indicator coupling exists.
+- Build manifest (`build.gradle`) declares dependency on `:core` and SLF4J for logging, with JUnit Jupiter for tests.

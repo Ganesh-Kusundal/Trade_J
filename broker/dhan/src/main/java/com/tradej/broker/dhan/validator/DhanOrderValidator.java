@@ -6,13 +6,11 @@ import com.tradej.broker.dhan.config.DhanConnectionSettings;
 import com.tradej.broker.dhan.constants.DhanProtocolConstants;
 import com.tradej.broker.dhan.exceptions.DhanValidationException;
 import com.tradej.broker.dhan.instrument.DhanInstrumentDefinition;
-import com.tradej.broker.dhan.mapper.DhanApiConverters;
 import com.tradej.core.domain.model.InstrumentKey;
 import com.tradej.core.domain.model.OrderPreview;
 import com.tradej.core.domain.model.OrderRequest;
 import com.tradej.core.domain.value.ExchangeSegment;
 import com.tradej.core.domain.value.ProductType;
-import com.tradej.core.domain.value.Side;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -372,6 +370,15 @@ public final class DhanOrderValidator {
         }
     }
 
+    /** Margin factor for CNC orders (100% of notional, no leverage). */
+    private static final double MARGIN_FACTOR_CNC = 1.0;
+    /** Margin factor for INTRADAY orders (~20-25% of notional). */
+    private static final double MARGIN_FACTOR_INTRADAY = 0.25;
+    /** Margin factor for MARGIN orders (~25-30% of notional). */
+    private static final double MARGIN_FACTOR_MARGIN = 0.30;
+    /** Margin factor for CARRY_FORWARD (NRML) orders (~50% of notional). */
+    private static final double MARGIN_FACTOR_CARRY_FORWARD = 0.50;
+
     /**
      * Simplified margin estimation.
      * Real implementation would call Dhan margin calculator API.
@@ -386,10 +393,10 @@ public final class DhanOrderValidator {
         // For CNC: ~100% of notional (no leverage)
         // For MARGIN: ~25-30% of notional
         double marginFactor = switch (request.productType()) {
-            case CNC -> 1.0;
-            case INTRADAY -> 0.25;
-            case MARGIN -> 0.30;
-            case CARRY_FORWARD -> 0.50; // NRML
+            case CNC -> MARGIN_FACTOR_CNC;
+            case INTRADAY -> MARGIN_FACTOR_INTRADAY;
+            case MARGIN -> MARGIN_FACTOR_MARGIN;
+            case CARRY_FORWARD -> MARGIN_FACTOR_CARRY_FORWARD;
         };
         long notional = request.quantity() * pricePaisa;
         return (long) (notional * marginFactor);

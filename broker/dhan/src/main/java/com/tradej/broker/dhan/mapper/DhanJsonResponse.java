@@ -296,8 +296,12 @@ public final class DhanJsonResponse {
 
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (!(o instanceof DhanJsonResponse that)) return false;
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof DhanJsonResponse that)) {
+            return false;
+        }
         return raw != null && raw.equals(that.raw);
     }
 

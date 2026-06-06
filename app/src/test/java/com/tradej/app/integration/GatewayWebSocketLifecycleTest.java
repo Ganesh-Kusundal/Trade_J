@@ -126,8 +126,7 @@ class GatewayWebSocketLifecycleTest {
     @AfterEach
     void cleanupSessions() {
         for (WebSocketSession session : managedSessions) {
-            // Clean up router subscriptions so they don't leak across tests
-            topicRouter.unsubscribeAll(session);
+            webSocketHandler.afterConnectionClosed(session, CloseStatus.NORMAL);
             try {
                 if (session.isOpen()) {
                     session.close();

@@ -1,0 +1,1 @@
+React 19 with TypeScript, Vite 8 for bundling, Zustand 5 for state management, Lightweight Charts 5 for financial visualizations, and Tailwind CSS 4 for styling.

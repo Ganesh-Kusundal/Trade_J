@@ -1,10 +1,18 @@
 package com.tradej.cli;
 
 import com.tradej.cli.command.CliAttachCommands;
+import com.tradej.cli.command.CliBacktestCommands;
+import com.tradej.cli.command.CliBrokerCertCommands;
 import com.tradej.cli.command.CliBrokerCommands;
 import com.tradej.cli.command.CliCommandSupport;
+import com.tradej.cli.command.CliDataCommands;
 import com.tradej.cli.command.CliDownloadCommands;
+import com.tradej.cli.command.CliHistoricalCommands;
+import com.tradej.cli.command.CliGatewayCommands;
+import com.tradej.cli.command.CliMarketCommands;
 import com.tradej.cli.command.CliMaintenanceCommands;
+import com.tradej.cli.command.CliPortfolioCommands;
+import com.tradej.cli.command.CliReplayCommands;
 import com.tradej.cli.command.CliScanCommands;
 import com.tradej.cli.command.CliTradingCommands;
 import com.tradej.cli.output.OutputFormatter;
@@ -23,6 +31,14 @@ public final class CliOperations {
     private final CliScanCommands scan;
     private final CliDownloadCommands download;
     private final CliMaintenanceCommands maintenance;
+    private final CliDataCommands data;
+    private final CliBacktestCommands backtest;
+    private final CliReplayCommands replay;
+    private final CliPortfolioCommands portfolio;
+    private final CliHistoricalCommands historical;
+    private final CliBrokerCertCommands brokerCert;
+    private final CliGatewayCommands gateway;
+    private final CliMarketCommands market;
 
     public CliOperations(CliContext context) {
         this.context = context;
@@ -34,6 +50,14 @@ public final class CliOperations {
         this.scan = new CliScanCommands(context, out);
         this.download = new CliDownloadCommands(context, out);
         this.maintenance = new CliMaintenanceCommands(context, out);
+        this.data = new CliDataCommands(context, out);
+        this.backtest = new CliBacktestCommands(context, out);
+        this.replay = new CliReplayCommands(context, out);
+        this.portfolio = new CliPortfolioCommands(context, out);
+        this.historical = new CliHistoricalCommands(context, out);
+        this.brokerCert = new CliBrokerCertCommands(context, out);
+        this.gateway = new CliGatewayCommands(context, out);
+        this.market = new CliMarketCommands(context, out);
     }
 
     public OutputFormatter output() {
@@ -57,19 +81,40 @@ public final class CliOperations {
     public void reconcile(String jsonPayload) throws IOException { attach.reconcile(jsonPayload); }
     public void showRiskConfig() throws IOException { attach.showRiskConfig(); }
     public void historicalCandles(String symbol, String interval, long from, long to, int limit) {
-        attach.historicalCandles(symbol, interval, from, to, limit);
+        // Try standalone DuckDB first, fall back to attach mode
+        try {
+            historical.candles(symbol, interval, from, to, limit);
+        } catch (Exception e) {
+            attach.historicalCandles(symbol, interval, from, to, limit);
+        }
     }
     public void historicalTicks(String symbol, long from, long to, int limit) {
-        attach.historicalTicks(symbol, from, to, limit);
+        try {
+            historical.ticks(symbol, from, to, limit);
+        } catch (Exception e) {
+            attach.historicalTicks(symbol, from, to, limit);
+        }
     }
     public void historicalOrders(String symbol, long from, long to, int limit) {
-        attach.historicalOrders(symbol, from, to, limit);
+        try {
+            historical.orders(symbol, from, to, limit);
+        } catch (Exception e) {
+            attach.historicalOrders(symbol, from, to, limit);
+        }
     }
     public void historicalFills(String symbol, long from, long to, int limit) {
-        attach.historicalFills(symbol, from, to, limit);
+        try {
+            historical.fills(symbol, from, to, limit);
+        } catch (Exception e) {
+            attach.historicalFills(symbol, from, to, limit);
+        }
     }
     public void historicalStats(String symbol, long from, long to) {
-        attach.historicalStats(symbol, from, to);
+        try {
+            historical.stats(symbol, from, to);
+        } catch (Exception e) {
+            attach.historicalStats(symbol, from, to);
+        }
     }
     public void replayTicks(String symbol, long from, long to) { attach.replayTicks(symbol, from, to); }
     public void replayCandles(String symbol, String interval, long from, long to) {
@@ -105,20 +150,79 @@ public final class CliOperations {
             String orderType, long pricePaisa) {
         broker.margin(symbol, segmentName, side, quantity, productType, orderType, pricePaisa);
     }
+    public void previewOrder(String symbol, String segmentName, String side, long quantity,
+            String orderType, long pricePaisa, String productType) {
+        broker.previewOrder(symbol, segmentName, side, quantity, orderType, pricePaisa, productType);
+    }
     public void rollingOption(String underlying, String segmentName, int intervalMinutes, String expiryFlag,
             int expiryCode, String strike, String optionType, LocalDate fromDate, LocalDate toDate) {
         broker.rollingOption(underlying, segmentName, intervalMinutes, expiryFlag, expiryCode,
                 strike, optionType, fromDate, toDate);
     }
+    public void batchQuote(String symbol1, String symbol2, String segment) { broker.batchQuote(symbol1, symbol2, segment); }
+    public void listAlerts() { broker.listAlerts(); }
+    public void cancelAndSquareOff() { broker.cancelAndSquareOff(); }
+
+    public void bracketOrder(String symbol, String segment, String side, long qty, long price, long target, long sl, long trailing) {
+        broker.bracketOrder(symbol, segment, side, qty, price, target, sl, trailing);
+    }
+    public void gttOrder(String symbol, String segment, String side, long qty, long price, String flag) {
+        broker.gttOrder(symbol, segment, side, qty, price, flag);
+    }
+    public void futuresContracts(String underlying, String segment) {
+        broker.futuresContracts(underlying, segment);
+    }
+    public void brokerHealthCheck(String brokerName) {
+        broker.healthCheck(brokerName);
+    }
 
     public void placeSandboxOrder(String symbol, String segmentName, String side, long quantity, String orderType,
             long pricePaisa, String productType) {
-        trading.placeSandboxOrder(symbol, segmentName, side, quantity, orderType, pricePaisa, productType);
+        trading.placeOrder(symbol, segmentName, side, quantity, orderType, pricePaisa, 0L, productType, "DAY");
     }
     public void cancelOrder(String orderId) { trading.cancelOrder(orderId); }
     public void modifyOrder(String orderId, long quantity, long pricePaisa) {
         trading.modifyOrder(orderId, quantity, pricePaisa);
     }
+
+    // ── Data commands ──
+    public void dataLtp(String symbol, String segment) { data.ltp(symbol, segment); }
+    public void dataQuote(String symbol, String segment) { data.quote(symbol, segment); }
+    public void dataDepth(String symbol, String segment) { data.depth(symbol, segment); }
+    public void dataOhlc(String symbol, String segment) { data.ohlc(symbol, segment); }
+    public void dataCandles(String symbol, String segment, String interval, LocalDate from, LocalDate to) {
+        data.candles(symbol, segment, interval, from, to);
+    }
+    public void dataOptionChain(String underlying, String segment, LocalDate expiry) {
+        data.optionChain(underlying, segment, expiry);
+    }
+
+    // ── Portfolio commands ──
+    public void portfolioSummary() { portfolio.summary(); }
+    public void portfolioPositions() { portfolio.positions(); }
+    public void portfolioHoldings() { portfolio.holdings(); }
+    public void portfolioPnl() { portfolio.pnl(); }
+
+    // ── Standalone trading commands (enhanced) ──
+    public void placeOrderLive(String symbol, String segment, String side, long qty,
+                               String orderType, long price, long triggerPrice,
+                               String product, String validity) {
+        trading.placeOrder(symbol, segment, side, qty, orderType, price, triggerPrice, product, validity);
+    }
+    public void orderStatus(String orderId) { trading.orderStatus(orderId); }
+    public void tradeBookStandalone() { trading.tradeBook(); }
+    public void orderBookStandalone() { trading.orderBook(); }
+
+    // ── Backtest commands ──
+    public void backtestRun(String strategy, String symbol, String segment,
+                            LocalDate from, LocalDate to, long capital) throws Exception {
+        backtest.run(strategy, symbol, segment, from, to, capital);
+    }
+    public void backtestList(int limit) { backtest.list(limit); }
+    public void backtestStatus(String runId) { backtest.status(runId); }
+
+    // Replay commands still route through `attach.replay*()` (attach-only).
+    // TODO: Add DuckDB fallback for replay similar to historical commands (see CliReplayCommands).
 
     public void scanRun(String profileId) throws Exception { scan.scanRun(profileId); }
     public void optionsScan(String underlying, String segmentName, String expiryPolicy, LocalDate explicitExpiry,
@@ -174,6 +278,20 @@ public final class CliOperations {
                 fromMonth, toMonth, force, symbols, skipUniverseImport);
     }
 
+    // ── Screener commands ──
+    public void screenerRun(String profile) throws Exception {
+        // Delegates to CliScreenerCommands via scan infrastructure
+        scan.scanRun(profile);
+    }
+    public void screenerResults(String profile, int last) throws Exception {
+        scan.scanList(profile, last);
+    }
+
+    // ── Broker cert commands ──
+    public void brokerValidate(String symbol, String segment, boolean skipOrders) {
+        brokerCert.validate(symbol, segment, skipOrders);
+    }
+
     public int runProcess(List<String> command) throws IOException, InterruptedException {
         return maintenance.runProcess(command);
     }
@@ -183,4 +301,24 @@ public final class CliOperations {
     public String configuredRuntimeMode() { return support.configuredRuntimeMode(); }
     public static long defaultFromMs() { return CliCommandSupport.defaultFromMs(); }
     public static long defaultToMs() { return CliCommandSupport.defaultToMs(); }
+
+    // ── Gateway commands (broker <name> <action>) ──
+    public void gatewayQuote(String broker, String symbol, String segment) { gateway.quote(broker, symbol, segment); }
+    public void gatewayDepth(String broker, String symbol, String segment) { gateway.depth(broker, symbol, segment); }
+    public void gatewayLtp(String broker, String symbol, String segment) { gateway.ltp(broker, symbol, segment); }
+    public void gatewayHistorical(String broker, String symbol, String segment, String interval, java.time.LocalDate from, java.time.LocalDate to) { gateway.historical(broker, symbol, segment, interval, from, to); }
+    public void gatewayOptionChain(String broker, String underlying, String segment, String expiry) { gateway.optionChain(broker, underlying, segment, expiry); }
+    public void gatewayBalance(String broker) { gateway.balance(broker); }
+    public void gatewayPositions(String broker) { gateway.positions(broker); }
+    public void gatewayOrders(String broker) { gateway.orders(broker); }
+    public void gatewayInspect(String broker) { gateway.inspect(broker); }
+    public void gatewayCapabilities(String broker, boolean jsonOutput) { gateway.capabilities(broker, jsonOutput); }
+    public void gatewayValidate(String broker, String symbol, String segment) { gateway.validate(broker, symbol, segment); }
+
+    // ── Market analytics commands ──
+    public void marketPcr(String underlying, String segment) { market.pcr(underlying, segment); }
+    public void marketTopOi(String underlying, String segment, int top) { market.topOi(underlying, segment, top); }
+    public void marketTopVolume(String underlying, String segment, int top) { market.topVolume(underlying, segment, top); }
+    public void marketMaxPain(String underlying, String segment) { market.maxPain(underlying, segment); }
+    public void marketSupport(String underlying, String segment) { market.support(underlying, segment); }
 }

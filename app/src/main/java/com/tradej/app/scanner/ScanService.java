@@ -1,7 +1,7 @@
 package com.tradej.app.scanner;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.tradej.app.config.ScanProperties;
+import com.tradej.composition.config.ScanProperties;
 import com.tradej.core.domain.model.InstrumentKey;
 import com.tradej.core.domain.port.HistoricalBarRepository;
 import com.tradej.core.domain.value.ExchangeSegment;

@@ -1,0 +1,14 @@
+dependencies {
+    api project(':core')
+    implementation project(':trading-execution')
+    implementation project(':trading-strategy')
+    implementation project(':trading-scanner')
+    implementation project(':data-feature-store')
+    implementation project(':data-persistence')
+
+    implementation 'org.slf4j:slf4j-api'
+
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testImplementation 'org.mockito:mockito-core'
+    testImplementation 'org.mockito:mockito-junit-jupiter'
+}

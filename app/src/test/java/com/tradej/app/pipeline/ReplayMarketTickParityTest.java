@@ -1,7 +1,6 @@
 package com.tradej.app.pipeline;
 
 import com.tradej.core.domain.event.MarketTickEvent;
-import com.tradej.core.domain.event.TickReceived;
 import com.tradej.core.domain.port.EventBus;
 import com.tradej.core.domain.value.ExchangeSegment;
 import com.tradej.core.domain.value.FeedMode;
@@ -26,8 +25,7 @@ class ReplayMarketTickParityTest {
     }
 
     @Test
-    void marketTickAndTickReceivedAreDistinctEventTypes() {
-        assertNotEquals(MarketTickEvent.class, TickReceived.class);
+    void marketTickEventHasCorrectSimpleName() {
         assertEquals("MarketTickEvent", MarketTickEvent.class.getSimpleName());
     }
 

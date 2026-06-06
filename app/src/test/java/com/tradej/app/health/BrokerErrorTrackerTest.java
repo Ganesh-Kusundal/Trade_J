@@ -2,7 +2,9 @@ package com.tradej.app.health;
 
 import com.tradej.core.domain.event.BrokerAdapterError;
 import com.tradej.core.domain.event.EventMetadata;
-import com.tradej.core.domain.event.TickReceived;
+import com.tradej.core.domain.event.MarketTickEvent;
+import com.tradej.core.domain.value.FeedMode;
+import java.util.Optional;
 import com.tradej.core.domain.value.ExchangeSegment;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -80,10 +82,8 @@ class BrokerErrorTrackerTest {
 
     @Test
     void ignoresNonBrokerErrorEvents() {
-        // TickReceived is not a BrokerAdapterError — should be ignored
-        tracker.onEvent(new TickReceived(
-                EventMetadata.root(), "SBIN", "1s", 150_00L, 100L, 10000L, System.currentTimeMillis(), null
-        ));
+        // MarketTickEvent is not a BrokerAdapterError — should be ignored
+        tracker.onEvent(new MarketTickEvent(EventMetadata.root(), 0L, "SBIN", ExchangeSegment.NSE_EQ, FeedMode.TICKER, 150_00L, 100L, 10000L, System.currentTimeMillis(), Optional.empty(), 0L, 0L));
 
         assertEquals(0L, tracker.totalErrors());
     }

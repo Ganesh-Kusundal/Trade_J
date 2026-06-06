@@ -3,7 +3,10 @@ package com.tradej.disruptor;
 import com.tradej.core.domain.event.CandleClosed;
 import com.tradej.core.domain.event.DomainEvent;
 import com.tradej.core.domain.event.EventMetadata;
-import com.tradej.core.domain.event.TickReceived;
+import com.tradej.core.domain.event.MarketTickEvent;
+import com.tradej.core.domain.value.ExchangeSegment;
+import com.tradej.core.domain.value.FeedMode;
+import java.util.Optional;
 import com.tradej.core.domain.model.Candle;
 import com.tradej.core.domain.model.Instrument;
 import com.tradej.core.domain.model.InstrumentKey;
@@ -43,9 +46,9 @@ class DisruptorEventBusStressTest {
     @Test
     void unsubscribeUnregisteredTypeDoesNotThrow() {
         EventBus bus = createMinimalBus();
-        bus.subscribe(TickReceived.class, e -> {});
-        bus.unsubscribe(TickReceived.class, e -> {});
-        bus.unsubscribe(TickReceived.class, e -> {});
+        bus.subscribe(MarketTickEvent.class, e -> {});
+        bus.unsubscribe(MarketTickEvent.class, e -> {});
+        bus.unsubscribe(MarketTickEvent.class, e -> {});
         bus.unsubscribe(DomainEvent.class, e -> {});
         assertTrue(true, "No exception thrown");
     }
@@ -56,12 +59,11 @@ class DisruptorEventBusStressTest {
         AtomicInteger c1 = new AtomicInteger();
         AtomicInteger c2 = new AtomicInteger();
 
-        bus.subscribe(TickReceived.class, e -> c1.incrementAndGet());
-        bus.subscribe(TickReceived.class, e -> c2.incrementAndGet());
+        bus.subscribe(MarketTickEvent.class, e -> c1.incrementAndGet());
+        bus.subscribe(MarketTickEvent.class, e -> c2.incrementAndGet());
         bus.start();
 
-        var tick = new TickReceived(EventMetadata.root(), "SBIN", "5m",
-                100_00L, 10L, 10L, 1000L, null);
+        var tick = new MarketTickEvent(EventMetadata.root(), 0L, "SBIN", ExchangeSegment.NSE_EQ, FeedMode.TICKER, 100_00L, 10L, 10L, 1000L, Optional.empty(), 0L, 0L);
         bus.publish(tick);
         Thread.sleep(200);
         bus.stop();
@@ -75,11 +77,10 @@ class DisruptorEventBusStressTest {
         EventBus bus = createMinimalBus();
         AtomicInteger count = new AtomicInteger();
 
-        bus.subscribe(TickReceived.class, e -> count.incrementAndGet());
+        bus.subscribe(MarketTickEvent.class, e -> count.incrementAndGet());
         bus.start();
 
-        var tick = new TickReceived(EventMetadata.root(), "SBIN", "5m",
-                100_00L, 10L, 10L, 1000L, null);
+        var tick = new MarketTickEvent(EventMetadata.root(), 0L, "SBIN", ExchangeSegment.NSE_EQ, FeedMode.TICKER, 100_00L, 10L, 10L, 1000L, Optional.empty(), 0L, 0L);
         bus.publish(tick);
         bus.publish(tick);
         Thread.sleep(200);
@@ -93,11 +94,10 @@ class DisruptorEventBusStressTest {
         EventBus bus = createMinimalBus();
         CopyOnWriteArrayList<DomainEvent> received = new CopyOnWriteArrayList<>();
 
-        bus.subscribe(TickReceived.class, received::add);
+        bus.subscribe(MarketTickEvent.class, received::add);
         bus.start();
 
-        var tick = new TickReceived(EventMetadata.root(), "SBIN", "5m",
-                100_00L, 10L, 10L, 1000L, null);
+        var tick = new MarketTickEvent(EventMetadata.root(), 0L, "SBIN", ExchangeSegment.NSE_EQ, FeedMode.TICKER, 100_00L, 10L, 10L, 1000L, Optional.empty(), 0L, 0L);
         bus.publish(tick);
         Thread.sleep(200);
         bus.stop();
@@ -113,7 +113,7 @@ class DisruptorEventBusStressTest {
         CountDownLatch latch = new CountDownLatch(1);
         int expectedEvents = 1000;
 
-        bus.subscribe(TickReceived.class, e -> {
+        bus.subscribe(MarketTickEvent.class, e -> {
             int count = primaryCount.incrementAndGet();
             // Publish a different event from inside the subscriber callback —
             // this goes through the downstream queue and must not deadlock.
@@ -131,8 +131,7 @@ class DisruptorEventBusStressTest {
 
         // Publish from multiple threads to create ring buffer pressure
         var result = ConcurrentStressTester.run(10, expectedEvents / 10, threadIndex -> {
-            var tick = new TickReceived(EventMetadata.root(), "SBIN", "5m",
-                    100_00L, 10L, 10L, 1000L, null);
+            var tick = new MarketTickEvent(EventMetadata.root(), 0L, "SBIN", ExchangeSegment.NSE_EQ, FeedMode.TICKER, 100_00L, 10L, 10L, 1000L, Optional.empty(), 0L, 0L);
             bus.publish(tick);
         });
 
@@ -153,12 +152,11 @@ class DisruptorEventBusStressTest {
         EventBus bus = createMinimalBus();
         AtomicInteger count = new AtomicInteger();
 
-        bus.subscribe(TickReceived.class, e -> count.incrementAndGet());
+        bus.subscribe(MarketTickEvent.class, e -> count.incrementAndGet());
         bus.start();
 
         // Publish 100K+ events with the SAME eventId — dedup should collapse to 1
-        var tick = new TickReceived(EventMetadata.root(), "SBIN", "5m",
-                100_00L, 10L, 10L, 1000L, null);
+        var tick = new MarketTickEvent(EventMetadata.root(), 0L, "SBIN", ExchangeSegment.NSE_EQ, FeedMode.TICKER, 100_00L, 10L, 10L, 1000L, Optional.empty(), 0L, 0L);
         for (int i = 0; i < 100_001; i++) {
             bus.publish(tick);
         }
@@ -185,7 +183,7 @@ class DisruptorEventBusStressTest {
         var blocker = new CountDownLatch(1);
         AtomicInteger processedCount = new AtomicInteger();
 
-        bus.subscribe(TickReceived.class, e -> {
+        bus.subscribe(MarketTickEvent.class, e -> {
             processedCount.incrementAndGet();
             try {
                 blocker.await();
@@ -197,11 +195,7 @@ class DisruptorEventBusStressTest {
 
         // Publish 5000 events — dispatch queue (4096 capacity) will overflow
         for (int i = 0; i < 5000; i++) {
-            bus.publish(new TickReceived(
-                    EventMetadata.correlated("dlq-test", i),
-                    "SBIN", "5m",
-                    100_00L, 10L, 10L, 1000L, null
-            ));
+            bus.publish(new MarketTickEvent(EventMetadata.correlated("dlq-test", i), 0L, "SBIN", ExchangeSegment.NSE_EQ, FeedMode.TICKER, 100_00L, 10L, 10L, 1000L, Optional.empty(), 0L, 0L));
         }
 
         // Poll for DLQ overflow with timeout (replaces fixed sleep to avoid flakiness)

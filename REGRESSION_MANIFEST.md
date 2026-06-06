@@ -78,6 +78,12 @@ Maps each verification test to Gradle task, environment, opt-in flags, and archi
 | `PipelineSnapshotUnitTest` | unitTest | none | — | INV-31 immutability |
 | `PipelineGraphComponentTest` | componentTest | none | — | INV-31 immutability |
 | `ModuleDependencyTest` | unitTest | none | — | INV-31 immutability |
+| `BrokerHandleInvokeTest` | unitTest | none | — | INV-43 option-greeks dynamic dispatch (`BrokerHandle.invoke` + `BrokerExtras.optionGreeks` for Dhan/Upstox/ICICI) |
+| `BrokerGatewayLiveConnectionTest` | brokerRestTest | live | — | INV-44 broker-gateway live connection: `handle.greeks(key)`, `handle.invoke("getOptionGreeks", {instrumentKey})`, `extras().optionGreeks(key)`, `extras().invoke("optionGreeks"/"getOptionGreeks", key)`, and ambiguity rejection of `symbol+segment` for options |
+| `IndexSymbolsTest` | unitTest | none | — | INV-45 canonical NSE index names + alias mapping (`BANKNIFTY`→`NIFTY BANK`, `FINNIFTY`→`NIFTY FIN SERVICE`, `MIDCPNIFTY`→`NIFTY MID SELECT`), `isIndexUnderlying` for index underlyings, index option contracts, and stock option contracts, `defaultSegment` resolution |
+| `DhanSegmentMapperTest` | unitTest | none | — | INV-45 Dhan canonical-segment → wire-code mapping (`toWireValue`) covers all 8 supported segments, rejects null/UNKNOWN, and round-trips through `fromValue` for stable mapping |
+| `DhanInstrumentLoaderTest` | unitTest | none | — | INV-46 loader canonicalization: `BANKNIFTY` row → `canonicalSymbol="NIFTY BANK"`, `NIFTY` row → `canonicalSymbol="NIFTY"`, `FINNIFTY`/`MIDCPNIFTY` → canonical NSE names, `EQUITY` rows untouched, catalog `getBySymbol` resolves both `BANKNIFTY` and `NIFTY BANK` to the same `securityId` |
+| `BrokerGatewayLiveConnectionTest` (canonical/alias) | brokerRestTest | live | — | INV-46 end-to-end canonical-name resolution through real Dhan HTTP: `handle.ltp("NIFTY BANK", IDX_I)` returns real LTP; `handle.ltp("BANKNIFTY")` and `handle.ltp("NIFTY BANK", IDX_I)` resolve to same securityId (LTPs within 1%); `handle.quote("NIFTY", IDX_I)` and `handle.ohlc("NIFTY FIN SERVICE", IDX_I)` resolve canonically |
 
 ## Architecture phase mapping
 
@@ -88,6 +94,7 @@ Maps each verification test to Gradle task, environment, opt-in flags, and archi
 | C — Risk | INV-09 |
 | D — Replay / pipeline | INV-06, INV-07, INV-29, INV-31, INV-32 |
 | Broker parity | INV-11–INV-26 |
+| Broker-gateway / canonicalization | INV-43, INV-44, INV-45, INV-46 |
 
 ## Sign-off checklist (before release)
 

@@ -1,7 +1,7 @@
 package com.tradej.app.config;
 
-import com.tradej.app.service.broker.BrokerExpiredOptionQueryService;
-import com.tradej.app.service.broker.BrokerHistoricalQueryService;
+import com.tradej.broker.upstox.expired.BrokerExpiredOptionQueryService;
+import com.tradej.historical.service.BrokerHistoricalQueryService;
 import com.tradej.broker.api.port.MarketDataProvider;
 import com.tradej.broker.upstox.expired.UpstoxExpiredOptionService;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;

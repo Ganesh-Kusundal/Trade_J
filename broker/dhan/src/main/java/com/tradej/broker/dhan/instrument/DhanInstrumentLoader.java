@@ -1,6 +1,7 @@
 package com.tradej.broker.dhan.instrument;
 
 import com.tradej.broker.dhan.constants.DhanApiEndpoints;
+import com.tradej.core.domain.instrument.IndexSymbols;
 import com.tradej.core.domain.value.PriceMath;
 import com.tradej.core.domain.value.OptionType;
 
@@ -143,18 +144,25 @@ public final class DhanInstrumentLoader {
     ) {
         String normalizedType = instrumentType == null ? "" : instrumentType.toUpperCase(Locale.ENGLISH);
         if (optionType != OptionType.UNKNOWN) {
-            String canonical = DhanSymbolNormalizer.canonicalOptionSymbol(underlying, expiry, strikePricePaisa, optionType);
-            if (!canonical.isBlank()) {
-                return canonical;
+            String optionCanonical = DhanSymbolNormalizer.canonicalOptionSymbol(underlying, expiry, strikePricePaisa, optionType);
+            if (!optionCanonical.isBlank()) {
+                return optionCanonical;
             }
         }
         if (normalizedType.startsWith("FUT")) {
-            String canonical = DhanSymbolNormalizer.canonicalFutureSymbol(underlying, expiry);
-            if (!canonical.isBlank()) {
-                return canonical;
+            String futureCanonical = DhanSymbolNormalizer.canonicalFutureSymbol(underlying, expiry);
+            if (!futureCanonical.isBlank()) {
+                return futureCanonical;
             }
         }
         if ("EQUITY".equals(normalizedType) || "INDEX".equals(normalizedType)) {
+            // For indices, Dhan's sem_trading_symbol holds the broker-trading alias
+            // (e.g. "BANKNIFTY"). The canonical NSE name (e.g. "NIFTY BANK") goes in
+            // canonicalSymbol so the catalog indexes BOTH forms — callers using
+            // Instruments.bankNifty() and callers using the legacy alias both resolve.
+            if ("INDEX".equals(normalizedType)) {
+                return canonicalize(IndexSymbols.canonicalize(symbol), symbol);
+            }
             return canonicalize(symbol, symbol);
         }
         return canonicalize(customSymbol, symbol);

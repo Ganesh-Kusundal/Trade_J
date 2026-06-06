@@ -1,7 +1,10 @@
 package com.tradej.disruptor;
 
 import com.tradej.core.domain.event.EventMetadata;
-import com.tradej.core.domain.event.TickReceived;
+import com.tradej.core.domain.event.MarketTickEvent;
+import com.tradej.core.domain.value.ExchangeSegment;
+import com.tradej.core.domain.value.FeedMode;
+import java.util.Optional;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
@@ -15,8 +18,8 @@ class ShardedDisruptorEventBusTest {
 
     @Test
     void routesSameSymbolToSameShard() {
-        TickReceived tick1 = tick("SBIN");
-        TickReceived tick2 = tick("SBIN");
+        MarketTickEvent tick1 = tick("SBIN");
+        MarketTickEvent tick2 = tick("SBIN");
         assertEquals(
                 ShardedDisruptorEventBus.shardIndexFor(tick1, 4),
                 ShardedDisruptorEventBus.shardIndexFor(tick2, 4)
@@ -49,16 +52,7 @@ class ShardedDisruptorEventBusTest {
         ));
     }
 
-    private static TickReceived tick(String symbol) {
-        return new TickReceived(
-                EventMetadata.root(),
-                symbol,
-                "1s",
-                100_000L,
-                1L,
-                1L,
-                System.currentTimeMillis(),
-                null
-        );
+    private static MarketTickEvent tick(String symbol) {
+        return new MarketTickEvent(EventMetadata.root(), 0L, symbol, ExchangeSegment.NSE_EQ, FeedMode.TICKER, 100_000L, 1L, 1L, System.currentTimeMillis(), Optional.empty(), 0L, 0L);
     }
 }

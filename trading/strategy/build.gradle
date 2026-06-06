@@ -1,7 +1,8 @@
 dependencies {
     implementation project(':core')
     implementation project(':data-feature-store')
-    implementation 'org.springframework:spring-context'
+    implementation project(':trading-indicators')
+    implementation project(':trading-institutional-scanner')
     implementation 'org.slf4j:slf4j-api'
 
     testImplementation testFixtures(project(':core'))

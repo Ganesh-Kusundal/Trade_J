@@ -10,6 +10,7 @@ import com.tradej.broker.dhan.historical.DhanHistoricalDataClient;
 import com.tradej.broker.dhan.historical.DhanHistoricalDataMapper;
 import com.tradej.broker.dhan.http.DhanAuthenticatedHttpClient;
 import com.tradej.broker.dhan.instrument.DhanInstrumentDefinition;
+import com.tradej.broker.dhan.instrument.DhanSegmentMapper;
 import com.tradej.broker.dhan.mapper.DhanJsonResponse;
 import com.tradej.broker.dhan.mapper.DhanJsonMapper;
 import com.tradej.broker.dhan.rate.ApiCategory;
@@ -20,7 +21,6 @@ import com.tradej.core.domain.model.Instrument;
 import com.tradej.core.domain.model.InstrumentKey;
 import com.tradej.core.domain.model.MarketDepth;
 import com.tradej.core.domain.model.Quote;
-import com.tradej.core.domain.value.PriceMath;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -130,7 +130,7 @@ public final class DhanMarketDataProvider extends DhanBaseRestAdapter implements
                 DhanInstrumentDefinition def = resolveDef(key);
                 defs.put(key, def);
                 segmentSecurityIds
-                        .computeIfAbsent(def.exchangeSegment().name(), ignored -> new ArrayList<>())
+                        .computeIfAbsent(DhanSegmentMapper.toWireValue(def.exchangeSegment()), ignored -> new ArrayList<>())
                         .add(def.securityId());
             }
             ObjectNode body = buildMarketFeedRequestBody(segmentSecurityIds);
@@ -161,7 +161,7 @@ public final class DhanMarketDataProvider extends DhanBaseRestAdapter implements
                 DhanInstrumentDefinition def = resolveDef(key);
                 defs.put(key, def);
                 segmentSecurityIds
-                        .computeIfAbsent(def.exchangeSegment().name(), ignored -> new ArrayList<>())
+                        .computeIfAbsent(DhanSegmentMapper.toWireValue(def.exchangeSegment()), ignored -> new ArrayList<>())
                         .add(def.securityId());
             }
             ObjectNode body = buildMarketFeedRequestBody(segmentSecurityIds);
@@ -187,7 +187,7 @@ public final class DhanMarketDataProvider extends DhanBaseRestAdapter implements
 
     private DhanJsonResponse fetchMarketFeed(DhanInstrumentDefinition definition, String url) {
         ObjectNode body = MAPPER.createObjectNode();
-        body.set(definition.exchangeSegment().name(), securityIdArray(definition.securityId()));
+        body.set(DhanSegmentMapper.toWireValue(definition.exchangeSegment()), securityIdArray(definition.securityId()));
         return httpClient.postJson(url, body);
     }
 
@@ -228,7 +228,7 @@ public final class DhanMarketDataProvider extends DhanBaseRestAdapter implements
      * the payload robustly without assuming one fixed envelope.
      */
     private DhanJsonResponse extractQuotePayload(DhanJsonResponse envelope, DhanInstrumentDefinition definition) {
-        String segment = definition.exchangeSegment().name();
+        String segment = DhanSegmentMapper.toWireValue(definition.exchangeSegment());
         String securityId = definition.securityId();
 
         if (envelope.has("data") && envelope.path("data").isObject()) {

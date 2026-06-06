@@ -1,0 +1,12 @@
+schema_version: 1
+module_path: data/analytics
+title: DuckDB-Powered Historical Analytics Engine
+scope:
+    - data/analytics/
+source_files: []
+depends_on: []
+related_to:
+    - path: data/feature_store
+    - path: research
+    - path: trading/institutional_scanner
+    - path: data/historical_ingest

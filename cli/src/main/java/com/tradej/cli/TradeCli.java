@@ -1,5 +1,7 @@
 package com.tradej.cli;
 
+import com.tradej.cli.command.CliAnalyticsCommands;
+import com.tradej.cli.command.CliBrokerGatewayCommands;
 import com.tradej.cli.config.CliConfig;
 import com.tradej.cli.interactive.InteractiveShell;
 import picocli.CommandLine;
@@ -40,6 +42,11 @@ import java.util.concurrent.Callable;
                 TradeCli.LivePnlCmd.class,
                 TradeCli.ExpiriesCmd.class,
                 TradeCli.ChainCmd.class,
+                TradeCli.DataCmd.class,
+                TradeCli.BacktestCmd.class,
+                TradeCli.PortfolioCmd.class,
+                TradeCli.ScreenerCmd.class,
+                TradeCli.BrokerValidateCmd.class,
                 TradeCli.OptionsScanCmd.class,
                 TradeCli.StrikeCmd.class,
                 TradeCli.MarginCmd.class,
@@ -60,7 +67,18 @@ import java.util.concurrent.Callable;
                 TradeCli.UniverseCmd.class,
                 TradeCli.EquityCmd.class,
                 TradeCli.AnalyticsCmd.class,
-                TradeCli.TestCmd.class
+                TradeCli.TestCmd.class,
+                CliBrokerGatewayCommands.class,
+                CliAnalyticsCommands.class,
+                TradeCli.QueryCmd.class,
+                TradeCli.PreviewCmd.class,
+                TradeCli.BatchQuoteCmd.class,
+                TradeCli.AlertsCmd.class,
+                TradeCli.SquareOffCmd.class,
+                TradeCli.BracketCmd.class,
+                TradeCli.GttCmd.class,
+                TradeCli.FuturesCmd.class,
+                TradeCli.HealthCmd.class
         }
 )
 public class TradeCli implements Callable<Integer> {
@@ -82,7 +100,7 @@ public class TradeCli implements Callable<Integer> {
     private CliContext context;
     private CliOperations operations;
 
-    CliOperations ops() {
+    public CliOperations ops() {
         if (operations == null) {
             context = createContext();
             operations = new CliOperations(context);
@@ -90,7 +108,7 @@ public class TradeCli implements Callable<Integer> {
         return operations;
     }
 
-    void close() {
+    public void close() {
         if (context != null) {
             context.close();
         }
@@ -728,6 +746,100 @@ public class TradeCli implements Callable<Integer> {
         }
     }
 
+    @Command(name = "portfolio", subcommands = {
+            PortfolioSummaryCmd.class,
+            PortfolioPositionsCmd.class,
+            PortfolioHoldingsCmd.class,
+            PortfolioPnlCmd.class
+    }, description = "Standalone portfolio analysis (no trade-app required)")
+    static final class PortfolioCmd {
+        @ParentCommand
+        TradeCli root;
+    }
+
+    abstract static class PortfolioNestedCmd implements Callable<Integer> {
+        @ParentCommand
+        PortfolioCmd portfolio;
+
+        @Override
+        public Integer call() throws Exception {
+            run(portfolio.root.ops());
+            return 0;
+        }
+
+        abstract void run(CliOperations ops) throws Exception;
+    }
+
+    @Command(name = "summary", description = "Portfolio summary — balance, positions, holdings")
+    static final class PortfolioSummaryCmd extends PortfolioNestedCmd {
+        @Override
+        void run(CliOperations ops) { ops.portfolioSummary(); }
+    }
+
+    @Command(name = "positions", description = "Open positions with mark-to-market")
+    static final class PortfolioPositionsCmd extends PortfolioNestedCmd {
+        @Override
+        void run(CliOperations ops) { ops.portfolioPositions(); }
+    }
+
+    @Command(name = "holdings", description = "Long-term holdings")
+    static final class PortfolioHoldingsCmd extends PortfolioNestedCmd {
+        @Override
+        void run(CliOperations ops) { ops.portfolioHoldings(); }
+    }
+
+    @Command(name = "pnl", description = "Live P&L snapshot")
+    static final class PortfolioPnlCmd extends PortfolioNestedCmd {
+        @Override
+        void run(CliOperations ops) { ops.portfolioPnl(); }
+    }
+
+    @Command(name = "screener", subcommands = {
+            ScreenerRunCmd.class,
+            ScreenerResultsCmd.class
+    }, description = "Standalone screener (use --profile to run a scan profile)")
+    static final class ScreenerCmd {
+        @ParentCommand
+        TradeCli root;
+    }
+
+    @Command(name = "run", description = "Run screener profile")
+    static final class ScreenerRunCmd implements Callable<Integer> {
+        @ParentCommand
+        ScreenerCmd screener;
+        @Option(names = "--profile", required = true) String profile;
+        @Override
+        public Integer call() throws Exception {
+            screener.root.ops().screenerRun(profile);
+            return 0;
+        }
+    }
+
+    @Command(name = "results", description = "Show screener results")
+    static final class ScreenerResultsCmd implements Callable<Integer> {
+        @ParentCommand
+        ScreenerCmd screener;
+        @Option(names = "--profile", required = true) String profile;
+        @Option(names = "--last", defaultValue = "5") int last;
+        @Override
+        public Integer call() throws Exception {
+            screener.root.ops().screenerResults(profile, last);
+            return 0;
+        }
+    }
+
+    @Command(name = "broker-validate", description = "Run broker certification smoke test")
+    static final class BrokerValidateCmd extends BaseCmd {
+        @Parameters(index = "0", defaultValue = "RELIANCE") String symbol;
+        @Parameters(index = "1", defaultValue = "IDX_I") String segment;
+        @Option(names = "--skip-orders", description = "Skip order book check") boolean skipOrders;
+
+        @Override
+        void run(CliOperations ops) {
+            ops.brokerValidate(symbol, segment, skipOrders);
+        }
+    }
+
     @Command(name = "scan", subcommands = {ScanRunCmd.class, ScanListCmd.class})
     static final class ScanCmd {
         @ParentCommand
@@ -1096,6 +1208,143 @@ public class TradeCli implements Callable<Integer> {
         }
     }
 
+    @Command(name = "data", subcommands = {
+            DataLtpCmd.class,
+            DataQuoteCmd.class,
+            DataDepthCmd.class,
+            DataOhlcCmd.class,
+            DataCandlesCmd.class,
+            DataChainCmd.class
+    }, description = "Standalone market data (no trade-app required)")
+    static final class DataCmd {
+        @ParentCommand
+        TradeCli root;
+    }
+
+    abstract static class DataNestedCmd implements Callable<Integer> {
+        @ParentCommand
+        DataCmd data;
+
+        @Override
+        public Integer call() throws Exception {
+            run(data.root.ops());
+            return 0;
+        }
+
+        abstract void run(CliOperations ops) throws Exception;
+    }
+
+    @Command(name = "ltp", description = "Last traded price (standalone)")
+    static final class DataLtpCmd extends DataNestedCmd {
+        @Parameters(index = "0") String symbol;
+        @Parameters(index = "1", defaultValue = "IDX_I") String segment;
+        @Override
+        void run(CliOperations ops) { ops.dataLtp(symbol, segment); }
+    }
+
+    @Command(name = "quote", description = "Full quote snapshot (standalone)")
+    static final class DataQuoteCmd extends DataNestedCmd {
+        @Parameters(index = "0") String symbol;
+        @Parameters(index = "1", defaultValue = "IDX_I") String segment;
+        @Override
+        void run(CliOperations ops) { ops.dataQuote(symbol, segment); }
+    }
+
+    @Command(name = "depth", description = "Market depth (standalone)")
+    static final class DataDepthCmd extends DataNestedCmd {
+        @Parameters(index = "0") String symbol;
+        @Parameters(index = "1", defaultValue = "IDX_I") String segment;
+        @Override
+        void run(CliOperations ops) { ops.dataDepth(symbol, segment); }
+    }
+
+    @Command(name = "ohlc", description = "OHLC snapshot (standalone)")
+    static final class DataOhlcCmd extends DataNestedCmd {
+        @Parameters(index = "0") String symbol;
+        @Parameters(index = "1", defaultValue = "IDX_I") String segment;
+        @Override
+        void run(CliOperations ops) { ops.dataOhlc(symbol, segment); }
+    }
+
+    @Command(name = "candles", description = "Historical candles via broker REST (standalone)")
+    static final class DataCandlesCmd extends DataNestedCmd {
+        @Parameters(index = "0") String symbol;
+        @Parameters(index = "1", defaultValue = "IDX_I") String segment;
+        @Option(names = "--interval", defaultValue = "5m") String interval;
+        @Option(names = "--from") LocalDate from;
+        @Option(names = "--to") LocalDate to;
+        @Override
+        void run(CliOperations ops) {
+            LocalDate end = to == null ? LocalDate.now() : to;
+            LocalDate start = from == null ? end.minusDays(89) : from;
+            ops.dataCandles(symbol, segment, interval, start, end);
+        }
+    }
+
+    @Command(name = "chain", description = "Option chain (standalone)")
+    static final class DataChainCmd extends DataNestedCmd {
+        @Parameters(index = "0") String underlying;
+        @Parameters(index = "1") String segment;
+        @Option(names = "--expiry", required = true) LocalDate expiry;
+        @Override
+        void run(CliOperations ops) { ops.dataOptionChain(underlying, segment, expiry); }
+    }
+
+    @Command(name = "backtest", subcommands = {
+            BacktestRunCmd.class,
+            BacktestListCmd.class,
+            BacktestStatusCmd.class
+    }, description = "Standalone backtesting (no trade-app required)")
+    static final class BacktestCmd {
+        @ParentCommand
+        TradeCli root;
+    }
+
+    abstract static class BacktestNestedCmd implements Callable<Integer> {
+        @ParentCommand
+        BacktestCmd backtest;
+
+        @Override
+        public Integer call() throws Exception {
+            run(backtest.root.ops());
+            return 0;
+        }
+
+        abstract void run(CliOperations ops) throws Exception;
+    }
+
+    @Command(name = "run", description = "Run a backtest (sma-crossover | buy-hold)")
+    static final class BacktestRunCmd extends BacktestNestedCmd {
+        @Option(names = "--strategy", required = true, description = "Strategy name (sma-crossover, buy-hold)") String strategy;
+        @Option(names = "--symbol", required = true) String symbol;
+        @Option(names = "--segment", defaultValue = "NSE_EQ") String segment;
+        @Option(names = "--from", required = true) LocalDate from;
+        @Option(names = "--to", required = true) LocalDate to;
+        @Option(names = "--capital", defaultValue = "10000000", description = "Initial capital in paisa") long capital;
+        @Override
+        void run(CliOperations ops) throws Exception {
+            ops.backtestRun(strategy, symbol, segment, from, to, capital);
+        }
+    }
+
+    @Command(name = "list", description = "List recent backtest results")
+    static final class BacktestListCmd extends BacktestNestedCmd {
+        @Option(names = "--limit", defaultValue = "10") int limit;
+        @Override
+        void run(CliOperations ops) { ops.backtestList(limit); }
+    }
+
+    @Command(name = "status", description = "Check backtest run status")
+    static final class BacktestStatusCmd extends BacktestNestedCmd {
+        @Parameters(index = "0") String runId;
+        @Override
+        void run(CliOperations ops) { ops.backtestStatus(runId); }
+    }
+
+    // Standalone replay is now integrated into `tradej replay` via DuckDB fallback.
+    // Use `tradej replay ticks --symbol --from --to` or `tradej replay candles --symbol --interval --from --to`.
+    // The standalone DuckDB replay commands are available via the CliReplayCommands class.
+
     @Command(name = "test")
     static final class TestCmd extends BaseCmd {
         @Parameters(index = "0") String task;
@@ -1110,5 +1359,102 @@ public class TradeCli implements Callable<Integer> {
                 default -> throw new IllegalArgumentException("Unknown test task: " + task);
             }
         }
+    }
+
+    // Broker gateway and analytics commands extracted to CliBrokerGatewayCommands and CliAnalyticsCommands
+
+    @Command(name = "query", description = "Run SQL against DuckDB analytics warehouse")
+    static final class QueryCmd implements Callable<Integer> {
+        @ParentCommand TradeCli root;
+        @Parameters(index = "0", arity = "0..1", description = "SQL query") String inlineSql;
+        @Option(names = "--file", description = "SQL file path") String file;
+        @Option(names = "--equity-root", defaultValue = "data/historical-equity") String equityRoot;
+        @Option(names = "--options-warehouse", defaultValue = "runtime-dev/historical.duckdb") String optionsWarehouse;
+        @Option(names = "--limit", defaultValue = "1000") int limit;
+
+        @Override
+        public Integer call() throws Exception {
+            String sql = inlineSql;
+            if (file != null && !file.isBlank()) {
+                sql = java.nio.file.Files.readString(java.nio.file.Path.of(file));
+            }
+            if (sql == null || sql.isBlank()) {
+                System.err.println("Provide inline SQL or --file");
+                return 1;
+            }
+            root.ops().analyticsSql(equityRoot, optionsWarehouse, sql, limit);
+            return 0;
+        }
+    }
+
+    @Command(name = "preview", description = "Preview order without placing (broker validation + margin estimate)")
+    static final class PreviewCmd extends BaseCmd {
+        @Parameters(index = "0") String symbol;
+        @Parameters(index = "1", defaultValue = "NSE_EQ") String segment;
+        @Option(names = "--side", defaultValue = "BUY") String side;
+        @Option(names = "--qty", defaultValue = "1") long qty;
+        @Option(names = "--order-type", defaultValue = "MARKET") String orderType;
+        @Option(names = "--price", defaultValue = "0") long price;
+        @Option(names = "--product", defaultValue = "INTRADAY") String product;
+
+        @Override
+        void run(CliOperations ops) {
+            ops.previewOrder(symbol, segment, side, qty, orderType, price, product);
+        }
+    }
+
+    @Command(name = "batch-quote", description = "Batch quote for multiple symbols")
+    static final class BatchQuoteCmd extends BaseCmd {
+        @Parameters(index = "0") String symbol1;
+        @Parameters(index = "1") String symbol2;
+        @Parameters(index = "2", defaultValue = "NSE_EQ") String segment;
+        @Override void run(CliOperations ops) { ops.batchQuote(symbol1, symbol2, segment); }
+    }
+
+    @Command(name = "alerts", description = "List conditional alerts")
+    static final class AlertsCmd extends BaseCmd {
+        @Override void run(CliOperations ops) { ops.listAlerts(); }
+    }
+
+    @Command(name = "square-off", description = "Cancel all orders and square off intraday positions")
+    static final class SquareOffCmd extends BaseCmd {
+        @Override void run(CliOperations ops) { ops.cancelAndSquareOff(); }
+    }
+
+    @Command(name = "bracket", description = "Place bracket order (target + SL)")
+    static final class BracketCmd extends BaseCmd {
+        @Parameters(index = "0") String symbol;
+        @Parameters(index = "1", defaultValue = "NSE_EQ") String segment;
+        @Option(names = "--side", defaultValue = "BUY") String side;
+        @Option(names = "--qty", defaultValue = "1") long qty;
+        @Option(names = "--price", defaultValue = "0") long price;
+        @Option(names = "--target", required = true) long target;
+        @Option(names = "--sl", required = true) long sl;
+        @Option(names = "--trailing", defaultValue = "0") long trailing;
+        @Override void run(CliOperations ops) { ops.bracketOrder(symbol, segment, side, qty, price, target, sl, trailing); }
+    }
+
+    @Command(name = "gtt", description = "Place GTT (Good-Till-Triggered) order")
+    static final class GttCmd extends BaseCmd {
+        @Parameters(index = "0") String symbol;
+        @Parameters(index = "1", defaultValue = "NSE_EQ") String segment;
+        @Option(names = "--side", defaultValue = "BUY") String side;
+        @Option(names = "--qty", defaultValue = "1") long qty;
+        @Option(names = "--price", defaultValue = "0") long price;
+        @Option(names = "--flag", defaultValue = "SINGLE") String flag;
+        @Override void run(CliOperations ops) { ops.gttOrder(symbol, segment, side, qty, price, flag); }
+    }
+
+    @Command(name = "futures", description = "List futures contracts for underlying")
+    static final class FuturesCmd extends BaseCmd {
+        @Parameters(index = "0") String underlying;
+        @Parameters(index = "1", defaultValue = "NSE_FNO") String segment;
+        @Override void run(CliOperations ops) { ops.futuresContracts(underlying, segment); }
+    }
+
+    @Command(name = "health", description = "Run broker health check")
+    static final class HealthCmd extends BaseCmd {
+        @Parameters(index = "0", defaultValue = "dhan") String broker;
+        @Override void run(CliOperations ops) { ops.brokerHealthCheck(broker); }
     }
 }

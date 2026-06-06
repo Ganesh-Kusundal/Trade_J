@@ -1,0 +1,5 @@
+- Entry Point: `TradingApplication` bootstraps the Spring context with component scanning across `com.tradej` packages.
+- API Layer: REST controllers (`OrderController`, `AdminController`, `AnalyticsController`, etc.) expose endpoints for order management, system health, and historical data replay.
+- Configuration Core: Extensive `@Configuration` classes (e.g., `GatewayConfiguration`, `PipelineConfiguration`) wire internal modules like broker adapters, disruptor-based event buses, and DuckDB persistence.
+- Operational Boundaries: Dedicated health indicators (`BrokerHealthIndicator`, `FeedHealthIndicator`) and admin endpoints provide runtime visibility into circuit breakers, kill switches, and pipeline throughput.
+- Mode Management: Supports LIVE, REPLAY, and GATEWAY profiles via `RuntimeModeHolder` and Spring profiles, isolating production trading from backtesting and simulation.

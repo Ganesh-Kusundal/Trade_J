@@ -50,9 +50,14 @@ public final class BreezeTokenManager implements BreezeTokenProvider {
 
     @Override
     public void ensureValid() {
+        // Check reuse BEFORE any mode-specific logic so STATIC sessions
+        // are also subject to expiry validation.
+        long now = clock.millis();
+        if (isReusable(currentSession, now)) {
+            return;
+        }
         if (settings.authMode() == IciciAuthMode.STATIC) {
-            if (currentSession == null && settings.staticSessionToken() != null && !settings.staticSessionToken().isBlank()) {
-                long now = clock.millis();
+            if (settings.staticSessionToken() != null && !settings.staticSessionToken().isBlank()) {
                 currentSession = BreezeSession.fromEncodedToken(
                         settings.staticSessionToken(),
                         now,
@@ -61,7 +66,6 @@ public final class BreezeTokenManager implements BreezeTokenProvider {
             }
             return;
         }
-        long now = clock.millis();
         if (isReusable(currentSession, now)) {
             return;
         }

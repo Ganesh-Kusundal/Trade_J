@@ -7,6 +7,7 @@ import com.tradej.broker.api.capability.MarginCapable;
 import com.tradej.broker.api.capability.OptionsCapable;
 import com.tradej.broker.api.port.BracketOrderProvider;
 import com.tradej.broker.api.port.ConditionalAlertProvider;
+import com.tradej.broker.api.port.CoverOrderProvider;
 import com.tradej.broker.api.port.FuturesProvider;
 import com.tradej.broker.api.port.GttOrderProvider;
 import com.tradej.broker.api.port.MarginProvider;
@@ -43,6 +44,7 @@ class DhanBrokerConnectionTest {
                 mock(OrderQuery.class),
                 mock(SliceOrderCommand.class),
                 mock(BracketOrderProvider.class),
+                mock(CoverOrderProvider.class),
                 mock(GttOrderProvider.class),
                 mock(PortfolioProvider.class),
                 mock(MarginProvider.class),
@@ -77,6 +79,7 @@ class DhanBrokerConnectionTest {
         SessionRiskProvider sessionRisk = mock(SessionRiskProvider.class);
         ConditionalAlertProvider alerts = mock(ConditionalAlertProvider.class);
         BracketOrderProvider bracket = mock(BracketOrderProvider.class);
+        CoverOrderProvider cover = mock(CoverOrderProvider.class);
         GttOrderProvider gtt = mock(GttOrderProvider.class);
         SliceOrderCommand slice = mock(SliceOrderCommand.class);
 
@@ -90,6 +93,7 @@ class DhanBrokerConnectionTest {
                 mock(OrderQuery.class),
                 slice,
                 bracket,
+                cover,
                 gtt,
                 mock(PortfolioProvider.class),
                 margin,
@@ -130,6 +134,7 @@ class DhanBrokerConnectionTest {
                 orderQuery,
                 mock(SliceOrderCommand.class),
                 mock(BracketOrderProvider.class),
+                mock(CoverOrderProvider.class),
                 mock(GttOrderProvider.class),
                 portfolio,
                 margin,
@@ -162,6 +167,7 @@ class DhanBrokerConnectionTest {
                 mock(OrderQuery.class),
                 mock(SliceOrderCommand.class),
                 mock(BracketOrderProvider.class),
+                mock(CoverOrderProvider.class),
                 mock(GttOrderProvider.class),
                 mock(PortfolioProvider.class),
                 mock(MarginProvider.class),
@@ -187,6 +193,7 @@ class DhanBrokerConnectionTest {
                 mock(OrderQuery.class),
                 mock(SliceOrderCommand.class),
                 mock(BracketOrderProvider.class),
+                mock(CoverOrderProvider.class),
                 mock(GttOrderProvider.class),
                 mock(PortfolioProvider.class),
                 mock(MarginProvider.class),
@@ -210,6 +217,7 @@ class DhanBrokerConnectionTest {
                 mock(OrderQuery.class),
                 mock(SliceOrderCommand.class),
                 mock(BracketOrderProvider.class),
+                mock(CoverOrderProvider.class),
                 mock(GttOrderProvider.class),
                 mock(PortfolioProvider.class),
                 mock(MarginProvider.class),

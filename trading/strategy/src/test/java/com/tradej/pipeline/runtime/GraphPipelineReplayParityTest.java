@@ -3,7 +3,9 @@ package com.tradej.pipeline.runtime;
 import com.tradej.core.domain.event.CandleClosed;
 import com.tradej.core.domain.event.DomainEvent;
 import com.tradej.core.domain.event.EventMetadata;
-import com.tradej.core.domain.event.TickReceived;
+import com.tradej.core.domain.event.MarketTickEvent;
+import com.tradej.core.domain.value.ExchangeSegment;
+import com.tradej.core.domain.value.FeedMode;
 import com.tradej.core.domain.model.Candle;
 import com.tradej.pipeline.clock.VirtualClock;
 import com.tradej.pipeline.graph.PipelineEdgeDef;
@@ -40,32 +42,14 @@ class GraphPipelineReplayParityTest {
 
         long baseMs = 1_700_000_000_000L;
         for (int i = 0; i < 120; i++) {
-            TickReceived tick = new TickReceived(
-                    EventMetadata.root(),
-                    "SBIN",
-                    "1s",
-                    100_000L + i,
-                    10L,
-                    1_000L + i,
-                    baseMs + (i * 1_000L),
-                    null
-            );
-            clock.advanceVirtualTimeMs(tick.exchangeTimestampMs());
+            MarketTickEvent tick = new MarketTickEvent(EventMetadata.root(), 0L, "SBIN", ExchangeSegment.NSE_EQ, FeedMode.TICKER, 100_000L + i, 10L, 1_000L + i, baseMs + (i * 1_000L), Optional.empty(), 0L, 0L);
+            clock.advanceVirtualTimeMs(tick.exchangeTimestampEpochMs());
             firstRuntime.processSequential(tick);
         }
 
         for (int i = 0; i < 120; i++) {
-            TickReceived tick = new TickReceived(
-                    EventMetadata.root(),
-                    "SBIN",
-                    "1s",
-                    100_000L + i,
-                    10L,
-                    1_000L + i,
-                    baseMs + (i * 1_000L),
-                    null
-            );
-            clock.advanceVirtualTimeMs(tick.exchangeTimestampMs());
+            MarketTickEvent tick = new MarketTickEvent(EventMetadata.root(), 0L, "SBIN", ExchangeSegment.NSE_EQ, FeedMode.TICKER, 100_000L + i, 10L, 1_000L + i, baseMs + (i * 1_000L), Optional.empty(), 0L, 0L);
+            clock.advanceVirtualTimeMs(tick.exchangeTimestampEpochMs());
             secondRuntime.processSequential(tick);
         }
 

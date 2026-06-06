@@ -1,0 +1,1 @@
+Module is currently excluded from the production build (`settings.gradle`). Requires wiring `OptionChainUpdated` events and registering `GreeksCalcNode` in the DAG template before activation.

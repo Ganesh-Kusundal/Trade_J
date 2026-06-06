@@ -1,6 +1,5 @@
 package com.tradej.execution.service;
 
-import org.springframework.stereotype.Service;
 
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -17,7 +16,6 @@ import java.util.concurrent.atomic.AtomicReference;
  * instead of {@code synchronized} to avoid single-monitor contention under
  * high order throughput (fixes C-01).
  */
-@Service
 public final class TradingCircuitBreaker {
 
     public enum State { CLOSED, OPEN, HALF_OPEN }

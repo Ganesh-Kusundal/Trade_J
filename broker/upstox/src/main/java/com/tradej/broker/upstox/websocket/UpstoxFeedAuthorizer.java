@@ -10,11 +10,13 @@ import com.tradej.broker.upstox.http.UpstoxResponseGuard;
 import java.io.IOException;
 
 /**
- * Handles the Upstox WebSocket feed authorization step.
+ * Handles Upstox WebSocket authorization for both market data and portfolio stream feeds.
  * <p>
- * Before connecting to the market data WebSocket, Upstox requires a call to
- * {@code GET /v2/feed/market-data-feed/authorize} which returns a one-time-use
- * authorized redirect URI for the WebSocket connection.
+ * <b>Market Data Feed:</b> {@code GET /v2/feed/market-data-feed/authorize} returns a one-time-use
+ * authorized redirect URI for the binary market data WebSocket.
+ * <p>
+ * <b>Portfolio Stream Feed:</b> {@code GET /v2/feed/portfolio-stream-feed/authorize?update_types=...}
+ * returns a one-time-use authorized redirect URI for order/position/holding JSON updates.
  */
 public final class UpstoxFeedAuthorizer {
 
@@ -27,14 +29,32 @@ public final class UpstoxFeedAuthorizer {
     }
 
     /**
-     * Authorizes a WebSocket connection and returns the connection URI.
-     *
-     * @return the authorized WebSocket URI
-     * @throws UpstoxFeedAuthorizationException if authorization fails
+     * Authorizes a market data WebSocket connection.
      */
     public AuthorizedFeed authorize() {
+        return authorizeFeed(UpstoxEndpoints.FEED_AUTHORIZE_PATH);
+    }
+
+    /**
+     * Authorizes a portfolio stream WebSocket connection for order/position/holding updates.
+     *
+     * @param updateTypes comma-separated update types: order, gtt_order, position, holding
+     */
+    public AuthorizedFeed authorizePortfolioStream(String updateTypes) {
+        return authorizeFeed(UpstoxEndpoints.PORTFOLIO_STREAM_AUTHORIZE_PATH
+                + "?update_types=" + java.net.URLEncoder.encode(updateTypes, java.nio.charset.StandardCharsets.UTF_8));
+    }
+
+    /**
+     * Authorizes a portfolio stream WebSocket with default update types (order,position,holding).
+     */
+    public AuthorizedFeed authorizePortfolioStream() {
+        return authorizePortfolioStream("order,position,holding");
+    }
+
+    private AuthorizedFeed authorizeFeed(String path) {
         try {
-            String body = UpstoxResponseGuard.requireSuccessBody(httpClient.get(UpstoxEndpoints.FEED_AUTHORIZE_PATH));
+            String body = UpstoxResponseGuard.requireSuccessBody(httpClient.get(path));
             JsonNode root = MAPPER.readTree(body);
             JsonNode data = root.get("data");
             if (data == null || !data.has("authorized_redirect_uri")) {
@@ -55,21 +75,11 @@ public final class UpstoxFeedAuthorizer {
      * Result of a feed authorization request.
      */
     public record AuthorizedFeed(String wsUri, long expiryEpochMs) {
-        /**
-         * Returns {@code true} if the feed authorization has expired
-         * relative to the given timestamp.
-         *
-         * @param nowMs current time in epoch milliseconds
-         * @return true if expired, false if still valid or no expiry was set
-         */
         public boolean isExpired(long nowMs) {
             return expiryEpochMs > 0 && nowMs >= expiryEpochMs;
         }
     }
 
-    /**
-     * Exception thrown when feed authorization fails.
-     */
     public static class UpstoxFeedAuthorizationException extends RuntimeException {
         public UpstoxFeedAuthorizationException(String message) {
             super(message);

@@ -9,11 +9,13 @@ import com.tradej.broker.api.capability.OptionsCapable;
 import com.tradej.broker.api.port.FuturesProvider;
 import com.tradej.broker.api.port.BracketOrderProvider;
 import com.tradej.broker.api.port.ConditionalAlertProvider;
+import com.tradej.broker.api.port.CoverOrderProvider;
 import com.tradej.broker.api.port.GttOrderProvider;
 import com.tradej.broker.api.port.IdempotencyCachePort;
 import com.tradej.broker.api.port.InstrumentResolver;
 import com.tradej.broker.api.port.MarginProvider;
 import com.tradej.broker.api.port.MarketDataProvider;
+import com.tradej.broker.api.port.MarketStatusProvider;
 import com.tradej.broker.api.port.OptionsProvider;
 import com.tradej.broker.api.port.OrderCommand;
 import com.tradej.broker.api.port.OrderQuery;
@@ -25,6 +27,7 @@ import com.tradej.broker.dhan.auth.DhanTokenManager;
 import com.tradej.broker.dhan.auth.DhanTokenProvider;
 import com.tradej.broker.dhan.adapter.DhanInstrumentResolver;
 import com.tradej.broker.dhan.adapter.DhanMarketDataProvider;
+import com.tradej.broker.dhan.adapter.DhanMarketStatusProvider;
 import com.tradej.broker.dhan.adapter.DhanOrderCommandAdapter;
 import com.tradej.broker.dhan.adapter.DhanOrderQueryAdapter;
 import com.tradej.broker.dhan.adapter.DhanPortfolioProvider;
@@ -32,6 +35,7 @@ import com.tradej.broker.dhan.adapter.InMemoryInstrumentResolver;
 import com.tradej.broker.dhan.adapter.DhanFuturesAdapter;
 import com.tradej.broker.dhan.adapter.DhanBracketOrderAdapter;
 import com.tradej.broker.dhan.adapter.DhanConditionalAlertProvider;
+import com.tradej.broker.dhan.adapter.DhanCoverOrderAdapter;
 import com.tradej.broker.dhan.adapter.DhanGttOrderAdapter;
 import com.tradej.broker.dhan.adapter.DhanMarginProvider;
 import com.tradej.broker.dhan.adapter.DhanSessionRiskProvider;
@@ -63,11 +67,11 @@ import java.util.Optional;
 
 public final class DhanBrokerConnection implements IBrokerConnection {
 
-    private static final OptionsCapable OPTIONS_CAPABLE = new OptionsCapable() {};
-    private static final FuturesCapable FUTURES_CAPABLE = new FuturesCapable() {};
-    private static final MarginCapable MARGIN_CAPABLE = new MarginCapable() {};
-    private static final AlertCapable ALERT_CAPABLE = new AlertCapable() {};
-    private static final AdvancedOrderCapable ADVANCED_ORDER_CAPABLE = new AdvancedOrderCapable() {};
+    private static final OptionsCapable OPTIONS_CAPABLE = new OptionsCapable() { };
+    private static final FuturesCapable FUTURES_CAPABLE = new FuturesCapable() { };
+    private static final MarginCapable MARGIN_CAPABLE = new MarginCapable() { };
+    private static final AlertCapable ALERT_CAPABLE = new AlertCapable() { };
+    private static final AdvancedOrderCapable ADVANCED_ORDER_CAPABLE = new AdvancedOrderCapable() { };
 
     private final DhanClientHolder clientHolder;
     private final DhanInstrumentResolver instrumentResolver;
@@ -78,12 +82,14 @@ public final class DhanBrokerConnection implements IBrokerConnection {
     private final OrderQuery orderQuery;
     private final SliceOrderCommand sliceOrderCommand;
     private final BracketOrderProvider bracketOrderProvider;
+    private final CoverOrderProvider coverOrderProvider;
     private final GttOrderProvider gttOrderProvider;
     private final PortfolioProvider portfolioProvider;
     private final MarginProvider marginProvider;
     private final SessionRiskProvider sessionRiskProvider;
     private final ConditionalAlertProvider conditionalAlertProvider;
     private final WebSocketMultiplexer webSocketMultiplexer;
+    private final MarketStatusProvider marketStatusProvider;
 
     /**
      * Convenience factory that auto-creates a default {@link com.tradej.broker.core.rate.MultiBucketRateLimiter}.
@@ -119,6 +125,7 @@ public final class DhanBrokerConnection implements IBrokerConnection {
             OrderQuery orderQuery,
             SliceOrderCommand sliceOrderCommand,
             BracketOrderProvider bracketOrderProvider,
+            CoverOrderProvider coverOrderProvider,
             GttOrderProvider gttOrderProvider,
             PortfolioProvider portfolioProvider,
             MarginProvider marginProvider,
@@ -135,12 +142,14 @@ public final class DhanBrokerConnection implements IBrokerConnection {
         this.orderQuery = orderQuery;
         this.sliceOrderCommand = sliceOrderCommand;
         this.bracketOrderProvider = bracketOrderProvider;
+        this.coverOrderProvider = coverOrderProvider;
         this.gttOrderProvider = gttOrderProvider;
         this.portfolioProvider = portfolioProvider;
         this.marginProvider = marginProvider;
         this.sessionRiskProvider = sessionRiskProvider;
         this.conditionalAlertProvider = conditionalAlertProvider;
         this.webSocketMultiplexer = webSocketMultiplexer;
+        this.marketStatusProvider = new DhanMarketStatusProvider();
     }
 
     /**
@@ -218,6 +227,11 @@ public final class DhanBrokerConnection implements IBrokerConnection {
                 settings,
                 restOrderClient
         );
+        this.coverOrderProvider = new DhanCoverOrderAdapter(
+                clientHolder,
+                instrumentResolver,
+                resilienceExecutor
+        );
         this.gttOrderProvider = new DhanGttOrderAdapter(
                 clientHolder,
                 instrumentResolver,
@@ -250,6 +264,7 @@ public final class DhanBrokerConnection implements IBrokerConnection {
                 null,
                 tokenProvider
         );
+        this.marketStatusProvider = new DhanMarketStatusProvider();
     }
 
     @Override
@@ -380,6 +395,9 @@ public final class DhanBrokerConnection implements IBrokerConnection {
         if (capabilityClass.isInstance(bracketOrderProvider)) {
             return Optional.of(capabilityClass.cast(bracketOrderProvider));
         }
+        if (capabilityClass.isInstance(coverOrderProvider)) {
+            return Optional.of(capabilityClass.cast(coverOrderProvider));
+        }
         if (capabilityClass.isInstance(gttOrderProvider)) {
             return Optional.of(capabilityClass.cast(gttOrderProvider));
         }
@@ -400,6 +418,9 @@ public final class DhanBrokerConnection implements IBrokerConnection {
         }
         if (capabilityClass.isInstance(webSocketMultiplexer)) {
             return Optional.of(capabilityClass.cast(webSocketMultiplexer));
+        }
+        if (capabilityClass.isInstance(marketStatusProvider)) {
+            return Optional.of(capabilityClass.cast(marketStatusProvider));
         }
         if (OptionsCapable.class.equals(capabilityClass)) {
             return Optional.of(capabilityClass.cast(OPTIONS_CAPABLE));

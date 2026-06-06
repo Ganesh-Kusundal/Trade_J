@@ -1,5 +1,6 @@
 dependencies {
     api project(':core')
+    implementation project(':broker-api')
     implementation project(':trade-pipeline-platform')
 
     implementation 'com.github.ben-manes.caffeine:caffeine'

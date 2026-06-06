@@ -1,0 +1,389 @@
+# 知识卡导出索引文件
+schema_version: 1
+locale: en-US
+branch: feature/dhan-first-analytics-foundation
+exported_at: "2026-06-05T18:26:07Z"
+modules:
+    "":
+        dir_name: Trade-J Institutional Trading Platform
+        title: Trade-J Institutional Trading Platform
+        scope:
+            - README.md
+            - config/
+            - docs/
+            - .gitignore
+            - ARCHITECTURE.md
+            - AUDIT_REPORT.md
+            - CLI.md
+            - CONFIG.md
+            - CONTRACT_NAMING.md
+            - EOF
+            - FRONTEND_BACKEND_CONNECTION_TEST.md
+            - IMPLEMENTATION_ROADMAP.md
+            - REGRESSION_MANIFEST.md
+            - TESTING.md
+            - TRADEHULL_PARITY.md
+            - TRADEJ_ARCHITECTURE_CLASS_FLOWS_REPORT.md
+            - build.gradle
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    app:
+        dir_name: Trading Application Runtime & API Gateway
+        title: Trading Application Runtime & API Gateway
+        scope:
+            - app/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: cli
+            - path: composition
+            - path: replay
+            - path: architecture_test
+            - path: gateway
+    architecture_test:
+        dir_name: Architecture Constraint Verification
+        title: Architecture Constraint Verification
+        scope:
+            - architecture-test/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: core
+            - path: pipeline
+            - path: app
+            - path: composition
+    broker:
+        dir_name: Multi-Broker Connectivity & Abstraction
+        title: Multi-Broker Connectivity & Abstraction
+        scope:
+            - broker/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: trading/execution
+            - path: cli
+            - path: runtime
+            - path: composition
+    cli:
+        dir_name: Trading CLI & Interactive Shell
+        title: Trading CLI & Interactive Shell
+        scope:
+            - cli/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: app
+            - path: broker
+            - path: trading/execution
+    composition:
+        dir_name: Dependency Injection & System Composition
+        title: Dependency Injection & System Composition
+        scope:
+            - composition/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: app
+            - path: data/feature_store
+            - path: broker
+            - path: architecture_test
+    core:
+        dir_name: Trading Core Domain & Pipeline Runtime
+        title: Trading Core Domain & Pipeline Runtime
+        scope:
+            - core/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: architecture_test
+            - path: trading/execution
+            - path: gateway
+            - path: trade_node_library
+    data:
+        dir_name: Unified Market Data & Analytics Persistence Layer
+        title: Unified Market Data & Analytics Persistence Layer
+        scope:
+            - data/
+        source_files: []
+        children:
+            - data/feature_store
+            - data/persistence
+            - data/analytics
+            - data/historical_ingest
+        depends_on: []
+        related_to: []
+    data/analytics:
+        dir_name: DuckDB-Powered Historical Analytics Engine
+        title: DuckDB-Powered Historical Analytics Engine
+        scope:
+            - data/analytics/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: data/feature_store
+            - path: research
+            - path: trading/institutional_scanner
+            - path: data/historical_ingest
+    data/feature_store:
+        dir_name: Feature Store & Ingestion Pipeline
+        title: Feature Store & Ingestion Pipeline
+        scope:
+            - data/feature-store/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: data/analytics
+            - path: data/historical_ingest
+            - path: runtime
+            - path: composition
+            - path: data/persistence
+    data/historical_ingest:
+        dir_name: Historical Market Data Ingestion & Storage
+        title: Historical Market Data Ingestion & Storage
+        scope:
+            - data/historical-ingest/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: data/feature_store
+            - path: trading/institutional_scanner
+            - path: data/analytics
+            - path: replay
+    data/persistence:
+        dir_name: Event Sourcing & Historical Replay Persistence
+        title: Event Sourcing & Historical Replay Persistence
+        scope:
+            - data/persistence/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: replay
+            - path: trading/execution
+            - path: research
+            - path: data/feature_store
+    frontend:
+        dir_name: Trading Terminal UI
+        title: Trading Terminal UI
+        scope:
+            - frontend/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: gateway
+            - path: trading/options_analytics
+            - path: trading/execution
+            - path: trading/indicators
+    gateway:
+        dir_name: WebSocket Gateway & Event Bridge
+        title: WebSocket Gateway & Event Bridge
+        scope:
+            - gateway/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: frontend
+            - path: runtime
+            - path: replay
+            - path: core
+            - path: app
+    pipeline:
+        dir_name: Trading Pipeline Platform, Runtime Execution & Performance Analytics
+        title: Trading Pipeline Platform, Runtime Execution & Performance Analytics
+        scope:
+            - pipeline/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: runtime
+            - path: trade_node_library
+            - path: trading/strategy
+            - path: trading/simulation
+            - path: research
+            - path: architecture_test
+            - path: trading/indicators
+    replay:
+        dir_name: Historical Market Replay Engine
+        title: Historical Market Replay Engine
+        scope:
+            - replay/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: data/persistence
+            - path: app
+            - path: gateway
+            - path: trading/strategy
+            - path: data/historical_ingest
+    research:
+        dir_name: Trading Strategy Research & Backtesting Lab
+        title: Trading Strategy Research & Backtesting Lab
+        scope:
+            - research/
+            - mcp-server/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: trading/simulation
+            - path: trading/scanner
+            - path: data/analytics
+            - path: trading/institutional_scanner
+            - path: data/persistence
+            - path: trading/strategy
+            - path: pipeline
+    runtime:
+        dir_name: High-Performance Event Bus & Hot Path Pipelines
+        title: High-Performance Event Bus & Hot Path Pipelines
+        scope:
+            - runtime/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: pipeline
+            - path: gateway
+            - path: data/feature_store
+            - path: broker
+    trade_node_library:
+        dir_name: Pipeline Node Abstraction Library
+        title: Pipeline Node Abstraction Library
+        scope:
+            - nodes/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: trading/indicators
+            - path: pipeline
+            - path: core
+    trading:
+        dir_name: Algorithmic Trading Platform Core
+        title: Algorithmic Trading Platform Core
+        scope:
+            - trading/
+        source_files: []
+        children:
+            - trading/execution
+            - trading/indicators
+            - trading/institutional_scanner
+            - trading/scanner
+            - trading/options_analytics
+            - trading/strategy
+            - trading/simulation
+        depends_on: []
+        related_to: []
+    trading/execution:
+        dir_name: Order Execution & Lifecycle Management
+        title: Order Execution & Lifecycle Management
+        scope:
+            - trading/execution/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: broker
+            - path: trading/simulation
+            - path: trading/strategy
+            - path: data/persistence
+            - path: core
+            - path: frontend
+            - path: cli
+    trading/indicators:
+        dir_name: Technical Indicator Computation Engine
+        title: Technical Indicator Computation Engine
+        scope:
+            - trading/indicators/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: trade_node_library
+            - path: trading/strategy
+            - path: trading/scanner
+            - path: trading/options_analytics
+            - path: frontend
+            - path: pipeline
+    trading/institutional_scanner:
+        dir_name: Institutional Scanner Engine
+        title: Institutional Scanner Engine
+        scope:
+            - trading/institutional-scanner/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: trading/scanner
+            - path: trading/strategy
+            - path: data/historical_ingest
+            - path: research
+            - path: data/analytics
+    trading/options_analytics:
+        dir_name: Options Pricing and Greeks Analytics
+        title: Options Pricing and Greeks Analytics
+        scope:
+            - trading/options-analytics/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: trading/scanner
+            - path: frontend
+            - path: trading/indicators
+    trading/scanner:
+        dir_name: Market Scanner Engine
+        title: Market Scanner Engine
+        scope:
+            - trading/scanner/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: trading/institutional_scanner
+            - path: trading/options_analytics
+            - path: research
+            - path: trading/indicators
+    trading/simulation:
+        dir_name: Trading Simulation & Backtesting Engine
+        title: Trading Simulation & Backtesting Engine
+        scope:
+            - trading/simulation/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: research
+            - path: trading/execution
+            - path: pipeline
+            - path: trading/strategy
+    trading/strategy:
+        dir_name: Strategy Execution & Portfolio Risk Management
+        title: Strategy Execution & Portfolio Risk Management
+        scope:
+            - trading/strategy/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: trading/execution
+            - path: trading/institutional_scanner
+            - path: trading/indicators
+            - path: pipeline
+            - path: research
+            - path: replay
+            - path: trading/simulation

@@ -2,7 +2,9 @@ package com.tradej.pipeline.runtime;
 
 import com.tradej.core.domain.event.DomainEvent;
 import com.tradej.core.domain.event.EventMetadata;
-import com.tradej.core.domain.event.TickReceived;
+import com.tradej.core.domain.event.MarketTickEvent;
+import com.tradej.core.domain.value.ExchangeSegment;
+import com.tradej.core.domain.value.FeedMode;
 import com.tradej.pipeline.graph.PipelineEdgeDef;
 import com.tradej.pipeline.graph.PipelineGraph;
 import com.tradej.pipeline.graph.PipelineNodeDef;
@@ -11,6 +13,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -70,16 +73,7 @@ class GraphRuntimeTest {
         };
 
         GraphRuntime runtime = new GraphRuntime(compiler.compile(graph, context), graph);
-        runtime.processSequential(new TickReceived(
-                EventMetadata.root(),
-                "NIFTY",
-                "1m",
-                100L,
-                1L,
-                1L,
-                System.currentTimeMillis(),
-                null
-        ));
+        runtime.processSequential(new MarketTickEvent(EventMetadata.root(), 0L, "NIFTY", ExchangeSegment.NSE_EQ, FeedMode.TICKER, 100L, 1L, 1L, System.currentTimeMillis(), Optional.empty(), 0L, 0L));
 
         assertEquals(123, order.get());
     }

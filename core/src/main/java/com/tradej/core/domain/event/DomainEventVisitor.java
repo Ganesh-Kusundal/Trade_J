@@ -39,7 +39,6 @@ public interface DomainEventVisitor {
     default void visit(StrategyError event) {}
     default void visit(StreamHealthChanged event) {}
     default void visit(ReplayTimeChangedEvent event) {}
-    default void visit(TickReceived event) {}
     default void visit(EventBusBackpressure event) {}
     default void visit(TradeExecutionEvent event) {}
     default void visit(OrderUpdateEvent event) {}

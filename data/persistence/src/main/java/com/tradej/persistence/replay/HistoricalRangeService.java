@@ -7,7 +7,6 @@ import com.tradej.core.domain.event.MarketTickEvent;
 import com.tradej.core.domain.event.OrderAccepted;
 import com.tradej.core.domain.event.OrderFullyFilled;
 import com.tradej.core.domain.event.OrderPartiallyFilled;
-import com.tradej.core.domain.event.TickReceived;
 import com.tradej.core.domain.event.TradeClosed;
 import com.tradej.core.domain.event.TradeOpened;
 import com.tradej.core.domain.value.FeedMode;
@@ -122,9 +121,9 @@ public final class HistoricalRangeService implements AutoCloseable {
      * @param fromMs start of range (inclusive, epoch millis)
      * @param toMs   end of range (exclusive, epoch millis)
      * @param limit  maximum results (default 5000)
-     * @return list of reconstructed {@link TickReceived} events in chronological order
+     * @return list of reconstructed {@link MarketTickEvent} events in chronological order
      */
-    public List<TickReceived> queryTicks(String symbol, long fromMs, long toMs, int limit) {
+    public List<MarketTickEvent> queryTicks(String symbol, long fromMs, long toMs, int limit) {
         try (PreparedStatement ps = connection.prepareStatement("""
                 select event_id, interval, ltp_paisa, last_trade_quantity,
                        cumulative_volume, exchange_timestamp_ms
@@ -137,20 +136,23 @@ public final class HistoricalRangeService implements AutoCloseable {
             ps.setLong(2, fromMs);
             ps.setLong(3, toMs);
             ps.setInt(4, Math.min(limit, 50_000));
-            List<TickReceived> ticks = new ArrayList<>();
+            List<MarketTickEvent> ticks = new ArrayList<>();
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     long exchangeTs = rs.getLong("exchange_timestamp_ms");
-                    ticks.add(new TickReceived(
+                    ticks.add(new MarketTickEvent(
                             EventMetadata.correlated("", 0L),
+                            0L,
                             symbol,
-                            rs.getString("interval"),
+                            ExchangeSegment.NSE_EQ,
+                            FeedMode.TICKER,
                             rs.getLong("ltp_paisa"),
                             rs.getLong("last_trade_quantity"),
                             rs.getLong("cumulative_volume"),
                             exchangeTs,
-                            null // market depth not stored
-                    ));
+                            java.util.Optional.empty(),
+                            0L,
+                            0L));
                 }
             }
             return ticks;
@@ -163,7 +165,7 @@ public final class HistoricalRangeService implements AutoCloseable {
     /**
      * Short-hand with default limit of 5000.
      */
-    public List<TickReceived> queryTicks(String symbol, long fromMs, long toMs) {
+    public List<MarketTickEvent> queryTicks(String symbol, long fromMs, long toMs) {
         return queryTicks(symbol, fromMs, toMs, 5000);
     }
 
@@ -597,16 +599,16 @@ public final class HistoricalRangeService implements AutoCloseable {
      * @return replay summary with total/replayed/failed counts
      */
     public ReplayResult replayTicks(String symbol, long fromMs, long toMs, EventBus eventBus) {
-        List<TickReceived> ticks = queryTicks(symbol, fromMs, toMs, 50_000);
+        List<MarketTickEvent> ticks = queryTicks(symbol, fromMs, toMs, 50_000);
         long replayed = 0L;
         long failed = 0L;
-        for (TickReceived tick : ticks) {
+        for (MarketTickEvent tick : ticks) {
             try {
                 eventBus.publish(tick);
                 replayed++;
             } catch (Exception e) {
                 failed++;
-                log.debug("Failed to replay tick for {} at {}: {}", symbol, tick.exchangeTimestampMs(), e.getMessage());
+                log.debug("Failed to replay tick for {} at {}: {}", symbol, tick.exchangeTimestampEpochMs(), e.getMessage());
             }
         }
         long total = ticks.size();

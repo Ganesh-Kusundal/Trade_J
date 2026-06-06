@@ -1,0 +1,4 @@
+- Domain event-to-topic mapping is centralized in a single switch expression inside `GatewayEventBridge.onDomainEvent`, ensuring each event type maps to exactly one `GatewayTopic`.
+- All outbound messages are serialized to JSON via `ObjectMapper.writeValueAsBytes` before being passed to the router, maintaining a consistent wire format across topics.
+- Subscription management uses `CopyOnWriteArraySet` for thread-safe iteration without locking during publish dispatch, paired with `ConcurrentHashMap` for transport→topic reverse lookups.
+- Backpressure is handled by bounded queue offer-with-drop semantics: `sendQueue.offer()` returns false when full, incrementing a dropped-event counter and logging a WARN instead of blocking the caller.

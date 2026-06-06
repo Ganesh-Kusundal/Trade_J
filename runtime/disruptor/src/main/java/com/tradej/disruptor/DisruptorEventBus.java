@@ -10,8 +10,9 @@ import com.tradej.core.domain.port.DeadLetterQueue;
 import com.tradej.core.domain.port.DomainEventHandler;
 import com.tradej.core.domain.port.EventBus;
 import com.tradej.core.domain.port.FeatureStore;
-import com.tradej.disruptor.config.GraphPipelineDisruptorHandler;
 import com.tradej.disruptor.config.AsyncDispatchHandler;
+import com.tradej.disruptor.config.DisruptorPipelineConfig;
+import com.tradej.disruptor.config.GraphPipelineDisruptorHandler;
 import com.tradej.disruptor.config.GraphStrategyDisruptorHandler;
 import com.tradej.disruptor.config.StageTiming;
 import com.tradej.disruptor.config.StageTimings;
@@ -36,204 +37,222 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
-/**
- * Disruptor-backed event bus using Config A only: compiled graph runtime → async dispatch.
- * Legacy risk→candle→strategy→execution handler chains have been retired.
- */
-public final class DisruptorEventBus implements EventBus, DisruptorBusMetrics {
-    private static final Logger log = LoggerFactory.getLogger(DisruptorEventBus.class);
+    /**
+     * Disruptor-backed event bus using Config A only: compiled graph runtime → async dispatch.
+     * Legacy risk→candle→strategy→execution handler chains have been retired.
+     */
+    public final class DisruptorEventBus implements EventBus, DisruptorBusMetrics {
+        private static final Logger log = LoggerFactory.getLogger(DisruptorEventBus.class);
 
-    private static final int MAX_SEEN_EVENTS = 200_000;
-    private static final int DOWNSTREAM_QUEUE_CAPACITY = 4096;
-    private static final int DEFAULT_DISPATCH_QUEUE_CAPACITY = 4096;
+        private static final int MAX_SEEN_EVENTS = 200_000;
+        private static final int DOWNSTREAM_QUEUE_CAPACITY = 4096;
+        static final int DEFAULT_DISPATCH_QUEUE_CAPACITY = 4096;
 
-    private final Map<Class<? extends DomainEvent>, List<DomainEventHandler<? extends DomainEvent>>> subscribers = new ConcurrentHashMap<>();
+        private final Map<Class<? extends DomainEvent>, List<DomainEventHandler<? extends DomainEvent>>> subscribers = new ConcurrentHashMap<>();
 
-    private static final int EVICTION_INTERVAL = 1024;
-    private final ConcurrentHashMap<String, Long> seenEvents = new ConcurrentHashMap<>();
-    private final AtomicLong publishCounter = new AtomicLong();
-    private final ScheduledExecutorService dedupPruner = Executors.newSingleThreadScheduledExecutor(r -> {
-        Thread t = new Thread(r, "dedup-pruner");
-        t.setDaemon(true);
-        return t;
-    });
+        private static final int EVICTION_INTERVAL = 1024;
+        private final ConcurrentHashMap<String, Long> seenEvents = new ConcurrentHashMap<>();
+        private final AtomicLong publishCounter = new AtomicLong();
+        private final ScheduledExecutorService dedupPruner = Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread t = new Thread(r, "dedup-pruner");
+            t.setDaemon(true);
+            return t;
+        });
 
-    private final BlockingQueue<DomainEvent> downstreamQueue = new ArrayBlockingQueue<>(DOWNSTREAM_QUEUE_CAPACITY);
+        private final BlockingQueue<DomainEvent> downstreamQueue = new ArrayBlockingQueue<>(DOWNSTREAM_QUEUE_CAPACITY);
 
-    private final Disruptor<MutableDomainEventEnvelope> disruptor;
-    private final ExecutionHandler executionHandler;
-    private final AsyncDispatchHandler dispatchStage;
-    private volatile boolean started;
-    private volatile Thread drainerThread;
-    private final int ringBufferSize;
-    private final DeadLetterQueue deadLetterQueue;
+        private final Disruptor<MutableDomainEventEnvelope> disruptor;
+        private final ExecutionHandler executionHandler;
+        private final AsyncDispatchHandler dispatchStage;
+        private volatile boolean started;
+        private volatile Thread drainerThread;
+        final int ringBufferSize;
+        private final DeadLetterQueue deadLetterQueue;
 
-    public DisruptorEventBus(
-            PositionRiskHandler positionRiskHandler,
-            CandleAggregationService candleAggregationService,
-            StrategyEngine strategyEngine,
-            ExecutionHandler executionHandler
-    ) {
-        this(positionRiskHandler, candleAggregationService, strategyEngine, executionHandler, null, StageTimings.NO_OP);
-    }
-
-    public DisruptorEventBus(
-            PositionRiskHandler positionRiskHandler,
-            CandleAggregationService candleAggregationService,
-            StrategyEngine strategyEngine,
-            ExecutionHandler executionHandler,
-            PortfolioEngine portfolioEngine
-    ) {
-        this(positionRiskHandler, candleAggregationService, strategyEngine, executionHandler, portfolioEngine, StageTimings.NO_OP, null, DeadLetterQueue.noop());
-    }
-
-    public DisruptorEventBus(
-            PositionRiskHandler positionRiskHandler,
-            CandleAggregationService candleAggregationService,
-            StrategyEngine strategyEngine,
-            ExecutionHandler executionHandler,
-            PortfolioEngine portfolioEngine,
-            StageTimings stageTimings
-    ) {
-        this(positionRiskHandler, candleAggregationService, strategyEngine, executionHandler, portfolioEngine, stageTimings, null, DeadLetterQueue.noop());
-    }
-
-    public DisruptorEventBus(
-            PositionRiskHandler positionRiskHandler,
-            CandleAggregationService candleAggregationService,
-            StrategyEngine strategyEngine,
-            ExecutionHandler executionHandler,
-            PortfolioEngine portfolioEngine,
-            StageTimings stageTimings,
-            FeatureStore hotPathFeatureStore,
-            DeadLetterQueue deadLetterQueue
-    ) {
-        this(positionRiskHandler, candleAggregationService, strategyEngine, executionHandler,
-                portfolioEngine, stageTimings, hotPathFeatureStore, deadLetterQueue, null, false);
-    }
-
-    public DisruptorEventBus(
-            PositionRiskHandler positionRiskHandler,
-            CandleAggregationService candleAggregationService,
-            StrategyEngine strategyEngine,
-            ExecutionHandler executionHandler,
-            PortfolioEngine portfolioEngine,
-            StageTimings stageTimings,
-            FeatureStore hotPathFeatureStore,
-            DeadLetterQueue deadLetterQueue,
-            PipelineRuntimeBridge pipelineRuntimeBridge
-    ) {
-        this(positionRiskHandler, candleAggregationService, strategyEngine, null, executionHandler,
-                portfolioEngine, stageTimings, hotPathFeatureStore, deadLetterQueue, pipelineRuntimeBridge, true);
-    }
-
-    public DisruptorEventBus(
-            PositionRiskHandler positionRiskHandler,
-            CandleAggregationService candleAggregationService,
-            StrategyEngine strategyEngine,
-            GraphStrategySandbox graphStrategySandbox,
-            ExecutionHandler executionHandler,
-            PortfolioEngine portfolioEngine,
-            StageTimings stageTimings,
-            FeatureStore hotPathFeatureStore,
-            DeadLetterQueue deadLetterQueue,
-            PipelineRuntimeBridge pipelineRuntimeBridge
-    ) {
-        this(positionRiskHandler, candleAggregationService, strategyEngine, graphStrategySandbox, executionHandler,
-                portfolioEngine, stageTimings, hotPathFeatureStore, deadLetterQueue, pipelineRuntimeBridge, true);
-    }
-
-    public DisruptorEventBus(
-            PositionRiskHandler positionRiskHandler,
-            CandleAggregationService candleAggregationService,
-            StrategyEngine strategyEngine,
-            ExecutionHandler executionHandler,
-            PortfolioEngine portfolioEngine,
-            StageTimings stageTimings,
-            FeatureStore hotPathFeatureStore,
-            DeadLetterQueue deadLetterQueue,
-            PipelineRuntimeBridge pipelineRuntimeBridge,
-            boolean compileGraphOnInit
-    ) {
-        this(positionRiskHandler, candleAggregationService, strategyEngine, null, executionHandler,
-                portfolioEngine, stageTimings, hotPathFeatureStore, deadLetterQueue,
-                pipelineRuntimeBridge, compileGraphOnInit);
-    }
-
-    public DisruptorEventBus(
-            PositionRiskHandler positionRiskHandler,
-            CandleAggregationService candleAggregationService,
-            StrategyEngine strategyEngine,
-            GraphStrategySandbox graphStrategySandbox,
-            ExecutionHandler executionHandler,
-            PortfolioEngine portfolioEngine,
-            StageTimings stageTimings,
-            FeatureStore hotPathFeatureStore,
-            DeadLetterQueue deadLetterQueue,
-            PipelineRuntimeBridge pipelineRuntimeBridge,
-            boolean compileGraphOnInit
-    ) {
-        if (pipelineRuntimeBridge == null) {
-            throw new IllegalArgumentException(
-                    "pipelineRuntimeBridge is required — legacy Config B/C disruptor chains are retired");
-        }
-        this.executionHandler = executionHandler;
-        this.ringBufferSize = 8192;
-        this.deadLetterQueue = deadLetterQueue == null ? DeadLetterQueue.noop() : deadLetterQueue;
-        this.dispatchStage = new AsyncDispatchHandler(
-                subscribers,
-                DEFAULT_DISPATCH_QUEUE_CAPACITY,
-                stageTimings.dispatch(),
-                this.deadLetterQueue
-        );
-        this.disruptor = new Disruptor<>(
-                MutableDomainEventEnvelope::new,
-                ringBufferSize,
-                Executors.defaultThreadFactory(),
-                ProducerType.MULTI,
-                new BusySpinWaitStrategy()
-        );
-
-        Consumer<DomainEvent> safePublisher = event -> {
-            if (!downstreamQueue.offer(event)) {
-                this.deadLetterQueue.append("downstream-queue", event,
-                        "Downstream event queue full (capacity=" + DOWNSTREAM_QUEUE_CAPACITY + ")");
-                log.warn("Downstream event queue full — dropping event type={} eventId={}",
-                        event.getClass().getSimpleName(), event.eventId());
+        /**
+         * Creates a DisruptorEventBus from the given configuration.
+         */
+        public DisruptorEventBus(DisruptorPipelineConfig config) {
+            if (config.pipelineRuntimeBridge() == null) {
+                throw new IllegalArgumentException(
+                        "pipelineRuntimeBridge is required — legacy Config B/C disruptor chains are retired");
             }
-        };
+            this.executionHandler = config.executionHandler();
+            this.ringBufferSize = 8192;
+            this.deadLetterQueue = config.deadLetterQueue() == null ? DeadLetterQueue.noop() : config.deadLetterQueue();
+            this.dispatchStage = new AsyncDispatchHandler(
+                    subscribers,
+                    DEFAULT_DISPATCH_QUEUE_CAPACITY,
+                    config.stageTimings().dispatch(),
+                    this.deadLetterQueue
+            );
+            this.disruptor = new Disruptor<>(
+                    MutableDomainEventEnvelope::new,
+                    ringBufferSize,
+                    Executors.defaultThreadFactory(),
+                    ProducerType.MULTI,
+                    new BusySpinWaitStrategy()
+            );
 
-        Consumer<DomainEvent> portfolioPublisher;
-        if (portfolioEngine != null) {
-            portfolioPublisher = event -> portfolioEngine.onDomainEvent(event, safePublisher);
-        } else {
-            portfolioPublisher = safePublisher;
+            Consumer<DomainEvent> safePublisher = event -> {
+                if (!downstreamQueue.offer(event)) {
+                    this.deadLetterQueue.append("downstream-queue", event,
+                            "Downstream event queue full (capacity=" + DOWNSTREAM_QUEUE_CAPACITY + ")");
+                    log.warn("Downstream event queue full — dropping event type={} eventId={}",
+                            event.getClass().getSimpleName(), event.eventId());
+                }
+            };
+
+            Consumer<DomainEvent> portfolioPublisher;
+            if (config.portfolioEngine() != null) {
+                portfolioPublisher = event -> config.portfolioEngine().onDomainEvent(event, safePublisher);
+            } else {
+                portfolioPublisher = safePublisher;
+            }
+
+            GraphStrategyDisruptorHandler graphStrategyStage = null;
+            if (config.graphStrategySandbox() != null) {
+                graphStrategyStage = new GraphStrategyDisruptorHandler(
+                        config.graphStrategySandbox(), portfolioPublisher, config.stageTimings().strategy());
+            }
+
+            if (config.compileGraphOnInit()) {
+                config.pipelineRuntimeBridge().compileHotPath(portfolioPublisher);
+            }
+            GraphPipelineDisruptorHandler graphStage = new GraphPipelineDisruptorHandler(
+                    config.pipelineRuntimeBridge().runtimeRef(),
+                    config.stageTimings().risk()
+            );
+            if (graphStrategyStage != null) {
+                disruptor.handleEventsWith(graphStage).then(graphStrategyStage).then(dispatchStage);
+            } else {
+                disruptor.handleEventsWith(graphStage).then(dispatchStage);
+            }
+            log.info("DisruptorEventBus initialized ringBufferSize={} pipeline=graph-runtime{}→async-dispatch portfolio={} timing={}",
+                    ringBufferSize, graphStrategyStage != null ? "→graph-strategy" : "",
+                    config.portfolioEngine() != null, config.stageTimings() != StageTimings.NO_OP);
+
+            dedupPruner.scheduleAtFixedRate(this::pruneOldEntries, 1, 1, TimeUnit.MINUTES);
         }
 
-        GraphStrategyDisruptorHandler graphStrategyStage = null;
-        if (graphStrategySandbox != null) {
-            graphStrategyStage = new GraphStrategyDisruptorHandler(
-                    graphStrategySandbox, portfolioPublisher, stageTimings.strategy());
+        /** @deprecated Use {@link #DisruptorEventBus(DisruptorPipelineConfig)} or {@link com.tradej.disruptor.config.DisruptorPipelineBuilder}. */
+        @Deprecated
+        public DisruptorEventBus(
+                PositionRiskHandler positionRiskHandler,
+                CandleAggregationService candleAggregationService,
+                StrategyEngine strategyEngine,
+                ExecutionHandler executionHandler
+        ) {
+            this(DisruptorEventBusLegacySupport.toConfig(positionRiskHandler, candleAggregationService, strategyEngine, null, executionHandler, null, StageTimings.NO_OP, null, null, null, false));
         }
 
-        if (compileGraphOnInit) {
-            pipelineRuntimeBridge.compileHotPath(portfolioPublisher);
+        /** @deprecated Use {@link #DisruptorEventBus(DisruptorPipelineConfig)} or {@link com.tradej.disruptor.config.DisruptorPipelineBuilder}. */
+        @Deprecated
+        public DisruptorEventBus(
+                PositionRiskHandler positionRiskHandler,
+                CandleAggregationService candleAggregationService,
+                StrategyEngine strategyEngine,
+                ExecutionHandler executionHandler,
+                PortfolioEngine portfolioEngine
+        ) {
+            this(DisruptorEventBusLegacySupport.toConfig(positionRiskHandler, candleAggregationService, strategyEngine, null, executionHandler, portfolioEngine, StageTimings.NO_OP, null, DeadLetterQueue.noop(), null, true));
         }
-        GraphPipelineDisruptorHandler graphStage = new GraphPipelineDisruptorHandler(
-                pipelineRuntimeBridge.runtimeRef(),
-                stageTimings.risk()
-        );
-        if (graphStrategyStage != null) {
-            disruptor.handleEventsWith(graphStage).then(graphStrategyStage).then(dispatchStage);
-        } else {
-            disruptor.handleEventsWith(graphStage).then(dispatchStage);
-        }
-        log.info("DisruptorEventBus initialized ringBufferSize={} pipeline=graph-runtime{}→async-dispatch portfolio={} timing={}",
-                ringBufferSize, graphStrategyStage != null ? "→graph-strategy" : "",
-                portfolioEngine != null, stageTimings != StageTimings.NO_OP);
 
-        dedupPruner.scheduleAtFixedRate(this::pruneOldEntries, 1, 1, TimeUnit.MINUTES);
-    }
+        /** @deprecated Use {@link #DisruptorEventBus(DisruptorPipelineConfig)} or {@link com.tradej.disruptor.config.DisruptorPipelineBuilder}. */
+        @Deprecated
+        public DisruptorEventBus(
+                PositionRiskHandler positionRiskHandler,
+                CandleAggregationService candleAggregationService,
+                StrategyEngine strategyEngine,
+                ExecutionHandler executionHandler,
+                PortfolioEngine portfolioEngine,
+                StageTimings stageTimings
+        ) {
+            this(DisruptorEventBusLegacySupport.toConfig(positionRiskHandler, candleAggregationService, strategyEngine, null, executionHandler, portfolioEngine, stageTimings, null, DeadLetterQueue.noop(), null, true));
+        }
+
+        /** @deprecated Use {@link #DisruptorEventBus(DisruptorPipelineConfig)} or {@link com.tradej.disruptor.config.DisruptorPipelineBuilder}. */
+        @Deprecated
+        public DisruptorEventBus(
+                PositionRiskHandler positionRiskHandler,
+                CandleAggregationService candleAggregationService,
+                StrategyEngine strategyEngine,
+                ExecutionHandler executionHandler,
+                PortfolioEngine portfolioEngine,
+                StageTimings stageTimings,
+                FeatureStore hotPathFeatureStore,
+                DeadLetterQueue deadLetterQueue
+        ) {
+            this(DisruptorEventBusLegacySupport.toConfig(positionRiskHandler, candleAggregationService, strategyEngine, null, executionHandler, portfolioEngine, stageTimings, hotPathFeatureStore, deadLetterQueue, null, false));
+        }
+
+        /** @deprecated Use {@link #DisruptorEventBus(DisruptorPipelineConfig)} or {@link com.tradej.disruptor.config.DisruptorPipelineBuilder}. */
+        @Deprecated
+        public DisruptorEventBus(
+                PositionRiskHandler positionRiskHandler,
+                CandleAggregationService candleAggregationService,
+                StrategyEngine strategyEngine,
+                ExecutionHandler executionHandler,
+                PortfolioEngine portfolioEngine,
+                StageTimings stageTimings,
+                FeatureStore hotPathFeatureStore,
+                DeadLetterQueue deadLetterQueue,
+                PipelineRuntimeBridge pipelineRuntimeBridge
+        ) {
+            this(DisruptorEventBusLegacySupport.toConfig(positionRiskHandler, candleAggregationService, strategyEngine, null, executionHandler, portfolioEngine, stageTimings, hotPathFeatureStore, deadLetterQueue, pipelineRuntimeBridge, true));
+        }
+
+        /** @deprecated Use {@link #DisruptorEventBus(DisruptorPipelineConfig)} or {@link com.tradej.disruptor.config.DisruptorPipelineBuilder}. */
+        @Deprecated
+        public DisruptorEventBus(
+                PositionRiskHandler positionRiskHandler,
+                CandleAggregationService candleAggregationService,
+                StrategyEngine strategyEngine,
+                GraphStrategySandbox graphStrategySandbox,
+                ExecutionHandler executionHandler,
+                PortfolioEngine portfolioEngine,
+                StageTimings stageTimings,
+                FeatureStore hotPathFeatureStore,
+                DeadLetterQueue deadLetterQueue,
+                PipelineRuntimeBridge pipelineRuntimeBridge
+        ) {
+            this(DisruptorEventBusLegacySupport.toConfig(positionRiskHandler, candleAggregationService, strategyEngine, graphStrategySandbox, executionHandler, portfolioEngine, stageTimings, hotPathFeatureStore, deadLetterQueue, pipelineRuntimeBridge, true));
+        }
+
+        /** @deprecated Use {@link #DisruptorEventBus(DisruptorPipelineConfig)} or {@link com.tradej.disruptor.config.DisruptorPipelineBuilder}. */
+        @Deprecated
+        public DisruptorEventBus(
+                PositionRiskHandler positionRiskHandler,
+                CandleAggregationService candleAggregationService,
+                StrategyEngine strategyEngine,
+                ExecutionHandler executionHandler,
+                PortfolioEngine portfolioEngine,
+                StageTimings stageTimings,
+                FeatureStore hotPathFeatureStore,
+                DeadLetterQueue deadLetterQueue,
+                PipelineRuntimeBridge pipelineRuntimeBridge,
+                boolean compileGraphOnInit
+        ) {
+            this(DisruptorEventBusLegacySupport.toConfig(positionRiskHandler, candleAggregationService, strategyEngine, null, executionHandler, portfolioEngine, stageTimings, hotPathFeatureStore, deadLetterQueue, pipelineRuntimeBridge, compileGraphOnInit));
+        }
+
+        /** @deprecated Use {@link #DisruptorEventBus(DisruptorPipelineConfig)} or {@link com.tradej.disruptor.config.DisruptorPipelineBuilder}. */
+        @Deprecated
+        public DisruptorEventBus(
+                PositionRiskHandler positionRiskHandler,
+                CandleAggregationService candleAggregationService,
+                StrategyEngine strategyEngine,
+                GraphStrategySandbox graphStrategySandbox,
+                ExecutionHandler executionHandler,
+                PortfolioEngine portfolioEngine,
+                StageTimings stageTimings,
+                FeatureStore hotPathFeatureStore,
+                DeadLetterQueue deadLetterQueue,
+                PipelineRuntimeBridge pipelineRuntimeBridge,
+                boolean compileGraphOnInit
+        ) {
+            this(DisruptorEventBusLegacySupport.toConfig(positionRiskHandler, candleAggregationService, strategyEngine, graphStrategySandbox, executionHandler, portfolioEngine, stageTimings, hotPathFeatureStore, deadLetterQueue, pipelineRuntimeBridge, compileGraphOnInit));
+        }
 
     @Override
     public <T extends DomainEvent> void subscribe(Class<T> eventType, DomainEventHandler<T> handler) {

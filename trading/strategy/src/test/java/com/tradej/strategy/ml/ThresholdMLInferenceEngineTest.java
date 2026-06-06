@@ -5,11 +5,13 @@ import com.tradej.core.domain.model.InferenceResult;
 import com.tradej.core.domain.port.FeatureStore;
 import com.tradej.core.domain.port.MLInferenceEngine;
 import com.tradej.core.domain.port.ModelRegistry;
+import com.tradej.strategy.ml.DefaultModelRegistry;
 import com.tradej.core.domain.value.Side;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -21,7 +23,7 @@ class ThresholdMLInferenceEngineTest {
 
     @BeforeEach
     void setUp() {
-        registry = new InMemoryModelRegistry("mean-reversion-v1", "trend-following-v1");
+        registry = new DefaultModelRegistry(List.of("mean-reversion-v1", "trend-following-v1"));
         registry.loadModel("mean-reversion-v1");
     }
 

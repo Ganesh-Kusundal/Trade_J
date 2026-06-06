@@ -1,0 +1,5 @@
+- Entry point: `TradeCli` uses `picocli` to define a hierarchical command structure, delegating execution to `CliOperations`.
+- Context management: `CliContext` acts as a lazy factory for either an `AttachClient` (HTTP client for remote app) or a `BrokerSession` (standalone broker connection via `BrokerSessionFactory`).
+- Command delegation: `CliOperations` aggregates multiple command handler classes (e.g., `CliAttachCommands`, `CliBrokerCommands`) which share a common `CliCommandSupport` utility for output formatting and session access.
+- Interactive mode: `InteractiveShell` uses `jline3` to provide a REPL experience, routing user input to the same `CliOperations` methods as the static commands.
+- Dependency direction: The CLI module depends on `core`, `broker-api`, and specific broker implementations (`broker-dhan`, `broker-upstox`) for standalone functionality, while using standard Java HTTP clients for attach mode.

@@ -13,12 +13,8 @@ import com.tradej.core.domain.model.ModifyOrderRequest;
 import com.tradej.core.domain.model.Order;
 import com.tradej.core.domain.model.OrderPreview;
 import com.tradej.core.domain.model.OrderRequest;
-import com.tradej.core.domain.value.ExchangeSegment;
 import com.tradej.core.domain.value.OrderType;
-import com.tradej.core.domain.value.ProductType;
-import com.tradej.core.domain.value.Side;
 
-import java.util.ArrayList;
 import java.util.List;
 
 public final class IciciOrderCommandAdapter implements OrderCommand {

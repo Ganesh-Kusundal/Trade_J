@@ -1,0 +1,4 @@
+- Use of Java records for all data transfer objects and configuration models to ensure immutability and concise syntax.
+- Static utility classes with private constructors (e.g., `FeaturePipeline`, `SectorRankingEngine`) for stateless algorithmic logic.
+- Cross-sectional normalization of features using Z-scores within time buckets to ensure relative scoring across the universe.
+- Defensive programming with null-safe defaults and fallback mechanisms in time-series lookups and configuration loading.

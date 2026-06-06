@@ -168,7 +168,7 @@ class MatchingEngineTest {
     }
 
     @Test
-    void fillPriceFallsBackToRequestPriceWhenNoTickReceived() {
+    void fillPriceFallsBackToRequestPriceWhenNoMarketTick() {
         var engine2 = new MatchingEngine(MatchingEngine.SlippageConfig.DEFAULT);
         var result = engine2.match(req("SBIN", Side.BUY, 100, 755_00L, OrderType.MARKET), "ORD-1");
         assertFalse(result.rejected());

@@ -15,7 +15,7 @@ public interface FeatureStore {
 
     /**
      * Ingest a domain event into the feature store.
-     * Supported event types: {@link com.tradej.core.domain.event.TickReceived},
+     * Supported event types: {@link com.tradej.core.domain.event.MarketTickEvent},
      * {@link com.tradej.core.domain.event.CandleClosed},
      * {@link com.tradej.core.domain.event.CandleDeveloping}.
      */

@@ -4,7 +4,6 @@ import com.tradej.core.domain.event.CandleClosed;
 import com.tradej.core.domain.event.CandleDeveloping;
 import com.tradej.core.domain.event.DomainEvent;
 import com.tradej.core.domain.event.MarketTickEvent;
-import com.tradej.core.domain.event.TickReceived;
 import com.tradej.core.domain.model.Candle;
 import com.tradej.core.domain.model.FeatureGenerator;
 import com.tradej.core.domain.model.FeatureVector;
@@ -101,7 +100,6 @@ public final class DuckDbFeatureStore implements FeatureStore, AutoCloseable {
             ensureConnection();
             switch (event) {
                 case MarketTickEvent tick -> insertMarketTick(tick);
-                case TickReceived tick -> insertTick(tick);
                 case CandleDeveloping dev -> upsertCandle(dev.candle(), false);
                 case CandleClosed closed -> upsertCandle(closed.candle(), true);
                 default -> { /* unsupported event type, silently ignored */ }
@@ -202,23 +200,6 @@ public final class DuckDbFeatureStore implements FeatureStore, AutoCloseable {
         }
     }
 
-    private void insertTick(TickReceived tick) throws SQLException {
-        try (PreparedStatement ps = connection.prepareStatement("""
-                insert into feature_ticks values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """)) {
-            ps.setString(1, tick.eventId());
-            ps.setString(2, tick.symbol());
-            ps.setString(3, tick.interval());
-            ps.setLong(4, tick.ltpPaisa());
-            ps.setLong(5, tick.lastTradeQuantity());
-            ps.setLong(6, tick.cumulativeVolume());
-            ps.setLong(7, tick.exchangeTimestampMs());
-            ps.setLong(8, System.currentTimeMillis());
-            ps.setString(9, null);
-            ps.setString(10, null);
-            ps.executeUpdate();
-        }
-    }
 
     private void upsertCandle(Candle candle, boolean closed) throws SQLException {
         try (PreparedStatement ps = connection.prepareStatement("""

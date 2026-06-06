@@ -3,6 +3,9 @@ package com.tradej.broker.icici.mapper;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.tradej.broker.icici.instrument.BreezeInstrumentDefinition;
+import com.tradej.core.domain.model.DepthLevel;
+import com.tradej.core.domain.model.InstrumentKey;
+import com.tradej.core.domain.model.MarketDepth;
 import com.tradej.core.domain.model.ModifyOrderRequest;
 import com.tradej.core.domain.model.Order;
 import com.tradej.core.domain.model.OrderRequest;
@@ -18,6 +21,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
@@ -160,6 +164,109 @@ public final class BreezeDomainMapper {
         long totalBuy = node.path("total_buy_quantity").asLong(node.path("totalBuyQt").asLong(0L));
         long totalSell = node.path("total_sell_quantity").asLong(node.path("totalSellQt").asLong(0L));
         return new Quote(instrument, ltp, open, high, low, close, volume, totalBuy, totalSell, 0L, Instant.now().toEpochMilli());
+    }
+
+    /**
+     * Builds a {@link MarketDepth} from the Breeze quotes/depth API response.
+     * Breeze returns a top-of-book object ({@code bid}/@{@code ask})
+     * and optionally a full depth array ({@code bids}/@{@code asks}).
+     * Tries both structures for maximum data fidelity.
+     *
+     * @param node     parsed JSON node from the quotes endpoint
+     * @param instrument the instrument for the depth object
+     * @return populated MarketDepth; never null
+     */
+    public MarketDepth toDepth(JsonNode node, com.tradej.core.domain.model.Instrument instrument) {
+        long timestamp = node.has("timestamp")
+                ? parseInstant(node.get("timestamp"))
+                : Instant.now().toEpochMilli();
+        int levels = 0;
+
+        // Strategy 1: full depth arrays (preferred — more levels)
+        JsonNode fullBids = node.path("bids");
+        JsonNode fullAsks = node.path("asks");
+        if (fullBids.isArray() && fullAsks.isArray()) {
+            levels = Math.max(fullBids.size(), fullAsks.size());
+            return new MarketDepth(instrument, toDepthLevels(fullBids), toDepthLevels(fullAsks), levels, timestamp);
+        }
+
+        // Strategy 2: top-of-book single object (bid/ask with nested price/qty/orders)
+        JsonNode topBid = node.path("bid");
+        JsonNode topAsk = node.path("ask");
+        if (topBid.isObject() || topAsk.isObject()) {
+            return new MarketDepth(
+                    instrument,
+                    List.of(toDepthLevel(topBid)),
+                    List.of(toDepthLevel(topAsk)),
+                    1,
+                    timestamp
+            );
+        }
+
+        // Strategy 3: flat top-of-book fields (price/qty directly on bid/ask node)
+        if (node.has("bid_price") || node.has("ask_price")) {
+            long bidPx  = pricePaisa(node, "bid_price", "bidPrice", "bid");
+            long bidQty = parseLongOrDefault(node, "bid_quantity", "bidQty", "bid_quantity", 0L);
+            int  bidOrd = (int) parseLongOrDefault(node, "bid_orders", "bidOrders", "bid_orders", 1L);
+            long askPx  = pricePaisa(node, "ask_price", "askPrice", "ask");
+            long askQty = parseLongOrDefault(node, "ask_quantity", "askQty", "ask_quantity", 0L);
+            int  askOrd = (int) parseLongOrDefault(node, "ask_orders", "askOrders", "ask_orders", 1L);
+            List<DepthLevel> bids = bidPx > 0 ? List.of(new DepthLevel(bidPx, bidQty, bidOrd)) : List.of();
+            List<DepthLevel> asks = askPx > 0 ? List.of(new DepthLevel(askPx, askQty, askOrd)) : List.of();
+            return new MarketDepth(instrument, bids, asks, 1, timestamp);
+        }
+
+        // No depth data — return empty depth
+        return new MarketDepth(instrument, List.of(), List.of(), 0, timestamp);
+    }
+
+    private List<DepthLevel> toDepthLevels(JsonNode array) {
+        List<DepthLevel> levels = new java.util.ArrayList<>();
+        for (JsonNode e : array) {
+            if (e.isObject()) {
+                levels.add(new DepthLevel(
+                        pricePaisa(e, "price", "p"),
+                        parseLongOrDefault(e, "quantity", "qty", "q", 0L),
+                        (int) parseLongOrDefault(e, "orders", "o", "ord", 1L)
+                ));
+            }
+        }
+        return List.copyOf(levels);
+    }
+
+    private static DepthLevel toDepthLevel(JsonNode node) {
+        if (!node.isObject() || node.isEmpty()) {
+            return new DepthLevel(0L, 0L, 0);
+        }
+        return new DepthLevel(
+                pricePaisaFromNode(node, "price", "p"),
+                parseLongOrDefault(node, "quantity", "qty", "q", 0L),
+                (int) parseLongOrDefault(node, "orders", "o", "ord", 1L)
+        );
+    }
+
+    private static long parseInstant(JsonNode node) {
+        if (node == null || node.isNull()) return Instant.now().toEpochMilli();
+        try { return node.isIntegralNumber() ? node.asLong() : Instant.parse(node.asText()).toEpochMilli(); }
+        catch (Exception ignored) { return Instant.now().toEpochMilli(); }
+    }
+
+    private static long parseLongOrDefault(JsonNode node, String k1, String k2, String k3, long fallback) {
+        for (String k : List.of(k1, k2, k3)) {
+            if (node.has(k)) {
+                try { return node.get(k).asLong(); } catch (Exception ignored) {}
+            }
+        }
+        return fallback;
+    }
+
+    private static long pricePaisaFromNode(JsonNode node, String... names) {
+        for (String name : names) {
+            if (node.has(name)) {
+                try { return Math.round(node.get(name).asDouble() * 100.0); } catch (Exception ignored) {}
+            }
+        }
+        return 0L;
     }
 
     public Order toOrder(JsonNode node, OrderRequest originalRequest) {

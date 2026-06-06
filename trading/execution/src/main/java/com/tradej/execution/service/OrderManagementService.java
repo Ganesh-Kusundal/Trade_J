@@ -25,8 +25,6 @@ import com.tradej.simulation.MatchingEngine;
 import com.tradej.simulation.SimulatedOrderService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Map;
@@ -43,7 +41,6 @@ import java.util.function.Consumer;
  * drive state transitions via {@link OrderStateMachine}, and every
  * {@link OrderEvent} is persisted to {@link EventSourcedOrderRepository}.
  */
-@Service
 public final class OrderManagementService {
 
     private static final Logger log = LoggerFactory.getLogger(OrderManagementService.class);
@@ -53,6 +50,7 @@ public final class OrderManagementService {
     private final SimulatedOrderService simulatedOrderService;
     private final TradingClock clock;
     private final EventSourcedOrderRepository orderRepository;
+    private final TradingCircuitBreaker circuitBreaker;
     private final ConcurrentHashMap<String, OrderStateMachine> stateMachines = new ConcurrentHashMap<>();
     private volatile MatchingEngine.MatchResult lastSimulatedMatch;
 
@@ -61,21 +59,31 @@ public final class OrderManagementService {
             RuntimeModeHolder runtimeModeHolder,
             TradingClock clock,
             EventSourcedOrderRepository orderRepository) {
-        this(brokerConnection, runtimeModeHolder, null, clock, orderRepository);
+        this(brokerConnection, runtimeModeHolder, null, clock, orderRepository, null);
     }
 
-    @Autowired
     public OrderManagementService(
             IBrokerConnection brokerConnection,
             RuntimeModeHolder runtimeModeHolder,
-            @Autowired(required = false) SimulatedOrderService simulatedOrderService,
+            SimulatedOrderService simulatedOrderService,
             TradingClock clock,
             EventSourcedOrderRepository orderRepository) {
+        this(brokerConnection, runtimeModeHolder, simulatedOrderService, clock, orderRepository, null);
+    }
+
+    public OrderManagementService(
+            IBrokerConnection brokerConnection,
+            RuntimeModeHolder runtimeModeHolder,
+            SimulatedOrderService simulatedOrderService,
+            TradingClock clock,
+            EventSourcedOrderRepository orderRepository,
+            TradingCircuitBreaker circuitBreaker) {
         this.brokerConnection = brokerConnection;
         this.runtimeModeHolder = runtimeModeHolder;
         this.simulatedOrderService = simulatedOrderService;
         this.clock = clock;
         this.orderRepository = orderRepository;
+        this.circuitBreaker = circuitBreaker;
     }
 
     /**
@@ -84,6 +92,9 @@ public final class OrderManagementService {
      * caller ({@link ExecutionHandler}) is responsible for the full event lifecycle.
      */
     public Order placeOrder(OrderRequest request) {
+        if (circuitBreaker != null && !circuitBreaker.allowsRequest()) {
+            throw new IllegalStateException("Order placement rejected — trading circuit breaker is open");
+        }
         String canonicalSymbol = ContractSymbolNormalizer.normalize(request.symbol());
         OrderRequest normalized = new OrderRequest(
                 canonicalSymbol,
@@ -124,7 +135,7 @@ public final class OrderManagementService {
             return brokerConnection.orders().cancelOrder(orderId);
         }
 
-        LifecycleState state = machine.currentStatus();
+        LifecycleState state = machine.toProjection().status();
         if (state.isFinal()) {
             throw new IllegalStateException(
                     "Cannot cancel order " + orderId + " — already in terminal state " + state);
@@ -151,7 +162,7 @@ public final class OrderManagementService {
             return brokerConnection.orders().modifyOrder(request);
         }
 
-        LifecycleState state = machine.currentStatus();
+        LifecycleState state = machine.toProjection().status();
         if (state != LifecycleState.SUBMITTED && state != LifecycleState.PARTIALLY_FILLED) {
             throw new IllegalStateException(
                     "Cannot modify order " + orderId + " — must be SUBMITTED or PARTIALLY_FILLED, but was " + state);
@@ -194,9 +205,9 @@ public final class OrderManagementService {
 
     /**
      * Processes a broker callback event, transitioning the order state machine.
-     * Every event is persisted.
+     * Every event is persisted atomically.
      */
-    public void onBrokerEvent(OrderEvent event) {
+        public void onBrokerEvent(OrderEvent event) {
         persistAndApply(event.orderId(), event);
     }
 

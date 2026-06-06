@@ -1,0 +1,3 @@
+- **Unified Startup**: `./gradlew :app:bootRun` boots the entire platform (backend + synced frontend) with profile-based broker selection (e.g., `--args='--spring.profiles.active=dev-live'`).
+- **Operator CLI**: `./scripts/tradej interactive` launches a standalone picocli shell for direct broker interaction and system diagnostics without the full Spring context.
+- **Regression Suite**: `./scripts/run-full-regression.sh` executes a tiered test pyramid including unit, component, integration, and live broker parity tests.

@@ -144,7 +144,9 @@ public final class UpstoxOAuthClient {
     }
 
     private static String formBody(String... params) {
-        if (params.length % 2 != 0) throw new IllegalArgumentException("params must be key-value pairs");
+        if (params.length % 2 != 0) {
+            throw new IllegalArgumentException("params must be key-value pairs");
+        }
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < params.length; i += 2) {
             if (i > 0) sb.append('&');

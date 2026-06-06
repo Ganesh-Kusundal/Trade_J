@@ -1,0 +1,4 @@
+- Implements the `com.tradej.core.domain.port.FeatureStore` interface via three strategies: `DuckDbFeatureStore` for persistent SQL storage, `InMemoryFeatureStore` for low-latency hot-path access, and `OptionsAwareFeatureStore` as a decorator for options chain context.
+- Decouples I/O from the event dispatch thread using `AsyncDuckDbWriter`, which implements `DomainEventHandler` and uses a bounded `BlockingQueue` with batch processing to write to DuckDB asynchronously.
+- Integrates into the wider system via `FeatureNode`, a `BasePipelineNode` wrapper that routes domain events into the configured feature store.
+- Includes a `DataIntegrityValidator` utility for enforcing OHLC and tick sanity checks before or during ingestion.

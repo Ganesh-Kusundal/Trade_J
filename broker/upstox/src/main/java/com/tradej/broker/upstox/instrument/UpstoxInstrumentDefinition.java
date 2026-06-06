@@ -27,7 +27,9 @@ public record UpstoxInstrumentDefinition(
         String underlyingKey
 ) {
     private static Exchange mapExchange(String name) {
-        if (name == null) return Exchange.UNKNOWN;
+        if (name == null) {
+            return Exchange.UNKNOWN;
+        }
         return switch (name.toUpperCase()) {
             case "NSE" -> Exchange.NSE;
             case "BSE" -> Exchange.BSE;
@@ -42,6 +44,7 @@ public record UpstoxInstrumentDefinition(
     /**
      * Converts this definition to a domain Instrument.
      */
+
     public Instrument toInstrument() {
         String instrumentType = optionType != null && optionType != OptionType.UNKNOWN ? "OPT" : "EQ";
         Exchange exchange = mapExchange(exchangeName);

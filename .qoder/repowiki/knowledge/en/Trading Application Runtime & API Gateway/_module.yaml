@@ -1,0 +1,13 @@
+schema_version: 1
+module_path: app
+title: Trading Application Runtime & API Gateway
+scope:
+    - app/
+source_files: []
+depends_on: []
+related_to:
+    - path: cli
+    - path: composition
+    - path: replay
+    - path: architecture_test
+    - path: gateway

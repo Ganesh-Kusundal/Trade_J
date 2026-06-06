@@ -34,6 +34,18 @@ public class RetryExecutor {
     }
 
     /**
+     * Creates a {@code RetryExecutor} with a {@link CircuitBreaker} configured by
+     * the given per-broker {@link CircuitBreakerConfig}.
+     *
+     * @param rateLimiter        rate limiter for the broker
+     * @param circuitBreakerConfig per-broker circuit breaker configuration
+     */
+    public RetryExecutor(MultiBucketRateLimiter rateLimiter, CircuitBreakerConfig circuitBreakerConfig) {
+        this(rateLimiter, new CircuitBreaker(
+                Objects.requireNonNull(circuitBreakerConfig, "circuitBreakerConfig must not be null")));
+    }
+
+    /**
      * Executes the supplier with retry and circuit breaking.
      *
      * @param category  rate limit category

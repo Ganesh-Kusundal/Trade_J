@@ -1,0 +1,12 @@
+schema_version: 1
+module_path: trading/simulation
+title: Trading Simulation & Backtesting Engine
+scope:
+    - trading/simulation/
+source_files: []
+depends_on: []
+related_to:
+    - path: research
+    - path: trading/execution
+    - path: pipeline
+    - path: trading/strategy

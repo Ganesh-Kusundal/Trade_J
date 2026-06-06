@@ -4,7 +4,10 @@ import com.tradej.core.domain.event.CandleClosed;
 import com.tradej.core.domain.event.CandleDeveloping;
 import com.tradej.core.domain.event.DomainEvent;
 import com.tradej.core.domain.event.EventMetadata;
-import com.tradej.core.domain.event.TickReceived;
+import com.tradej.core.domain.event.MarketTickEvent;
+import com.tradej.core.domain.value.ExchangeSegment;
+import com.tradej.core.domain.value.FeedMode;
+import java.util.Optional;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
@@ -27,9 +30,9 @@ class CandleAggregationServiceComponentTest {
         long t1 = t0 + 60_000L;
         long t2 = t0 + 300_000L;
 
-        service.onDomainEvent(new TickReceived(EventMetadata.root(), "SBIN", "5m", 75_000L, 10L, 10L, t0, null), emitted::add);
-        service.onDomainEvent(new TickReceived(EventMetadata.root(), "SBIN", "5m", 75_500L, 5L, 15L, t1, null), emitted::add);
-        service.onDomainEvent(new TickReceived(EventMetadata.root(), "SBIN", "5m", 76_000L, 7L, 22L, t2, null), emitted::add);
+        service.onDomainEvent(new MarketTickEvent(EventMetadata.root(), 0L, "SBIN", ExchangeSegment.NSE_EQ, FeedMode.TICKER, 75_000L, 10L, 10L, t0, Optional.empty(), 0L, 0L), emitted::add);
+        service.onDomainEvent(new MarketTickEvent(EventMetadata.root(), 0L, "SBIN", ExchangeSegment.NSE_EQ, FeedMode.TICKER, 75_500L, 5L, 15L, t1, Optional.empty(), 0L, 0L), emitted::add);
+        service.onDomainEvent(new MarketTickEvent(EventMetadata.root(), 0L, "SBIN", ExchangeSegment.NSE_EQ, FeedMode.TICKER, 76_000L, 7L, 22L, t2, Optional.empty(), 0L, 0L), emitted::add);
 
         assertEquals(4, emitted.size());
         CandleDeveloping firstDeveloping = assertInstanceOf(CandleDeveloping.class, emitted.get(0));
@@ -58,7 +61,7 @@ class CandleAggregationServiceComponentTest {
 
         // ── Tick 1 at t0: both intervals create initial candles ──
         service.onDomainEvent(
-                new TickReceived(EventMetadata.root(), "SBIN", "1s", 100_00L, 10L, 1_000L, t0, null),
+                new MarketTickEvent(EventMetadata.root(), 0L, "SBIN", ExchangeSegment.NSE_EQ, FeedMode.TICKER, 100_00L, 10L, 1_000L, t0, Optional.empty(), 0L, 0L),
                 emitted::add);
 
         assertEquals(2, emitted.size(), "Should emit CandleDeveloping for both intervals");
@@ -69,7 +72,7 @@ class CandleAggregationServiceComponentTest {
         // ── Tick 2 at t0+500ms: same bucket for both → update ──
         emitted.clear();
         service.onDomainEvent(
-                new TickReceived(EventMetadata.root(), "SBIN", "1s", 101_00L, 5L, 1_005L, t1, null),
+                new MarketTickEvent(EventMetadata.root(), 0L, "SBIN", ExchangeSegment.NSE_EQ, FeedMode.TICKER, 101_00L, 5L, 1_005L, t1, Optional.empty(), 0L, 0L),
                 emitted::add);
 
         assertEquals(2, emitted.size(), "Both intervals should emit developing candles");
@@ -79,7 +82,7 @@ class CandleAggregationServiceComponentTest {
         // ── Tick 3 at t0+1500ms: 1s bucket rolls over, 5m stays ──
         emitted.clear();
         service.onDomainEvent(
-                new TickReceived(EventMetadata.root(), "SBIN", "1s", 102_00L, 7L, 1_012L, t2, null),
+                new MarketTickEvent(EventMetadata.root(), 0L, "SBIN", ExchangeSegment.NSE_EQ, FeedMode.TICKER, 102_00L, 7L, 1_012L, t2, Optional.empty(), 0L, 0L),
                 emitted::add);
 
         assertEquals(3, emitted.size(), "1s rollover: CandleClosed(1s) + CandleDeveloping(1s) + CandleDeveloping(5m)");
@@ -97,7 +100,7 @@ class CandleAggregationServiceComponentTest {
         // ── Tick 4 at t0+300s: BOTH intervals roll over ──
         emitted.clear();
         service.onDomainEvent(
-                new TickReceived(EventMetadata.root(), "SBIN", "1s", 103_00L, 3L, 1_015L, t3, null),
+                new MarketTickEvent(EventMetadata.root(), 0L, "SBIN", ExchangeSegment.NSE_EQ, FeedMode.TICKER, 103_00L, 3L, 1_015L, t3, Optional.empty(), 0L, 0L),
                 emitted::add);
 
         assertEquals(4, emitted.size(),

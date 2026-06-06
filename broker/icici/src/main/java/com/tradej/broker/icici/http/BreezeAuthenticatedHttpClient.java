@@ -1,6 +1,5 @@
 package com.tradej.broker.icici.http;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.tradej.broker.icici.auth.BreezeTokenProvider;

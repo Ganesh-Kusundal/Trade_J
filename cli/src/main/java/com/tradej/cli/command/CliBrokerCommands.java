@@ -3,6 +3,7 @@ package com.tradej.cli.command;
 import com.tradej.cli.CliContext;
 import com.tradej.cli.output.OutputFormatter;
 import com.tradej.cli.output.TablePrinter;
+import com.tradej.broker.api.port.ConditionalAlertProvider;
 import com.tradej.core.domain.instrument.ContractSymbolNormalizer;
 import com.tradej.core.domain.instrument.RollingExpiryKind;
 import com.tradej.core.domain.instrument.RollingExpiryRoll;
@@ -20,6 +21,8 @@ import com.tradej.core.domain.model.MarketDepth;
 import com.tradej.core.domain.model.OptionChainEntry;
 import com.tradej.core.domain.model.OptionChainSnapshot;
 import com.tradej.core.domain.model.Order;
+import com.tradej.core.domain.model.OrderPreview;
+import com.tradej.core.domain.model.OrderRequest;
 import com.tradej.core.domain.model.Position;
 import com.tradej.core.domain.model.Quote;
 import com.tradej.core.domain.model.RollingOptionHistoryRequest;
@@ -301,6 +304,32 @@ public final class CliBrokerCommands extends CliCommandSupport {
         out().print(estimate);
     }
 
+    public void previewOrder(
+            String symbol,
+            String segmentName,
+            String side,
+            long quantity,
+            String orderType,
+            long pricePaisa,
+            String productType
+    ) {
+        session().ensureCatalogLoaded();
+        OrderRequest request = new OrderRequest(
+                symbol,
+                parseSegment(segmentName),
+                Side.valueOf(side.toUpperCase()),
+                quantity,
+                OrderType.valueOf(orderType.toUpperCase()),
+                pricePaisa,
+                0L,
+                ProductType.valueOf(productType.toUpperCase()),
+                com.tradej.core.domain.value.Validity.DAY,
+                null
+        );
+        OrderPreview preview = orderCommand().previewOrder(request);
+        out().print(preview);
+    }
+
     public void rollingOption(
             String underlying,
             String segmentName,
@@ -336,5 +365,82 @@ public final class CliBrokerCommands extends CliCommandSupport {
                 toDate
         ));
         out().print(data);
+    }
+
+    public void batchQuote(String symbol1, String symbol2, String segmentName) {
+        session().ensureCatalogLoaded();
+        ExchangeSegment segment = parseSegment(segmentName);
+        var resolver = session().connection().instruments();
+        var keys = List.of(
+                resolver.resolveNormalized(symbol1, segment).key(),
+                resolver.resolveNormalized(symbol2, segment).key()
+        );
+        Map<InstrumentKey, Quote> result = marketData().getQuoteBatch(keys);
+        for (var entry : result.entrySet()) {
+            Quote q = entry.getValue();
+            out().println(entry.getKey().symbol() + ": LTP=" + q.ltpPaisa() + " Vol=" + q.volume());
+        }
+    }
+
+    public void listAlerts() {
+        var alerts = session().connection().getCapability(ConditionalAlertProvider.class);
+        if (alerts.isEmpty()) {
+            out().println("Alerts not supported by this broker");
+            return;
+        }
+        var list = alerts.get().listAlerts();
+        out().println("Alerts: " + list.size());
+        for (var alert : list) {
+            out().println("  " + alert);
+        }
+    }
+
+    public void cancelAndSquareOff() {
+        var ids = orderCommand().cancelAndSquareOffIntradayPositions();
+        out().println("Cancelled and squared off " + ids.size() + " orders");
+        for (String id : ids) {
+            out().println("  " + id);
+        }
+    }
+
+    public void bracketOrder(String symbol, String segmentName, String side, long qty, long price, long target, long sl, long trailing) {
+        session().ensureCatalogLoaded();
+        var bracket = session().connection().getCapability(com.tradej.broker.api.port.BracketOrderProvider.class);
+        if (bracket.isEmpty()) { out().println("Bracket orders not supported by this broker"); return; }
+        var request = new OrderRequest(symbol, parseSegment(segmentName),
+                Side.valueOf(side.toUpperCase()), qty,
+                OrderType.LIMIT, price, 0L,
+                ProductType.INTRADAY,
+                com.tradej.core.domain.value.Validity.DAY, null);
+        Order order = bracket.get().placeSuperOrder(request, target, sl, trailing);
+        out().println("Bracket order placed: " + order.orderId());
+    }
+
+    public void gttOrder(String symbol, String segmentName, String side, long qty, long price, String flag) {
+        session().ensureCatalogLoaded();
+        var gtt = session().connection().getCapability(com.tradej.broker.api.port.GttOrderProvider.class);
+        if (gtt.isEmpty()) { out().println("GTT orders not supported by this broker"); return; }
+        var request = new OrderRequest(symbol, parseSegment(segmentName),
+                Side.valueOf(side.toUpperCase()), qty,
+                OrderType.LIMIT, price, 0L,
+                ProductType.CNC,
+                com.tradej.core.domain.value.Validity.DAY, null);
+        Order order = gtt.get().placeForeverOrder(request, flag, null, null, null);
+        out().println("GTT order placed: " + order.orderId());
+    }
+
+    public void futuresContracts(String underlying, String segmentName) {
+        session().ensureCatalogLoaded();
+        var futures = session().connection().getCapability(com.tradej.broker.api.port.FuturesProvider.class);
+        if (futures.isEmpty()) { out().println("Futures not supported by this broker"); return; }
+        var contracts = futures.get().getContracts(underlying, parseSegment(segmentName));
+        out().println("Futures contracts for " + underlying + ": " + contracts.size());
+        for (var c : contracts) {
+            out().println("  " + c.symbol() + " expiry=" + c.expiry());
+        }
+    }
+
+    public void healthCheck(String brokerName) {
+        out().println("Health check for " + brokerName + ": use 'tradej broker inspect " + brokerName + "'");
     }
 }

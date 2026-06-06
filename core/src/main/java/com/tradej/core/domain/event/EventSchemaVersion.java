@@ -23,7 +23,7 @@ package com.tradej.core.domain.event;
  *
  * <h2>Migration pattern</h2>
  * <pre>{@code
- * // v1: TickReceived(metadata, symbol, interval, ltpPaisa, ...)
+ * // v1: MarketTickEvent(metadata, seqId, symbol, segment, feedMode, ltpPaisa, ...)
  * // v2: Added exchangeSegment field — override schemaVersion() → 2
  * @Override
  * public int schemaVersion() { return 2; }

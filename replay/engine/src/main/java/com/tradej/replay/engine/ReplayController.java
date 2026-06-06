@@ -4,11 +4,10 @@ import com.tradej.core.domain.event.CandleClosed;
 import com.tradej.core.domain.event.EventMetadata;
 import com.tradej.core.domain.event.ReplayTimeChangedEvent;
 import com.tradej.core.domain.model.Candle;
+import com.tradej.core.domain.port.EventBus;
 import com.tradej.core.domain.time.ReplayTradingClock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -23,7 +22,6 @@ import java.util.concurrent.TimeUnit;
  * Controller to handle play, pause, stepping, and speed adjustments of historical candles
  * and time aggregates in the replay sandbox.
  */
-@Component
 public class ReplayController {
     private static final Logger log = LoggerFactory.getLogger(ReplayController.class);
 
@@ -33,7 +31,7 @@ public class ReplayController {
         PAUSED
     }
 
-    private final ApplicationEventPublisher eventPublisher;
+    private final EventBus eventBus;
     private final MultiTimeframeContext timeframeContext;
     private final ScheduledExecutorService executorService;
 
@@ -44,8 +42,8 @@ public class ReplayController {
     private double speedMultiplier = 1.0; // 1 second of real-time = 1 second of replay-time
     private ScheduledFuture<?> playFuture;
 
-    public ReplayController(ApplicationEventPublisher eventPublisher) {
-        this.eventPublisher = eventPublisher;
+    public ReplayController(EventBus eventBus) {
+        this.eventBus = eventBus;
         this.timeframeContext = new MultiTimeframeContext();
         this.executorService = Executors.newSingleThreadScheduledExecutor(r -> {
             Thread thread = new Thread(r, "replay-loop-worker");
@@ -139,12 +137,12 @@ public class ReplayController {
 
         // 2. Publish original 1m closed event
         CandleClosed closed1mEvent = new CandleClosed(EventMetadata.root(), candle1m);
-        eventPublisher.publishEvent(closed1mEvent);
+        eventBus.publish(closed1mEvent);
 
         // 3. Process MultiTimeframe Context and emit completed higher bars
         MultiTimeframeContext.TimeframeResult result = timeframeContext.process1mCandle(candle1m);
         for (Candle higherBar : result.closedCandles()) {
-            eventPublisher.publishEvent(new CandleClosed(EventMetadata.root(), higherBar));
+            eventBus.publish(new CandleClosed(EventMetadata.root(), higherBar));
         }
 
         // 4. Publish ReplayTimeChangedEvent
@@ -153,7 +151,7 @@ public class ReplayController {
             clock.millis(),
             (long) (1000_000_000L / speedMultiplier)
         );
-        eventPublisher.publishEvent(timeEvent);
+        eventBus.publish(timeEvent);
 
         return true;
     }

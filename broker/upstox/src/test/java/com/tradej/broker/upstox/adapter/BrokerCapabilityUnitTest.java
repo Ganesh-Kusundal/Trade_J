@@ -11,6 +11,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.withSettings;
 
 @Tag("unit")
 class BrokerCapabilityUnitTest {
@@ -27,6 +28,13 @@ class BrokerCapabilityUnitTest {
         FuturesProvider futuresProvider = mock(FuturesProvider.class);
         OptionsProvider optionsProvider = mock(OptionsProvider.class);
         NewsProvider newsProvider = mock(NewsProvider.class);
+        // Use ConditionalAlertProvider mock that also implements GttOrderProvider
+        // to reflect that UpstoxGttOrderAdapter implements both interfaces.
+        ConditionalAlertProvider conditionalAlertProvider = mock(ConditionalAlertProvider.class,
+                withSettings().extraInterfaces(GttOrderProvider.class));
+        SliceOrderCommand sliceOrderCommand = mock(SliceOrderCommand.class);
+        UpstoxDataServicesProvider dataServicesProvider = mock(UpstoxDataServicesProvider.class);
+        UpstoxProfileProvider profileProvider = mock(UpstoxProfileProvider.class);
         UpstoxInstrumentLoader instrumentLoader = mock(UpstoxInstrumentLoader.class);
 
         UpstoxBrokerConnection connection = new UpstoxBrokerConnection(
@@ -40,6 +48,10 @@ class BrokerCapabilityUnitTest {
                 futuresProvider,
                 optionsProvider,
                 newsProvider,
+                conditionalAlertProvider,
+                sliceOrderCommand,
+                dataServicesProvider,
+                profileProvider,
                 instrumentLoader
         );
 
@@ -60,10 +72,18 @@ class BrokerCapabilityUnitTest {
         Optional<BracketOrderProvider> bracketCap = connection.getCapability(BracketOrderProvider.class);
         assertFalse(bracketCap.isPresent(), "Upstox does not support bracket orders; getCapability should return empty");
 
+        // GTT orders are supported via ConditionalAlertProvider (and also GttOrderProvider
+        // since UpstoxGttOrderAdapter implements both interfaces)
         Optional<GttOrderProvider> gttCap = connection.getCapability(GttOrderProvider.class);
-        assertFalse(gttCap.isPresent(), "Upstox does not support GTT orders; getCapability should return empty");
+        assertTrue(gttCap.isPresent(), "GttOrderProvider should be supported via Upstox GTT adapter");
+        assertSame(conditionalAlertProvider, gttCap.get());
+
+        Optional<ConditionalAlertProvider> alertCap = connection.getCapability(ConditionalAlertProvider.class);
+        assertTrue(alertCap.isPresent(), "ConditionalAlertProvider (GTT) should be supported");
+        assertSame(conditionalAlertProvider, alertCap.get());
 
         Optional<SliceOrderCommand> sliceCap = connection.getCapability(SliceOrderCommand.class);
-        assertFalse(sliceCap.isPresent(), "Upstox does not support slice orders; getCapability should return empty");
+        assertTrue(sliceCap.isPresent(), "Upstox SliceOrderCommand should now be supported");
+        assertSame(sliceOrderCommand, sliceCap.get());
     }
 }

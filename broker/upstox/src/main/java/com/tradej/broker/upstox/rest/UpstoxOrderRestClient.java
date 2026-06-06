@@ -5,10 +5,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tradej.broker.upstox.http.UpstoxJsonHttpClient;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 
 import static com.tradej.broker.upstox.constants.UpstoxEndpoints.CANCEL_ORDER_PATH;
 import static com.tradej.broker.upstox.constants.UpstoxEndpoints.MODIFY_ORDER_PATH;
+import static com.tradej.broker.upstox.constants.UpstoxEndpoints.MULTI_ORDER_PATH;
 import static com.tradej.broker.upstox.constants.UpstoxEndpoints.ORDER_DETAILS_PATH;
 import static com.tradej.broker.upstox.constants.UpstoxEndpoints.ORDER_HISTORY_PATH;
 import static com.tradej.broker.upstox.constants.UpstoxEndpoints.PLACE_ORDER_PATH;
@@ -50,6 +52,43 @@ public final class UpstoxOrderRestClient {
 
     public JsonNode getTrades() {
         return httpClient.getJson(TRADES_PATH);
+    }
+
+    /**
+     * Places multiple orders in a single API call (basket order).
+     * Uses POST /v2/order/multi with an array of order payloads.
+     *
+     * @param orders list of order payloads (each as returned by UpstoxDomainMapper.toPlaceOrderPayload)
+     * @return JSON response with array of order results
+     */
+    public JsonNode placeMultiOrder(List<Map<String, Object>> orders) {
+        try {
+            String body = MAPPER.writeValueAsString(orders);
+            return httpClient.postJson(MULTI_ORDER_PATH, body);
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to serialize multi-order payload", e);
+        }
+    }
+
+    /**
+     * Cancels multiple orders in a single API call.
+     * Uses DELETE /v2/order/multi with a JSON body containing order IDs.
+     *
+     * @param orderIds list of order IDs to cancel
+     * @return JSON response
+     */
+    public JsonNode cancelMultiOrder(List<String> orderIds) {
+        try {
+            var payload = MAPPER.createObjectNode();
+            var idsArray = MAPPER.createArrayNode();
+            for (String id : orderIds) {
+                idsArray.add(id);
+            }
+            payload.set("order_ids", idsArray);
+            return httpClient.deleteJson(MULTI_ORDER_PATH, MAPPER.writeValueAsString(payload));
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to serialize multi-order cancel payload", e);
+        }
     }
 
     private JsonNode postJson(String path, Map<String, Object> payload) {

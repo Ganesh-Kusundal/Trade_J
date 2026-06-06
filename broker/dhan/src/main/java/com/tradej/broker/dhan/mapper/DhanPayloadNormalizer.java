@@ -43,7 +43,7 @@ public final class DhanPayloadNormalizer {
                     PriceMath.toPaisa(ticker.ltp()),
                     0L,
                     0L,
-                    ticker.ltt() > 1_000_000_000_000L ? ticker.ltt() : ticker.ltt() * 1000L,
+                    toEpochMs(ticker.ltt()),
                     Optional.empty(),
                     0L,
                     0L
@@ -71,7 +71,7 @@ public final class DhanPayloadNormalizer {
                     PriceMath.toPaisa(quote.ltp()),
                     quote.ltq(),
                     quote.volume(),
-                    quote.ltt() > 1_000_000_000_000L ? quote.ltt() : quote.ltt() * 1000L,
+                    toEpochMs(quote.ltt()),
                     Optional.empty(),
                     0L,
                     0L
@@ -85,7 +85,7 @@ public final class DhanPayloadNormalizer {
                     PriceMath.toPaisa(full.ltp()),
                     full.ltq(),
                     full.volume(),
-                    full.ltt() > 1_000_000_000_000L ? full.ltt() : full.ltt() * 1000L,
+                    toEpochMs(full.ltt()),
                     Optional.of(normalizeFeedDepth(full, definition)),
                     full.openInterest(),
                     full.openInterest()
@@ -108,7 +108,16 @@ public final class DhanPayloadNormalizer {
         List<DepthLevel> asks = full.asks().stream()
                 .map(level -> new DepthLevel(PriceMath.toPaisa(level.price()), level.quantity(), level.orders()))
                 .toList();
-        long timestamp = full.ltt() > 1_000_000_000_000L ? full.ltt() : full.ltt() * 1000L;
-        return new MarketDepth(definition.toInstrument(), bids, asks, Math.max(bids.size(), asks.size()), timestamp);
+        return new MarketDepth(definition.toInstrument(), bids, asks, Math.max(bids.size(), asks.size()), toEpochMs(full.ltt()));
+    }
+
+    /**
+     * Convert Dhan wire-format timestamp to epoch milliseconds.
+     * Dhan sends timestamps in seconds (epoch) or in microseconds.
+     * Values &gt; 1e12 are interpreted as microseconds and converted to ms;
+     * smaller values are treated as seconds and converted to ms.
+     */
+    public static long toEpochMs(long dhanTimestamp) {
+        return dhanTimestamp > 1_000_000_000_000L ? dhanTimestamp : dhanTimestamp * 1000L;
     }
 }
