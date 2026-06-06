@@ -17,6 +17,7 @@ import com.tradej.brokergateway.result.BrokerSource;
 import com.tradej.brokergateway.result.GatewayResult;
 import com.tradej.core.domain.instrument.IndexSymbols;
 import com.tradej.core.domain.model.Balance;
+import com.tradej.core.domain.model.DepthLevel;
 import com.tradej.core.domain.model.Instrument;
 import com.tradej.core.domain.model.InstrumentKey;
 import com.tradej.core.domain.model.MarginEstimate;
@@ -409,5 +410,76 @@ class BrokerHandleTest {
         handle.disconnectWebSocket();
 
         verify(ws).disconnect();
+    }
+
+    // ── Order Book Snapshots ─────────────────────────────────────────
+
+    @Test
+    void orderBookSnapshotReturnsNullWhenCapabilityAbsent() {
+        when(connection.getCapability(com.tradej.broker.api.port.OrderBookSnapshotProvider.class))
+                .thenReturn(java.util.Optional.empty());
+
+        GatewayResult<com.tradej.broker.core.depth.OrderBook.OrderBookSnapshot> result =
+                handle.orderBookSnapshot("RELIANCE", ExchangeSegment.NSE_EQ, 20);
+
+        assertNotNull(result);
+        assertEquals(BrokerSource.DHAN, result.source());
+        assertNull(result.data());
+        assertTrue(result.isSuccess());
+    }
+
+    @Test
+    void orderBookSnapshotReturnsSnapshotWhenCapabilityPresent() {
+        com.tradej.broker.core.depth.OrderBook book = new com.tradej.broker.core.depth.OrderBook(
+                "RELIANCE", ExchangeSegment.NSE_EQ);
+        book.update(List.of(new DepthLevel(250000, 100, 1)), List.of(new DepthLevel(250100, 50, 1)));
+        com.tradej.broker.api.port.OrderBookSnapshotProvider provider =
+                mock(com.tradej.broker.api.port.OrderBookSnapshotProvider.class);
+        when(provider.snapshot("RELIANCE", ExchangeSegment.NSE_EQ, 20)).thenReturn(book.toSnapshot(20));
+        when(connection.getCapability(com.tradej.broker.api.port.OrderBookSnapshotProvider.class))
+                .thenReturn(java.util.Optional.of(provider));
+
+        GatewayResult<com.tradej.broker.core.depth.OrderBook.OrderBookSnapshot> result =
+                handle.orderBookSnapshot("RELIANCE", ExchangeSegment.NSE_EQ, 20);
+
+        assertNotNull(result);
+        assertNotNull(result.data());
+        assertEquals(250000, result.data().bids().getFirst().pricePaisa());
+        assertEquals(250100, result.data().asks().getFirst().pricePaisa());
+    }
+
+    @Test
+    void activeOrderBookKeysReturnsMap() {
+        com.tradej.broker.api.port.OrderBookSnapshotProvider provider =
+                mock(com.tradej.broker.api.port.OrderBookSnapshotProvider.class);
+        java.util.Map<String, ExchangeSegment> active = new java.util.LinkedHashMap<>();
+        active.put("RELIANCE", ExchangeSegment.NSE_EQ);
+        active.put("NIFTY", ExchangeSegment.IDX_I);
+        when(provider.activeBooks()).thenReturn(active);
+        when(connection.getCapability(com.tradej.broker.api.port.OrderBookSnapshotProvider.class))
+                .thenReturn(java.util.Optional.of(provider));
+
+        GatewayResult<java.util.Map<String, ExchangeSegment>> result = handle.activeOrderBookKeys();
+
+        assertNotNull(result);
+        assertEquals(2, result.data().size());
+        assertEquals(ExchangeSegment.NSE_EQ, result.data().get("RELIANCE"));
+    }
+
+    @Test
+    void invokeOrderBookSnapshotDispatches() {
+        com.tradej.broker.api.port.OrderBookSnapshotProvider provider =
+                mock(com.tradej.broker.api.port.OrderBookSnapshotProvider.class);
+        com.tradej.broker.core.depth.OrderBook book = new com.tradej.broker.core.depth.OrderBook(
+                "RELIANCE", ExchangeSegment.NSE_EQ);
+        when(provider.snapshot("RELIANCE", ExchangeSegment.NSE_EQ, 5)).thenReturn(book.toSnapshot(5));
+        when(connection.getCapability(com.tradej.broker.api.port.OrderBookSnapshotProvider.class))
+                .thenReturn(java.util.Optional.of(provider));
+
+        java.util.Optional<Object> result = handle.invoke("orderBookSnapshot",
+                java.util.Map.of("symbol", "RELIANCE", "segment", "NSE_EQ", "levels", 5));
+
+        assertTrue(result.isPresent());
+        assertInstanceOf(GatewayResult.class, result.get());
     }
 }

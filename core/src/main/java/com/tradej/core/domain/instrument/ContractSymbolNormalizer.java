@@ -79,6 +79,42 @@ public final class ContractSymbolNormalizer {
         return formatFuture(parsed.underlying(), parsed.day(), parsed.month());
     }
 
+    /**
+     * Strict normalization — throws if the symbol doesn't match any known contract pattern.
+     * Unlike {@link #normalize(String)}, which silently returns the uppercased input for
+     * unrecognized symbols, this method fails fast to catch bad data early.
+     *
+     * @param symbol the raw contract symbol to normalize
+     * @return the canonical form of the symbol
+     * @throws IllegalArgumentException if the symbol does not match any known pattern
+     */
+    public static String normalizeStrict(String symbol) {
+        if (symbol == null || symbol.isBlank()) {
+            throw new IllegalArgumentException("Contract symbol must not be null or blank");
+        }
+        String normalized = normalize(symbol);
+        if (!isKnownPattern(symbol)) {
+            throw new IllegalArgumentException("Unrecognized contract symbol: " + symbol);
+        }
+        return normalized;
+    }
+
+    /**
+     * Checks whether the given symbol matches any of the known contract regex patterns
+     * (spaced/compact option or future).
+     */
+    private static boolean isKnownPattern(String symbol) {
+        if (symbol == null || symbol.isBlank()) {
+            return false;
+        }
+        String cleaned = symbol.trim().toUpperCase(Locale.ENGLISH).replace('-', ' ').replace('_', ' ');
+        String stripped = stripped(cleaned);
+        return SPACED_OPTION_PATTERN.matcher(cleaned).matches()
+                || COMPACT_OPTION_PATTERN.matcher(stripped).matches()
+                || SPACED_FUTURE_PATTERN.matcher(cleaned).matches()
+                || COMPACT_FUTURE_PATTERN.matcher(stripped).matches();
+    }
+
     public static String canonicalOption(
             String underlying,
             LocalDate expiryDate,

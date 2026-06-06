@@ -1,5 +1,7 @@
 package com.tradej.core.domain.value;
 
+import com.tradej.core.domain.time.ExchangeCalendar;
+
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -31,16 +33,18 @@ public final class SessionSchedule {
 
     /**
      * Returns the market open time for the given exchange segment.
+     * Delegates to {@link ExchangeCalendar} for per-segment configuration.
      */
     public static LocalTime sessionOpen(ExchangeSegment exchangeSegment) {
-        return exchangeSegment == ExchangeSegment.MCX_COMM ? MCX_OPEN : CASH_OPEN;
+        return ExchangeCalendar.sessionHours(exchangeSegment).open();
     }
 
     /**
      * Returns the market close time for the given exchange segment.
+     * Delegates to {@link ExchangeCalendar} for per-segment configuration.
      */
     public static LocalTime sessionClose(ExchangeSegment exchangeSegment) {
-        return exchangeSegment == ExchangeSegment.MCX_COMM ? MCX_CLOSE : CASH_CLOSE;
+        return ExchangeCalendar.sessionHours(exchangeSegment).close();
     }
 
     /**

@@ -19,6 +19,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -47,6 +48,8 @@ public final class AsyncDispatchHandler implements EventHandler<MutableDomainEve
     private final ExecutorService dispatcher;
     private final AtomicBoolean running = new AtomicBoolean(false);
     private final AtomicLong droppedEventCount = new AtomicLong();
+    private final AtomicInteger consecutiveDrops = new AtomicInteger();
+    private static final int ERROR_LOG_THRESHOLD = 10;
     private final StageTiming timing;
     private final DeadLetterQueue deadLetterQueue;
 
@@ -156,6 +159,11 @@ public final class AsyncDispatchHandler implements EventHandler<MutableDomainEve
         return droppedEventCount.get();
     }
 
+    /** Returns the current streak of consecutive drops (resets on successful offer). */
+    public int consecutiveDropCount() {
+        return consecutiveDrops.get();
+    }
+
     /** Returns the current number of events waiting to be dispatched. */
     public int queueDepth() {
         return dispatchQueue.size();
@@ -169,12 +177,28 @@ public final class AsyncDispatchHandler implements EventHandler<MutableDomainEve
             return;
         }
 
-        // Fast path: offer to queue. Never block the Disruptor thread.
-        if (!dispatchQueue.offer(event)) {
-            droppedEventCount.incrementAndGet();
+        // Block up to 100ms waiting for queue space before dropping.
+        boolean offered;
+        try {
+            offered = dispatchQueue.offer(event, 100, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            offered = false;
+        }
+
+        if (!offered) {
+            long total = droppedEventCount.incrementAndGet();
+            int consecutive = consecutiveDrops.incrementAndGet();
             deadLetterQueue.append("async-dispatch", event, "Dispatch queue full");
-            log.warn("Dispatch queue full — dropping event type={} eventId={} droppedTotal={}",
-                    event.getClass().getSimpleName(), event.eventId(), droppedEventCount);
+            if (consecutive >= ERROR_LOG_THRESHOLD) {
+                log.error("Dispatch queue full — dropping event ({} consecutive drops) type={} eventId={} droppedTotal={}",
+                        consecutive, event.getClass().getSimpleName(), event.eventId(), total);
+            } else {
+                log.warn("Dispatch queue full — dropping event type={} eventId={} droppedTotal={} consecutiveDrops={}",
+                        event.getClass().getSimpleName(), event.eventId(), total, consecutive);
+            }
+        } else {
+            consecutiveDrops.set(0);
         }
 
         envelope.clear();

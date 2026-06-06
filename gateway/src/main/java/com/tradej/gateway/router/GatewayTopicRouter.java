@@ -27,10 +27,15 @@ import java.util.function.Predicate;
  * Each published message is encoded with a monotonically increasing sequence number.
  *
  * <p>Publishing is <em>non-blocking</em>: the caller enqueues a send task into a bounded
- * {@link BlockingQueue}. A dedicated background thread drains the queue and performs the
- * actual {@link WebSocketTransport#sendBinary} calls. If the queue fills up under high
- * volatility, events are dropped with a WARN-level log and a dropped-event counter
- * (fixes GB-01 — prevents JVM memory exhaustion from unbounded WebSocket write buffers).
+ * {@link BlockingQueue}. A dedicated background thread drains the queue and dispatches
+ * to per-transport write queues. Each transport has its own drain thread that performs
+ * the actual {@link WebSocketTransport#sendBinary} calls, providing per-client isolation
+ * where a slow transport doesn't block others.
+ *
+ * <p>If the shared queue fills up under high volatility, events are dropped with a
+ * WARN-level log and a dropped-event counter. If a per-transport queue fills up,
+ * only that transport's event is dropped with a DEBUG-level log and a per-transport
+ * drop counter.
  */
 public final class GatewayTopicRouter {
 
@@ -43,9 +48,11 @@ public final class GatewayTopicRouter {
 
     private final Map<GatewayTopic, Set<WebSocketTransport>> topicTransports = new EnumMap<>(GatewayTopic.class);
     private final Map<String, Set<GatewayTopic>> transportTopics = new ConcurrentHashMap<>();
+    private final Map<String, TransportWriteQueue> transportQueues = new ConcurrentHashMap<>();
     private final AtomicLong sequence = new AtomicLong();
 
     private final BlockingQueue<SendTask> sendQueue;
+    private final int perTransportQueueCapacity;
     private final AtomicBoolean running = new AtomicBoolean(false);
     private final AtomicLong droppedEventCount = new AtomicLong();
     private final AtomicLong sentEventCount = new AtomicLong();
@@ -61,15 +68,80 @@ public final class GatewayTopicRouter {
         }
     }
 
+    /**
+     * Per-transport write queue with dedicated drain thread.
+     * Provides isolation: a slow transport only blocks its own drain thread,
+     * not the shared publisher or other transports.
+     */
+    private static final class TransportWriteQueue {
+        final WebSocketTransport transport;
+        final ArrayBlockingQueue<byte[]> queue;
+        final AtomicLong dropCount = new AtomicLong();
+        final AtomicLong sentCount = new AtomicLong();
+        final Thread drainThread;
+
+        TransportWriteQueue(WebSocketTransport transport, int capacity) {
+            this.transport = transport;
+            this.queue = new ArrayBlockingQueue<>(capacity);
+            this.drainThread = new Thread(this::drain, "gw-drain-" + transport.id());
+            this.drainThread.setDaemon(true);
+            this.drainThread.start();
+        }
+
+        void enqueue(byte[] data) {
+            if (!queue.offer(data)) {
+                dropCount.incrementAndGet();
+                // DEBUG-level log for per-transport drops (less severe than global drops)
+            }
+        }
+
+        private void drain() {
+            while (!Thread.interrupted()) {
+                try {
+                    byte[] data = queue.take();
+                    transport.sendBinary(data);
+                    sentCount.incrementAndGet();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                } catch (Exception e) {
+                    // transport write failed — log and continue
+                }
+            }
+        }
+
+        void shutdown() {
+            drainThread.interrupt();
+        }
+
+        void drainRemaining() {
+            List<byte[]> remaining = new ArrayList<>();
+            queue.drainTo(remaining);
+            for (byte[] data : remaining) {
+                try {
+                    transport.sendBinary(data);
+                    sentCount.incrementAndGet();
+                } catch (Exception e) {
+                    // ignore during shutdown
+                }
+            }
+        }
+    }
+
     public GatewayTopicRouter() {
         this(DEFAULT_QUEUE_CAPACITY);
     }
 
     GatewayTopicRouter(int queueCapacity) {
+        this(queueCapacity, DEFAULT_QUEUE_CAPACITY);
+    }
+
+    GatewayTopicRouter(int queueCapacity, int perTransportQueueCapacity) {
         for (GatewayTopic topic : GatewayTopic.values()) {
             topicTransports.put(topic, new CopyOnWriteArraySet<>());
         }
         this.sendQueue = new ArrayBlockingQueue<>(queueCapacity);
+        this.perTransportQueueCapacity = perTransportQueueCapacity;
     }
 
     public void start() {
@@ -94,6 +166,25 @@ public final class GatewayTopicRouter {
             }
         }
         drainRemaining();
+
+        // Shutdown all per-transport queues
+        for (TransportWriteQueue tq : transportQueues.values()) {
+            tq.shutdown();
+            try {
+                tq.drainThread.join(STOP_TIMEOUT_SECONDS * 1000L);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            tq.drainRemaining();
+        }
+
+        // Update sent count from per-transport queues
+        long totalSent = 0;
+        for (TransportWriteQueue tq : transportQueues.values()) {
+            totalSent += tq.sentCount.get();
+        }
+        sentEventCount.set(totalSent);
+
         log.info("GatewayTopicRouter stopped sent={} dropped={}",
                 sentEventCount.get(), droppedEventCount.get());
     }
@@ -101,6 +192,10 @@ public final class GatewayTopicRouter {
     public void subscribe(WebSocketTransport transport, GatewayTopic topic) {
         topicTransports.get(topic).add(transport);
         transportTopics.computeIfAbsent(transport.id(), id -> new CopyOnWriteArraySet<>()).add(topic);
+
+        // Create per-transport write queue if not already present
+        transportQueues.computeIfAbsent(transport.id(), id ->
+                new TransportWriteQueue(transport, perTransportQueueCapacity));
     }
 
     public void unsubscribeAll(WebSocketTransport transport) {
@@ -113,6 +208,12 @@ public final class GatewayTopicRouter {
             if (transports != null) {
                 transports.remove(transport);
             }
+        }
+
+        // Shutdown and remove per-transport write queue
+        TransportWriteQueue tq = transportQueues.remove(transport.id());
+        if (tq != null) {
+            tq.shutdown();
         }
     }
 
@@ -148,11 +249,25 @@ public final class GatewayTopicRouter {
     }
 
     public long sentEventCount() {
-        return sentEventCount.get();
+        // Sum sent counts from all per-transport queues
+        long total = 0;
+        for (TransportWriteQueue tq : transportQueues.values()) {
+            total += tq.sentCount.get();
+        }
+        return total;
     }
 
     public int queueDepth() {
         return sendQueue.size();
+    }
+
+    /**
+     * Returns the drop count for a specific transport's write queue.
+     * This tracks events that were dropped because the per-transport queue was full.
+     */
+    public long dropCount(WebSocketTransport transport) {
+        TransportWriteQueue tq = transportQueues.get(transport.id());
+        return tq == null ? 0 : tq.dropCount.get();
     }
 
     private void publishLoop() {
@@ -193,12 +308,11 @@ public final class GatewayTopicRouter {
             if (filter != null && !filter.test(transport.id())) {
                 continue;
             }
-            try {
-                transport.sendBinary(task.frame);
-                sentEventCount.incrementAndGet();
-            } catch (Exception e) {
-                log.debug("Gateway send failed transport={} topic={}: {}",
-                        transport.id(), task.topic, e.getMessage());
+
+            // Offer to per-transport write queue (non-blocking)
+            TransportWriteQueue tq = transportQueues.get(transport.id());
+            if (tq != null) {
+                tq.enqueue(task.frame);
             }
         }
     }

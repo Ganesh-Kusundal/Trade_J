@@ -6,6 +6,11 @@ import com.lmax.disruptor.dsl.ProducerType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.tradej.core.domain.event.DomainEvent;
+import com.tradej.core.domain.event.DepthUpdateEvent;
+import com.tradej.core.domain.event.MarketTickEvent;
+import com.tradej.core.domain.event.OrderAccepted;
+import com.tradej.core.domain.event.OrderFilled;
+import com.tradej.core.domain.event.OrderRejected;
 import com.tradej.core.domain.port.DeadLetterQueue;
 import com.tradej.core.domain.port.DomainEventHandler;
 import com.tradej.core.domain.port.EventBus;
@@ -365,15 +370,38 @@ import java.util.function.Consumer;
         return downstreamQueue.size();
     }
 
-    private boolean isDuplicate(DomainEvent event) {
+    boolean isDuplicate(DomainEvent event) {
         if (seenEvents.size() >= MAX_SEEN_EVENTS) {
             if ((publishCounter.incrementAndGet() & (EVICTION_INTERVAL - 1)) == 0) {
                 long cutoff = System.currentTimeMillis() - Duration.ofSeconds(30).toMillis();
                 seenEvents.values().removeIf(ts -> ts < cutoff);
             }
         }
-        Long previous = seenEvents.putIfAbsent(event.eventId(), System.currentTimeMillis());
+        String key = dedupKey(event);
+        Long previous = seenEvents.putIfAbsent(key, System.currentTimeMillis());
         return previous != null;
+    }
+
+    /**
+     * Computes a source/sequence-keyed dedup key for the given event.
+     * Market data events are keyed by symbol+segment+exchange timestamp to
+     * suppress broker retransmissions. Order events are keyed by orderId+type
+     * to suppress duplicate callbacks. All other events fall back to eventId.
+     */
+    private String dedupKey(DomainEvent event) {
+        return switch (event) {
+            case MarketTickEvent tick ->
+                    "TICK:" + tick.symbol() + ":" + tick.segment() + ":" + tick.exchangeTimestampEpochMs();
+            case DepthUpdateEvent depth ->
+                    "DEPTH:" + depth.symbol() + ":" + depth.segment() + ":" + depth.exchangeTimestampMs();
+            case OrderAccepted accepted ->
+                    "ORDER:" + accepted.order().orderId() + ":OrderAccepted";
+            case OrderFilled filled ->
+                    "ORDER:" + filled.order().orderId() + ":OrderFilled";
+            case OrderRejected rejected ->
+                    "ORDER:" + rejected.order().orderId() + ":OrderRejected";
+            default -> event.eventId();
+        };
     }
 
     private void pruneOldEntries() {

@@ -374,10 +374,10 @@ public final class UpstoxGttOrderAdapter implements ConditionalAlertProvider, Gt
 
     private static String mapProduct(com.tradej.core.domain.value.ProductType pt) {
         return switch (pt) {
-            case INTRADAY -> "I";
-            case CNC -> "D";
+            case INTRADAY, INTRADAY_MARGIN -> "I";
+            case CNC, DELIVERY -> "D";
             case CARRY_FORWARD -> "D";
-            case MARGIN -> "MTF";
+            case MARGIN, MARGIN_FUNDING -> "MTF";
         };
     }
 }

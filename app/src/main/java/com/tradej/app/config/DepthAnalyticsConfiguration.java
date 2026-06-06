@@ -1,8 +1,12 @@
 package com.tradej.app.config;
 
+import com.tradej.broker.core.depth.EventBusDepthBridge;
 import com.tradej.broker.core.depth.OrderBookEngine;
+import com.tradej.core.domain.port.EventBus;
 import com.tradej.execution.depth.*;
 import com.tradej.gateway.bridge.GatewayEventBridge;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -10,9 +14,31 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class DepthAnalyticsConfiguration {
 
+    private EventBusDepthBridge depthBridge;
+
     @Bean
     public OrderBookEngine orderBookEngine() {
         return new OrderBookEngine();
+    }
+
+    @Bean
+    public EventBusDepthBridge eventBusDepthBridge(OrderBookEngine orderBookEngine, EventBus eventBus) {
+        this.depthBridge = new EventBusDepthBridge(orderBookEngine, eventBus);
+        return this.depthBridge;
+    }
+
+    @PostConstruct
+    void wireDepthBridge() {
+        if (depthBridge != null) {
+            depthBridge.start();
+        }
+    }
+
+    @PreDestroy
+    void unwireDepthBridge() {
+        if (depthBridge != null) {
+            depthBridge.stop();
+        }
     }
 
     @Bean

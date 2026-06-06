@@ -1,5 +1,6 @@
 package com.tradej.scanner.engine;
 
+import com.tradej.core.domain.event.DomainEvent;
 import com.tradej.core.domain.model.InstrumentKey;
 import com.tradej.core.domain.model.OptionChainSnapshot;
 import com.tradej.core.domain.model.Quote;
@@ -7,6 +8,7 @@ import com.tradej.core.domain.value.ExchangeSegment;
 import com.tradej.scanner.criterion.CriterionGroup;
 import com.tradej.scanner.criterion.OptionAwareCriterion;
 import com.tradej.scanner.criterion.ScanCriterion;
+import com.tradej.scanner.criterion.StreamingScanCriterion;
 import com.tradej.scanner.fetch.OptionChainFetcher;
 import com.tradej.scanner.fetch.SnapshotFetcher;
 import com.tradej.core.domain.scan.AssetClass;
@@ -27,6 +29,8 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.Consumer;
 
 
 public final class ScanEngine {
@@ -36,6 +40,8 @@ public final class ScanEngine {
     private final UniverseBuilder universeBuilder;
     private final SnapshotFetcher snapshotFetcher;
     private final OptionChainFetcher optionChainFetcher;
+    private final CopyOnWriteArrayList<StreamingScanCriterion> streamingCriteria = new CopyOnWriteArrayList<>();
+    private volatile Consumer<ScanHit> streamingHitListener;
 
     public ScanEngine(ScanDependencies dependencies) {
         this.dependencies = dependencies;
@@ -163,5 +169,76 @@ public final class ScanEngine {
                 .filter(s -> s == ExchangeSegment.NSE_FNO || s == ExchangeSegment.BSE_FNO || s == ExchangeSegment.MCX_COMM)
                 .findFirst()
                 .orElse(ExchangeSegment.NSE_FNO);
+    }
+
+    // ── Streaming scan support (ARCH-11) ──────────────────────────────────────
+
+    /**
+     * Registers a streaming scan criterion for real-time evaluation.
+     */
+    public void registerStreamingCriterion(StreamingScanCriterion criterion) {
+        streamingCriteria.add(criterion);
+    }
+
+    /**
+     * Sets the listener that receives streaming scan hits.
+     */
+    public void onStreamingHit(Consumer<ScanHit> listener) {
+        this.streamingHitListener = listener;
+    }
+
+    /**
+     * Routes an incoming domain event to all registered streaming criteria
+     * that subscribe to the event's type. If a criterion matches, the hit
+     * is forwarded to the streaming hit listener.
+     *
+     * <p>Designed for hot-path integration with MarketDataPipeline or
+     * DisruptorEventBus subscriber.
+     */
+    public void onEvent(DomainEvent event) {
+        if (streamingCriteria.isEmpty()) {
+            return;
+        }
+        Class<? extends DomainEvent> eventType = event.getClass();
+        for (StreamingScanCriterion criterion : streamingCriteria) {
+            if (!criterion.subscribedEventTypes().contains(eventType)) {
+                continue;
+            }
+            try {
+                ScanContext context = new ScanContext(null, null, null, List.of());
+                criterion.onEvent(event, context);
+                if (criterion.matches(context)) {
+                    ScanHit hit = new ScanHit(
+                            null, null, null,
+                            criterion.score(context),
+                            List.of(criterion.reason(context)),
+                            Map.of(),
+                            true
+                    );
+                    Consumer<ScanHit> listener = streamingHitListener;
+                    if (listener != null) {
+                        listener.accept(hit);
+                    }
+                }
+            } catch (Exception ex) {
+                log.warn("Streaming criterion evaluation error: {}", ex.getMessage());
+            }
+        }
+    }
+
+    /**
+     * Resets all streaming criteria state.
+     */
+    public void resetStreamingCriteria() {
+        for (StreamingScanCriterion criterion : streamingCriteria) {
+            criterion.reset();
+        }
+    }
+
+    /**
+     * Returns the number of registered streaming criteria.
+     */
+    public int streamingCriterionCount() {
+        return streamingCriteria.size();
     }
 }

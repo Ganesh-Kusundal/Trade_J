@@ -14,6 +14,15 @@ import java.util.concurrent.locks.ReentrantLock;
  *
  * <p>Enforces Dhan's practical limit of one TOTP mint per ~2 minutes and reuses a single
  * access token across all tests in the same Gradle JVM run.
+ *
+ * <p><b>Parallel safety constraint:</b> This class uses shared static state
+ * ({@code cachedAccessToken}, {@code cachedClientId}, {@code lastMintEpochMs}) protected
+ * by a {@link ReentrantLock}. While thread-safe, the singleton design means <b>tests using
+ * this class must NOT run concurrently</b> — Dhan enforces a TOTP mint cooldown of ~2 minutes,
+ * and parallel token minting across test threads would hit rate limits.
+ *
+ * <p>To enforce sequential execution, annotate test classes that depend on this session with
+ * {@code @Isolated} (from {@code org.junit.jupiter.api.parallel.Isolated}).
  */
 final class LiveDhanAuthSession {
 

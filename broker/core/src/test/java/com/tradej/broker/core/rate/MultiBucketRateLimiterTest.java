@@ -62,4 +62,33 @@ class MultiBucketRateLimiterTest {
         MultiBucketRateLimiter limiter = create();
         assertDoesNotThrow(() -> limiter.increaseRate("NONEXISTENT", 0.1));
     }
+
+    @Test
+    void acquireBlocksWhenBucketEmpty() {
+        MultiBucketRateLimiter limiter = new MultiBucketRateLimiter(Map.of(
+                "SLOW", new RateLimitConfig("SLOW", 2.0, 1)
+        ));
+        limiter.acquire("SLOW");
+        long start = System.nanoTime();
+        limiter.acquire("SLOW");
+        long elapsed = System.nanoTime() - start;
+        assertTrue(elapsed >= 200_000_000L, "Should block ~500ms for 2 tokens/sec, actual: " + elapsed / 1_000_000 + "ms");
+    }
+
+    @Test
+    void reduceRateHalvesFillRate() {
+        TokenBucketRateLimiter bucket = new TokenBucketRateLimiter(100.0, 10);
+        double originalRate = bucket.currentRate();
+        bucket.reduceRate(0.5);
+        assertEquals(originalRate * 0.5, bucket.currentRate(), 0.01);
+    }
+
+    @Test
+    void increaseRateRestoresGradually() {
+        TokenBucketRateLimiter bucket = new TokenBucketRateLimiter(100.0, 200);
+        bucket.reduceRate(0.5);
+        double reducedRate = bucket.currentRate();
+        bucket.increaseRate(0.1);
+        assertEquals(reducedRate * 1.1, bucket.currentRate(), 0.01);
+    }
 }

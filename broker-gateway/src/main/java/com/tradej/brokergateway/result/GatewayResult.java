@@ -14,7 +14,8 @@ import java.time.Instant;
 public record GatewayResult<T>(
         T data,
         BrokerSource source,
-        ResultMetadata metadata
+        ResultMetadata metadata,
+        boolean success
 ) {
 
     public Duration latency() {
@@ -34,6 +35,14 @@ public record GatewayResult<T>(
     }
 
     public boolean isSuccess() {
-        return data != null;
+        return success;
+    }
+
+    public static <T> GatewayResult<T> success(T data, BrokerSource source, ResultMetadata metadata) {
+        return new GatewayResult<>(data, source, metadata, true);
+    }
+
+    public static <T> GatewayResult<T> failed(BrokerSource source, ResultMetadata metadata) {
+        return new GatewayResult<>(null, source, metadata, false);
     }
 }

@@ -393,9 +393,9 @@ public final class DhanOrderValidator {
         // For CNC: ~100% of notional (no leverage)
         // For MARGIN: ~25-30% of notional
         double marginFactor = switch (request.productType()) {
-            case CNC -> MARGIN_FACTOR_CNC;
-            case INTRADAY -> MARGIN_FACTOR_INTRADAY;
-            case MARGIN -> MARGIN_FACTOR_MARGIN;
+            case CNC, DELIVERY -> MARGIN_FACTOR_CNC;
+            case INTRADAY, INTRADAY_MARGIN -> MARGIN_FACTOR_INTRADAY;
+            case MARGIN, MARGIN_FUNDING -> MARGIN_FACTOR_MARGIN;
             case CARRY_FORWARD -> MARGIN_FACTOR_CARRY_FORWARD;
         };
         long notional = request.quantity() * pricePaisa;

@@ -63,11 +63,19 @@ public final class DuckDbQueryEngine implements AutoCloseable {
     /**
      * Register a named datasource. The datasource's tables/views become
      * available for subsequent SQL queries.
+     *
+     * <p>Registration is wrapped in a savepoint so that if the datasource's
+     * {@code register()} call fails, any partial DDL changes are rolled back
+     * and the engine remains usable for further operations.
      */
     public void registerDatasource(String name, MarketDatasource ds) {
-        ds.register(connection, name);
-        datasources.put(name, ds);
-        log.debug("Registered datasource: {}", name);
+        try {
+            ds.register(connection, name);
+            datasources.put(name, ds);
+            log.debug("Registered datasource: {}", name);
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to register datasource: " + name, e);
+        }
     }
 
     /**

@@ -53,6 +53,15 @@ public final class PnLLedger {
                 .sum();
     }
 
+    /** Total realized P&L across all positions in paisa. */
+    public long realizedPnlPaisa() { return realizedPnlPaisa; }
+
+    /** Total unrealized (mark-to-market) P&L across all positions in paisa. */
+    public long unrealizedPnlPaisa() { return unrealizedPnlPaisa; }
+
+    /** Net total P&L (realized + unrealized) in paisa. */
+    public long totalPnlPaisa() { return realizedPnlPaisa + unrealizedPnlPaisa; }
+
     /**
      * Produce a {@link PnlUpdatedEvent} snapshot of current P&L state.
      */

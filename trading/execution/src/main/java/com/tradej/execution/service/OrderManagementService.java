@@ -124,23 +124,31 @@ public final class OrderManagementService {
 
     /**
      * Cancels an order if it is in a cancellable state.
-     * Emits {@link CancelRequested} and forwards to the broker.
+     * Checks local state first to prevent double-cancel and cancel-after-fill,
+     * then forwards to the broker only if the order is still active.
      *
-     * @throws IllegalStateException if the order is already in a terminal state
+     * @return true if the broker accepted the cancel, false if rejected locally or by broker
      */
     public boolean cancelOrder(String orderId) {
+        // Check local state first — prevent double-cancel and cancel-after-fill
         OrderStateMachine machine = stateMachines.get(orderId);
         if (machine == null) {
-            log.warn("Cancel requested for unknown orderId={}", orderId);
-            return brokerConnection.orders().cancelOrder(orderId);
+            // Attempt rebuild from persisted event log
+            OrderStateMachine rebuilt = orderRepository.rebuildStateMachine(orderId);
+            if (rebuilt != null) {
+                stateMachines.putIfAbsent(orderId, rebuilt);
+                machine = stateMachines.get(orderId);
+            }
+        }
+        if (machine != null) {
+            LifecycleState state = machine.toProjection().status();
+            if (state.isFinal()) {
+                log.info("Rejecting cancel for order {} in terminal state {}", orderId, state);
+                return false;
+            }
         }
 
-        LifecycleState state = machine.toProjection().status();
-        if (state.isFinal()) {
-            throw new IllegalStateException(
-                    "Cannot cancel order " + orderId + " — already in terminal state " + state);
-        }
-
+        // Now safe to call broker
         boolean cancelled = brokerConnection.orders().cancelOrder(orderId);
         if (cancelled) {
             persistAndApply(orderId, new CancelRequested(orderId));

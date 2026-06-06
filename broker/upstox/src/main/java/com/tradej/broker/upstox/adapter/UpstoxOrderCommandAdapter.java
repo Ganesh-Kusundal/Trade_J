@@ -170,10 +170,10 @@ public final class UpstoxOrderCommandAdapter implements OrderCommand {
 
         // Estimate margin requirement based on product type.
         long estimatedMarginPaisa = switch (request.productType()) {
-            case INTRADAY -> estimatedNotionalPaisa * 20 / 100;   // ~20% leverage
-            case CNC      -> estimatedNotionalPaisa;              // 100% — full cash
-            case MARGIN   -> estimatedNotionalPaisa * 25 / 100;   // ~25% (MIS / MTF)
-            case CARRY_FORWARD -> estimatedNotionalPaisa;         // 100% — delivery
+            case INTRADAY, INTRADAY_MARGIN -> estimatedNotionalPaisa * 20 / 100;
+            case CNC, DELIVERY             -> estimatedNotionalPaisa;
+            case MARGIN, MARGIN_FUNDING    -> estimatedNotionalPaisa * 25 / 100;
+            case CARRY_FORWARD             -> estimatedNotionalPaisa;
         };
 
         return OrderPreview.valid(

@@ -66,7 +66,6 @@ import java.util.concurrent.Callable;
                 TradeCli.DownloadCmd.class,
                 TradeCli.UniverseCmd.class,
                 TradeCli.EquityCmd.class,
-                TradeCli.AnalyticsCmd.class,
                 TradeCli.TestCmd.class,
                 CliBrokerGatewayCommands.class,
                 CliAnalyticsCommands.class,

@@ -69,9 +69,9 @@ public final class DhanMarginProvider extends DhanBaseRestAdapter implements Mar
 
     private static String restProductType(com.tradej.core.domain.value.ProductType productType) {
         return switch (productType) {
-            case INTRADAY -> "INTRADAY";
-            case CNC -> "CNC";
-            case MARGIN -> "MARGIN";
+            case INTRADAY, INTRADAY_MARGIN -> "INTRADAY";
+            case CNC, DELIVERY -> "CNC";
+            case MARGIN, MARGIN_FUNDING -> "MARGIN";
             case CARRY_FORWARD -> "CARRY_FORWARD";
         };
     }

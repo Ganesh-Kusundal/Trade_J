@@ -10,6 +10,7 @@ import com.tradej.broker.api.port.InstrumentResolver;
 import com.tradej.broker.api.port.MarginProvider;
 import com.tradej.broker.api.port.NewsProvider;
 import com.tradej.broker.api.port.OptionsProvider;
+import com.tradej.broker.api.port.OrderBookSnapshotProvider;
 import com.tradej.broker.api.port.OrderCommand;
 import com.tradej.broker.api.port.OrderQuery;
 import com.tradej.broker.api.port.PortfolioProvider;
@@ -357,6 +358,43 @@ public final class BrokerHandle {
         connection.websocket().disconnect();
     }
 
+    // ── Order Book Snapshots (broker-internal SPI) ───────────────────
+
+    /**
+     * Fetch the live L2 order book snapshot for a single instrument.
+     * Returns {@code null} data if the broker does not maintain a book
+     * for this symbol (no depth subscription yet, or symbol unknown).
+     *
+     * <p>Tagged as a broker-internal projection; outside callers should
+     * prefer the shared {@code OrderBookEngine} via the gateway REST
+     * controller ({@code /api/v1/market/depth/{symbol}}).
+     */
+    public GatewayResult<com.tradej.broker.core.depth.OrderBook.OrderBookSnapshot> orderBookSnapshot(
+            String symbol, int levels) {
+        return orderBookSnapshot(symbol, defaultSegment(symbol), levels);
+    }
+
+    public GatewayResult<com.tradej.broker.core.depth.OrderBook.OrderBookSnapshot> orderBookSnapshot(
+            String symbol, ExchangeSegment segment, int levels) {
+        return timed(() -> connection.getCapability(OrderBookSnapshotProvider.class)
+                .map(provider -> (com.tradej.broker.core.depth.OrderBook.OrderBookSnapshot) provider.snapshot(symbol, segment, levels))
+                .orElse(null));
+    }
+
+    public GatewayResult<List<com.tradej.broker.core.depth.OrderBook.OrderBookSnapshot>> allOrderBookSnapshots(int levels) {
+        return timed(() -> connection.getCapability(OrderBookSnapshotProvider.class)
+                .map(provider -> provider.snapshotAll(levels).stream()
+                        .map(s -> (com.tradej.broker.core.depth.OrderBook.OrderBookSnapshot) s)
+                        .toList())
+                .orElse(List.of()));
+    }
+
+    public GatewayResult<Map<String, ExchangeSegment>> activeOrderBookKeys() {
+        return timed(() -> connection.getCapability(OrderBookSnapshotProvider.class)
+                .map(OrderBookSnapshotProvider::activeBooks)
+                .orElse(Map.of()));
+    }
+
     // ── Capabilities ────────────────────────────────────────────────
 
     public boolean supports(Class<?> capability) {
@@ -422,6 +460,12 @@ public final class BrokerHandle {
             case "extras" -> Optional.of(extras());
             case "capabilities" -> Optional.of(capabilities());
             case "getOptionGreeks", "optionGreeks" -> Optional.of(greeks(parseInstrumentKey(params)));
+            case "orderBookSnapshot" -> Optional.of(orderBookSnapshot(
+                    (String) params.get("symbol"),
+                    parseSegment(params, "segment"),
+                    parseLevels(params)));
+            case "allOrderBookSnapshots" -> Optional.of(allOrderBookSnapshots(parseLevels(params)));
+            case "activeOrderBookKeys" -> Optional.of(activeOrderBookKeys());
             default -> extras().invoke(method, params);
         };
     }
@@ -491,6 +535,16 @@ public final class BrokerHandle {
         return resolveKey(symbol, parseSegment(params, "segment"));
     }
 
+    private static int parseLevels(Map<String, Object> params) {
+        Object raw = params.get("levels");
+        if (raw instanceof Number n) return Math.max(1, n.intValue());
+        if (raw instanceof String s) {
+            try { return Math.max(1, Integer.parseInt(s.trim())); }
+            catch (NumberFormatException ex) { return 20; }
+        }
+        return 20;
+    }
+
     @FunctionalInterface
     private interface TimedCall<T> {
         T call();
@@ -502,7 +556,7 @@ public final class BrokerHandle {
         Duration latency = Duration.between(start, Instant.now());
         String rawBody = rawCaptureEnabled ? serializeRaw(data) : null;
         ResultMetadata metadata = new ResultMetadata(latency, Instant.now(), UUID.randomUUID().toString(), Map.of(), rawBody);
-        return new GatewayResult<>(data, source, metadata);
+        return GatewayResult.success(data, source, metadata);
     }
 
     private String serializeRaw(Object data) {
@@ -514,6 +568,6 @@ public final class BrokerHandle {
     }
 
     private <T> GatewayResult<T> result(T data) {
-        return new GatewayResult<>(data, source, new ResultMetadata(Duration.ZERO, Instant.now(), UUID.randomUUID().toString(), Map.of()));
+        return GatewayResult.success(data, source, new ResultMetadata(Duration.ZERO, Instant.now(), UUID.randomUUID().toString(), Map.of()));
     }
 }

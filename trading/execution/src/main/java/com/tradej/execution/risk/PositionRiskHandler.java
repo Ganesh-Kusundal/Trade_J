@@ -21,6 +21,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
@@ -45,8 +46,8 @@ public final class PositionRiskHandler implements DomainEventVisitor {
     private final AtomicInteger consecutiveLosses = new AtomicInteger();
     private final AtomicInteger openTrades = new AtomicInteger();
     private final Set<String> symbolsWithOpenPosition = ConcurrentHashMap.newKeySet();
-    private volatile boolean killSwitch = false;
-    private volatile boolean reconciliationHalt = false;
+    private final AtomicBoolean killSwitch = new AtomicBoolean(false);
+    private final AtomicBoolean reconciliationHalt = new AtomicBoolean(false);
     private volatile StateSnapshot snapshot;
     private Consumer<DomainEvent> currentPublisher;
 
@@ -111,7 +112,7 @@ public final class PositionRiskHandler implements DomainEventVisitor {
     }
 
     public void handleReconciliationHalt(ReconciliationHaltRequired halt) {
-        reconciliationHalt = true;
+        reconciliationHalt.set(true);
         activateKillSwitch("reconciliation_mismatch:" + halt.symbol());
         log.error(
                 "Reconciliation halt symbol={} expected={} broker={} mismatch={}",
@@ -122,7 +123,7 @@ public final class PositionRiskHandler implements DomainEventVisitor {
     }
 
     public void acknowledgeReconciliationHalt() {
-        reconciliationHalt = false;
+        reconciliationHalt.set(false);
         resetDailyLimits();
         if (killSwitchCoordinator != null) {
             killSwitchCoordinator.disengage();
@@ -131,7 +132,7 @@ public final class PositionRiskHandler implements DomainEventVisitor {
     }
 
     public boolean isReconciliationHaltActive() {
-        return reconciliationHalt;
+        return reconciliationHalt.get();
     }
 
     public void updateUnrealizedLoss(long lossPaisa) {
@@ -169,7 +170,7 @@ public final class PositionRiskHandler implements DomainEventVisitor {
     }
 
     private void handleTradeOpened(TradeOpened opened) {
-        if (killSwitch) {
+        if (killSwitch.get()) {
             log.warn("Kill switch is active — ignoring TradeOpened symbol={}", opened.symbol());
             return;
         }
@@ -209,8 +210,8 @@ public final class PositionRiskHandler implements DomainEventVisitor {
             java.util.function.Consumer<DomainEvent> publisher,
             SignalGenerated sourceSignal
     ) {
-        if (killSwitch || reconciliationHalt) {
-            rejectSignal(pending, publisher, killSwitch ? "kill_switch_active" : "reconciliation_halt");
+        if (killSwitch.get() || reconciliationHalt.get()) {
+            rejectSignal(pending, publisher, killSwitch.get() ? "kill_switch_active" : "reconciliation_halt");
             return;
         }
         OrderRequest order = pending.orderRequest();
@@ -277,7 +278,9 @@ public final class PositionRiskHandler implements DomainEventVisitor {
     }
 
     private void activateKillSwitch(String reason) {
-        this.killSwitch = true;
+        if (!killSwitch.compareAndSet(false, true)) {
+            return; // already active — idempotent guard
+        }
         log.error("Kill switch activated due to: {}", reason);
         if (killSwitchCoordinator != null) {
             killSwitchCoordinator.engage(reason);
@@ -288,12 +291,12 @@ public final class PositionRiskHandler implements DomainEventVisitor {
         realizedLossPaisa.set(0);
         unrealizedLossPaisa.set(0);
         consecutiveLosses.set(0);
-        killSwitch = false;
-        reconciliationHalt = false;
+        killSwitch.set(false);
+        reconciliationHalt.set(false);
         log.info("Daily risk limits reset");
     }
 
-    public boolean isKillSwitchActive() { return killSwitch; }
+    public boolean isKillSwitchActive() { return killSwitch.get(); }
     public long getRealizedLossPaisa() { return realizedLossPaisa.get(); }
     public long getUnrealizedLossPaisa() { return unrealizedLossPaisa.get(); }
     public int getConsecutiveLosses() { return consecutiveLosses.get(); }
@@ -309,8 +312,8 @@ public final class PositionRiskHandler implements DomainEventVisitor {
                 unrealizedLossPaisa.get(),
                 consecutiveLosses.get(),
                 openTrades.get(),
-                killSwitch,
-                reconciliationHalt,
+                killSwitch.get(),
+                reconciliationHalt.get(),
                 Set.copyOf(symbolsWithOpenPosition));
         this.snapshot = current;
         return current;
@@ -324,8 +327,8 @@ public final class PositionRiskHandler implements DomainEventVisitor {
         unrealizedLossPaisa.set(state.unrealizedLossPaisa());
         consecutiveLosses.set(state.consecutiveLosses());
         openTrades.set(state.openTrades());
-        killSwitch = state.killSwitch();
-        reconciliationHalt = state.reconciliationHalt();
+        killSwitch.set(state.killSwitch());
+        reconciliationHalt.set(state.reconciliationHalt());
         symbolsWithOpenPosition.clear();
         symbolsWithOpenPosition.addAll(state.symbolsWithOpenPosition());
         this.snapshot = null;

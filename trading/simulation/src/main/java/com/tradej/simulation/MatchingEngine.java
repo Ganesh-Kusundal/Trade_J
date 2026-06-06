@@ -1,5 +1,6 @@
 package com.tradej.simulation;
 
+import com.tradej.core.domain.instrument.ExchangeTickSizeRegistry;
 import com.tradej.core.domain.model.Order;
 import com.tradej.core.domain.model.OrderRequest;
 import com.tradej.core.domain.model.Trade;
@@ -189,8 +190,8 @@ public final class MatchingEngine {
             rawFillPrice = basePrice - slippagePaisa;
         }
 
-        // Apply standard Indian options discrete tick-rounding (5 paisa / 0.05 Rs grid)
-        long tickSizePaisa = 5;
+        // Apply exchange-specific tick-rounding using ExchangeTickSizeRegistry
+        long tickSizePaisa = ExchangeTickSizeRegistry.tickSizePaisa(request.exchangeSegment());
         long remainder = rawFillPrice % tickSizePaisa;
         if (remainder != 0) {
             if (request.side() == Side.BUY || request.side() == Side.SHORT) {

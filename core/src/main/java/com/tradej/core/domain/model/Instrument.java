@@ -2,6 +2,7 @@ package com.tradej.core.domain.model;
 
 import com.tradej.core.domain.value.Exchange;
 import com.tradej.core.domain.value.ExchangeSegment;
+import com.tradej.core.domain.value.InstrumentType;
 import com.tradej.core.domain.value.OptionType;
 import java.time.LocalDate;
 
@@ -28,5 +29,9 @@ public record Instrument(
 
     public boolean isFuture() {
         return instrumentType != null && instrumentType.toUpperCase().startsWith("FUT");
+    }
+
+    public InstrumentType instrumentTypeEnum() {
+        return InstrumentType.parse(instrumentType);
     }
 }

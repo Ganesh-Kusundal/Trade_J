@@ -13,7 +13,12 @@ import com.tradej.core.domain.value.Side;
 
 import java.util.Collections;
 import java.util.Map;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
 /**
@@ -50,6 +55,17 @@ public final class PortfolioEngine {
     // Trade → trade info: tradeId → TradeInfo (for TradeClosed cleanup)
     private final ConcurrentHashMap<String, TradeInfo> openTrades = new ConcurrentHashMap<>();
 
+    // P0-7: Dedicated thread infrastructure to move processing off the ring buffer thread
+    private static final int DEFAULT_QUEUE_CAPACITY = 1024;
+    private final BlockingQueue<PortfolioCommand> eventQueue = new ArrayBlockingQueue<>(DEFAULT_QUEUE_CAPACITY);
+    private final ExecutorService portfolioExecutor = Executors.newSingleThreadExecutor(r -> {
+        Thread thread = new Thread(r, "portfolio-engine");
+        thread.setDaemon(true);
+        return thread;
+    });
+    private final AtomicLong droppedEventCount = new AtomicLong();
+    private volatile boolean running;
+
     public PortfolioEngine(long defaultCapitalPaisa, long maxNetExposurePaisa) {
         this.defaultCapitalPaisa = defaultCapitalPaisa;
         this.capitalService = new DefaultCapitalReservationService(defaultCapitalPaisa);
@@ -62,7 +78,77 @@ public final class PortfolioEngine {
 
     // ── External API ──
 
+    /**
+     * Starts the dedicated portfolio-engine thread (P0-7).
+     * Once started, {@link #onDomainEvent} enqueues events for async processing
+     * instead of handling them synchronously on the caller thread.
+     */
+    public void start() {
+        if (running) {
+            return;
+        }
+        running = true;
+        portfolioExecutor.submit(this::runLoop);
+    }
+
+    /**
+     * Stops the dedicated portfolio-engine thread and drains remaining events.
+     */
+    public void stop() {
+        running = false;
+        portfolioExecutor.shutdownNow();
+    }
+
+    /**
+     * Returns the number of events dropped due to a full queue (P0-7).
+     */
+    public long droppedEventCount() {
+        return droppedEventCount.get();
+    }
+
+    /**
+     * Returns the current queue depth (P0-7).
+     */
+    public int queueDepth() {
+        return eventQueue.size();
+    }
+
+    /**
+     * Dispatches a domain event for portfolio processing.
+     * <p>
+     * When the engine is {@linkplain #start() started}, the event is enqueued for
+     * async processing on the dedicated {@code portfolio-engine} thread, keeping
+     * the caller (e.g. Disruptor ring buffer) unblocked. If the queue is full,
+     * the event is dropped and a WARN is logged.
+     * <p>
+     * When the engine is <em>not</em> started (default), processing is synchronous
+     * on the caller thread for backward compatibility.
+     */
     public void onDomainEvent(DomainEvent event, Consumer<DomainEvent> downstream) {
+        if (running) {
+            if (!eventQueue.offer(new PortfolioCommand(event, downstream))) {
+                long dropped = droppedEventCount.incrementAndGet();
+                log.warn("PortfolioEngine queue full — dropping event type={} droppedCount={}",
+                        event.getClass().getSimpleName(), dropped);
+            }
+        } else {
+            processEvent(event, downstream);
+        }
+    }
+
+    private void runLoop() {
+        while (running) {
+            try {
+                PortfolioCommand command = eventQueue.take();
+                processEvent(command.event(), command.downstream());
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+        }
+    }
+
+    private void processEvent(DomainEvent event, Consumer<DomainEvent> downstream) {
         switch (event) {
             case SignalGenerated signal -> passThroughSignal(signal, downstream);
             case SignalSuppressed suppressed -> onSignalSuppressed(suppressed, downstream);
@@ -73,6 +159,8 @@ public final class PortfolioEngine {
             default -> downstream.accept(event);
         }
     }
+
+    private record PortfolioCommand(DomainEvent event, Consumer<DomainEvent> downstream) {}
 
     // ── Portfolio state queries ──
 

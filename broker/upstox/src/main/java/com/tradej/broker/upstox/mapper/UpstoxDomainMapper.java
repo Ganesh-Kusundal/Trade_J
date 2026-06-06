@@ -191,10 +191,10 @@ public final class UpstoxDomainMapper {
 
     static String mapProductType(ProductType pt) {
         return switch (pt) {
-            case INTRADAY -> "MIS";
-            case CNC -> "CNC";
+            case INTRADAY, INTRADAY_MARGIN -> "MIS";
+            case CNC, DELIVERY -> "CNC";
             case CARRY_FORWARD -> "NRML";
-            case MARGIN -> "MARGIN";
+            case MARGIN, MARGIN_FUNDING -> "MARGIN";
         };
     }
 

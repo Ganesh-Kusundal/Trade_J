@@ -25,12 +25,13 @@ import com.tradej.core.domain.port.EventBus;
 import com.tradej.core.domain.value.ExchangeSegment;
 import com.tradej.gateway.protocol.GatewayTopic;
 import com.tradej.gateway.router.GatewayTopicRouter;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
-import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
@@ -234,186 +235,200 @@ public final class GatewayEventBridge implements AutoCloseable {
         }
     }
 
-    private byte[] writeJson(Map<String, Object> payload) throws com.fasterxml.jackson.core.JsonProcessingException {
+    private byte[] writeJson(ObjectNode node) throws com.fasterxml.jackson.core.JsonProcessingException {
+        return objectMapper.writeValueAsBytes(node);
+    }
+
+    private byte[] writeJsonMap(Map<String, Object> payload) throws com.fasterxml.jackson.core.JsonProcessingException {
         return objectMapper.writeValueAsBytes(payload);
     }
 
     // ── Payload builders ──
 
-    private Map<String, Object> marketTickPayload(MarketTickEvent tick) {
-        Map<String, Object> map = new LinkedHashMap<>();
-        putSymbolFields(map, tick.symbol(), tick.segment());
-        map.put("ltpPaisa", tick.ltpPaisa());
-        map.put("lastTradeQuantity", tick.lastTradeQuantity());
-        map.put("cumulativeVolume", tick.cumulativeVolume());
-        map.put("exchangeTimestampMs", tick.exchangeTimestampEpochMs());
-        map.put("segment", tick.segment().name());
-        map.put("feedMode", tick.feedMode().name());
-        map.put("sequence", tick.sequenceId());
-        return map;
+    private ObjectNode marketTickPayload(MarketTickEvent tick) {
+        ObjectNode node = objectMapper.createObjectNode();
+        putSymbolFields(node, tick.symbol(), tick.segment());
+        node.put("ltpPaisa", tick.ltpPaisa());
+        node.put("lastTradeQuantity", tick.lastTradeQuantity());
+        node.put("cumulativeVolume", tick.cumulativeVolume());
+        node.put("exchangeTimestampMs", tick.exchangeTimestampEpochMs());
+        node.put("segment", tick.segment().name());
+        node.put("feedMode", tick.feedMode().name());
+        node.put("sequence", tick.sequenceId());
+        return node;
     }
 
 
-    private Map<String, Object> depthPayload(DepthUpdateEvent depth) {
-        Map<String, Object> map = new LinkedHashMap<>();
-        putSymbolFields(map, depth.symbol(), depth.segment());
-        map.put("segment", depth.segment().name());
-        map.put("levels", depth.levels());
-        map.put("exchangeTimestampMs", depth.exchangeTimestampMs());
-        map.put("bids", depth.bids().stream().map(GatewayEventBridge::depthLevelToMap).toList());
-        map.put("asks", depth.asks().stream().map(GatewayEventBridge::depthLevelToMap).toList());
-        map.put("sequence", depth.sequenceId());
-        return map;
+    private ObjectNode depthPayload(DepthUpdateEvent depth) {
+        ObjectNode node = objectMapper.createObjectNode();
+        putSymbolFields(node, depth.symbol(), depth.segment());
+        node.put("segment", depth.segment().name());
+        node.put("levels", depth.levels());
+        node.put("exchangeTimestampMs", depth.exchangeTimestampMs());
+        ArrayNode bidsArray = node.putArray("bids");
+        for (DepthLevel level : depth.bids()) {
+            bidsArray.add(depthLevelToNode(level));
+        }
+        ArrayNode asksArray = node.putArray("asks");
+        for (DepthLevel level : depth.asks()) {
+            asksArray.add(depthLevelToNode(level));
+        }
+        node.put("sequence", depth.sequenceId());
+        return node;
     }
 
-    private static Map<String, Object> depthLevelToMap(DepthLevel level) {
-        Map<String, Object> m = new LinkedHashMap<>();
+    private ObjectNode depthLevelToNode(DepthLevel level) {
+        ObjectNode m = objectMapper.createObjectNode();
         m.put("pricePaisa", level.pricePaisa());
         m.put("quantity", level.quantity());
         m.put("orders", level.orderCount());
         return m;
     }
 
-    private Map<String, Object> candlePayload(Candle candle) {
-        Map<String, Object> map = new LinkedHashMap<>();
+    private ObjectNode candlePayload(Candle candle) {
+        ObjectNode node = objectMapper.createObjectNode();
         String canonical = canonicalSymbol(candle.symbol(), ExchangeSegment.NSE_EQ);
-        map.put("symbol", canonical);
-        map.put("canonicalSymbol", canonical);
-        map.put("interval", candle.interval());
-        map.put("startTimeMs", candle.startTimeMs());
-        map.put("endTimeMs", candle.endTimeMs());
-        map.put("openPaisa", candle.openPaisa());
-        map.put("highPaisa", candle.highPaisa());
-        map.put("lowPaisa", candle.lowPaisa());
-        map.put("closePaisa", candle.closePaisa());
-        map.put("volume", candle.volume());
-        return map;
+        node.put("symbol", canonical);
+        node.put("canonicalSymbol", canonical);
+        node.put("interval", candle.interval());
+        node.put("startTimeMs", candle.startTimeMs());
+        node.put("endTimeMs", candle.endTimeMs());
+        node.put("openPaisa", candle.openPaisa());
+        node.put("highPaisa", candle.highPaisa());
+        node.put("lowPaisa", candle.lowPaisa());
+        node.put("closePaisa", candle.closePaisa());
+        node.put("volume", candle.volume());
+        return node;
     }
 
-    private Map<String, Object> orderAckPayload(OrderAccepted accepted) {
-        Map<String, Object> map = orderPayload(accepted);
-        map.put("ack", true);
-        map.put("status", "ACCEPTED");
-        return map;
+    private ObjectNode orderAckPayload(OrderAccepted accepted) {
+        ObjectNode node = orderPayload(accepted);
+        node.put("ack", true);
+        node.put("status", "ACCEPTED");
+        return node;
     }
 
-    private Map<String, Object> orderRejectPayload(OrderRejected rejected) {
-        Map<String, Object> map = orderPayload(rejected);
-        map.put("ack", false);
-        map.put("status", "REJECTED");
-        return map;
+    private ObjectNode orderRejectPayload(OrderRejected rejected) {
+        ObjectNode node = orderPayload(rejected);
+        node.put("ack", false);
+        node.put("status", "REJECTED");
+        return node;
     }
 
-    private Map<String, Object> orderPayload(DomainEvent event) {
-        Map<String, Object> map = new LinkedHashMap<>();
+    private ObjectNode orderPayload(DomainEvent event) {
+        ObjectNode node = objectMapper.createObjectNode();
         String type = event.getClass().getSimpleName();
-        map.put("type", type);
+        node.put("type", type);
         if (event instanceof OrderAccepted a) {
-            map.put("orderId", a.order().orderId());
-            putSymbolFields(map, a.order().symbol(), a.order().exchangeSegment());
-            map.put("status", a.order().status().name());
-            map.put("quantity", a.order().quantity());
-            map.put("filledQuantity", a.order().filledQuantity());
-            map.put("pricePaisa", a.order().pricePaisa());
-            map.put("side", a.order().side().name());
+            node.put("orderId", a.order().orderId());
+            putSymbolFields(node, a.order().symbol(), a.order().exchangeSegment());
+            node.put("status", a.order().status().name());
+            node.put("quantity", a.order().quantity());
+            node.put("filledQuantity", a.order().filledQuantity());
+            node.put("pricePaisa", a.order().pricePaisa());
+            node.put("side", a.order().side().name());
         } else if (event instanceof OrderRejected r) {
-            map.put("orderId", r.order().orderId());
-            putSymbolFields(map, r.order().symbol(), r.order().exchangeSegment());
-            map.put("status", r.order().status().name());
-            map.put("reason", r.reason());
+            node.put("orderId", r.order().orderId());
+            putSymbolFields(node, r.order().symbol(), r.order().exchangeSegment());
+            node.put("status", r.order().status().name());
+            node.put("reason", r.reason());
         } else if (event instanceof OrderFilled f) {
-            map.put("orderId", f.order().orderId());
-            putSymbolFields(map, f.order().symbol(), f.order().exchangeSegment());
-            map.put("status", f.order().status().name());
-            map.put("filledQuantity", f.order().filledQuantity());
-            map.put("fillCount", f.fills().size());
+            node.put("orderId", f.order().orderId());
+            putSymbolFields(node, f.order().symbol(), f.order().exchangeSegment());
+            node.put("status", f.order().status().name());
+            node.put("filledQuantity", f.order().filledQuantity());
+            node.put("fillCount", f.fills().size());
             if (!f.fills().isEmpty()) {
                 var firstFill = f.fills().getFirst();
-                map.put("pricePaisa", firstFill.pricePaisa());
-                map.put("tradeId", firstFill.tradeId());
+                node.put("pricePaisa", firstFill.pricePaisa());
+                node.put("tradeId", firstFill.tradeId());
             }
         }
-        return map;
+        return node;
     }
 
-    private Map<String, Object> positionPayload(String symbol, long size, long entryPricePaisa, String action) {
-        Map<String, Object> map = new LinkedHashMap<>();
-        putSymbolFields(map, symbol, ExchangeSegment.NSE_EQ);
-        map.put("size", size);
-        map.put("entryPricePaisa", entryPricePaisa);
-        map.put("action", action);
-        return map;
+    private ObjectNode positionPayload(String symbol, long size, long entryPricePaisa, String action) {
+        ObjectNode node = objectMapper.createObjectNode();
+        putSymbolFields(node, symbol, ExchangeSegment.NSE_EQ);
+        node.put("size", size);
+        node.put("entryPricePaisa", entryPricePaisa);
+        node.put("action", action);
+        return node;
     }
 
-    private Map<String, Object> signalPayload(SignalGenerated signal) {
-        Map<String, Object> map = new LinkedHashMap<>();
-        map.put("signalId", signal.signalId());
-        putSymbolFields(map, signal.symbol(), ExchangeSegment.NSE_EQ);
-        map.put("side", signal.side().name());
-        map.put("setup", signal.setup());
-        return map;
+    private ObjectNode signalPayload(SignalGenerated signal) {
+        ObjectNode node = objectMapper.createObjectNode();
+        node.put("signalId", signal.signalId());
+        putSymbolFields(node, signal.symbol(), ExchangeSegment.NSE_EQ);
+        node.put("side", signal.side().name());
+        node.put("setup", signal.setup());
+        return node;
     }
 
-    private static Map<String, Object> replayPayload(ReplayTimeChangedEvent replay) {
-        Map<String, Object> map = new LinkedHashMap<>();
-        map.put("type", "REPLAY_TIME_CHANGED");
-        map.put("currentTimeMs", replay.currentTimeMs());
-        map.put("replaySpeedNanos", replay.replaySpeedNanos());
-        return map;
+    private ObjectNode replayPayload(ReplayTimeChangedEvent replay) {
+        ObjectNode node = objectMapper.createObjectNode();
+        node.put("type", "REPLAY_TIME_CHANGED");
+        node.put("currentTimeMs", replay.currentTimeMs());
+        node.put("replaySpeedNanos", replay.replaySpeedNanos());
+        return node;
     }
 
-    private static Map<String, Object> scanPayload(ScanResultsPublished scan) {
-        Map<String, Object> map = new LinkedHashMap<>();
-        map.put("type", "SCAN_COMPLETED");
-        map.put("profileId", scan.profileId());
-        map.put("hitCount", scan.hits().size());
-        map.put("hits", scan.hits().stream().map(h -> {
-            Map<String, Object> hit = new LinkedHashMap<>();
-            hit.put("symbol", h.symbol());
-            hit.put("score", h.score());
-            hit.put("reasons", h.reasons());
-            return hit;
-        }).toList());
-        return map;
+    private ObjectNode scanPayload(ScanResultsPublished scan) {
+        ObjectNode node = objectMapper.createObjectNode();
+        node.put("type", "SCAN_COMPLETED");
+        node.put("profileId", scan.profileId());
+        node.put("hitCount", scan.hits().size());
+        ArrayNode hitsArray = node.putArray("hits");
+        for (var h : scan.hits()) {
+            ObjectNode hitNode = objectMapper.createObjectNode();
+            hitNode.put("symbol", h.symbol());
+            hitNode.put("score", h.score());
+            ArrayNode reasonsArray = hitNode.putArray("reasons");
+            for (String reason : h.reasons()) {
+                reasonsArray.add(reason);
+            }
+            hitsArray.add(hitNode);
+        }
+        return node;
     }
 
-    private static Map<String, Object> optionChainPayload(OptionChainUpdated event) {
-        Map<String, Object> map = new LinkedHashMap<>();
-        map.put("type", "OPTION_CHAIN_UPDATED");
-        map.put("underlying", event.chain().underlying().symbol());
-        map.put("expiry", event.chain().expiry().toString());
-        map.put("spotPricePaisa", event.chain().spotPricePaisa());
-        map.put("entryCount", event.chain().strikes().size());
-        return map;
+    private ObjectNode optionChainPayload(OptionChainUpdated event) {
+        ObjectNode node = objectMapper.createObjectNode();
+        node.put("type", "OPTION_CHAIN_UPDATED");
+        node.put("underlying", event.chain().underlying().symbol());
+        node.put("expiry", event.chain().expiry().toString());
+        node.put("spotPricePaisa", event.chain().spotPricePaisa());
+        node.put("entryCount", event.chain().strikes().size());
+        return node;
     }
 
-    private static Map<String, Object> greeksPayload(GreeksComputed event) {
-        Map<String, Object> map = new LinkedHashMap<>();
-        map.put("type", "GREEKS_COMPUTED");
-        map.put("symbol", event.instrumentKey().symbol());
-        map.put("delta", event.greeks().delta());
-        map.put("gamma", event.greeks().gamma());
-        map.put("theta", event.greeks().theta());
-        map.put("vega", event.greeks().vega());
-        map.put("iv", event.greeks().impliedVolatility());
-        return map;
+    private ObjectNode greeksPayload(GreeksComputed event) {
+        ObjectNode node = objectMapper.createObjectNode();
+        node.put("type", "GREEKS_COMPUTED");
+        node.put("symbol", event.instrumentKey().symbol());
+        if (event.greeks().delta() != null) node.put("delta", event.greeks().delta());
+        if (event.greeks().gamma() != null) node.put("gamma", event.greeks().gamma());
+        if (event.greeks().theta() != null) node.put("theta", event.greeks().theta());
+        if (event.greeks().vega() != null) node.put("vega", event.greeks().vega());
+        if (event.greeks().impliedVolatility() != null) node.put("iv", event.greeks().impliedVolatility());
+        return node;
     }
 
-    private static Map<String, Object> maxPainPayload(MaxPainComputed event) {
-        Map<String, Object> map = new LinkedHashMap<>();
-        map.put("type", "MAX_PAIN_COMPUTED");
-        map.put("underlying", event.underlying());
-        map.put("maxPainStrikePaisa", event.maxPainStrikePaisa());
-        map.put("totalPainPaisa", event.totalPainPaisa());
-        return map;
+    private ObjectNode maxPainPayload(MaxPainComputed event) {
+        ObjectNode node = objectMapper.createObjectNode();
+        node.put("type", "MAX_PAIN_COMPUTED");
+        node.put("underlying", event.underlying());
+        node.put("maxPainStrikePaisa", event.maxPainStrikePaisa());
+        node.put("totalPainPaisa", event.totalPainPaisa());
+        return node;
     }
 
-    private static Map<String, Object> gammaPayload(GammaExposureComputed event) {
-        Map<String, Object> map = new LinkedHashMap<>();
-        map.put("type", "GAMMA_EXPOSURE_COMPUTED");
-        map.put("underlying", event.underlying());
-        map.put("netGamma", event.netGamma());
-        return map;
+    private ObjectNode gammaPayload(GammaExposureComputed event) {
+        ObjectNode node = objectMapper.createObjectNode();
+        node.put("type", "GAMMA_EXPOSURE_COMPUTED");
+        node.put("underlying", event.underlying());
+        node.put("netGamma", event.netGamma());
+        return node;
     }
 
     /**
@@ -421,24 +436,24 @@ public final class GatewayEventBridge implements AutoCloseable {
      */
     public void publishPipelineHealth(Map<String, Object> health) {
         try {
-            router.publish(GatewayTopic.PIPELINE_HEALTH, writeJson(health));
+            router.publish(GatewayTopic.PIPELINE_HEALTH, writeJsonMap(health));
         } catch (Exception e) {
             log.warn("Failed to publish pipeline health: {}", e.getMessage());
         }
     }
 
-    private static Map<String, Object> pnlPayload(PnlUpdatedEvent pnl) {
-        Map<String, Object> map = new LinkedHashMap<>();
-        map.put("realizedPnlPaisa", pnl.realizedPnlPaisa());
-        map.put("unrealizedPnlPaisa", pnl.unrealizedPnlPaisa());
-        map.put("netExposurePaisa", pnl.netExposurePaisa());
-        return map;
+    private ObjectNode pnlPayload(PnlUpdatedEvent pnl) {
+        ObjectNode node = objectMapper.createObjectNode();
+        node.put("realizedPnlPaisa", pnl.realizedPnlPaisa());
+        node.put("unrealizedPnlPaisa", pnl.unrealizedPnlPaisa());
+        node.put("netExposurePaisa", pnl.netExposurePaisa());
+        return node;
     }
 
-    private void putSymbolFields(Map<String, Object> map, String symbol, ExchangeSegment segment) {
+    private void putSymbolFields(ObjectNode node, String symbol, ExchangeSegment segment) {
         String canonical = canonicalSymbol(symbol, segment);
-        map.put("symbol", canonical);
-        map.put("canonicalSymbol", canonical);
+        node.put("symbol", canonical);
+        node.put("canonicalSymbol", canonical);
     }
 
     private String canonicalSymbol(String symbol, ExchangeSegment segment) {
@@ -468,6 +483,21 @@ public final class GatewayEventBridge implements AutoCloseable {
         }
     }
 
+    /**
+     * Publish an OrderBook snapshot directly to ORDER_BOOK_SNAPSHOT topic.
+     * Used by REST controllers and the live depth publisher to push
+     * per-symbol book state on demand (REST hydrates via this on first
+     * subscribe; subsequent updates flow through the event bus).
+     */
+    public void publishOrderBookSnapshot(Object orderBookSnapshot) {
+        try {
+            byte[] payload = objectMapper.writeValueAsBytes(orderBookSnapshot);
+            router.publish(GatewayTopic.ORDER_BOOK_SNAPSHOT, payload);
+        } catch (Exception ex) {
+            log.warn("Failed to publish order book snapshot: {}", ex.getMessage());
+        }
+    }
+
     private GatewayTopic resolveAnalyticsTopic(Object event) {
         String className = event.getClass().getSimpleName();
         return switch (className) {
@@ -476,6 +506,7 @@ public final class GatewayEventBridge implements AutoCloseable {
             case "IcebergSignal" -> GatewayTopic.ICEBERG_ALERT;
             case "AbsorptionSignal" -> GatewayTopic.ABSORPTION_ALERT;
             case "SRLevelsUpdate" -> GatewayTopic.SR_LEVELS_UPDATE;
+            case "OrderBookSnapshot" -> GatewayTopic.ORDER_BOOK_SNAPSHOT;
             default -> GatewayTopic.MARKET_DEPTH;
         };
     }
