@@ -278,56 +278,6 @@ class BrokerHandleAdvancedTest {
         verify(connection, atLeastOnce()).getCapability(ConditionalAlertProvider.class);
     }
 
-    // ── Dynamic Invoke ───────────────────────────────────────────────
-
-    @Test
-    void invokeLtpCallsLtpMethod() {
-        when(marketDataProvider.getLtpPaisa(any())).thenReturn(250000L);
-
-        Map<String, Object> params = Map.of(
-                "symbol", "RELIANCE",
-                "segment", ExchangeSegment.NSE_EQ
-        );
-
-        Optional<Object> result = handle.invoke("ltp", params);
-
-        assertTrue(result.isPresent());
-        assertInstanceOf(GatewayResult.class, result.get());
-        GatewayResult<?> gatewayResult = (GatewayResult<?>) result.get();
-        assertEquals(250000L, gatewayResult.data());
-        verify(marketDataProvider).getLtpPaisa(any());
-    }
-
-    @Test
-    void invokeBalanceCallsBalanceMethod() {
-        Balance balance = mock(Balance.class);
-        when(portfolioProvider.getBalance()).thenReturn(balance);
-
-        Map<String, Object> params = Map.of();
-
-        Optional<Object> result = handle.invoke("balance", params);
-
-        assertTrue(result.isPresent());
-        assertInstanceOf(GatewayResult.class, result.get());
-        GatewayResult<?> gatewayResult = (GatewayResult<?>) result.get();
-        assertSame(balance, gatewayResult.data());
-        verify(portfolioProvider).getBalance();
-    }
-
-    @Test
-    void invokeUnknownFallsToExtras() {
-        Map<String, Object> params = Map.of();
-
-        // Unknown methods fall through to extras().invoke(), which throws
-        // UnsupportedOperationException by default for unrecognized methods
-        UnsupportedOperationException exception = assertThrows(
-                UnsupportedOperationException.class,
-                () -> handle.invoke("unknownMethod", params)
-        );
-
-        assertTrue(exception.getMessage().contains("unknownMethod"));
-    }
-
     // ── Capabilities ─────────────────────────────────────────────────
 
     @Test

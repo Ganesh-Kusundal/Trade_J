@@ -59,7 +59,8 @@ class TradeUpdatedEmissionTest {
                 new com.tradej.core.domain.time.LiveTradingClock(),
                 circuitBreaker,
                 identityRegistry,
-                DeadLetterQueue.noop());
+                DeadLetterQueue.noop(),
+                ExecutionConfig.DEFAULTS.withDownstream(emitted::add));
         emitted.clear();
 
         lenient().doAnswer(inv -> null).when(orderManagementService).onBrokerEvent(any());
@@ -120,7 +121,7 @@ class TradeUpdatedEmissionTest {
         CountDownLatch latch = new CountDownLatch(1);
         handler.setProcessingLatch(latch);
         handler.start();
-        handler.onDomainEvent(firstFill, emitted::add);
+        handler.onDomainEvent(firstFill);
         assertTrue(awaitLatch(latch), "First fill processing did not complete");
 
         // Verify TradeOpened was emitted (first fill)
@@ -146,7 +147,7 @@ class TradeUpdatedEmissionTest {
 
         CountDownLatch latch = new CountDownLatch(1);
         handler.setProcessingLatch(latch);
-        handler.onDomainEvent(emptyFill, emitted::add);
+        handler.onDomainEvent(emptyFill);
         assertTrue(awaitLatch(latch), "Empty fill processing did not complete");
 
         // P0-5: TradeUpdated must NOT be emitted when qty=0 and pnl=0
@@ -179,7 +180,7 @@ class TradeUpdatedEmissionTest {
 
         CountDownLatch latch = new CountDownLatch(1);
         handler.setProcessingLatch(latch);
-        handler.onDomainEvent(secondFill, emitted::add);
+        handler.onDomainEvent(secondFill);
         assertTrue(awaitLatch(latch), "Second fill processing did not complete");
 
         // P0-5: TradeUpdated IS emitted when quantity > 0
@@ -224,7 +225,7 @@ class TradeUpdatedEmissionTest {
 
         CountDownLatch latch = new CountDownLatch(1);
         handler.setProcessingLatch(latch);
-        handler.onDomainEvent(fill, emitted::add);
+        handler.onDomainEvent(fill);
         assertTrue(awaitLatch(latch), "Fill processing did not complete");
 
         long updatedCount = emitted.stream().filter(e -> e instanceof TradeUpdated).count();

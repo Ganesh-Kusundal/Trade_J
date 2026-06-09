@@ -1,7 +1,10 @@
 package com.tradej.app.config;
 
 import com.tradej.broker.api.IBrokerConnection;
+import com.tradej.core.domain.event.EventMetadataFactory;
 import com.tradej.core.domain.port.DeadLetterQueue;
+import com.tradej.core.domain.port.FeatureStore;
+import com.tradej.core.domain.port.ModelRegistry;
 import com.tradej.core.domain.runtime.RuntimeModeHolder;
 import com.tradej.core.domain.time.TradingClock;
 import com.tradej.execution.command.CommandHandler;
@@ -13,18 +16,67 @@ import com.tradej.execution.risk.PositionRiskHandler;
 import com.tradej.execution.service.ExecutionHandler;
 import com.tradej.execution.service.OrderManagementService;
 import com.tradej.execution.service.TradingCircuitBreaker;
+import com.tradej.feature.store.OptionsAwareFeatureStore;
 import com.tradej.persistence.oms.EventSourcedOrderRepository;
+import com.tradej.simulation.MatchingEngine;
+import com.tradej.simulation.PnLLedger;
 import com.tradej.simulation.SimulatedOrderService;
+import com.tradej.strategy.api.GraphStrategyPlugin;
+import com.tradej.strategy.api.StrategyPlugin;
+import com.tradej.strategy.api.StrategyPluginAdapter;
+import com.tradej.strategy.example.DepthImbalanceStrategy;
+import com.tradej.strategy.example.TickPriceChangeStrategy;
+import com.tradej.strategy.ml.DefaultModelRegistry;
+import com.tradej.strategy.ml.MLStrategyPlugin;
+import com.tradej.strategy.ml.ThresholdMLInferenceEngine;
+import com.tradej.strategy.plugin.OptionsContextStrategyPlugin;
 import com.tradej.strategy.portfolio.PortfolioEngine;
+import com.tradej.strategy.service.GraphStrategySandbox;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 
+/**
+ * Unified trading configuration consolidating strategy, execution,
+ * portfolio, and simulation concerns.
+ */
 @Configuration
-public class ExecutionBeansConfiguration {
+public class TradingConfiguration {
+
+    // ── Simulation beans ──
+
+    @Bean
+    MatchingEngine matchingEngine() {
+        return new MatchingEngine();
+    }
+
+    @Bean
+    PnLLedger pnlLedger() {
+        return new PnLLedger();
+    }
+
+    @Bean
+    SimulatedOrderService simulatedOrderService(MatchingEngine matchingEngine, PnLLedger pnlLedger) {
+        return new SimulatedOrderService(matchingEngine, pnlLedger);
+    }
+
+    // ── Portfolio ──
+
+    @Bean
+    PortfolioEngine portfolioEngine(TradingProperties properties) {
+        TradingProperties.PortfolioProperties p = properties.portfolio();
+        return new PortfolioEngine(
+                p.defaultCapitalPaisa(),
+                p.maxNetExposurePaisa()
+        );
+    }
+
+    // ── Execution beans ──
 
     @Bean
     TradingCircuitBreaker tradingCircuitBreaker() {
@@ -33,7 +85,7 @@ public class ExecutionBeansConfiguration {
 
     @Bean
     @ConditionalOnMissingBean(OrderIdentityRegistry.class)
-    OrderIdentityRegistry orderIdentityRegistry() {
+    OrderIdentityRegistry executionOrderIdentityRegistry() {
         return new OrderIdentityRegistry();
     }
 
@@ -140,5 +192,67 @@ public class ExecutionBeansConfiguration {
                 identityRegistry,
                 deadLetterQueue
         );
+    }
+
+    // ── Strategy beans ──
+
+    @Bean
+    ModelRegistry modelRegistry() {
+        return new DefaultModelRegistry(List.of("threshold-rsi-ema"));
+    }
+
+    @Bean
+    ThresholdMLInferenceEngine mlInferenceEngine(ModelRegistry registry) {
+        return new ThresholdMLInferenceEngine(
+                registry,
+                ThresholdMLInferenceEngine.ThresholdConfig.defaults("threshold-rsi-ema")
+        );
+    }
+
+    @Bean
+    MLStrategyPlugin mlStrategyPlugin(FeatureStore featureStore, ThresholdMLInferenceEngine inferenceEngine) {
+        return new MLStrategyPlugin(
+                "ML-RSI-EMA",
+                featureStore,
+                inferenceEngine,
+                "5m",
+                20
+        );
+    }
+
+    @Bean
+    TickPriceChangeStrategy tickPriceChangeStrategy() {
+        return new TickPriceChangeStrategy("Tick-Momentum", 50_00L, 5000L);
+    }
+
+    @Bean
+    DepthImbalanceStrategy depthImbalanceStrategy() {
+        return new DepthImbalanceStrategy("Depth-Imbalance", 2.0, 10_000L);
+    }
+
+    @Bean
+    OptionsContextStrategyPlugin optionsContextStrategyPlugin(OptionsAwareFeatureStore featureStore) {
+        return new OptionsContextStrategyPlugin(featureStore);
+    }
+
+    /**
+     * Creates the unified graph strategy sandbox with both legacy
+     * {@link StrategyPlugin} instances (adapter-wrapped) and native
+     * {@link GraphStrategyPlugin} instances.
+     */
+    @Bean(destroyMethod = "shutdown")
+    GraphStrategySandbox graphStrategySandbox(
+            List<StrategyPlugin> strategyPlugins,
+            List<GraphStrategyPlugin> graphStrategyPlugins,
+            EventMetadataFactory eventMetadataFactory
+    ) {
+        List<GraphStrategyPlugin> allPlugins = new ArrayList<>();
+        // Wrap legacy candle-only plugins via adapter
+        for (StrategyPlugin plugin : strategyPlugins) {
+            allPlugins.add(new StrategyPluginAdapter(plugin));
+        }
+        // Add native graph strategy plugins (tick, depth, ML)
+        allPlugins.addAll(graphStrategyPlugins);
+        return new GraphStrategySandbox(allPlugins, eventMetadataFactory);
     }
 }

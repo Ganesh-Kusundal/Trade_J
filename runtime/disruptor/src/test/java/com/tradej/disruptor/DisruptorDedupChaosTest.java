@@ -16,7 +16,6 @@ import com.tradej.execution.service.TradingCircuitBreaker;
 import com.tradej.core.domain.model.RiskLimits;
 import com.tradej.strategy.portfolio.PortfolioEngine;
 import com.tradej.strategy.service.CandleAggregationService;
-import com.tradej.strategy.service.StrategyEngine;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
@@ -137,9 +136,6 @@ class DisruptorDedupChaosTest {
     private static EventBus createBus() {
         var candleAgg = new CandleAggregationService(List.of("5m"));
         var portfolio = new PortfolioEngine(1_000_000L, 10_000_000L);
-        var strategy = new StrategyEngine(List.of(),
-                new com.tradej.core.domain.event.EventMetadataFactory(
-                        new com.tradej.core.domain.time.LiveTradingClock()));
         var cb = new TradingCircuitBreaker();
         var idReg = new OrderIdentityRegistry();
         var runtimeModeHolder = new com.tradej.core.domain.runtime.RuntimeModeHolder();
@@ -152,7 +148,6 @@ class DisruptorDedupChaosTest {
         return new com.tradej.disruptor.config.DisruptorPipelineBuilder()
                 .positionRiskHandler(riskHandler)
                 .candleAggregationService(candleAgg)
-                .strategyEngine(strategy)
                 .executionHandler(execHandler)
                 .portfolioEngine(portfolio)
                 .stageTimings(StageTimings.NO_OP)

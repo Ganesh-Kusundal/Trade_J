@@ -34,8 +34,9 @@ class DhanSliceOrderIntegrationTest {
     void placesSliceOrderWhenEnabled() throws Exception {
         Assumptions.assumeTrue("true".equalsIgnoreCase(
                 LiveDhanTestSupport.value("DHAN_SLICE_ORDER_TEST_ENABLED", "dhan.sliceOrderTestEnabled", "false")));
-        brokerConnection = DhanBrokerConnection.create(
+        brokerConnection = new DhanBrokerConnection(
                 LiveDhanTestSupport.sandboxConnectionSettingsOrSkip(),
+                com.tradej.broker.dhan.constants.DhanProtocolConstants.defaultRateLimiter(),
                 new CaffeineIdempotencyCache()
         );
         brokerConnection.loadDailyInstrumentCatalog(Files.createTempDirectory("dhan-slice-cache"), false);

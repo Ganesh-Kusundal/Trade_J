@@ -31,7 +31,8 @@ class ExecutionHandlerStressTest {
         handler = new ExecutionHandler(null, new RuntimeModeHolder(),
                 new com.tradej.core.domain.time.LiveTradingClock(),
                 new TradingCircuitBreaker(10, 30_000),
-                new OrderIdentityRegistry(), DeadLetterQueue.noop());
+                new OrderIdentityRegistry(), DeadLetterQueue.noop(),
+                ExecutionConfig.DEFAULTS);
         emitted = new CopyOnWriteArrayList<>();
     }
 

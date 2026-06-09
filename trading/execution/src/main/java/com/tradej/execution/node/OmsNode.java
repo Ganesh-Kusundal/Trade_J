@@ -9,6 +9,10 @@ import com.tradej.pipeline.runtime.BasePipelineNode;
  * <p>
  * This is the single OMS pipeline node. It delegates all order placement and fill
  * reconciliation to the {@link ExecutionHandler}.
+ *
+ * <p>The ExecutionHandler must be constructed with its downstream consumer
+ * configured via {@link com.tradej.execution.service.ExecutionConfig} so that
+ * emitted events flow back into the pipeline automatically.
  */
 public final class OmsNode extends BasePipelineNode {
 
@@ -24,6 +28,6 @@ public final class OmsNode extends BasePipelineNode {
 
     @Override
     protected void processEvent(DomainEvent event) throws Exception {
-        executionHandler.onDomainEvent(event, context::publish);
+        executionHandler.onDomainEvent(event);
     }
 }

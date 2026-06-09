@@ -19,62 +19,64 @@ import java.util.Map;
  * Handle for market data operations (LTP, quotes, depth, OHLC, historical candles).
  * Wraps {@link com.tradej.broker.api.port.MarketDataProvider} with timing and result metadata.
  */
-public final class MarketDataHandle extends BaseBrokerHandle {
+public final class MarketDataHandle {
+
+    private final BrokerCallSupport support;
 
     MarketDataHandle(BrokerSource source, IBrokerConnection connection) {
-        super(source, connection);
+        this.support = new BrokerCallSupport(source, connection);
     }
 
     public GatewayResult<Long> ltp(String symbol) {
-        return ltp(symbol, defaultSegment(symbol));
+        return ltp(symbol, support.defaultSegment(symbol));
     }
 
     public GatewayResult<Long> ltp(String symbol, ExchangeSegment segment) {
-        return timed(() -> connection.marketData().getLtpPaisa(resolveKey(symbol, segment)));
+        return support.timed(() -> support.connection().marketData().getLtpPaisa(support.resolveKey(symbol, segment)));
     }
 
     public GatewayResult<Quote> quote(String symbol) {
-        return quote(symbol, defaultSegment(symbol));
+        return quote(symbol, support.defaultSegment(symbol));
     }
 
     public GatewayResult<Quote> quote(String symbol, ExchangeSegment segment) {
-        return timed(() -> connection.marketData().getQuote(resolveKey(symbol, segment)));
+        return support.timed(() -> support.connection().marketData().getQuote(support.resolveKey(symbol, segment)));
     }
 
     public GatewayResult<MarketDepth> depth(String symbol) {
-        return depth(symbol, defaultSegment(symbol));
+        return depth(symbol, support.defaultSegment(symbol));
     }
 
     public GatewayResult<MarketDepth> depth(String symbol, ExchangeSegment segment) {
-        return timed(() -> connection.marketData().getDepth(resolveKey(symbol, segment)));
+        return support.timed(() -> support.connection().marketData().getDepth(support.resolveKey(symbol, segment)));
     }
 
     public GatewayResult<Quote> ohlc(String symbol) {
-        return ohlc(symbol, defaultSegment(symbol));
+        return ohlc(symbol, support.defaultSegment(symbol));
     }
 
     public GatewayResult<Quote> ohlc(String symbol, ExchangeSegment segment) {
-        return timed(() -> connection.marketData().getOhlcSnapshot(resolveKey(symbol, segment)));
+        return support.timed(() -> support.connection().marketData().getOhlcSnapshot(support.resolveKey(symbol, segment)));
     }
 
     public GatewayResult<List<Candle>> historical(String symbol, String interval, LocalDate from, LocalDate to) {
-        return historical(symbol, defaultSegment(symbol), interval, from, to);
+        return historical(symbol, support.defaultSegment(symbol), interval, from, to);
     }
 
     public GatewayResult<List<Candle>> historical(String symbol, ExchangeSegment segment, String interval, LocalDate from, LocalDate to) {
-        return timed(() -> connection.marketData().getCandles(
-                new CandleHistoryRequest(resolveKey(symbol, segment), interval, from, to)));
+        return support.timed(() -> support.connection().marketData().getCandles(
+                new CandleHistoryRequest(support.resolveKey(symbol, segment), interval, from, to)));
     }
 
     public GatewayResult<Map<InstrumentKey, Long>> batchLtp(Collection<InstrumentKey> keys) {
-        return timed(() -> connection.marketData().getLtpBatch(keys));
+        return support.timed(() -> support.connection().marketData().getLtpBatch(keys));
     }
 
     public GatewayResult<Map<InstrumentKey, Quote>> batchQuote(Collection<InstrumentKey> keys) {
-        return timed(() -> connection.marketData().getQuoteBatch(keys));
+        return support.timed(() -> support.connection().marketData().getQuoteBatch(keys));
     }
 
     public GatewayResult<Map<InstrumentKey, Quote>> batchOhlc(Collection<InstrumentKey> keys) {
-        return timed(() -> connection.marketData().getOhlcBatch(keys));
+        return support.timed(() -> support.connection().marketData().getOhlcBatch(keys));
     }
 }

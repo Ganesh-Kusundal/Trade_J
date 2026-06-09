@@ -1,7 +1,7 @@
 package com.tradej.app.integration;
 
 import com.tradej.app.admin.AdminController;
-import com.tradej.app.config.RateLimitFilter;
+import com.tradej.app.config.WebConfiguration.RateLimitFilter;
 import com.tradej.app.service.AdminApplicationService;
 import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;

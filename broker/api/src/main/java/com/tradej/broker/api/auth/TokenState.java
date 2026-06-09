@@ -10,9 +10,12 @@ public record TokenState(
         long issuedAtEpochMs,
         TokenSource source
 ) {
-    /** Returns {@code true} if the token has not yet expired. */
+    /** Clock skew tolerance in milliseconds (30 seconds) */
+    private static final long CLOCK_SKEW_TOLERANCE_MS = 30_000L;
+
+    /** Returns {@code true} if the token has not yet expired (with clock skew tolerance). */
     public boolean valid() {
-        return expiryEpochMs > System.currentTimeMillis();
+        return expiryEpochMs > System.currentTimeMillis() + CLOCK_SKEW_TOLERANCE_MS;
     }
 
     /** Returns {@code true} if the token should be refreshed soon (within the configured buffer). */

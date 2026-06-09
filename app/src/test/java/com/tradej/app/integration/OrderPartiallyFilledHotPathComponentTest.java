@@ -83,20 +83,8 @@ class OrderPartiallyFilledHotPathComponentTest {
                 new LiveTradingClock(),
                 omsRepository
         );
-        executionHandler = new ExecutionHandler(
-                orderManagementService,
-                runtimeModeHolder,
-                new LiveTradingClock(),
-                new TradingCircuitBreaker(),
-                identityRegistry,
-                DeadLetterQueue.noop()
-        );
-        executionHandler.start();
 
         List<com.tradej.core.domain.event.DomainEvent> captured = new ArrayList<>();
-        OrderPipeline orderPipeline = new OrderPipeline(
-                event -> executionHandler.onDomainEvent(event, captured::add));
-
         CountDownLatch acceptedLatch = new CountDownLatch(1);
         var signalConsumer = new java.util.function.Consumer<com.tradej.core.domain.event.DomainEvent>() {
             @Override
@@ -105,12 +93,26 @@ class OrderPartiallyFilledHotPathComponentTest {
                 if (event instanceof SignalGenerated generated) {
                     riskHandler.onDomainEvent(generated, this);
                 } else if (event instanceof SignalPendingExecution pending) {
-                    executionHandler.onDomainEvent(pending, this);
+                    executionHandler.onDomainEvent(pending);
                 } else if (event instanceof OrderAccepted accepted) {
                     acceptedLatch.countDown();
                 }
             }
         };
+
+        executionHandler = new ExecutionHandler(
+                orderManagementService,
+                runtimeModeHolder,
+                new LiveTradingClock(),
+                new TradingCircuitBreaker(),
+                identityRegistry,
+                DeadLetterQueue.noop(),
+                new com.tradej.execution.service.ExecutionConfig(1000, 10_000L, 4, signalConsumer)
+        );
+        executionHandler.start();
+
+        OrderPipeline orderPipeline = new OrderPipeline(
+                event -> executionHandler.onDomainEvent(event));
 
         SignalGenerated signal = new SignalGenerated(
                 EventMetadata.root(),

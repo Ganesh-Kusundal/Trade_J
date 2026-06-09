@@ -46,8 +46,9 @@ class DhanMarketFeedWebSocketIntegrationTest {
         Assumptions.assumeTrue(isExchangeSessionOpen(),
                 "NSE cash session is closed; skipping live market feed assertion.");
 
-        brokerConnection = DhanBrokerConnection.create(
+        brokerConnection = new DhanBrokerConnection(
                 LiveDhanTestSupport.connectionSettingsOrSkip(),
+                com.tradej.broker.dhan.constants.DhanProtocolConstants.defaultRateLimiter(),
                 new CaffeineIdempotencyCache()
         );
         brokerConnection.loadDailyInstrumentCatalog(Files.createTempDirectory("dhan-market-feed-cache"), false);

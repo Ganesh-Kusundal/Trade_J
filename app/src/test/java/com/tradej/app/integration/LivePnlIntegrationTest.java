@@ -26,8 +26,9 @@ class LivePnlIntegrationTest {
 
     @Test
     void computesLivePnlSnapshot() throws Exception {
-        brokerConnection = DhanBrokerConnection.create(
+        brokerConnection = new DhanBrokerConnection(
                 LiveDhanTestSupport.connectionSettingsOrSkip(),
+                com.tradej.broker.dhan.constants.DhanProtocolConstants.defaultRateLimiter(),
                 new CaffeineIdempotencyCache()
         );
         brokerConnection.loadDailyInstrumentCatalog(Files.createTempDirectory("dhan-livepnl-cache"), false);

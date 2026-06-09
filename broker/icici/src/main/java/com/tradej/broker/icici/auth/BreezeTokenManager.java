@@ -1,5 +1,8 @@
 package com.tradej.broker.icici.auth;
 
+import com.tradej.broker.api.auth.TokenLifecycleService;
+import com.tradej.broker.api.auth.TokenSource;
+import com.tradej.broker.api.auth.TokenState;
 import com.tradej.broker.icici.config.BreezeConnectionSettings;
 import com.tradej.broker.icici.config.IciciAuthMode;
 
@@ -10,12 +13,15 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantLock;
 
-public final class BreezeTokenManager implements BreezeTokenProvider {
+public final class BreezeTokenManager implements BreezeTokenProvider, TokenLifecycleService {
     private static final Logger log = LoggerFactory.getLogger(BreezeTokenManager.class);
     private static final long SESSION_ACQUISITION_COOLDOWN_MS = 30_000L;
+    /** Clock skew tolerance in milliseconds (30 seconds) */
+    private static final long CLOCK_SKEW_TOLERANCE_MS = 30_000L;
     private final BreezeConnectionSettings settings;
     private final BreezeSessionExchange sessionExchange;
     private final BreezeTotpGenerator totpGenerator;
@@ -150,6 +156,60 @@ public final class BreezeTokenManager implements BreezeTokenProvider {
         return true;
     }
 
+    // ── TokenLifecycleService SPI Implementation ──────────────────────
+
+    @Override
+    public TokenState acquireToken() {
+        long now = clock.millis();
+        ensureValid();
+        BreezeSession session = currentSession;
+        if (session == null) {
+            throw new IllegalStateException("Unable to acquire a valid ICICI session");
+        }
+        return toTokenState(session, now);
+    }
+
+    @Override
+    public CompletableFuture<TokenState> acquireTokenAsync() {
+        return CompletableFuture.supplyAsync(this::acquireToken);
+    }
+
+    @Override
+    public TokenState currentState() {
+        BreezeSession session = currentSession;
+        return session != null ? toTokenState(session, clock.millis()) : null;
+    }
+
+    @Override
+    public void revoke() {
+        invalidate();
+    }
+
+    @Override
+    public void onExpiry(Runnable callback) {
+        // ICICI sessions expire at midnight and are auto-refreshed via scheduler
+        log.debug("onExpiry callback registered (no-op for ICICI auto-refresh model)");
+    }
+
+    @Override
+    public void onRefresh(Runnable callback) {
+        // ICICI session manager auto-refreshes via ensureValid() and midnight scheduler
+        log.debug("onRefresh callback registered (no-op for ICICI auto-refresh model)");
+    }
+
+    private TokenState toTokenState(BreezeSession session, long now) {
+        if (session == null) {
+            return null;
+        }
+        return new TokenState(
+                session.base64SessionToken(),
+                null, // ICICI does not use refresh tokens
+                session.expiresAtEpochMs(),
+                now,
+                TokenSource.STATIC
+        );
+    }
+
     private BreezeSession resolveSession(long now) {
         long lastAttempt = lastAcquisitionAttemptMs.get();
         if (lastAttempt > 0 && now - lastAttempt < SESSION_ACQUISITION_COOLDOWN_MS) {
@@ -206,6 +266,6 @@ public final class BreezeTokenManager implements BreezeTokenProvider {
             return false;
         }
         long bufferMs = settings.refreshBufferMinutes() * 60_000L;
-        return session.expiresAtEpochMs() > now + bufferMs;
+        return session.expiresAtEpochMs() > now + bufferMs + CLOCK_SKEW_TOLERANCE_MS;
     }
 }

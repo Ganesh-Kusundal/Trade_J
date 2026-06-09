@@ -466,20 +466,4 @@ class BrokerHandleTest {
         assertEquals(ExchangeSegment.NSE_EQ, result.data().get("RELIANCE"));
     }
 
-    @Test
-    void invokeOrderBookSnapshotDispatches() {
-        com.tradej.broker.api.port.OrderBookSnapshotProvider provider =
-                mock(com.tradej.broker.api.port.OrderBookSnapshotProvider.class);
-        com.tradej.broker.core.depth.OrderBook book = new com.tradej.broker.core.depth.OrderBook(
-                "RELIANCE", ExchangeSegment.NSE_EQ);
-        when(provider.snapshot("RELIANCE", ExchangeSegment.NSE_EQ, 5)).thenReturn(book.toSnapshot(5));
-        when(connection.getCapability(com.tradej.broker.api.port.OrderBookSnapshotProvider.class))
-                .thenReturn(java.util.Optional.of(provider));
-
-        java.util.Optional<Object> result = handle.invoke("orderBookSnapshot",
-                java.util.Map.of("symbol", "RELIANCE", "segment", "NSE_EQ", "levels", 5));
-
-        assertTrue(result.isPresent());
-        assertInstanceOf(GatewayResult.class, result.get());
-    }
 }

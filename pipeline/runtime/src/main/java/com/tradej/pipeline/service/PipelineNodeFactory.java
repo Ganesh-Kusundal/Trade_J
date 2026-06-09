@@ -29,7 +29,6 @@ import com.tradej.strategy.node.StrategyNode;
 import com.tradej.strategy.portfolio.PortfolioEngine;
 import com.tradej.strategy.service.CandleAggregationService;
 import com.tradej.strategy.service.GraphStrategySandbox;
-import com.tradej.strategy.service.StrategyEngine;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,7 +43,6 @@ public final class PipelineNodeFactory {
     private final NodeRegistry nodeRegistry;
     private final PositionRiskHandler positionRiskHandler;
     private final CandleAggregationService candleAggregationService;
-    private final StrategyEngine strategyEngine;
     private final GraphStrategySandbox graphStrategySandbox;
     private final ExecutionHandler executionHandler;
     private final PortfolioEngine portfolioEngine;
@@ -58,7 +56,6 @@ public final class PipelineNodeFactory {
             NodeRegistry nodeRegistry,
             PositionRiskHandler positionRiskHandler,
             CandleAggregationService candleAggregationService,
-            StrategyEngine strategyEngine,
             ExecutionHandler executionHandler,
             PortfolioEngine portfolioEngine,
             FeatureStore hotPathFeatureStore,
@@ -66,7 +63,7 @@ public final class PipelineNodeFactory {
             ScanEngine scanEngine,
             Map<String, ScanProfile> scanProfilesById
     ) {
-        this(nodeRegistry, positionRiskHandler, candleAggregationService, strategyEngine, null,
+        this(nodeRegistry, positionRiskHandler, candleAggregationService, null,
                 executionHandler, portfolioEngine, hotPathFeatureStore, reactorBridge, scanEngine, scanProfilesById);
     }
 
@@ -74,7 +71,6 @@ public final class PipelineNodeFactory {
             NodeRegistry nodeRegistry,
             PositionRiskHandler positionRiskHandler,
             CandleAggregationService candleAggregationService,
-            StrategyEngine strategyEngine,
             GraphStrategySandbox graphStrategySandbox,
             ExecutionHandler executionHandler,
             PortfolioEngine portfolioEngine,
@@ -86,7 +82,6 @@ public final class PipelineNodeFactory {
         this.nodeRegistry = Objects.requireNonNull(nodeRegistry, "nodeRegistry");
         this.positionRiskHandler = Objects.requireNonNull(positionRiskHandler);
         this.candleAggregationService = Objects.requireNonNull(candleAggregationService);
-        this.strategyEngine = Objects.requireNonNull(strategyEngine);
         this.graphStrategySandbox = graphStrategySandbox;
         this.executionHandler = Objects.requireNonNull(executionHandler);
         this.portfolioEngine = Objects.requireNonNull(portfolioEngine);
@@ -106,7 +101,7 @@ public final class PipelineNodeFactory {
         nodeRegistry.register(factoryDescriptor(PipelineNodeTypes.FEATURE, def -> hotPathFeatureStore != null
                 ? new FeatureNode(hotPathFeatureStore)
                 : noopNode("Feature store unavailable")));
-        nodeRegistry.register(factoryDescriptor(PipelineNodeTypes.STRATEGY, def -> new StrategyNode(strategyEngine, graphStrategySandbox)));
+        nodeRegistry.register(factoryDescriptor(PipelineNodeTypes.STRATEGY, def -> new StrategyNode(graphStrategySandbox)));
         nodeRegistry.register(factoryDescriptor(PipelineNodeTypes.PORTFOLIO, def -> new PortfolioNode(portfolioEngine)));
         nodeRegistry.register(factoryDescriptor(PipelineNodeTypes.OMS, def -> new OmsNode(executionHandler)));
         nodeRegistry.register(factoryDescriptor(PipelineNodeTypes.REACTOR, def -> reactorBridge));
@@ -152,7 +147,7 @@ public final class PipelineNodeFactory {
                 }
                 yield new FeatureNode(hotPathFeatureStore);
             }
-            case PipelineNodeTypes.STRATEGY -> new StrategyNode(strategyEngine, graphStrategySandbox);
+            case PipelineNodeTypes.STRATEGY -> new StrategyNode(graphStrategySandbox);
             case PipelineNodeTypes.PORTFOLIO -> new PortfolioNode(portfolioEngine);
             case PipelineNodeTypes.OMS -> new OmsNode(executionHandler);
             case PipelineNodeTypes.REACTOR -> reactorBridge;

@@ -43,8 +43,9 @@ class DhanMarketFeedWebSocketQuoteIntegrationTest {
         Assumptions.assumeTrue(isExchangeSessionOpen(),
                 "NSE cash session is closed; skipping live QUOTE assertion.");
 
-        brokerConnection = DhanBrokerConnection.create(
+        brokerConnection = new DhanBrokerConnection(
                 LiveDhanTestSupport.connectionSettingsOrSkip(),
+                com.tradej.broker.dhan.constants.DhanProtocolConstants.defaultRateLimiter(),
                 new CaffeineIdempotencyCache()
         );
         brokerConnection.loadDailyInstrumentCatalog(Files.createTempDirectory("dhan-market-feed-quote-cache"), false);

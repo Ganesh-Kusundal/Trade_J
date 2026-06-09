@@ -1,7 +1,7 @@
 package com.tradej.app.integration;
 
 import com.tradej.app.admin.DashboardRedirectController;
-import com.tradej.app.config.RateLimitFilter;
+import com.tradej.app.config.WebConfiguration.RateLimitFilter;
 import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.context.annotation.Import;

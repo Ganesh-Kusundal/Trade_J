@@ -74,8 +74,9 @@ class ExecutionToSandboxBrokerIntegrationTest {
         String segmentCode = LiveDhanTestSupport.valueForProfile(LiveDhanTestSupport.Profile.SANDBOX, "DHAN_TEST_ORDER_SEGMENT", "dhan.testOrderSegment", "NSE_EQ");
         String exchangeCode = LiveDhanTestSupport.valueForProfile(LiveDhanTestSupport.Profile.SANDBOX, "DHAN_TEST_ORDER_EXCHANGE", "dhan.testOrderExchange", "NSE");
 
-        brokerConnection = DhanBrokerConnection.create(
+        brokerConnection = new DhanBrokerConnection(
                 LiveDhanTestSupport.sandboxConnectionSettingsOrSkip(),
+                com.tradej.broker.dhan.constants.DhanProtocolConstants.defaultRateLimiter(),
                 new CaffeineIdempotencyCache()
         );
         brokerConnection.loadInstrumentCatalog(writeCatalog(symbol, exchangeCode, segmentCode, securityId));

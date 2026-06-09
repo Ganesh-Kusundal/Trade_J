@@ -76,7 +76,8 @@ class ExecutionHandlerUnitTest {
                 new com.tradej.core.domain.time.LiveTradingClock(),
                 circuitBreaker,
                 identityRegistry,
-                DeadLetterQueue.noop());
+                DeadLetterQueue.noop(),
+                ExecutionConfig.DEFAULTS.withDownstream(emitted::add));
         emitted.clear();
 
         // Wire mock OrderManagementService to delegate state operations to real omsRepo
@@ -116,7 +117,7 @@ class ExecutionHandlerUnitTest {
 
         SignalPendingExecution signal = createSignal("sig-1", "SBIN", 100);
         handler.start();
-        handler.onDomainEvent(signal, emitted::add);
+        handler.onDomainEvent(signal);
 
         assertTrue(awaitLatch(latch), "Processing did not complete in time");
 
@@ -145,7 +146,7 @@ class ExecutionHandlerUnitTest {
 
         SignalPendingExecution signal = createSignal("sig-1", "SBIN", 100);
         handler.start();
-        handler.onDomainEvent(signal, emitted::add);
+        handler.onDomainEvent(signal);
         assertTrue(awaitLatch(latch), "Processing did not complete in time");
 
         // OSM should have the order
@@ -167,7 +168,7 @@ class ExecutionHandlerUnitTest {
 
         SignalPendingExecution signal = createSignal("sig-rej", "TCS", 50);
         handler.start();
-        handler.onDomainEvent(signal, emitted::add);
+        handler.onDomainEvent(signal);
         assertTrue(awaitLatch(latch), "Processing did not complete in time");
 
         boolean hasRejected = emitted.stream().anyMatch(e -> e instanceof OrderRejected);
@@ -184,7 +185,7 @@ class ExecutionHandlerUnitTest {
 
         SignalPendingExecution signal = createSignal("sig-fail", "HDFC", 25);
         handler.start();
-        handler.onDomainEvent(signal, emitted::add);
+        handler.onDomainEvent(signal);
         assertTrue(awaitLatch(latch), "Processing did not complete in time");
 
         boolean hasSuppressed = emitted.stream().anyMatch(e -> e instanceof SignalSuppressed);
@@ -201,7 +202,7 @@ class ExecutionHandlerUnitTest {
 
         SignalPendingExecution signal = createSignal("sig-cb", "SBIN", 100);
         handler.start();
-        handler.onDomainEvent(signal, emitted::add);
+        handler.onDomainEvent(signal);
         assertTrue(awaitLatch(latch), "Processing did not complete in time");
 
         boolean hasKillSwitch = emitted.stream().anyMatch(e -> e instanceof KillSwitchEngaged);
@@ -223,7 +224,7 @@ class ExecutionHandlerUnitTest {
 
         SignalPendingExecution signal = createSignal("sig-fill", "SBIN", 100);
         handler.start();
-        handler.onDomainEvent(signal, emitted::add);
+        handler.onDomainEvent(signal);
         assertTrue(awaitLatch(latch), "Processing did not complete in time");
 
         emitted.clear(); // Clear the accepted event
@@ -242,7 +243,7 @@ class ExecutionHandlerUnitTest {
 
         CountDownLatch fillLatch = new CountDownLatch(1);
         handler.setProcessingLatch(fillLatch);
-        handler.onDomainEvent(orderFilled, emitted::add);
+        handler.onDomainEvent(orderFilled);
         assertTrue(awaitLatch(fillLatch), "Fill processing did not complete in time");
 
         // Verify OSM state
@@ -277,7 +278,7 @@ class ExecutionHandlerUnitTest {
 
         SignalPendingExecution signal = createSignal("sig-partial", "SBIN", 200);
         handler.start();
-        handler.onDomainEvent(signal, emitted::add);
+        handler.onDomainEvent(signal);
         assertTrue(awaitLatch(latch), "Processing did not complete in time");
         emitted.clear();
 
@@ -295,7 +296,7 @@ class ExecutionHandlerUnitTest {
 
         CountDownLatch fillLatch = new CountDownLatch(1);
         handler.setProcessingLatch(fillLatch);
-        handler.onDomainEvent(orderFilled, emitted::add);
+        handler.onDomainEvent(orderFilled);
         assertTrue(awaitLatch(fillLatch), "Fill processing did not complete in time");
 
         // Verify OSM state is PARTIALLY_FILLED
@@ -326,7 +327,7 @@ class ExecutionHandlerUnitTest {
         OrderFilled orderFilled = new OrderFilled(
                 EventMetadata.correlated("sig-orphan", 1L), filledOrder, fills);
 
-        handler.onDomainEvent(orderFilled, emitted::add);
+        handler.onDomainEvent(orderFilled);
         long deadline = System.currentTimeMillis() + 3_000L;
         while (handler.droppedFillCount() < 1L && System.currentTimeMillis() < deadline) {
             Thread.sleep(50L);
@@ -348,7 +349,7 @@ class ExecutionHandlerUnitTest {
 
         SignalPendingExecution signal = createSignal("sig-dual", "SBIN", 100);
         handler.start();
-        handler.onDomainEvent(signal, emitted::add);
+        handler.onDomainEvent(signal);
         assertTrue(awaitLatch(latch), "Processing did not complete in time");
         emitted.clear(); // Clear OrderAccepted
 
@@ -367,7 +368,7 @@ class ExecutionHandlerUnitTest {
 
         CountDownLatch fillLatch1 = new CountDownLatch(1);
         handler.setProcessingLatch(fillLatch1);
-        handler.onDomainEvent(firstFill, emitted::add);
+        handler.onDomainEvent(firstFill);
         assertTrue(awaitLatch(fillLatch1), "First fill processing did not complete in time");
 
         long tradeOpenedCount = emitted.stream().filter(e -> e instanceof TradeOpened).count();
@@ -387,7 +388,7 @@ class ExecutionHandlerUnitTest {
 
         CountDownLatch fillLatch2 = new CountDownLatch(1);
         handler.setProcessingLatch(fillLatch2);
-        handler.onDomainEvent(secondFill, emitted::add);
+        handler.onDomainEvent(secondFill);
         assertTrue(awaitLatch(fillLatch2), "Second fill processing did not complete in time");
 
         long finalTradeOpenedCount = emitted.stream().filter(e -> e instanceof TradeOpened).count();
@@ -412,8 +413,7 @@ class ExecutionHandlerUnitTest {
                 circuitBreaker,
                 identityRegistry,
                 DeadLetterQueue.noop(),
-                1000,
-                200L);
+                ExecutionConfig.DEFAULTS.withQueueCapacity(1000).withTimeout(200L).withDownstream(emitted::add));
         when(circuitBreaker.allowsRequest()).thenReturn(true);
         when(orderManagementService.placeOrder(any())).thenAnswer(invocation -> {
             try {
@@ -429,7 +429,7 @@ class ExecutionHandlerUnitTest {
 
         SignalPendingExecution signal = createSignal("sig-timeout", "SBIN", 100);
         handler.start();
-        handler.onDomainEvent(signal, emitted::add);
+        handler.onDomainEvent(signal);
 
         assertTrue(awaitLatch(latch), "Processing did not complete within timeout window");
 
@@ -456,7 +456,7 @@ class ExecutionHandlerUnitTest {
 
         SignalPendingExecution signal = createSignal("sig-empty-fill", "SBIN", 100);
         handler.start();
-        handler.onDomainEvent(signal, emitted::add);
+        handler.onDomainEvent(signal);
         assertTrue(awaitLatch(latch), "Processing did not complete in time");
         emitted.clear();
 
@@ -471,7 +471,7 @@ class ExecutionHandlerUnitTest {
 
         CountDownLatch fillLatch = new CountDownLatch(1);
         handler.setProcessingLatch(fillLatch);
-        handler.onDomainEvent(orderFilled, emitted::add);
+        handler.onDomainEvent(orderFilled);
         assertTrue(awaitLatch(fillLatch), "Fill processing did not complete in time");
 
         // Should handle gracefully (empty fills guard)
@@ -509,7 +509,7 @@ class ExecutionHandlerUnitTest {
 
         SignalPendingExecution signal = createSignal("sig-rej-consistency", "TCS", 50);
         handler.start();
-        handler.onDomainEvent(signal, emitted::add);
+        handler.onDomainEvent(signal);
         assertTrue(awaitLatch(latch), "Processing did not complete in time");
 
         // Capture the domain event

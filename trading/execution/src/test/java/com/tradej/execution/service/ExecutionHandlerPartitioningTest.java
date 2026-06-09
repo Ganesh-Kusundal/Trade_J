@@ -47,10 +47,7 @@ class ExecutionHandlerPartitioningTest {
                 circuitBreaker,
                 new OrderIdentityRegistry(),
                 DeadLetterQueue.noop(),
-                100,
-                5_000L,
-                4,
-                emitted::add
+                new ExecutionConfig(100, 5_000L, 4, emitted::add)
         );
     }
 
@@ -102,10 +99,7 @@ class ExecutionHandlerPartitioningTest {
                 circuitBreaker,
                 new OrderIdentityRegistry(),
                 DeadLetterQueue.noop(),
-                100,
-                5_000L,
-                1,
-                emitted::add
+                new ExecutionConfig(100, 5_000L, 1, emitted::add)
         );
         assertEquals(0, single.queueDepth());
         assertTrue(single.queueRemainingCapacity() > 0);

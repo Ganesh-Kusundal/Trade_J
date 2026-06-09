@@ -9,7 +9,6 @@ import com.tradej.pipeline.runtime.PipelineRuntimeBridge;
 import com.tradej.strategy.portfolio.PortfolioEngine;
 import com.tradej.strategy.service.CandleAggregationService;
 import com.tradej.strategy.service.GraphStrategySandbox;
-import com.tradej.strategy.service.StrategyEngine;
 
 /**
  * Immutable configuration record for creating a {@link DisruptorEventBus}.
@@ -20,7 +19,6 @@ import com.tradej.strategy.service.StrategyEngine;
 public record DisruptorPipelineConfig(
         PositionRiskHandler positionRiskHandler,
         CandleAggregationService candleAggregationService,
-        StrategyEngine strategyEngine,
         GraphStrategySandbox graphStrategySandbox,
         ExecutionHandler executionHandler,
         PortfolioEngine portfolioEngine,
@@ -35,9 +33,6 @@ public record DisruptorPipelineConfig(
     public DisruptorPipelineConfig {
         if (positionRiskHandler == null) {
             throw new IllegalArgumentException("positionRiskHandler must not be null");
-        }
-        if (strategyEngine == null) {
-            throw new IllegalArgumentException("strategyEngine must not be null");
         }
         if (executionHandler == null) {
             throw new IllegalArgumentException("executionHandler must not be null");

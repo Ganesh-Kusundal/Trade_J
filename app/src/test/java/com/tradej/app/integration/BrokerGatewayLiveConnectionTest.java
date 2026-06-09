@@ -252,7 +252,7 @@ class BrokerGatewayLiveConnectionTest {
 
     private void connect() throws Exception {
         DhanConnectionSettings settings = LiveDhanTestSupport.connectionSettingsOrSkip();
-        brokerConnection = DhanBrokerConnection.create(settings, new CaffeineIdempotencyCache());
+        brokerConnection = new DhanBrokerConnection(settings, new CaffeineIdempotencyCache());
         brokerConnection.loadDailyInstrumentCatalog(Files.createTempDirectory("dhan-master-cache"), false);
         gateway = BrokerGateway.of(BrokerSource.DHAN, brokerConnection);
     }

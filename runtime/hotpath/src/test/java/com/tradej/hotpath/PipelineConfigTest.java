@@ -28,7 +28,6 @@ import com.tradej.hotpath.PipelineConfig.PipelineComponents;
 import com.tradej.persistence.oms.EventSourcedOrderRepository;
 import com.tradej.strategy.portfolio.PortfolioEngine;
 import com.tradej.strategy.service.CandleAggregationService;
-import com.tradej.strategy.service.StrategyEngine;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -103,7 +102,6 @@ class PipelineConfigTest {
     private PipelineConfig.PipelineComponents createWithTestBridge(
             PositionRiskHandler riskHandler,
             CandleAggregationService candleService,
-            StrategyEngine strategyEngine,
             ExecutionHandler executionHandler,
             PortfolioEngine portfolioEngine
     ) {
@@ -111,7 +109,6 @@ class PipelineConfigTest {
                 1,
                 riskHandler,
                 candleService,
-                strategyEngine,
                 executionHandler,
                 portfolioEngine,
                 com.tradej.disruptor.config.StageTimings.NO_OP,
@@ -132,7 +129,6 @@ class PipelineConfigTest {
         PipelineComponents components = createWithTestBridge(
                 risk,
                 new CandleAggregationService(),
-                new StrategyEngine(List.of(), eventMetadataFactory()),
                 exec,
                 new PortfolioEngine()
         );
@@ -149,7 +145,6 @@ class PipelineConfigTest {
         PipelineComponents components = createWithTestBridge(
                 risk,
                 new CandleAggregationService(),
-                new StrategyEngine(List.of(), eventMetadataFactory()),
                 exec,
                 null
         );
@@ -164,7 +159,6 @@ class PipelineConfigTest {
         PipelineComponents components = createWithTestBridge(
                 risk,
                 new CandleAggregationService(),
-                new StrategyEngine(List.of(), eventMetadataFactory()),
                 exec,
                 null
         );
@@ -180,27 +174,20 @@ class PipelineConfigTest {
     void nullPositionRiskHandlerThrows() {
         assertThrows(NullPointerException.class,
                 () -> PipelineConfig.create(null, new CandleAggregationService(),
-                        new StrategyEngine(List.of(), eventMetadataFactory()), createExecutionHandler(), null));
+                        createExecutionHandler(), null));
     }
 
     @Test
     void nullCandleAggregationServiceThrows() {
         assertThrows(NullPointerException.class,
                 () -> PipelineConfig.create(createRiskHandler(), null,
-                        new StrategyEngine(List.of(), eventMetadataFactory()), createExecutionHandler(), null));
-    }
-
-    @Test
-    void nullStrategyEngineThrows() {
-        assertThrows(NullPointerException.class,
-                () -> PipelineConfig.create(createRiskHandler(), new CandleAggregationService(),
-                        null, createExecutionHandler(), null));
+                        createExecutionHandler(), null));
     }
 
     @Test
     void nullExecutionHandlerThrows() {
         assertThrows(NullPointerException.class,
                 () -> PipelineConfig.create(createRiskHandler(), new CandleAggregationService(),
-                        new StrategyEngine(List.of(), eventMetadataFactory()), null, null));
+                        null, null));
     }
 }

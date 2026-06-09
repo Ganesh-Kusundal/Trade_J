@@ -34,8 +34,9 @@ class DhanSuperOrderIntegrationTest {
     void placesSuperOrderWhenEnabled() throws Exception {
         Assumptions.assumeTrue("true".equalsIgnoreCase(
                 LiveDhanTestSupport.value("DHAN_SUPER_ORDER_TEST_ENABLED", "dhan.superOrderTestEnabled", "false")));
-        brokerConnection = DhanBrokerConnection.create(
+        brokerConnection = new DhanBrokerConnection(
                 LiveDhanTestSupport.sandboxConnectionSettingsOrSkip(),
+                com.tradej.broker.dhan.constants.DhanProtocolConstants.defaultRateLimiter(),
                 new CaffeineIdempotencyCache()
         );
         brokerConnection.loadDailyInstrumentCatalog(Files.createTempDirectory("dhan-super-cache"), false);

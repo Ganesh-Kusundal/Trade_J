@@ -34,8 +34,9 @@ class DhanForeverOrderIntegrationTest {
     void placesForeverOrderWhenEnabled() throws Exception {
         Assumptions.assumeTrue("true".equalsIgnoreCase(
                 LiveDhanTestSupport.value("DHAN_FOREVER_ORDER_TEST_ENABLED", "dhan.foreverOrderTestEnabled", "false")));
-        brokerConnection = DhanBrokerConnection.create(
+        brokerConnection = new DhanBrokerConnection(
                 LiveDhanTestSupport.sandboxConnectionSettingsOrSkip(),
+                com.tradej.broker.dhan.constants.DhanProtocolConstants.defaultRateLimiter(),
                 new CaffeineIdempotencyCache()
         );
         brokerConnection.loadDailyInstrumentCatalog(Files.createTempDirectory("dhan-forever-cache"), false);

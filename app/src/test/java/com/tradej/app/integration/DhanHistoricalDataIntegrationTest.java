@@ -80,8 +80,9 @@ class DhanHistoricalDataIntegrationTest {
 
     private InstrumentTarget connectAndLoadCatalog() throws Exception {
         InstrumentTarget target = resolveTarget();
-        brokerConnection = DhanBrokerConnection.create(
+        brokerConnection = new DhanBrokerConnection(
                 LiveDhanTestSupport.connectionSettingsOrSkip(),
+                com.tradej.broker.dhan.constants.DhanProtocolConstants.defaultRateLimiter(),
                 new CaffeineIdempotencyCache()
         );
         brokerConnection.loadInstrumentCatalog(writeCatalog(target));

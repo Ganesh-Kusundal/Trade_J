@@ -47,8 +47,9 @@ class DhanRollingOptionDownloadIntegrationTest {
         Assumptions.assumeTrue("true".equalsIgnoreCase(
                 LiveDhanTestSupport.value("DHAN_ROLLING_OPTION_TEST_ENABLED", "dhan.rollingOptionTestEnabled", "false")));
 
-        brokerConnection = DhanBrokerConnection.create(
+        brokerConnection = new DhanBrokerConnection(
                 LiveDhanTestSupport.connectionSettingsOrSkip(),
+                com.tradej.broker.dhan.constants.DhanProtocolConstants.defaultRateLimiter(),
                 new CaffeineIdempotencyCache()
         );
         brokerConnection.loadDailyInstrumentCatalog(Files.createTempDirectory("dhan-download-cache"), false);

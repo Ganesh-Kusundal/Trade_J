@@ -14,7 +14,6 @@ import com.tradej.execution.service.ExecutionHandler;
 import com.tradej.strategy.portfolio.PortfolioEngine;
 import com.tradej.strategy.service.CandleAggregationService;
 import com.tradej.strategy.service.GraphStrategySandbox;
-import com.tradej.strategy.service.StrategyEngine;
 import com.tradej.pipeline.runtime.PipelineRuntimeBridge;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,8 +46,7 @@ public final class PipelineConfig {
      * Create and wire the hot-path pipeline components.
      *
      * @param positionRiskHandler      risk qualification handler
-     * @param candleAggregationService candle aggregation service (ticks → candles)
-     * @param strategyEngine           strategy evaluation engine
+     * @param candleAggregationService candle aggregation service (ticks to candles)
      * @param executionHandler         order execution handler
      * @param portfolioEngine          portfolio engine for capital/exposure checks (nullable)
      * @return a record containing all assembled pipeline components
@@ -56,11 +54,10 @@ public final class PipelineConfig {
     public static PipelineComponents create(
             PositionRiskHandler positionRiskHandler,
             CandleAggregationService candleAggregationService,
-            StrategyEngine strategyEngine,
             ExecutionHandler executionHandler,
             PortfolioEngine portfolioEngine
     ) {
-        return create(1, positionRiskHandler, candleAggregationService, strategyEngine, null,
+        return create(1, positionRiskHandler, candleAggregationService, null,
                 executionHandler, portfolioEngine, StageTimings.NO_OP, null, DeadLetterQueue.noop(), null);
     }
 
@@ -68,8 +65,7 @@ public final class PipelineConfig {
      * Create and wire the hot-path pipeline components with per-stage latency timing.
      *
      * @param positionRiskHandler      risk qualification handler
-     * @param candleAggregationService candle aggregation service (ticks → candles)
-     * @param strategyEngine           strategy evaluation engine
+     * @param candleAggregationService candle aggregation service (ticks to candles)
      * @param executionHandler         order execution handler
      * @param portfolioEngine          portfolio engine for capital/exposure checks (nullable)
      * @param stageTimings             per-stage latency callbacks (use {@link StageTimings#NO_OP} to disable)
@@ -78,12 +74,11 @@ public final class PipelineConfig {
     public static PipelineComponents create(
             PositionRiskHandler positionRiskHandler,
             CandleAggregationService candleAggregationService,
-            StrategyEngine strategyEngine,
             ExecutionHandler executionHandler,
             PortfolioEngine portfolioEngine,
             StageTimings stageTimings
     ) {
-        return create(1, positionRiskHandler, candleAggregationService, strategyEngine, null,
+        return create(1, positionRiskHandler, candleAggregationService, null,
                 executionHandler, portfolioEngine, stageTimings, null, DeadLetterQueue.noop(), null);
     }
 
@@ -91,8 +86,7 @@ public final class PipelineConfig {
      * Create and wire the hot-path pipeline components with graph strategy sandbox.
      *
      * @param positionRiskHandler      risk qualification handler
-     * @param candleAggregationService candle aggregation service (ticks → candles)
-     * @param strategyEngine           legacy candle-only strategy evaluation engine
+     * @param candleAggregationService candle aggregation service (ticks to candles)
      * @param graphStrategySandbox     graph strategy sandbox for tick/depth/multi-event plugins (nullable)
      * @param executionHandler         order execution handler
      * @param portfolioEngine          portfolio engine for capital/exposure checks (nullable)
@@ -102,34 +96,31 @@ public final class PipelineConfig {
     public static PipelineComponents create(
             PositionRiskHandler positionRiskHandler,
             CandleAggregationService candleAggregationService,
-            StrategyEngine strategyEngine,
             GraphStrategySandbox graphStrategySandbox,
             ExecutionHandler executionHandler,
             PortfolioEngine portfolioEngine,
             StageTimings stageTimings
     ) {
-        return create(1, positionRiskHandler, candleAggregationService, strategyEngine, graphStrategySandbox,
+        return create(1, positionRiskHandler, candleAggregationService, graphStrategySandbox,
                 executionHandler, portfolioEngine, stageTimings, null, DeadLetterQueue.noop(), null);
     }
 
     public static PipelineComponents create(
             PositionRiskHandler positionRiskHandler,
             CandleAggregationService candleAggregationService,
-            StrategyEngine strategyEngine,
             ExecutionHandler executionHandler,
             PortfolioEngine portfolioEngine,
             StageTimings stageTimings,
             FeatureStore hotPathFeatureStore,
             DeadLetterQueue deadLetterQueue
     ) {
-        return create(1, positionRiskHandler, candleAggregationService, strategyEngine, null,
+        return create(1, positionRiskHandler, candleAggregationService, null,
                 executionHandler, portfolioEngine, stageTimings, hotPathFeatureStore, deadLetterQueue, null);
     }
 
     public static PipelineComponents create(
             PositionRiskHandler positionRiskHandler,
             CandleAggregationService candleAggregationService,
-            StrategyEngine strategyEngine,
             GraphStrategySandbox graphStrategySandbox,
             ExecutionHandler executionHandler,
             PortfolioEngine portfolioEngine,
@@ -137,7 +128,7 @@ public final class PipelineConfig {
             FeatureStore hotPathFeatureStore,
             DeadLetterQueue deadLetterQueue
     ) {
-        return create(1, positionRiskHandler, candleAggregationService, strategyEngine, graphStrategySandbox,
+        return create(1, positionRiskHandler, candleAggregationService, graphStrategySandbox,
                 executionHandler, portfolioEngine, stageTimings, hotPathFeatureStore, deadLetterQueue, null);
     }
 
@@ -145,14 +136,13 @@ public final class PipelineConfig {
             int shardCount,
             PositionRiskHandler positionRiskHandler,
             CandleAggregationService candleAggregationService,
-            StrategyEngine strategyEngine,
             ExecutionHandler executionHandler,
             PortfolioEngine portfolioEngine,
             StageTimings stageTimings,
             FeatureStore hotPathFeatureStore,
             DeadLetterQueue deadLetterQueue
     ) {
-        return create(shardCount, positionRiskHandler, candleAggregationService, strategyEngine, null,
+        return create(shardCount, positionRiskHandler, candleAggregationService, null,
                 executionHandler, portfolioEngine, stageTimings, hotPathFeatureStore, deadLetterQueue, null);
     }
 
@@ -163,7 +153,6 @@ public final class PipelineConfig {
             int shardCount,
             PositionRiskHandler positionRiskHandler,
             CandleAggregationService candleAggregationService,
-            StrategyEngine strategyEngine,
             ExecutionHandler executionHandler,
             PortfolioEngine portfolioEngine,
             StageTimings stageTimings,
@@ -171,7 +160,7 @@ public final class PipelineConfig {
             DeadLetterQueue deadLetterQueue,
             PipelineRuntimeBridge pipelineRuntimeBridge
     ) {
-        return create(shardCount, positionRiskHandler, candleAggregationService, strategyEngine, null,
+        return create(shardCount, positionRiskHandler, candleAggregationService, null,
                 executionHandler, portfolioEngine, stageTimings, hotPathFeatureStore, deadLetterQueue, pipelineRuntimeBridge);
     }
 
@@ -182,7 +171,6 @@ public final class PipelineConfig {
             int shardCount,
             PositionRiskHandler positionRiskHandler,
             CandleAggregationService candleAggregationService,
-            StrategyEngine strategyEngine,
             GraphStrategySandbox graphStrategySandbox,
             ExecutionHandler executionHandler,
             PortfolioEngine portfolioEngine,
@@ -194,13 +182,11 @@ public final class PipelineConfig {
         Objects.requireNonNull(pipelineRuntimeBridge, "pipelineRuntimeBridge must not be null");
         Objects.requireNonNull(positionRiskHandler, "positionRiskHandler must not be null");
         Objects.requireNonNull(candleAggregationService, "candleAggregationService must not be null");
-        Objects.requireNonNull(strategyEngine, "strategyEngine must not be null");
         Objects.requireNonNull(executionHandler, "executionHandler must not be null");
 
         DisruptorPipelineBuilder builder = new DisruptorPipelineBuilder()
                 .positionRiskHandler(positionRiskHandler)
                 .candleAggregationService(candleAggregationService)
-                .strategyEngine(strategyEngine)
                 .graphStrategySandbox(graphStrategySandbox)
                 .executionHandler(executionHandler)
                 .portfolioEngine(portfolioEngine)

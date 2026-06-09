@@ -28,7 +28,6 @@ import com.tradej.pipeline.runtime.*;
 import com.tradej.strategy.node.CandleNode;
 import com.tradej.strategy.portfolio.PortfolioEngine;
 import com.tradej.strategy.service.CandleAggregationService;
-import com.tradej.strategy.service.StrategyEngine;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
@@ -120,7 +119,6 @@ class DisruptorGraphReplayParityTest {
         CandleAggregationService candleService = new CandleAggregationService(List.of("1s"));
         PositionRiskHandler riskHandler = riskHandler();
         PortfolioEngine portfolioEngine = new PortfolioEngine(1_000_000L, 10_000_000L);
-        StrategyEngine strategyEngine = new StrategyEngine(List.of(), new com.tradej.core.domain.event.EventMetadataFactory(new com.tradej.core.domain.time.LiveTradingClock()));
         ExecutionHandler executionHandler = executionHandler();
 
         TestPipelineRuntimeBridge bridge = new TestPipelineRuntimeBridge(
@@ -136,7 +134,6 @@ class DisruptorGraphReplayParityTest {
         return new com.tradej.disruptor.config.DisruptorPipelineBuilder()
                 .positionRiskHandler(riskHandler)
                 .candleAggregationService(candleService)
-                .strategyEngine(strategyEngine)
                 .executionHandler(executionHandler)
                 .portfolioEngine(portfolioEngine)
                 .stageTimings(StageTimings.NO_OP)

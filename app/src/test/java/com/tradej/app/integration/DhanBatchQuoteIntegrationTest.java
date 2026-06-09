@@ -32,8 +32,9 @@ class DhanBatchQuoteIntegrationTest {
 
     @Test
     void fetchesBatchLtpAndQuote() throws Exception {
-        brokerConnection = DhanBrokerConnection.create(
+        brokerConnection = new DhanBrokerConnection(
                 LiveDhanTestSupport.connectionSettingsOrSkip(),
+                com.tradej.broker.dhan.constants.DhanProtocolConstants.defaultRateLimiter(),
                 new CaffeineIdempotencyCache()
         );
         brokerConnection.loadDailyInstrumentCatalog(Files.createTempDirectory("dhan-batch-cache"), false);

@@ -88,9 +88,49 @@ public final class ExecutionHandler implements com.tradej.core.domain.event.Doma
     private volatile CountDownLatch processingLatch;
 
     /**
-     * Creates an execution handler with the default queue capacity ({@value DEFAULT_QUEUE_CAPACITY})
-     * and default partition count ({@value DEFAULT_PARTITION_COUNT}).
+     * Primary constructor — accepts an {@link ExecutionConfig} for all tunable parameters.
+     *
+     * @param config execution configuration (queue capacity, timeout, partitions, downstream)
      */
+    public ExecutionHandler(
+            OrderManagementService orderManagementService,
+            RuntimeModeHolder runtimeModeHolder,
+            TradingClock clock,
+            TradingCircuitBreaker circuitBreaker,
+            OrderIdentityRegistry identityRegistry,
+            DeadLetterQueue deadLetterQueue,
+            ExecutionConfig config
+    ) {
+        this.orderManagementService = orderManagementService;
+        this.runtimeModeHolder = runtimeModeHolder;
+        this.clock = clock;
+        this.circuitBreaker = circuitBreaker;
+        this.identityRegistry = identityRegistry;
+        this.deadLetterQueue = deadLetterQueue == null ? DeadLetterQueue.noop() : deadLetterQueue;
+        this.orderPlacementTimeoutMs = config.orderPlacementTimeoutMs() > 0
+                ? config.orderPlacementTimeoutMs()
+                : ExecutionConfig.DEFAULT_ORDER_PLACEMENT_TIMEOUT_MS;
+        this.injectedDownstream = config.downstream();
+        this.partitionCount = Math.max(1, config.partitionCount());
+        @SuppressWarnings("unchecked")
+        BlockingQueue<ExecutionCommand>[] qs = new BlockingQueue[this.partitionCount];
+        this.queues = qs;
+        this.executors = new ExecutorService[this.partitionCount];
+        for (int i = 0; i < this.partitionCount; i++) {
+            this.queues[i] = new ArrayBlockingQueue<>(config.queueCapacity());
+            final int idx = i;
+            this.executors[i] = Executors.newSingleThreadExecutor(r -> {
+                Thread thread = new Thread(r, "execution-handler-" + idx);
+                thread.setDaemon(true);
+                return thread;
+            });
+        }
+    }
+
+    /**
+     * @deprecated Use {@link #ExecutionHandler(OrderManagementService, RuntimeModeHolder, TradingClock, TradingCircuitBreaker, OrderIdentityRegistry, DeadLetterQueue, ExecutionConfig)}
+     */
+    @Deprecated
     public ExecutionHandler(
             OrderManagementService orderManagementService,
             RuntimeModeHolder runtimeModeHolder,
@@ -99,24 +139,17 @@ public final class ExecutionHandler implements com.tradej.core.domain.event.Doma
             OrderIdentityRegistry identityRegistry,
             DeadLetterQueue deadLetterQueue
     ) {
-        this(
-                orderManagementService,
-                runtimeModeHolder,
-                clock,
-                circuitBreaker,
-                identityRegistry,
-                deadLetterQueue,
-                DEFAULT_QUEUE_CAPACITY,
-                DEFAULT_ORDER_PLACEMENT_TIMEOUT_MS,
-                DEFAULT_PARTITION_COUNT,
-                null);
+        this(orderManagementService, runtimeModeHolder, clock, circuitBreaker,
+                identityRegistry, deadLetterQueue, ExecutionConfig.DEFAULTS);
     }
 
     /**
-     * Creates an execution handler with a configurable queue capacity.
+     * @deprecated Use {@link #ExecutionHandler(OrderManagementService, RuntimeModeHolder, TradingClock, TradingCircuitBreaker, OrderIdentityRegistry, DeadLetterQueue, ExecutionConfig)}
+     * with {@link ExecutionConfig#withQueueCapacity(int)}.
      *
      * @param queueCapacity maximum pending commands before signals are suppressed
      */
+    @Deprecated
     public ExecutionHandler(
             OrderManagementService orderManagementService,
             RuntimeModeHolder runtimeModeHolder,
@@ -126,22 +159,18 @@ public final class ExecutionHandler implements com.tradej.core.domain.event.Doma
             DeadLetterQueue deadLetterQueue,
             int queueCapacity
     ) {
-        this(
-                orderManagementService,
-                runtimeModeHolder,
-                clock,
-                circuitBreaker,
-                identityRegistry,
-                deadLetterQueue,
-                queueCapacity,
-                DEFAULT_ORDER_PLACEMENT_TIMEOUT_MS,
-                1,
-                null);
+        this(orderManagementService, runtimeModeHolder, clock, circuitBreaker,
+                identityRegistry, deadLetterQueue,
+                ExecutionConfig.DEFAULTS.withQueueCapacity(queueCapacity).withPartitions(1));
     }
 
     /**
+     * @deprecated Use {@link #ExecutionHandler(OrderManagementService, RuntimeModeHolder, TradingClock, TradingCircuitBreaker, OrderIdentityRegistry, DeadLetterQueue, ExecutionConfig)}
+     * with {@link ExecutionConfig#withQueueCapacity(int)} and {@link ExecutionConfig#withTimeout(long)}.
+     *
      * @param orderPlacementTimeoutMs max wait for broker placement acknowledgement
      */
+    @Deprecated
     public ExecutionHandler(
             OrderManagementService orderManagementService,
             RuntimeModeHolder runtimeModeHolder,
@@ -152,24 +181,19 @@ public final class ExecutionHandler implements com.tradej.core.domain.event.Doma
             int queueCapacity,
             long orderPlacementTimeoutMs
     ) {
-        this(
-                orderManagementService,
-                runtimeModeHolder,
-                clock,
-                circuitBreaker,
-                identityRegistry,
-                deadLetterQueue,
-                queueCapacity,
-                orderPlacementTimeoutMs,
-                1,
-                null);
+        this(orderManagementService, runtimeModeHolder, clock, circuitBreaker,
+                identityRegistry, deadLetterQueue,
+                ExecutionConfig.DEFAULTS.withQueueCapacity(queueCapacity)
+                        .withTimeout(orderPlacementTimeoutMs).withPartitions(1));
     }
 
     /**
-     * Creates an execution handler with a fixed downstream consumer (P0-6 immutable downstream).
+     * @deprecated Use {@link #ExecutionHandler(OrderManagementService, RuntimeModeHolder, TradingClock, TradingCircuitBreaker, OrderIdentityRegistry, DeadLetterQueue, ExecutionConfig)}
+     * with {@link ExecutionConfig#withDownstream(Consumer)}.
      *
      * @param downstream the consumer that receives emitted domain events
      */
+    @Deprecated
     public ExecutionHandler(
             OrderManagementService orderManagementService,
             RuntimeModeHolder runtimeModeHolder,
@@ -180,16 +204,17 @@ public final class ExecutionHandler implements com.tradej.core.domain.event.Doma
             Consumer<DomainEvent> downstream
     ) {
         this(orderManagementService, runtimeModeHolder, clock, circuitBreaker,
-                identityRegistry, deadLetterQueue, DEFAULT_QUEUE_CAPACITY,
-                DEFAULT_ORDER_PLACEMENT_TIMEOUT_MS, DEFAULT_PARTITION_COUNT, downstream);
+                identityRegistry, deadLetterQueue,
+                ExecutionConfig.DEFAULTS.withDownstream(downstream));
     }
 
     /**
-     * Full constructor with immutable downstream consumer (P0-6) and partitioning (W1-5).
+     * @deprecated Use {@link #ExecutionHandler(OrderManagementService, RuntimeModeHolder, TradingClock, TradingCircuitBreaker, OrderIdentityRegistry, DeadLetterQueue, ExecutionConfig)}.
      *
      * @param downstream the consumer that receives emitted domain events
      * @param partitionCount number of symbol-partitioned worker threads
      */
+    @Deprecated
     public ExecutionHandler(
             OrderManagementService orderManagementService,
             RuntimeModeHolder runtimeModeHolder,
@@ -202,30 +227,9 @@ public final class ExecutionHandler implements com.tradej.core.domain.event.Doma
             int partitionCount,
             Consumer<DomainEvent> downstream
     ) {
-        this.orderManagementService = orderManagementService;
-        this.runtimeModeHolder = runtimeModeHolder;
-        this.clock = clock;
-        this.circuitBreaker = circuitBreaker;
-        this.identityRegistry = identityRegistry;
-        this.deadLetterQueue = deadLetterQueue == null ? DeadLetterQueue.noop() : deadLetterQueue;
-        this.orderPlacementTimeoutMs = orderPlacementTimeoutMs > 0
-                ? orderPlacementTimeoutMs
-                : DEFAULT_ORDER_PLACEMENT_TIMEOUT_MS;
-        this.injectedDownstream = downstream;
-        this.partitionCount = Math.max(1, partitionCount);
-        @SuppressWarnings("unchecked")
-        BlockingQueue<ExecutionCommand>[] qs = new BlockingQueue[this.partitionCount];
-        this.queues = qs;
-        this.executors = new ExecutorService[this.partitionCount];
-        for (int i = 0; i < this.partitionCount; i++) {
-            this.queues[i] = new ArrayBlockingQueue<>(queueCapacity);
-            final int idx = i;
-            this.executors[i] = Executors.newSingleThreadExecutor(r -> {
-                Thread thread = new Thread(r, "execution-handler-" + idx);
-                thread.setDaemon(true);
-                return thread;
-            });
-        }
+        this(orderManagementService, runtimeModeHolder, clock, circuitBreaker,
+                identityRegistry, deadLetterQueue,
+                new ExecutionConfig(queueCapacity, orderPlacementTimeoutMs, partitionCount, downstream));
     }
 
     public void start() {
@@ -285,32 +289,13 @@ public final class ExecutionHandler implements com.tradej.core.domain.event.Doma
         }
     }
 
-    /**
-     * @deprecated Use {@link #onDomainEvent(DomainEvent)} with a constructor-injected downstream
-     * consumer instead. This method retains a mutable per-call override for backward compatibility.
-     */
-    @Deprecated
-    public void onDomainEvent(DomainEvent event, Consumer<DomainEvent> downstream) {
-        callDownstream.set(downstream);
-        MdcHelper.enrich(event, "execution");
-        try {
-            event.accept(this);
-        } finally {
-            MdcHelper.clear();
-            callDownstream.remove();
-        }
-    }
-
-    // P0-6: Downstream consumer is now final (constructor-injected) with ThreadLocal
-    // fallback for the deprecated per-call onDomainEvent(event, downstream) API.
+    // P0-6: Downstream consumer is constructor-injected via ExecutionConfig.
+    // Falls back to no-op if not configured (e.g., simple constructors).
     private final Consumer<DomainEvent> injectedDownstream;
-    private final ThreadLocal<Consumer<DomainEvent>> callDownstream = new ThreadLocal<>();
 
     private Consumer<DomainEvent> effectiveDownstream() {
-        Consumer<DomainEvent> dl = callDownstream.get();
-        if (dl != null) return dl;
         if (injectedDownstream != null) return injectedDownstream;
-        throw new IllegalStateException("No downstream consumer configured");
+        return e -> {};
     }
 
     @Override

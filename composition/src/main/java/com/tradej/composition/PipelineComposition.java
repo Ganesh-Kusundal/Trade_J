@@ -17,7 +17,6 @@ import com.tradej.scanner.model.ScanProfile;
 import com.tradej.strategy.portfolio.PortfolioEngine;
 import com.tradej.strategy.service.CandleAggregationService;
 import com.tradej.strategy.service.GraphStrategySandbox;
-import com.tradej.strategy.service.StrategyEngine;
 
 import java.util.Map;
 
@@ -49,7 +48,7 @@ public final class PipelineComposition {
     public static PipelineComposition create(
             PositionRiskHandler positionRiskHandler,
             CandleAggregationService candleAggregationService,
-            StrategyEngine strategyEngine,
+            GraphStrategySandbox graphStrategySandbox,
             ExecutionHandler executionHandler,
             PortfolioEngine portfolioEngine,
             FeatureStore hotPathFeatureStore,
@@ -66,8 +65,7 @@ public final class PipelineComposition {
                 nodeRegistry,
                 positionRiskHandler,
                 candleAggregationService,
-                strategyEngine,
-                null,
+                graphStrategySandbox,
                 executionHandler,
                 portfolioEngine,
                 hotPathFeatureStore,

@@ -31,8 +31,9 @@ class DhanPortfolioIntegrationTest {
 
     @Test
     void readsLivePortfolioEndpoints() throws Exception {
-        brokerConnection = DhanBrokerConnection.create(
+        brokerConnection = new DhanBrokerConnection(
                 LiveDhanTestSupport.connectionSettingsOrSkip(),
+                com.tradej.broker.dhan.constants.DhanProtocolConstants.defaultRateLimiter(),
                 new CaffeineIdempotencyCache()
         );
         brokerConnection.loadDailyInstrumentCatalog(Files.createTempDirectory("dhan-portfolio-cache"), false);

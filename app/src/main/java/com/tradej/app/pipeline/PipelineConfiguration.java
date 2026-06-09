@@ -26,7 +26,6 @@ import com.tradej.app.scanner.ScanProfileMapper;
 import com.tradej.strategy.portfolio.PortfolioEngine;
 import com.tradej.strategy.service.CandleAggregationService;
 import com.tradej.strategy.service.GraphStrategySandbox;
-import com.tradej.strategy.service.StrategyEngine;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -177,7 +176,6 @@ public class PipelineConfiguration {
             NodeRegistry nodeRegistry,
             PositionRiskHandler positionRiskHandler,
             CandleAggregationService candleAggregationService,
-            StrategyEngine strategyEngine,
             GraphStrategySandbox graphStrategySandbox,
             ExecutionHandler executionHandler,
             PortfolioEngine portfolioEngine,
@@ -195,7 +193,6 @@ public class PipelineConfiguration {
                 nodeRegistry,
                 positionRiskHandler,
                 candleAggregationService,
-                strategyEngine,
                 graphStrategySandbox,
                 executionHandler,
                 portfolioEngine,

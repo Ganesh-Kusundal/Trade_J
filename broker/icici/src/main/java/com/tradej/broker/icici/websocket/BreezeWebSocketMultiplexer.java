@@ -67,6 +67,15 @@ public final class BreezeWebSocketMultiplexer implements WebSocketMultiplexer {
     private volatile BreezeWebSocketHealthMonitor healthMonitor;
     private volatile java.util.concurrent.ScheduledExecutorService sessionRefreshScheduler;
 
+    // ── Reconnection & Circuit Breaker State ─────────────────────────
+    private int reconnectAttempts;
+    private long circuitOpenUntilMs;
+    private static final int WS_RECONNECT_FAILURE_THRESHOLD = 10;
+    private static final long WS_RECONNECT_CIRCUIT_OPEN_MS = 60_000L; // 1 minute
+    private static final long WS_RECONNECT_BASE_DELAY_MS = 1_000L; // 1 second
+    private static final long WS_RECONNECT_MAX_DELAY_MS = 30_000L; // 30 seconds
+    private volatile java.util.concurrent.ScheduledExecutorService reconnectScheduler;
+
     public BreezeWebSocketMultiplexer(
             BreezeTokenProvider tokenProvider,
             BreezeInstrumentResolver instrumentResolver,
@@ -103,6 +112,11 @@ public final class BreezeWebSocketMultiplexer implements WebSocketMultiplexer {
         this.metadataFactory = metadataFactory;
         this.reconnectRegistry = reconnectRegistry;
         this.wsExecutor = wsExecutor;
+        this.reconnectScheduler = Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread t = new Thread(r, "icici-ws-reconnect");
+            t.setDaemon(true);
+            return t;
+        });
     }
 
     @Override
@@ -141,6 +155,17 @@ public final class BreezeWebSocketMultiplexer implements WebSocketMultiplexer {
         if (sessionRefreshScheduler != null) {
             sessionRefreshScheduler.shutdown();
             sessionRefreshScheduler = null;
+        }
+        if (reconnectScheduler != null) {
+            reconnectScheduler.shutdown();
+            try {
+                if (!reconnectScheduler.awaitTermination(5, java.util.concurrent.TimeUnit.SECONDS)) {
+                    reconnectScheduler.shutdownNow();
+                }
+            } catch (InterruptedException e) {
+                reconnectScheduler.shutdownNow();
+                Thread.currentThread().interrupt();
+            }
         }
         closeSocket(quoteSocket);
         closeSocket(orderSocket);
@@ -558,5 +583,85 @@ public final class BreezeWebSocketMultiplexer implements WebSocketMultiplexer {
             } catch (Exception ignored) {
             }
         }
+    }
+
+    // ── Circuit Breaker & Reconnection Logic ─────────────────────────
+
+    /**
+     * Attempt reconnect with exponential backoff and circuit breaker.
+     * Called when WebSocket disconnects unexpectedly.
+     */
+    void reconnectWithBackoff() {
+        long now = System.currentTimeMillis();
+        if (circuitOpenUntilMs > now) {
+            log.debug("ICICI WebSocket reconnect circuit open until {}", circuitOpenUntilMs);
+            return;
+        }
+
+        reconnectAttempts++;
+        if (reconnectAttempts >= WS_RECONNECT_FAILURE_THRESHOLD) {
+            circuitOpenUntilMs = now + WS_RECONNECT_CIRCUIT_OPEN_MS;
+            log.warn("ICICI WebSocket reconnect circuit opened after {} consecutive failures",
+                    reconnectAttempts);
+            return;
+        }
+
+        long delayMs = computeBackoffDelay(reconnectAttempts);
+        log.info("Scheduling ICICI WebSocket reconnect attempt {} in {}ms",
+                reconnectAttempts, delayMs);
+
+        reconnectScheduler.schedule(this::executeReconnect, delayMs, java.util.concurrent.TimeUnit.MILLISECONDS);
+    }
+
+    private long computeBackoffDelay(int attempt) {
+        // Exponential backoff with jitter
+        long baseDelay = Math.min(WS_RECONNECT_BASE_DELAY_MS * (1L << (attempt - 1)), WS_RECONNECT_MAX_DELAY_MS);
+        long jitter = (long) (Math.random() * baseDelay * 0.1); // 10% jitter
+        return baseDelay + jitter;
+    }
+
+    private void executeReconnect() {
+        if (!connected && reconnectAttempts < WS_RECONNECT_FAILURE_THRESHOLD) {
+            try {
+                log.info("Executing ICICI WebSocket reconnect attempt {}", reconnectAttempts);
+                tokenProvider.ensureValid();
+                var session = tokenProvider.session();
+
+                closeSocket(quoteSocket);
+                closeSocket(orderSocket);
+
+                quoteSocket = openSocket(BreezeApiEndpoints.LIVE_STREAM_URL, session.userId(), session.sessionKey(), true);
+                orderSocket = openSocket(BreezeApiEndpoints.LIVE_FEEDS_URL, session.userId(), session.sessionKey(), false);
+                connected = true;
+
+                if (healthMonitor != null) {
+                    healthMonitor.resetTimestamps();
+                    healthMonitor.emitConnected();
+                }
+
+                if (reconnectRegistry != null) {
+                    wsExecutor.submit(() -> reconnectRegistry.notifyReconnect());
+                }
+
+                // Reset reconnect counter on success
+                reconnectAttempts = 0;
+                circuitOpenUntilMs = 0;
+                log.info("ICICI WebSocket reconnected successfully");
+            } catch (Exception ex) {
+                log.warn("ICICI WebSocket reconnect attempt {} failed: {}",
+                        reconnectAttempts, ex.getMessage());
+                connected = false;
+                // Schedule another attempt
+                reconnectWithBackoff();
+            }
+        }
+    }
+
+    /**
+     * Reset reconnect circuit (called after successful manual connect).
+     */
+    private void resetReconnectCircuit() {
+        reconnectAttempts = 0;
+        circuitOpenUntilMs = 0;
     }
 }

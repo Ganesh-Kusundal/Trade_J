@@ -21,7 +21,6 @@ import com.tradej.execution.service.TradingCircuitBreaker;
 import com.tradej.persistence.oms.EventSourcedOrderRepository;
 import com.tradej.strategy.portfolio.PortfolioEngine;
 import com.tradej.strategy.service.CandleAggregationService;
-import com.tradej.strategy.service.StrategyEngine;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -69,7 +68,6 @@ class DisruptorSignalToExecutionComponentTest {
                 portfolioEngine
         );
         CandleAggregationService candleService = new CandleAggregationService(List.of("1m"));
-        StrategyEngine strategyEngine = new StrategyEngine(List.of(), new com.tradej.core.domain.event.EventMetadataFactory(new LiveTradingClock()));
 
         RuntimeModeHolder runtimeModeHolder = new RuntimeModeHolder();
         runtimeModeHolder.setMode(RuntimeMode.REPLAY);
@@ -89,7 +87,6 @@ class DisruptorSignalToExecutionComponentTest {
         eventBus = new com.tradej.disruptor.config.DisruptorPipelineBuilder()
                 .positionRiskHandler(riskHandler)
                 .candleAggregationService(candleService)
-                .strategyEngine(strategyEngine)
                 .executionHandler(executionHandler)
                 .portfolioEngine(portfolioEngine)
                 .stageTimings(com.tradej.disruptor.config.StageTimings.NO_OP)

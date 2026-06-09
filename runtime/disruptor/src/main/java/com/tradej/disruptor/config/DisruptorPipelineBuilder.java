@@ -9,7 +9,6 @@ import com.tradej.pipeline.runtime.PipelineRuntimeBridge;
 import com.tradej.strategy.portfolio.PortfolioEngine;
 import com.tradej.strategy.service.CandleAggregationService;
 import com.tradej.strategy.service.GraphStrategySandbox;
-import com.tradej.strategy.service.StrategyEngine;
 
 /**
  * Fluent builder for {@link DisruptorPipelineConfig} and {@link DisruptorEventBus}.
@@ -17,7 +16,6 @@ import com.tradej.strategy.service.StrategyEngine;
  * <p>Required parameters:
  * <ul>
  *   <li>{@link #positionRiskHandler(PositionRiskHandler)}</li>
- *   <li>{@link #strategyEngine(StrategyEngine)}</li>
  *   <li>{@link #executionHandler(ExecutionHandler)}</li>
  *   <li>{@link #pipelineRuntimeBridge(PipelineRuntimeBridge)}</li>
  * </ul>
@@ -28,7 +26,6 @@ public final class DisruptorPipelineBuilder {
 
     private PositionRiskHandler positionRiskHandler;
     private CandleAggregationService candleAggregationService;
-    private StrategyEngine strategyEngine;
     private GraphStrategySandbox graphStrategySandbox;
     private ExecutionHandler executionHandler;
     private PortfolioEngine portfolioEngine;
@@ -47,11 +44,6 @@ public final class DisruptorPipelineBuilder {
 
     public DisruptorPipelineBuilder candleAggregationService(CandleAggregationService candleAggregationService) {
         this.candleAggregationService = candleAggregationService;
-        return this;
-    }
-
-    public DisruptorPipelineBuilder strategyEngine(StrategyEngine strategyEngine) {
-        this.strategyEngine = strategyEngine;
         return this;
     }
 
@@ -109,7 +101,6 @@ public final class DisruptorPipelineBuilder {
         return new DisruptorPipelineConfig(
                 positionRiskHandler,
                 candleAggregationService,
-                strategyEngine,
                 graphStrategySandbox,
                 executionHandler,
                 portfolioEngine,

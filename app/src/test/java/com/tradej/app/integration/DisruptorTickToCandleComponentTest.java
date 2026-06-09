@@ -21,7 +21,6 @@ import com.tradej.execution.service.OrderManagementService;
 import com.tradej.execution.service.TradingCircuitBreaker;
 import com.tradej.persistence.oms.EventSourcedOrderRepository;
 import com.tradej.strategy.service.CandleAggregationService;
-import com.tradej.strategy.service.StrategyEngine;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -59,7 +58,6 @@ class DisruptorTickToCandleComponentTest {
         CandleAggregationService candleService = new CandleAggregationService();
         TradingClock clock = new LiveTradingClock();
         EventMetadataFactory metadataFactory = new EventMetadataFactory(clock);
-        StrategyEngine strategyEngine = new StrategyEngine(List.of(), metadataFactory);
 
         omsRepository = new EventSourcedOrderRepository(Files.createTempDirectory("disruptor-oms"));
         var runtimeModeHolder = new com.tradej.core.domain.runtime.RuntimeModeHolder();
@@ -89,7 +87,6 @@ class DisruptorTickToCandleComponentTest {
         eventBus = new com.tradej.disruptor.config.DisruptorPipelineBuilder()
                 .positionRiskHandler(riskHandler)
                 .candleAggregationService(candleService)
-                .strategyEngine(strategyEngine)
                 .executionHandler(executionHandler)
                 .stageTimings(com.tradej.disruptor.config.StageTimings.NO_OP)
                 .deadLetterQueue(com.tradej.core.domain.port.DeadLetterQueue.noop())

@@ -16,33 +16,35 @@ import java.util.List;
  * Wraps {@link com.tradej.broker.api.port.PortfolioProvider} and
  * {@link com.tradej.broker.api.port.MarginProvider} with timing and result metadata.
  */
-public final class PortfolioHandle extends BaseBrokerHandle {
+public final class PortfolioHandle {
+
+    private final BrokerCallSupport support;
 
     PortfolioHandle(BrokerSource source, IBrokerConnection connection) {
-        super(source, connection);
+        this.support = new BrokerCallSupport(source, connection);
     }
 
     public GatewayResult<Balance> balance() {
-        return timed(() -> connection.portfolio().getBalance());
+        return support.timed(() -> support.connection().portfolio().getBalance());
     }
 
     public GatewayResult<List<Position>> positions() {
-        return timed(() -> connection.portfolio().getPositions());
+        return support.timed(() -> support.connection().portfolio().getPositions());
     }
 
     public GatewayResult<List<Holding>> holdings() {
-        return timed(() -> connection.portfolio().getHoldings());
+        return support.timed(() -> support.connection().portfolio().getHoldings());
     }
 
     public GatewayResult<MarginEstimate> estimateMargin(MarginEstimateRequest request) {
-        return timed(() -> connection.margin().estimateMargin(request));
+        return support.timed(() -> support.connection().margin().estimateMargin(request));
     }
 
     public GatewayResult<PortfolioSummary> portfolioSummary() {
-        return timed(() -> {
-            Balance bal = connection.portfolio().getBalance();
-            List<Position> pos = connection.portfolio().getPositions();
-            List<Holding> hold = connection.portfolio().getHoldings();
+        return support.timed(() -> {
+            Balance bal = support.connection().portfolio().getBalance();
+            List<Position> pos = support.connection().portfolio().getPositions();
+            List<Holding> hold = support.connection().portfolio().getHoldings();
             return new PortfolioSummary(bal, pos, hold);
         });
     }

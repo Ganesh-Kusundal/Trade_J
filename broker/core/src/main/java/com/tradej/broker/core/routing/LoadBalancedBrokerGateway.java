@@ -184,17 +184,13 @@ public final class LoadBalancedBrokerGateway implements IBrokerConnection, Optio
 
     @Override
     public <T> Optional<T> getCapability(Class<T> capabilityClass) {
-        if (capabilityClass == null) {
-            return Optional.empty();
-        }
+        if (capabilityClass == null) return Optional.empty();
         if (OptionsCapable.class.equals(capabilityClass)) {
             return Optional.of(capabilityClass.cast(this));
         }
         for (IBrokerConnection connection : connections) {
             Optional<T> capability = connection.getCapability(capabilityClass);
-            if (capability.isPresent()) {
-                return capability;
-            }
+            if (capability.isPresent()) return capability;
         }
         return Optional.empty();
     }

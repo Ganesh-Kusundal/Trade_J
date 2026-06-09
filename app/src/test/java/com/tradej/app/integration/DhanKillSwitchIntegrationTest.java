@@ -34,8 +34,9 @@ class DhanKillSwitchIntegrationTest {
         Assumptions.assumeTrue("true".equalsIgnoreCase(
                 LiveDhanTestSupport.value("DHAN_KILL_SWITCH_TEST_ENABLED", "dhan.killSwitchTestEnabled", "false")));
 
-        brokerConnection = DhanBrokerConnection.create(
+        brokerConnection = new DhanBrokerConnection(
                 LiveDhanTestSupport.connectionSettingsOrSkip(),
+                com.tradej.broker.dhan.constants.DhanProtocolConstants.defaultRateLimiter(),
                 new CaffeineIdempotencyCache()
         );
 

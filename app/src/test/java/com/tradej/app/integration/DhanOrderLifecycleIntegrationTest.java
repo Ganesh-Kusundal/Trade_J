@@ -48,8 +48,9 @@ class DhanOrderLifecycleIntegrationTest {
                         && isPresent(segmentCode) && isPresent(exchangeCode) && isPresent(quantity),
                 "Provide DHAN_* order test environment variables before running this test.");
 
-        brokerConnection = DhanBrokerConnection.create(
+        brokerConnection = new DhanBrokerConnection(
                 LiveDhanTestSupport.sandboxConnectionSettingsOrSkip(),
+                com.tradej.broker.dhan.constants.DhanProtocolConstants.defaultRateLimiter(),
                 new CaffeineIdempotencyCache()
         );
 

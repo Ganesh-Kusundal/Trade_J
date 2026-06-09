@@ -1,5 +1,8 @@
 package com.tradej.broker.dhan.auth;
 
+import com.tradej.broker.api.auth.TokenLifecycleService;
+import com.tradej.broker.api.auth.TokenSource;
+import com.tradej.broker.api.auth.TokenState;
 import com.tradej.broker.dhan.config.DhanAuthMode;
 import com.tradej.broker.dhan.config.DhanConnectionSettings;
 import com.tradej.broker.dhan.exceptions.DhanHttpException;
@@ -11,12 +14,15 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantLock;
 
-public class DhanTokenManager implements DhanTokenProvider {
+public class DhanTokenManager implements DhanTokenProvider, TokenLifecycleService {
     private static final Logger log = LoggerFactory.getLogger(DhanTokenManager.class);
     private static final long TOKEN_ACQUISITION_COOLDOWN_MS = 130_000L;
+    /** Clock skew tolerance in milliseconds (30 seconds) */
+    private static final long CLOCK_SKEW_TOLERANCE_MS = 30_000L;
 
     private final DhanConnectionSettings settings;
     private final DhanAuthClient authClient;
@@ -124,7 +130,61 @@ public class DhanTokenManager implements DhanTokenProvider {
         }
     }
 
+    // ── TokenLifecycleService SPI Implementation ──────────────────────
+
     @Override
+    public TokenState acquireToken() {
+        long now = clock.millis();
+        DhanTokenState state = resolveValidState(now);
+        if (state == null) {
+            throw new IllegalStateException("Unable to acquire a valid Dhan access token");
+        }
+        return toTokenState(state);
+    }
+
+    @Override
+    public CompletableFuture<TokenState> acquireTokenAsync() {
+        return CompletableFuture.supplyAsync(this::acquireToken);
+    }
+
+    @Override
+    public TokenState currentState() {
+        DhanTokenState state = currentState;
+        return state != null ? toTokenState(state) : null;
+    }
+
+    @Override
+    public void revoke() {
+        invalidate();
+    }
+
+    @Override
+    public void onExpiry(Runnable callback) {
+        // Dhan tokens are short-lived and auto-refreshed via ensureValid()
+        // Pre-emptive expiry callbacks are not applicable
+        log.debug("onExpiry callback registered (no-op for Dhan auto-refresh model)");
+    }
+
+    @Override
+    public void onRefresh(Runnable callback) {
+        // Dhan token manager auto-refreshes via ensureValid()
+        // Callback notification is not currently supported
+        log.debug("onRefresh callback registered (no-op for Dhan auto-refresh model)");
+    }
+
+    private TokenState toTokenState(DhanTokenState dhanState) {
+        if (dhanState == null) {
+            return null;
+        }
+        return new TokenState(
+                dhanState.accessToken(),
+                null, // Dhan does not use refresh tokens
+                dhanState.expiryEpochMs(),
+                dhanState.issuedAtEpochMs(),
+                TokenSource.STATIC
+        );
+    }
+
     public boolean invalidate(long failedGenerationId) {
         if (!tokenGeneration.compareAndSet(failedGenerationId, failedGenerationId + 1)) {
             log.debug("Dhan invalidate({}) skipped — another thread already regenerated (current gen={})",
@@ -242,7 +302,7 @@ public class DhanTokenManager implements DhanTokenProvider {
         return state != null
                 && state.accessToken() != null
                 && !state.accessToken().isBlank()
-                && state.expiryEpochMs() > now + settings.refreshBufferMillis();
+                && state.expiryEpochMs() > now + settings.refreshBufferMillis() + CLOCK_SKEW_TOLERANCE_MS;
     }
 
     private String requireBootstrapToken() {

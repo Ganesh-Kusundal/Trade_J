@@ -1,11 +1,12 @@
 spring:
   application:
     name: trade-j
-  main:
-    allow-bean-definition-overriding: true
   profiles:
     default: dev
     group:
+      dev-live:
+        - dev
+        - dev-live
       upstox-dev:
         - upstox-dev
       upstox-prod:

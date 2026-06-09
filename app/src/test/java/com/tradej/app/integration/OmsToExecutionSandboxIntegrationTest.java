@@ -75,8 +75,9 @@ class OmsToExecutionSandboxIntegrationTest {
                 LiveDhanTestSupport.value("DHAN_CROSS_LAYER_TEST_ENABLED", "dhan.crossLayerTestEnabled", "false")),
                 "Set DHAN_CROSS_LAYER_TEST_ENABLED=true to run cross-layer sandbox execution tests.");
 
-        brokerConnection = DhanBrokerConnection.create(
+        brokerConnection = new DhanBrokerConnection(
                 LiveDhanTestSupport.sandboxConnectionSettingsOrSkip(),
+                com.tradej.broker.dhan.constants.DhanProtocolConstants.defaultRateLimiter(),
                 new CaffeineIdempotencyCache()
         );
         brokerConnection.loadDailyInstrumentCatalog(Files.createTempDirectory("oms-xlayer-catalog"), false);
@@ -108,8 +109,9 @@ class OmsToExecutionSandboxIntegrationTest {
                 LiveDhanTestSupport.value("DHAN_CROSS_LAYER_TEST_ENABLED", "dhan.crossLayerTestEnabled", "false")),
                 "Set DHAN_CROSS_LAYER_TEST_ENABLED=true to run cross-layer sandbox execution tests.");
 
-        brokerConnection = DhanBrokerConnection.create(
+        brokerConnection = new DhanBrokerConnection(
                 LiveDhanTestSupport.sandboxConnectionSettingsOrSkip(),
+                com.tradej.broker.dhan.constants.DhanProtocolConstants.defaultRateLimiter(),
                 new CaffeineIdempotencyCache()
         );
         brokerConnection.loadDailyInstrumentCatalog(Files.createTempDirectory("oms-exec-catalog"), false);
@@ -118,13 +120,15 @@ class OmsToExecutionSandboxIntegrationTest {
         omsRepository = new EventSourcedOrderRepository(omsPath);
         var runtimeModeHolder = new com.tradej.core.domain.runtime.RuntimeModeHolder();
         TradingClock clock = new LiveTradingClock();
+        List<DomainEvent> emitted = new ArrayList<>();
         executionHandler = new ExecutionHandler(
                 new OrderManagementService(brokerConnection, runtimeModeHolder, clock, omsRepository),
                 runtimeModeHolder,
                 clock,
                 new TradingCircuitBreaker(),
                 new OrderIdentityRegistry(),
-                com.tradej.core.domain.port.DeadLetterQueue.noop()
+                com.tradej.core.domain.port.DeadLetterQueue.noop(),
+                new com.tradej.execution.service.ExecutionConfig(1000, 10_000L, 4, emitted::add)
         );
         executionHandler.start();
 
@@ -142,16 +146,14 @@ class OmsToExecutionSandboxIntegrationTest {
                 correlationId
         );
 
-        List<DomainEvent> emitted = new ArrayList<>();
-
         SignalPendingExecution pending = new SignalPendingExecution(
                 EventMetadata.root(),
                 "sig-oms",
                 orderRequest,
                 Map.of()
         );
-        executionHandler.onDomainEvent(pending, emitted::add);
-        executionHandler.onDomainEvent(pending, emitted::add);
+        executionHandler.onDomainEvent(pending);
+        executionHandler.onDomainEvent(pending);
 
         awaitOrderAcceptedCount(emitted, 2, 45);
         List<OrderAccepted> accepted = emitted.stream().filter(OrderAccepted.class::isInstance).map(OrderAccepted.class::cast).toList();

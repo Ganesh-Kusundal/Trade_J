@@ -25,8 +25,9 @@ class InstrumentCatalogValidationTest {
 
     @BeforeEach
     void setUp() throws Exception {
-        connection = DhanBrokerConnection.create(
+        connection = new DhanBrokerConnection(
                 LiveDhanTestSupport.connectionSettingsOrSkip(),
+                com.tradej.broker.dhan.constants.DhanProtocolConstants.defaultRateLimiter(),
                 new CaffeineIdempotencyCache());
         connection.loadDailyInstrumentCatalog(Files.createTempDirectory("dhan-catalog-val"), false);
     }

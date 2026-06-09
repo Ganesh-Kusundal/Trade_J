@@ -29,8 +29,9 @@ class HistoricalRangeIntegrationTest {
 
     @Test
     void fetchesChunkedHistoricalRange() throws Exception {
-        brokerConnection = DhanBrokerConnection.create(
+        brokerConnection = new DhanBrokerConnection(
                 LiveDhanTestSupport.connectionSettingsOrSkip(),
+                com.tradej.broker.dhan.constants.DhanProtocolConstants.defaultRateLimiter(),
                 new CaffeineIdempotencyCache()
         );
         brokerConnection.loadDailyInstrumentCatalog(Files.createTempDirectory("dhan-histrange-cache"), false);

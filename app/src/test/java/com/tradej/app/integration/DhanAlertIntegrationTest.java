@@ -35,8 +35,9 @@ class DhanAlertIntegrationTest {
     void createsAndDeletesAlertWhenEnabled() throws Exception {
         Assumptions.assumeTrue("true".equalsIgnoreCase(
                 LiveDhanTestSupport.value("DHAN_ALERT_TEST_ENABLED", "dhan.alertTestEnabled", "false")));
-        brokerConnection = DhanBrokerConnection.create(
+        brokerConnection = new DhanBrokerConnection(
                 LiveDhanTestSupport.sandboxConnectionSettingsOrSkip(),
+                com.tradej.broker.dhan.constants.DhanProtocolConstants.defaultRateLimiter(),
                 new CaffeineIdempotencyCache()
         );
         brokerConnection.loadDailyInstrumentCatalog(Files.createTempDirectory("dhan-alert-cache"), false);

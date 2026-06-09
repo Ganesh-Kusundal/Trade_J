@@ -1,7 +1,7 @@
 package com.tradej.app.integration;
 
 import com.tradej.app.api.SymbolController;
-import com.tradej.app.config.RateLimitFilter;
+import com.tradej.app.config.WebConfiguration.RateLimitFilter;
 import com.tradej.broker.api.port.InstrumentResolver;
 import com.tradej.core.domain.model.Instrument;
 import com.tradej.core.domain.value.Exchange;

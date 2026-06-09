@@ -50,7 +50,7 @@ public final class PositionRiskHandler implements DomainEventVisitor {
     private final AtomicBoolean killSwitch = new AtomicBoolean(false);
     private final AtomicBoolean reconciliationHalt = new AtomicBoolean(false);
     private volatile StateSnapshot snapshot;
-    private Consumer<DomainEvent> currentPublisher;
+    private final ThreadLocal<Consumer<DomainEvent>> currentPublisher = new ThreadLocal<>();
 
     public PositionRiskHandler(RiskLimits limits, NetPositionProvider netPositionProvider) {
         this(limits, netPositionProvider, null, null, null);
@@ -84,11 +84,11 @@ public final class PositionRiskHandler implements DomainEventVisitor {
     }
 
     public void onDomainEvent(DomainEvent event, Consumer<DomainEvent> publisher) {
-        this.currentPublisher = publisher;
+        currentPublisher.set(publisher);
         try {
             event.accept(this);
         } finally {
-            this.currentPublisher = null;
+            currentPublisher.remove();
         }
     }
 
@@ -104,12 +104,12 @@ public final class PositionRiskHandler implements DomainEventVisitor {
 
     @Override
     public void visit(SignalGenerated event) {
-        handleSignalGenerated(event, currentPublisher);
+        handleSignalGenerated(event, currentPublisher.get());
     }
 
     @Override
     public void visit(SignalPendingExecution event) {
-        handleSignalPending(event, currentPublisher);
+        handleSignalPending(event, currentPublisher.get());
     }
 
     @Override

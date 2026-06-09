@@ -11,7 +11,7 @@ import com.tradej.execution.service.ExecutionHandler;
 import com.tradej.hotpath.MarketDataPipeline;
 import com.tradej.hotpath.OrderPipeline;
 import com.tradej.persistence.replay.HistoricalRangeService;
-import com.tradej.app.config.RateLimitFilter;
+import com.tradej.app.config.WebConfiguration.RateLimitFilter;
 import com.tradej.strategy.service.GraphStrategySandbox;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.ResponseEntity;

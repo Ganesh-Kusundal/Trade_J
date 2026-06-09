@@ -3,11 +3,6 @@ spring:
     import:
       - optional:file:./config/dhan-local.properties
       - optional:file:./config/dhan-sandbox.properties
-  profiles:
-    group:
-      dev-live:
-        - dev
-        - dev-live
 
 trade:
   broker:

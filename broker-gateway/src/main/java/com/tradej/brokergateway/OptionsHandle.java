@@ -21,10 +21,12 @@ import java.util.Map;
  * Handle for options operations (chain, greeks, expiries, strike selection).
  * Wraps {@link com.tradej.broker.api.port.OptionsProvider} with timing and result metadata.
  */
-public final class OptionsHandle extends BaseBrokerHandle {
+public final class OptionsHandle {
+
+    private final BrokerCallSupport support;
 
     OptionsHandle(BrokerSource source, IBrokerConnection connection) {
-        super(source, connection);
+        this.support = new BrokerCallSupport(source, connection);
     }
 
     public GatewayResult<List<LocalDate>> expiries(String underlying) {
@@ -32,20 +34,20 @@ public final class OptionsHandle extends BaseBrokerHandle {
     }
 
     public GatewayResult<List<LocalDate>> expiries(String underlying, ExchangeSegment segment) {
-        return timed(() -> connection.options().getExpiries(underlying, segment));
+        return support.timed(() -> support.connection().options().getExpiries(underlying, segment));
     }
 
     public GatewayResult<OptionChainSnapshot> optionChain(String underlying) {
-        List<LocalDate> expiries = connection.options().getExpiries(underlying, ExchangeSegment.IDX_I);
+        List<LocalDate> expiries = support.connection().options().getExpiries(underlying, ExchangeSegment.IDX_I);
         if (expiries.isEmpty()) {
-            Instrument inst = instruments.resolveNormalized(underlying, ExchangeSegment.IDX_I);
-            return result(new OptionChainSnapshot(inst, null, 0L, List.of()));
+            Instrument inst = support.instruments().resolveNormalized(underlying, ExchangeSegment.IDX_I);
+            return support.result(new OptionChainSnapshot(inst, null, 0L, List.of()));
         }
         return optionChain(underlying, ExchangeSegment.IDX_I, expiries.getFirst());
     }
 
     public GatewayResult<OptionChainSnapshot> optionChain(String underlying, ExchangeSegment segment, LocalDate expiry) {
-        return timed(() -> connection.options().getOptionChain(underlying, segment, expiry));
+        return support.timed(() -> support.connection().options().getOptionChain(underlying, segment, expiry));
     }
 
     /**
@@ -55,24 +57,24 @@ public final class OptionsHandle extends BaseBrokerHandle {
      */
     public GatewayResult<Map<LocalDate, OptionChainSnapshot>> optionChainBatch(
             String underlying, ExchangeSegment segment, List<LocalDate> expiries) {
-        return timed(() -> connection.options().getOptionChainBatch(underlying, segment, expiries));
+        return support.timed(() -> support.connection().options().getOptionChainBatch(underlying, segment, expiries));
     }
 
     public GatewayResult<OptionQuote> greeks(InstrumentKey key) {
-        return timed(() -> connection.options().getGreeks(key));
+        return support.timed(() -> support.connection().options().getGreeks(key));
     }
 
     public GatewayResult<List<Instrument>> optionContracts(String underlying, ExchangeSegment segment, LocalDate expiry) {
-        return timed(() -> connection.options().getOptionContracts(underlying, segment, expiry));
+        return support.timed(() -> support.connection().options().getOptionContracts(underlying, segment, expiry));
     }
 
     public GatewayResult<Long> selectStrike(String underlying, ExchangeSegment segment,
                                             long spotPaisa, OptionType type,
                                             StrikeSelectionKind kind, int depth) {
-        return timed(() -> connection.options().selectStrikePaisa(underlying, segment, spotPaisa, type, kind, depth));
+        return support.timed(() -> support.connection().options().selectStrikePaisa(underlying, segment, spotPaisa, type, kind, depth));
     }
 
     public GatewayResult<RollingOptionSeries> rollingOptions(RollingOptionHistoryRequest request) {
-        return timed(() -> connection.options().getExpiredOptionHistory(request));
+        return support.timed(() -> support.connection().options().getExpiredOptionHistory(request));
     }
 }

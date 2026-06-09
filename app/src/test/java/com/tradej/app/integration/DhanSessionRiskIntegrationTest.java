@@ -28,8 +28,9 @@ class DhanSessionRiskIntegrationTest {
     void enablesPnlExitWhenEnabled() {
         Assumptions.assumeTrue("true".equalsIgnoreCase(
                 LiveDhanTestSupport.value("DHAN_PNL_EXIT_TEST_ENABLED", "dhan.pnlExitTestEnabled", "false")));
-        brokerConnection = DhanBrokerConnection.create(
+        brokerConnection = new DhanBrokerConnection(
                 LiveDhanTestSupport.sandboxConnectionSettingsOrSkip(),
+                com.tradej.broker.dhan.constants.DhanProtocolConstants.defaultRateLimiter(),
                 new CaffeineIdempotencyCache()
         );
         PnlExitResult result = LiveDhanTestSupport.assumeSandboxSupported(

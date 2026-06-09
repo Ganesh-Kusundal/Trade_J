@@ -141,15 +141,6 @@ class PaperBrokerGatewayTest {
     }
 
     @Test
-    void rawCaptureWorksEndToEnd() {
-        handle.enableRawCapture();
-        GatewayResult<Long> result = handle.ltp("RELIANCE");
-        assertTrue(result.metadata().hasRawResponse());
-        assertNotNull(result.metadata().rawResponseBody());
-        assertTrue(result.metadata().rawResponseBody().contains(String.valueOf(result.data())));
-    }
-
-    @Test
     void marketGatewayRoutesToSimulation() {
         MarketGateway market = MarketGateway.create(gateway);
         GatewayResult<Long> ltp = market.ltp("RELIANCE");

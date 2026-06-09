@@ -26,7 +26,6 @@ import com.tradej.core.domain.model.RiskLimits;
 import com.tradej.execution.risk.PositionRiskHandler;
 import com.tradej.strategy.portfolio.PortfolioEngine;
 import com.tradej.strategy.service.CandleAggregationService;
-import com.tradej.strategy.service.StrategyEngine;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -58,7 +57,6 @@ class DisruptorEventBusConcurrencyTest {
     private EventBus createBus(DeadLetterQueue dlq) {
         var candleAgg = new CandleAggregationService(List.of("5m"));
         var portfolio = new PortfolioEngine(1_000_000L, 10_000_000L);
-        var strategy = new StrategyEngine(List.of(), new EventMetadataFactory(new LiveTradingClock()));
         var cb = new TradingCircuitBreaker();
         var idReg = new OrderIdentityRegistry();
         var runtimeModeHolder = new RuntimeModeHolder();
@@ -70,7 +68,6 @@ class DisruptorEventBusConcurrencyTest {
         bus = new com.tradej.disruptor.config.DisruptorPipelineBuilder()
                 .positionRiskHandler(riskHandler)
                 .candleAggregationService(candleAgg)
-                .strategyEngine(strategy)
                 .executionHandler(execHandler)
                 .portfolioEngine(portfolio)
                 .stageTimings(StageTimings.NO_OP)

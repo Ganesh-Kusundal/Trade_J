@@ -1,7 +1,7 @@
 package com.tradej.app.integration;
 
-import com.tradej.app.config.GatewayConfiguration;
-import com.tradej.app.config.SubscriptionConfiguration;
+import com.tradej.app.config.BrokerConfiguration;
+import com.tradej.app.config.ScanConfiguration;
 import com.tradej.broker.api.IBrokerConnection;
 import com.tradej.broker.core.reconnect.ReconnectListenerRegistry;
 import com.tradej.broker.core.routing.LoadBalancedBrokerGateway;
@@ -36,8 +36,8 @@ class GatewayReplaySmokeTest {
 
     private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
             .withUserConfiguration(
-                    GatewayConfiguration.class,
-                    SubscriptionConfiguration.class,
+                    BrokerConfiguration.GatewayConfig.class,
+                    ScanConfiguration.class,
                     StubBrokerAdapters.class,
                     RuntimeModeConfig.class
             )

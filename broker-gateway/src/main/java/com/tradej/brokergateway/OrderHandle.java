@@ -16,53 +16,55 @@ import java.util.List;
  * Wraps {@link com.tradej.broker.api.port.OrderCommand} and
  * {@link com.tradej.broker.api.port.OrderQuery} with timing and result metadata.
  */
-public final class OrderHandle extends BaseBrokerHandle {
+public final class OrderHandle {
+
+    private final BrokerCallSupport support;
 
     OrderHandle(BrokerSource source, IBrokerConnection connection) {
-        super(source, connection);
+        this.support = new BrokerCallSupport(source, connection);
     }
 
     // ── Order Query ─────────────────────────────────────────────
 
     public GatewayResult<List<Order>> orders() {
-        return timed(() -> connection.orderQuery().getOrderBook());
+        return support.timed(() -> support.connection().orderQuery().getOrderBook());
     }
 
     public GatewayResult<Order> order(String orderId) {
-        return timed(() -> connection.orderQuery().getOrder(orderId));
+        return support.timed(() -> support.connection().orderQuery().getOrder(orderId));
     }
 
     public GatewayResult<List<Trade>> trades() {
-        return timed(() -> connection.orderQuery().getTradeBook());
+        return support.timed(() -> support.connection().orderQuery().getTradeBook());
     }
 
     // ── Order Command ───────────────────────────────────────────
 
     public GatewayResult<Order> placeOrder(OrderRequest request) {
-        return timed(() -> connection.orders().placeOrder(request));
+        return support.timed(() -> support.connection().orders().placeOrder(request));
     }
 
     public GatewayResult<Order> modifyOrder(ModifyOrderRequest request) {
-        return timed(() -> connection.orders().modifyOrder(request));
+        return support.timed(() -> support.connection().orders().modifyOrder(request));
     }
 
     public GatewayResult<Boolean> cancelOrder(String orderId) {
-        return timed(() -> connection.orders().cancelOrder(orderId));
+        return support.timed(() -> support.connection().orders().cancelOrder(orderId));
     }
 
     public GatewayResult<List<String>> cancelAllOpenOrders() {
-        return timed(() -> connection.orders().cancelAllOpenOrders());
+        return support.timed(() -> support.connection().orders().cancelAllOpenOrders());
     }
 
     public GatewayResult<List<String>> cancelAndSquareOff() {
-        return timed(() -> connection.orders().cancelAndSquareOffIntradayPositions());
+        return support.timed(() -> support.connection().orders().cancelAndSquareOffIntradayPositions());
     }
 
     public GatewayResult<Boolean> killSwitch(boolean enabled) {
-        return timed(() -> connection.orders().setKillSwitch(enabled));
+        return support.timed(() -> support.connection().orders().setKillSwitch(enabled));
     }
 
     public GatewayResult<OrderPreview> previewOrder(OrderRequest request) {
-        return timed(() -> connection.orders().previewOrder(request));
+        return support.timed(() -> support.connection().orders().previewOrder(request));
     }
 }

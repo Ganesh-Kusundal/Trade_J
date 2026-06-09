@@ -22,6 +22,7 @@ import com.tradej.broker.api.port.PortfolioProvider;
 import com.tradej.broker.api.port.SessionRiskProvider;
 import com.tradej.broker.api.port.SliceOrderCommand;
 import com.tradej.broker.api.port.WebSocketMultiplexer;
+import com.tradej.broker.core.capability.CapabilityMap;
 import com.tradej.broker.icici.instrument.BreezeInstrumentResolver;
 import com.tradej.broker.icici.adapter.IciciBracketOrderAdapter;
 import com.tradej.broker.icici.adapter.IciciCoverOrderAdapter;
@@ -54,6 +55,7 @@ public final class IciciBrokerConnection implements IBrokerConnection {
     private final GttOrderProvider gttOrderProvider;
     private final SliceOrderCommand sliceOrderCommand;
     private final CoverOrderProvider coverOrderProvider;
+    private final CapabilityMap capabilityMap;
 
     public IciciBrokerConnection(
             MarketDataProvider marketDataProvider,
@@ -80,6 +82,27 @@ public final class IciciBrokerConnection implements IBrokerConnection {
         this.gttOrderProvider = new IciciGttOrderAdapter();
         this.sliceOrderCommand = new IciciSliceOrderAdapter();
         this.coverOrderProvider = new IciciCoverOrderAdapter();
+        this.capabilityMap = CapabilityMap.builder()
+                .register(MarketDataProvider.class, marketDataProvider)
+                .register(FuturesProvider.class, futuresProvider)
+                .register(OptionsProvider.class, optionsProvider)
+                .register(OrderCommand.class, orderCommand)
+                .register(OrderQuery.class, orderQuery)
+                .register(PortfolioProvider.class, portfolioProvider)
+                .register(MarginProvider.class, marginProvider)
+                .register(InstrumentResolver.class, instrumentResolver)
+                .register(WebSocketMultiplexer.class, webSocketMultiplexer)
+                .register(MarketStatusProvider.class, marketStatusProvider)
+                .register(BracketOrderProvider.class, bracketOrderProvider)
+                .register(GttOrderProvider.class, gttOrderProvider)
+                .register(SliceOrderCommand.class, sliceOrderCommand)
+                .register(CoverOrderProvider.class, coverOrderProvider)
+                .register(OptionsCapable.class, OPTIONS_CAPABLE)
+                .register(FuturesCapable.class, FUTURES_CAPABLE)
+                .register(MarginCapable.class, MARGIN_CAPABLE)
+                .register(AlertCapable.class, ALERT_CAPABLE)
+                .register(AdvancedOrderCapable.class, ADVANCED_ORDER_CAPABLE)
+                .build();
     }
 
     @Override
@@ -173,66 +196,6 @@ public final class IciciBrokerConnection implements IBrokerConnection {
 
     @Override
     public <T> Optional<T> getCapability(Class<T> capabilityClass) {
-        if (capabilityClass == null) {
-            return Optional.empty();
-        }
-        if (capabilityClass.isInstance(marketDataProvider)) {
-            return Optional.of(capabilityClass.cast(marketDataProvider));
-        }
-        if (capabilityClass.isInstance(futuresProvider)) {
-            return Optional.of(capabilityClass.cast(futuresProvider));
-        }
-        if (capabilityClass.isInstance(optionsProvider)) {
-            return Optional.of(capabilityClass.cast(optionsProvider));
-        }
-        if (capabilityClass.isInstance(orderCommand)) {
-            return Optional.of(capabilityClass.cast(orderCommand));
-        }
-        if (capabilityClass.isInstance(orderQuery)) {
-            return Optional.of(capabilityClass.cast(orderQuery));
-        }
-        if (capabilityClass.isInstance(portfolioProvider)) {
-            return Optional.of(capabilityClass.cast(portfolioProvider));
-        }
-        if (capabilityClass.isInstance(marginProvider)) {
-            return Optional.of(capabilityClass.cast(marginProvider));
-        }
-        if (capabilityClass.isInstance(instrumentResolver)) {
-            return Optional.of(capabilityClass.cast(instrumentResolver));
-        }
-        if (capabilityClass.isInstance(webSocketMultiplexer)) {
-            return Optional.of(capabilityClass.cast(webSocketMultiplexer));
-        }
-        if (capabilityClass.isInstance(marketStatusProvider)) {
-            return Optional.of(capabilityClass.cast(marketStatusProvider));
-        }
-        if (capabilityClass.isInstance(bracketOrderProvider)) {
-            return Optional.of(capabilityClass.cast(bracketOrderProvider));
-        }
-        if (capabilityClass.isInstance(gttOrderProvider)) {
-            return Optional.of(capabilityClass.cast(gttOrderProvider));
-        }
-        if (capabilityClass.isInstance(sliceOrderCommand)) {
-            return Optional.of(capabilityClass.cast(sliceOrderCommand));
-        }
-        if (capabilityClass.isInstance(coverOrderProvider)) {
-            return Optional.of(capabilityClass.cast(coverOrderProvider));
-        }
-        if (OptionsCapable.class.equals(capabilityClass)) {
-            return Optional.of(capabilityClass.cast(OPTIONS_CAPABLE));
-        }
-        if (FuturesCapable.class.equals(capabilityClass)) {
-            return Optional.of(capabilityClass.cast(FUTURES_CAPABLE));
-        }
-        if (MarginCapable.class.equals(capabilityClass)) {
-            return Optional.of(capabilityClass.cast(MARGIN_CAPABLE));
-        }
-        if (AlertCapable.class.equals(capabilityClass)) {
-            return Optional.of(capabilityClass.cast(ALERT_CAPABLE));
-        }
-        if (AdvancedOrderCapable.class.equals(capabilityClass)) {
-            return Optional.of(capabilityClass.cast(ADVANCED_ORDER_CAPABLE));
-        }
-        return Optional.empty();
+        return capabilityMap.get(capabilityClass);
     }
 }

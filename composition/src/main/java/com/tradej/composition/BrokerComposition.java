@@ -32,6 +32,9 @@ public final class BrokerComposition {
     }
 
     public static BrokerComposition create(BrokerProfile profile, IdempotencyCachePort idempotencyCache) {
+        // Validate configuration before creating broker
+        profile.validate();
+        
         IBrokerConnection connection = switch (profile.brokerType()) {
             case DHAN, GATEWAY -> createDhan(profile.dhan(), idempotencyCache);
             case UPSTOX -> createUpstox(profile.upstox());
@@ -63,10 +66,8 @@ public final class BrokerComposition {
                 null,
                 false
         );
-        if (idempotencyCache != null) {
-            return DhanBrokerConnection.create(settings, idempotencyCache);
-        }
-        return DhanBrokerConnection.create(settings, new NoOpIdempotencyCache());
+        IdempotencyCachePort cache = idempotencyCache != null ? idempotencyCache : new NoOpIdempotencyCache();
+        return new DhanBrokerConnection(settings, com.tradej.broker.dhan.constants.DhanProtocolConstants.defaultRateLimiter(), cache);
     }
 
     private static IBrokerConnection createUpstox(BrokerProfile.UpstoxConfig upstox) {

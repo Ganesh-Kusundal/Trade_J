@@ -30,8 +30,9 @@ class HistoricalSpeedBenchmarkTest {
 
     @BeforeAll
     static void setUp() throws Exception {
-        dhan = DhanBrokerConnection.create(
+        dhan = new DhanBrokerConnection(
                 LiveDhanTestSupport.connectionSettingsOrSkip(),
+                com.tradej.broker.dhan.constants.DhanProtocolConstants.defaultRateLimiter(),
                 new CaffeineIdempotencyCache()
         );
         dhan.loadDailyInstrumentCatalog(Files.createTempDirectory("dhan-bench"), false);

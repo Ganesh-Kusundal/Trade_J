@@ -26,6 +26,18 @@ public record DhanConnectionSettings(
     private static final String DEPTH_WS_URL = "wss://depth-api-feed.dhan.co/twentydepth";
 
     public DhanConnectionSettings {
+        if (clientId == null || clientId.isBlank()) {
+            throw new IllegalArgumentException("clientId must not be blank");
+        }
+        if (authMode == null) {
+            throw new IllegalArgumentException("authMode must not be null");
+        }
+        if (authMode == DhanAuthMode.TOTP_GENERATED && (pinFile == null || totpSecretFile == null)) {
+            throw new IllegalArgumentException("pinFile and totpSecretFile are required when authMode=TOTP_GENERATED");
+        }
+        if (authMode == DhanAuthMode.STATIC && (accessToken == null || accessToken.isBlank())) {
+            throw new IllegalArgumentException("accessToken is required when authMode=STATIC");
+        }
         environment = Objects.requireNonNullElse(environment, DhanApiEnvironment.LIVE);
         restBaseUrl = normalizeBaseUrl(restBaseUrl, environment);
         depthWsUrl = Objects.requireNonNullElse(depthWsUrl, defaultDepthWsUrl(environment));

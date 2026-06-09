@@ -29,7 +29,6 @@ import com.tradej.execution.service.ExecutionHandler;
 import com.tradej.strategy.portfolio.PortfolioEngine;
 import com.tradej.strategy.service.CandleAggregationService;
 import com.tradej.strategy.service.GraphStrategySandbox;
-import com.tradej.strategy.service.StrategyEngine;
 import com.tradej.pipeline.runtime.PipelineRuntimeBridge;
 
 import java.time.Duration;
