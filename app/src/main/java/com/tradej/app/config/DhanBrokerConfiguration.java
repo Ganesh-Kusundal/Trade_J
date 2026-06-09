@@ -18,10 +18,14 @@ import org.springframework.context.annotation.Primary;
 
 /**
  * Dhan-specific broker configuration beans.
- * Extracted from {@link BrokerConfiguration} to keep the main config broker-agnostic.
+ *
+ * @deprecated Migrated to {@link UnifiedBrokerConfiguration} to resolve competing
+ * dependency graphs. This class will be removed in a future release.
+ * All beans are now created conditionally based on {@code trade.broker-type} property.
  *
  * <p>Active when {@code trade.broker-type=dhan} or {@code trade.broker-type=gateway}.
  */
+@Deprecated(since = "2026-06-09", forRemoval = true)
 @Configuration
 @ConditionalOnExpression("'${trade.broker-type:dhan}' == 'dhan' || '${trade.broker-type:dhan}' == 'gateway'")
 public class DhanBrokerConfiguration {

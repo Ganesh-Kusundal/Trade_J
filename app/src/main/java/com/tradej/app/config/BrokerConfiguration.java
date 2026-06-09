@@ -33,7 +33,13 @@ import org.springframework.context.annotation.Primary;
  * Broker-agnostic configuration that wires port beans from the active
  * {@link IBrokerConnection}. Dhan-specific beans (rate limiter, token provider,
  * connection settings) live in {@link DhanBrokerConfiguration}.
+ *
+ * @deprecated Migrated to {@link UnifiedBrokerConfiguration} to resolve competing
+ * dependency graphs. This class will be removed in a future release.
+ * The unified configuration creates all beans conditionally based on the
+ * {@code trade.broker-type} property, ensuring a single dependency graph.
  */
+@Deprecated(since = "2026-06-09", forRemoval = true)
 @Configuration
 public class BrokerConfiguration {
 

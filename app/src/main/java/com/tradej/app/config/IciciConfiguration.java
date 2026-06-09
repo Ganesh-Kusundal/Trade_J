@@ -36,11 +36,14 @@ import java.util.Map;
 
 /**
  * Spring configuration for the ICICI broker adapter.
- * Delegates adapter wiring to {@link BrokerComposition}, then exposes
- * individual beans with observable wrappers for metrics.
  *
- * <p>Activated when {@code trade.broker-type=icici} or {@code gateway}.
+ * @deprecated Migrated to {@link UnifiedBrokerConfiguration} to resolve competing
+ * dependency graphs. This class will be removed in a future release.
+ * All beans are now created conditionally based on {@code trade.broker-type} property.
+ *
+ * <p>Activated when {@code trade.broker-type=icici}.
  */
+@Deprecated(since = "2026-06-09", forRemoval = true)
 @Configuration
 @ConditionalOnExpression("'${trade.broker-type:}' == 'icici' || '${trade.broker-type:}' == 'gateway'")
 public class IciciConfiguration {
