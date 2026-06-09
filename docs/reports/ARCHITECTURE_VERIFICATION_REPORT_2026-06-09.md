@@ -310,7 +310,7 @@ Critical gaps requiring attention:
 | GatewayResult includes latency, source, metadata | PASS | ResultMetadata with latency, timestamp, request ID |
 | No direct broker calls bypassing Gateway | PASS | Verified — all paths go through BrokerHandle |
 
-**Comparison with Existing Review** (`docs/BROKER_GATEWAY_ARCHITECTURE_REVIEW.md`):
+**Comparison with Previous Review** (2026-06-06):
 
 | Previous Gap (2026-06-06) | Fixed? | Status |
 |---------------------------|--------|--------|
