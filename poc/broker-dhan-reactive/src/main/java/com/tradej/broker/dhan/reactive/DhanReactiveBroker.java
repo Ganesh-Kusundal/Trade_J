@@ -4,6 +4,7 @@ import com.tradej.broker.dhan.reactive.adapter.DhanReactiveMarketDataProvider;
 import com.tradej.broker.dhan.reactive.adapter.DhanReactiveOrderProvider;
 import com.tradej.broker.dhan.reactive.adapter.DhanReactivePortfolioProvider;
 import com.tradej.broker.dhan.reactive.websocket.DhanReactiveWebSocketClient;
+import com.tradej.broker.dhan.reactive.websocket.DhanReactiveWebSocketClient.MarketDataUpdate;
 import com.tradej.core.domain.model.Candle;
 import com.tradej.core.domain.model.CandleHistoryRequest;
 import com.tradej.core.domain.model.FundLimits;
@@ -12,6 +13,7 @@ import com.tradej.core.domain.model.InstrumentKey;
 import com.tradej.core.domain.model.OrderRequest;
 import com.tradej.core.domain.model.Position;
 import com.tradej.core.domain.model.Quote;
+import com.tradej.broker.dhan.reactive.websocket.DhanReactiveWebSocketClient.MarketDataUpdate;
 import com.tradej.core.domain.value.OrderStatus;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -142,7 +144,7 @@ public final class DhanReactiveBroker {
     /**
      * Subscribe to LTP stream via WebSocket.
      */
-    public Flux<Quote> subscribeToLtpStream(Collection<InstrumentKey> instruments) {
+    public Flux<MarketDataUpdate> subscribeToLtpStream(Collection<InstrumentKey> instruments) {
         return webSocketClient.subscribeToLtp(instruments);
     }
     

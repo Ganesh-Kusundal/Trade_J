@@ -43,4 +43,11 @@ public class DhanJsonResponse {
     public JsonNode raw() {
         return jsonNode;
     }
+    
+    /**
+     * Get the raw JsonNode (alias for raw()).
+     */
+    public JsonNode json() {
+        return jsonNode;
+    }
 }

@@ -35,6 +35,17 @@ app/data/
 /app/runtime/
 **/runtime/dhan-token-state.json
 **/dhan-token-state.json
+*.parquet
+# Historical data files (large binary parquet files)
+data/historical/**/*.parquet
+data/analytics/**/*.parquet
+data/feature-store/**/*.parquet
+# Keep source code tracked
+data/analytics/src/
+data/feature-store/src/
+data/historical/build/
+data/analytics/build/
+data/feature-store/build/
 # Reference POC (not part of Trade-J build)
 /REFERANCE/
 /.cline/

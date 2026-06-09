@@ -54,13 +54,13 @@ public class DhanReactiveOptionsProvider {
         payload.put("Expiry", expiry.toString());
         
         return httpClient.postJson("/optionchain", payload)
-            .flatMapMany(response -> parseOptionChain(response, underlying.symbol(), expiry));
+            .flatMapMany(response -> parseOptionChain(response, underlying.tradingSymbol(), expiry));
     }
     
     private ObjectNode buildUnderlyingPayload(DhanInstrumentDefinition underlying) {
         ObjectNode request = objectMapper.createObjectNode();
         request.put("UnderlyingScrip", Integer.parseInt(underlying.securityId()));
-        request.put("UnderlyingSeg", toWireSegment(underlying.exchangeSegment()));
+        request.put("UnderlyingSeg", toWireSegment(ExchangeSegment.fromCode(underlying.exchangeSegment())));
         return request;
     }
     
@@ -71,7 +71,9 @@ public class DhanReactiveOptionsProvider {
             case BSE_EQ -> "BSE_EQ";
             case BSE_FNO -> "BSE_FNO";
             case IDX_I -> "NSE_FNO"; // Options on indices use FNO segment
-            case MCX -> "MCX";
+            case MCX_COMM -> "MCX";
+            case NSE_CURRENCY, BSE_CURRENCY -> "CURRENCY";
+            default -> segment.name();
         };
     }
     

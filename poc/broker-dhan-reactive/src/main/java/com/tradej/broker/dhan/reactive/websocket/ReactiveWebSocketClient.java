@@ -4,6 +4,7 @@ import com.tradej.core.domain.model.InstrumentKey;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.util.Collection;
 import java.util.List;
 
 /**
@@ -14,15 +15,15 @@ public interface ReactiveWebSocketClient {
     /**
      * Subscribe to LTP (Last Traded Price) updates.
      */
-    Flux<DhanReactiveWebSocketClient.MarketDataUpdate> subscribeToLtp(List<InstrumentKey> instruments);
+    Flux<DhanReactiveWebSocketClient.MarketDataUpdate> subscribeToLtp(Collection<InstrumentKey> instruments);
     
     /**
      * Subscribe to full quote updates (OHLCV).
      */
-    Flux<DhanReactiveWebSocketClient.MarketDataUpdate> subscribeToQuote(List<InstrumentKey> instruments);
+    Flux<DhanReactiveWebSocketClient.MarketDataUpdate> subscribeToQuote(Collection<InstrumentKey> instruments);
     
     /**
      * Subscribe to market depth (order book).
      */
-    Flux<DhanReactiveWebSocketClient.MarketDataUpdate> subscribeToDepth(List<InstrumentKey> instruments);
+    Flux<DhanReactiveWebSocketClient.MarketDataUpdate> subscribeToDepth(Collection<InstrumentKey> instruments);
 }

@@ -61,7 +61,7 @@ public class DhanReactiveFuturesProvider {
         ObjectNode payload = factory.objectNode();
         
         // Futures use FNO segment
-        payload.put("exchangeSegment", toWireSegment(underlying.exchangeSegment()));
+        payload.put("exchangeSegment", toWireSegment(ExchangeSegment.fromCode(underlying.exchangeSegment())));
         payload.put("instrument", futuresInstrumentType(underlying));
         payload.put("securityId", underlying.securityId());
         
@@ -90,7 +90,9 @@ public class DhanReactiveFuturesProvider {
         return switch (segment) {
             case NSE_EQ, IDX_I, NSE_FNO -> "NSE_FNO";
             case BSE_EQ, BSE_FNO -> "BSE_FNO";
-            case MCX -> "MCX";
+            case MCX_COMM -> "MCX";
+            case NSE_CURRENCY, BSE_CURRENCY -> "CURRENCY";
+            default -> segment.name();
         };
     }
     

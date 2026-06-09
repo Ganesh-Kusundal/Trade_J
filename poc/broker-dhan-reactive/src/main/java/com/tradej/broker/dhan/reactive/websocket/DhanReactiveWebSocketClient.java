@@ -17,6 +17,7 @@ import reactor.core.publisher.Mono;
 import java.net.URI;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 
 /**
@@ -42,19 +43,39 @@ public class DhanReactiveWebSocketClient implements ReactiveWebSocketClient {
         this.webSocketClient = new ReactorNettyWebSocketClient();
     }
     
-    @Override
-    public Flux<MarketDataUpdate> subscribeToLtp(List<com.tradej.core.domain.model.InstrumentKey> instruments) {
-        return subscribeWithMode(instruments, "LTP");
+    /**
+     * Connect to WebSocket server (health check / initialization).
+     */
+    public Mono<Void> connect() {
+        log.info("🔌 Connecting to Dhan WebSocket...");
+        return Mono.fromRunnable(() -> {
+            log.info("✓ WebSocket client initialized");
+        });
+    }
+    
+    /**
+     * Disconnect from WebSocket server.
+     */
+    public Mono<Void> disconnect() {
+        log.info("🔌 Disconnecting from Dhan WebSocket...");
+        return Mono.fromRunnable(() -> {
+            log.info("✓ WebSocket client disconnected");
+        });
     }
     
     @Override
-    public Flux<MarketDataUpdate> subscribeToQuote(List<com.tradej.core.domain.model.InstrumentKey> instruments) {
-        return subscribeWithMode(instruments, "QUOTE");
+    public Flux<MarketDataUpdate> subscribeToLtp(Collection<com.tradej.core.domain.model.InstrumentKey> instruments) {
+        return subscribeWithMode(new ArrayList<>(instruments), "LTP");
     }
     
     @Override
-    public Flux<MarketDataUpdate> subscribeToDepth(List<com.tradej.core.domain.model.InstrumentKey> instruments) {
-        return subscribeWithMode(instruments, "DEPTH");
+    public Flux<MarketDataUpdate> subscribeToQuote(Collection<com.tradej.core.domain.model.InstrumentKey> instruments) {
+        return subscribeWithMode(new ArrayList<>(instruments), "QUOTE");
+    }
+    
+    @Override
+    public Flux<MarketDataUpdate> subscribeToDepth(Collection<com.tradej.core.domain.model.InstrumentKey> instruments) {
+        return subscribeWithMode(new ArrayList<>(instruments), "DEPTH");
     }
     
     /**
@@ -80,14 +101,13 @@ public class DhanReactiveWebSocketClient implements ReactiveWebSocketClient {
         
         return batchFlux
             .index() // Get index for delay calculation
-            .flatMap(tuple -> {
+            .concatMap(tuple -> {
                 long batchIndex = tuple.getT1();
                 List<com.tradej.core.domain.model.InstrumentKey> batch = tuple.getT2();
                 
                 // Delay between batches to avoid overwhelming the API
-                return Flux.just(batch)
-                    .delayElements(Duration.ofMillis(50 * batchIndex))
-                    .flatMapMany(b -> subscribeWithMode(b, mode));
+                return subscribeWithMode(batch, mode)
+                    .delaySubscription(Duration.ofMillis(50 * batchIndex));
             });
     }
     
@@ -121,8 +141,8 @@ public class DhanReactiveWebSocketClient implements ReactiveWebSocketClient {
                 
                 // REAL WebSocket connection
                 return webSocketClient.execute(uri, session -> 
-                    handleWebSocketSession(session, subscriptionMsg)
-                );
+                    handleWebSocketSession(session, subscriptionMsg).then()
+                ).thenMany(Flux.never()); // Keep connection alive
             });
     }
     

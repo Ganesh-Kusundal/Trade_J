@@ -360,7 +360,7 @@ public class ReactiveDhanDataTest {
                 if (!candles.isEmpty()) {
                     System.out.println("   Sample Candles (NIFTY Daily):");
                     candles.stream().limit(3).forEach(c -> 
-                        System.out.println("      Date: " + c.startTime() + 
+                        System.out.println("      Date: " + java.time.Instant.ofEpochMilli(c.startTimeMs()) +
                                          ", O: " + c.openPaisa() + 
                                          ", H: " + c.highPaisa() + 
                                          ", L: " + c.lowPaisa() + 
@@ -482,7 +482,7 @@ public class ReactiveDhanDataTest {
     private static Mono<Void> testMcxFutures() {
         System.out.println("🔵 Test 11: Fetch REAL GOLD MCX Futures History (last 30 days)");
         
-        InstrumentKey key = new InstrumentKey("GOLD", ExchangeSegment.MCX);
+        InstrumentKey key = new InstrumentKey("GOLD", ExchangeSegment.MCX_COMM);
         
         return futuresProvider.getFuturesHistory(
                 key,

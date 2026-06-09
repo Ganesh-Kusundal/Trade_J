@@ -6,6 +6,7 @@ import com.tradej.broker.dhan.reactive.config.DhanReactiveConnectionSettings;
 import com.tradej.broker.dhan.reactive.websocket.DhanReactiveWebSocketClient;
 import com.tradej.core.domain.model.InstrumentKey;
 import com.tradej.core.domain.value.ExchangeSegment;
+import com.tradej.broker.dhan.reactive.resilience.DhanRateLimits;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
 
@@ -58,18 +59,27 @@ public class WebSocketMarketFeedTest {
             
             // Create WebClient
             WebClient webClient = WebClient.builder()
-                .baseUrl(settings.restBaseUrl())
+                .baseUrl(settings.baseUrl())
                 .build();
             
-            // Create HTTP client
+            // Create HTTP client (with dummy token provider initially)
             DhanReactiveHttpClient httpClient = new DhanReactiveHttpClient(
                 webClient,
-                () -> reactor.core.publisher.Mono.just(credentials.accessToken()),
-                settings
+                () -> reactor.core.publisher.Mono.just("dummy"),
+                settings,
+                DhanRateLimits.createDefault()
             );
             
-            // Create WebSocket client (consumer)
+            // Create token manager
             DhanReactiveTokenManager tokenManager = new DhanReactiveTokenManager(httpClient, settings);
+            
+            // Re-create HTTP client with proper token manager
+            httpClient = new DhanReactiveHttpClient(
+                webClient,
+                tokenManager,
+                settings,
+                DhanRateLimits.createDefault()
+            );
             DhanReactiveWebSocketClient wsClient = new DhanReactiveWebSocketClient(settings, tokenManager);
             
             // Test all 4 subscription modes for MCX commodities
@@ -101,7 +111,7 @@ public class WebSocketMarketFeedTest {
         System.out.println("🔵 Test 1: GOLD MCX - LTP Mode (Last Traded Price)");
         System.out.println("   Mode: Lightweight, price updates only");
         
-        InstrumentKey gold = new InstrumentKey("GOLD", ExchangeSegment.MCX);
+        InstrumentKey gold = new InstrumentKey("GOLD", ExchangeSegment.MCX_COMM);
         
         Flux<DhanReactiveWebSocketClient.MarketDataUpdate> liveStream = 
             wsClient.subscribeToLtp(List.of(gold));
@@ -123,7 +133,7 @@ public class WebSocketMarketFeedTest {
         System.out.println("🔵 Test 2: GOLD MCX - QUOTE Mode (Full OHLCV)");
         System.out.println("   Mode: Complete market data (price, volume, OHLC)");
         
-        InstrumentKey gold = new InstrumentKey("GOLD", ExchangeSegment.MCX);
+        InstrumentKey gold = new InstrumentKey("GOLD", ExchangeSegment.MCX_COMM);
         
         Flux<DhanReactiveWebSocketClient.MarketDataUpdate> liveStream = 
             wsClient.subscribeToQuote(List.of(gold));
@@ -149,7 +159,7 @@ public class WebSocketMarketFeedTest {
         System.out.println("🔵 Test 3: GOLD MCX - DEPTH Mode (Level 5 Order Book)");
         System.out.println("   Mode: Full Level 5 depth (5 bid + 5 ask levels)");
         
-        InstrumentKey gold = new InstrumentKey("GOLD", ExchangeSegment.MCX);
+        InstrumentKey gold = new InstrumentKey("GOLD", ExchangeSegment.MCX_COMM);
         
         Flux<DhanReactiveWebSocketClient.MarketDataUpdate> liveStream = 
             wsClient.subscribeToDepth(List.of(gold));
@@ -179,9 +189,9 @@ public class WebSocketMarketFeedTest {
         System.out.println("   Mode: Multi-symbol streaming (GOLD, SILVER, CRUDEOIL)");
         
         List<InstrumentKey> commodities = List.of(
-            new InstrumentKey("GOLD", ExchangeSegment.MCX),
-            new InstrumentKey("SILVER", ExchangeSegment.MCX),
-            new InstrumentKey("CRUDEOIL", ExchangeSegment.MCX)
+            new InstrumentKey("GOLD", ExchangeSegment.MCX_COMM),
+            new InstrumentKey("SILVER", ExchangeSegment.MCX_COMM),
+            new InstrumentKey("CRUDEOIL", ExchangeSegment.MCX_COMM)
         );
         
         Flux<DhanReactiveWebSocketClient.MarketDataUpdate> liveStream = 
