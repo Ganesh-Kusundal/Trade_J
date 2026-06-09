@@ -31,17 +31,6 @@ trade-j/
 ├── .idea/
 ├── .junie/
 ├── .openclaude/
-├── app-test-errors.txt
-├── build.gradle                          # Root build config
-├── conductor/                            # Project planning & workflow docs
-│   ├── index.md
-│   ├── product-guidelines.md
-│   ├── product.md
-│   ├── tech-stack.md
-│   ├── tracks.md
-│   ├── workflow.md
-│   ├── code_styleguides/
-│   │   ├── general.md
 │   │   └── typescript.md
 │   └── tracks/
 │       ├── phase_0_20260531/
@@ -587,7 +576,6 @@ trade-j/
 ├── pipeline/                              # Pipeline platform modules
 │   ├── analytics/trade-analytics/
 │   └── platform/trade-pipeline-platform/
-├── plans/
 ├── replay/
 │   └── engine/
 ├── research/                              # Research modules
