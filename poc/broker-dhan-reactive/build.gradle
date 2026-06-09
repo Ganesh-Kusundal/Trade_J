@@ -44,3 +44,12 @@ tasks.register('runMultiSymbolLoadTest', JavaExec) {
   mainClass = 'com.tradej.broker.dhan.reactive.MultiSymbolHistoricalLoadTest'
   classpath = sourceSets.main.runtimeClasspath
 }
+
+// Task to run MCX options live feed test
+tasks.register('runMcxOptionsFeedTest', JavaExec) {
+  group = 'verification'
+  description = 'Run MCX options live feed test - high OI & volume contracts'
+  mainClass = 'com.tradej.broker.dhan.reactive.McxOptionsFeedTest'
+  classpath = sourceSets.main.runtimeClasspath
+  standardInput = System.in
+}
