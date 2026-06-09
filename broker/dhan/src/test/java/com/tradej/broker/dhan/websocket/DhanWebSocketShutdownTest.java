@@ -12,12 +12,16 @@ import org.junit.jupiter.api.Test;
 import java.lang.reflect.Field;
 import java.util.concurrent.ScheduledExecutorService;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.*;
 
 /**
  * Verifies that {@link DhanWebSocketMultiplexer#disconnect()} always shuts down
  * both the reconnect and reconciliation schedulers — even when intermediate failures occur.
+ *
+ * <p>The schedulers now live inside {@link DhanReconnectController} which is accessed
+ * via reflection from the multiplexer's {@code reconnectController} field.
  */
 @Tag("unit")
 class DhanWebSocketShutdownTest {
@@ -44,8 +48,10 @@ class DhanWebSocketShutdownTest {
         // disconnect() without connect() — the executors still need to shut down cleanly
         multiplexer.disconnect();
 
-        ScheduledExecutorService reconnectScheduler = getField(multiplexer, "reconnectScheduler");
-        ScheduledExecutorService reconciliationScheduler = getField(multiplexer, "reconciliationScheduler");
+        // Schedulers moved to DhanReconnectController, accessed via the reconnectController field
+        DhanReconnectController controller = getField(multiplexer, "reconnectController");
+        ScheduledExecutorService reconnectScheduler = getField(controller, "reconnectScheduler");
+        ScheduledExecutorService reconciliationScheduler = getField(controller, "reconciliationScheduler");
 
         assertTrue(reconnectScheduler.isShutdown(),
                 "reconnectScheduler must be shut down after disconnect()");
@@ -71,8 +77,10 @@ class DhanWebSocketShutdownTest {
                 clientHolder, resolver, settings, metadataFactory);
 
         // Calling disconnect twice must not throw RejectedExecutionException or similar
-        multiplexer.disconnect();
-        multiplexer.disconnect();  // second call — schedulers already shut down
+        assertDoesNotThrow(() -> {
+            multiplexer.disconnect();
+            multiplexer.disconnect();  // second call — schedulers already shut down
+        });
     }
 
     @SuppressWarnings("unchecked")

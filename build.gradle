@@ -136,6 +136,9 @@ subprojects {
         useJUnitPlatform()
         jvmArgs rootProject.ext.chronicleJvmArgs
         systemProperty 'trade.workspace.root', rootProject.projectDir.absolutePath
+        // Enable Byte Buddy experimental mode for Java 26 compatibility with Mockito 5.14.2.
+        // Remove once Mockito/Byte Buddy officially supports Java 26.
+        systemProperty 'net.bytebuddy.experimental', 'true'
     }
 
     tasks.withType(JavaExec).configureEach {

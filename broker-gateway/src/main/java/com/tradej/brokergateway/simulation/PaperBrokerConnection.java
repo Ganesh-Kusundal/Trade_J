@@ -52,6 +52,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -65,6 +66,7 @@ public final class PaperBrokerConnection implements IBrokerConnection {
     private final long initialCashPaisa;
     private final Map<String, Long> basePricesPaisa;
     private final Map<String, Order> activeOrders;
+    private final Map<Class<?>, Object> capabilityMap;
     private static final AtomicLong orderSeq = new AtomicLong(1000);
 
     public PaperBrokerConnection() {
@@ -87,6 +89,7 @@ public final class PaperBrokerConnection implements IBrokerConnection {
 
         this.marketDataProvider = new SimulatedMarketDataProvider(basePricesPaisa);
         this.portfolioProvider = new SimulationPortfolioProvider(initialCashPaisa);
+        this.capabilityMap = buildCapabilityMap();
     }
 
     private long basePrice(String symbol) {
@@ -101,17 +104,36 @@ public final class PaperBrokerConnection implements IBrokerConnection {
     @Override
     @SuppressWarnings("unchecked")
     public <T> Optional<T> getCapability(Class<T> capabilityClass) {
-        if (capabilityClass == MarketDataProvider.class) return Optional.of((T) marketDataProvider);
-        if (capabilityClass == OptionsProvider.class) return Optional.of((T) optionsProvider);
-        if (capabilityClass == OrderCommand.class) return Optional.of((T) orderCommand);
-        if (capabilityClass == OrderQuery.class) return Optional.of((T) orderQuery);
-        if (capabilityClass == PortfolioProvider.class) return Optional.of((T) portfolioProvider);
-        if (capabilityClass == MarginProvider.class) return Optional.of((T) marginProvider);
-        if (capabilityClass == InstrumentResolver.class) return Optional.of((T) instrumentResolver);
-        if (capabilityClass == FuturesProvider.class) return Optional.of((T) futuresProvider);
-        if (capabilityClass == SliceOrderCommand.class) return Optional.of((T) sliceOrderCommand);
-        if (capabilityClass == WebSocketMultiplexer.class) return Optional.of((T) wsMultiplexer);
+        if (capabilityClass == null) {
+            return Optional.empty();
+        }
+        Object impl = capabilityMap.get(capabilityClass);
+        if (impl != null && capabilityClass.isInstance(impl)) {
+            return Optional.of((T) impl);
+        }
+        // Fallback: scan all registered implementations (handles concrete-type lookups
+        // and multi-interface implementations)
+        for (Object value : capabilityMap.values()) {
+            if (capabilityClass.isInstance(value)) {
+                return Optional.of((T) value);
+            }
+        }
         return Optional.empty();
+    }
+
+    private Map<Class<?>, Object> buildCapabilityMap() {
+        Map<Class<?>, Object> map = new LinkedHashMap<>();
+        map.put(MarketDataProvider.class, marketDataProvider);
+        map.put(OptionsProvider.class, optionsProvider);
+        map.put(OrderCommand.class, orderCommand);
+        map.put(OrderQuery.class, orderQuery);
+        map.put(PortfolioProvider.class, portfolioProvider);
+        map.put(MarginProvider.class, marginProvider);
+        map.put(InstrumentResolver.class, instrumentResolver);
+        map.put(FuturesProvider.class, futuresProvider);
+        map.put(SliceOrderCommand.class, sliceOrderCommand);
+        map.put(WebSocketMultiplexer.class, wsMultiplexer);
+        return map;
     }
 
     @Override public void connect() { }

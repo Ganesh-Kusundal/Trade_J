@@ -47,7 +47,7 @@ public final class DhanReactiveMarketDataProvider implements ReactiveMarketDataP
         DhanInstrumentDefinition definition = instrumentResolver.resolve(instrumentKey);
         String url = buildLtpUrl(definition);
         
-        return httpClient.getJson(url)
+        return httpClient.getJson(url, "DATA")
             .map(response -> {
                 String priceStr = response.get("last_price").asText();
                 // Convert to paise (multiply by 100, round to avoid floating point issues)
@@ -61,7 +61,7 @@ public final class DhanReactiveMarketDataProvider implements ReactiveMarketDataP
         DhanInstrumentDefinition definition = instrumentResolver.resolve(instrumentKey);
         String url = buildQuoteUrl(definition);
         
-        return httpClient.getJson(url)
+        return httpClient.getJson(url, "QUOTE")
             .map(response -> {
                 long ltp = Math.round(Double.parseDouble(response.get("last_price").asText()) * 100);
                 long open = Math.round(Double.parseDouble(response.get("open").asText()) * 100);

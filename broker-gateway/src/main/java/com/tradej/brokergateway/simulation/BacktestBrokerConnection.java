@@ -18,7 +18,9 @@ import com.tradej.core.domain.value.ExchangeSegment;
 import com.tradej.core.domain.value.OrderStatus;
 
 import java.nio.file.Path;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -44,6 +46,7 @@ public final class BacktestBrokerConnection implements IBrokerConnection {
     private final SimulatedWebSocketMultiplexer websocket;
     private final CopyOnWriteArrayList<TradeRecord> tradeHistory = new CopyOnWriteArrayList<>();
     private final CopyOnWriteArrayList<PnlRecord> pnlHistory = new CopyOnWriteArrayList<>();
+    private final Map<Class<?>, Object> capabilityMap;
     private final AtomicLong orderSeq = new AtomicLong(1000);
 
     public BacktestBrokerConnection(BrokerClock clock) {
@@ -55,18 +58,38 @@ public final class BacktestBrokerConnection implements IBrokerConnection {
         this.marketData = new SimulatedMarketDataProvider();
         this.portfolio = new SimulationPortfolioProvider(initialCashPaisa);
         this.websocket = new SimulatedWebSocketMultiplexer();
+        this.capabilityMap = buildCapabilityMap();
     }
 
     @Override
     @SuppressWarnings("unchecked")
     public <T> Optional<T> getCapability(Class<T> capabilityClass) {
-        if (capabilityClass == MarketDataProvider.class) return Optional.of((T) marketData);
-        if (capabilityClass == PortfolioProvider.class) return Optional.of((T) portfolio);
-        if (capabilityClass == WebSocketMultiplexer.class) return Optional.of((T) websocket);
-        if (capabilityClass == InstrumentResolver.class) return Optional.of((T) backtestInstrumentResolver);
-        if (capabilityClass == OrderCommand.class) return Optional.of((T) backtestOrderCommand);
-        if (capabilityClass == OrderQuery.class) return Optional.of((T) backtestOrderQuery);
+        if (capabilityClass == null) {
+            return Optional.empty();
+        }
+        Object impl = capabilityMap.get(capabilityClass);
+        if (impl != null && capabilityClass.isInstance(impl)) {
+            return Optional.of((T) impl);
+        }
+        // Fallback: scan all registered implementations (handles concrete-type lookups
+        // and multi-interface implementations)
+        for (Object value : capabilityMap.values()) {
+            if (capabilityClass.isInstance(value)) {
+                return Optional.of((T) value);
+            }
+        }
         return Optional.empty();
+    }
+
+    private Map<Class<?>, Object> buildCapabilityMap() {
+        Map<Class<?>, Object> map = new LinkedHashMap<>();
+        map.put(MarketDataProvider.class, marketData);
+        map.put(PortfolioProvider.class, portfolio);
+        map.put(WebSocketMultiplexer.class, websocket);
+        map.put(InstrumentResolver.class, backtestInstrumentResolver);
+        map.put(OrderCommand.class, backtestOrderCommand);
+        map.put(OrderQuery.class, backtestOrderQuery);
+        return map;
     }
 
     @Override public void connect() {}

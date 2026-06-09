@@ -36,3 +36,11 @@ tasks.register('runDataTest', JavaExec) {
   classpath = sourceSets.main.runtimeClasspath
   standardInput = System.in
 }
+
+// Task to run multi-symbol historical load test
+tasks.register('runMultiSymbolLoadTest', JavaExec) {
+  group = 'verification'
+  description = 'Run multi-symbol historical data load test (10 symbols × 30 days)'
+  mainClass = 'com.tradej.broker.dhan.reactive.MultiSymbolHistoricalLoadTest'
+  classpath = sourceSets.main.runtimeClasspath
+}

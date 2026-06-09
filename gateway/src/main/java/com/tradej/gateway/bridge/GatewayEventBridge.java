@@ -33,6 +33,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Function;
 
 /**
  * Bridges domain events from the event bus to the gateway WebSocket topic router.
@@ -51,6 +52,7 @@ public final class GatewayEventBridge implements AutoCloseable {
     private final InstrumentResolver instrumentResolver;
 
     private final AtomicLong eventCount = new AtomicLong();
+    private final Map<Class<? extends DomainEvent>, SerializerEntry> serializers;
 
     public GatewayEventBridge(GatewayTopicRouter router, ObjectMapper objectMapper) {
         this(router, objectMapper, null);
@@ -60,6 +62,41 @@ public final class GatewayEventBridge implements AutoCloseable {
         this.router = router;
         this.objectMapper = objectMapper;
         this.instrumentResolver = instrumentResolver;
+        this.serializers = buildSerializerMap();
+    }
+
+    /** Serializer entry linking a domain event type to its topic and payload builder. */
+    private record SerializerEntry(GatewayTopic topic, Function<DomainEvent, ObjectNode> serializer) {}
+
+    private Map<Class<? extends DomainEvent>, SerializerEntry> buildSerializerMap() {
+        // Immutable map is safe — serializers are registered once at construction time
+        return Map.ofEntries(
+                Map.entry(MarketTickEvent.class,          entry(GatewayTopic.MARKET_TICK,       e -> marketTickPayload((MarketTickEvent) e))),
+                Map.entry(DepthUpdateEvent.class,         entry(GatewayTopic.MARKET_DEPTH,      e -> depthPayload((DepthUpdateEvent) e))),
+                Map.entry(CandleDeveloping.class,         entry(GatewayTopic.CANDLE_DEVELOPING, e -> candlePayload(((CandleDeveloping) e).candle()))),
+                Map.entry(CandleClosed.class,             entry(GatewayTopic.CANDLE_CLOSED,     e -> candlePayload(((CandleClosed) e).candle()))),
+                Map.entry(OrderAccepted.class,            entry(GatewayTopic.ORDER_UPDATE,      e -> orderAckPayload((OrderAccepted) e))),
+                Map.entry(OrderRejected.class,            entry(GatewayTopic.ORDER_UPDATE,      e -> orderRejectPayload((OrderRejected) e))),
+                Map.entry(OrderFilled.class,              entry(GatewayTopic.ORDER_UPDATE,      e -> orderPayload(e))),
+                Map.entry(TradeOpened.class,              entry(GatewayTopic.POSITION_UPDATE,   e -> positionPayload(
+                        ((TradeOpened) e).symbol(), resolveSegment(((TradeOpened) e).symbol()),
+                        ((TradeOpened) e).size(), ((TradeOpened) e).entryPricePaisa(), "OPEN"))),
+                Map.entry(TradeClosed.class,              entry(GatewayTopic.POSITION_UPDATE,   e -> positionPayload(
+                        ((TradeClosed) e).symbol(), resolveSegment(((TradeClosed) e).symbol()),
+                        0L, 0L, "CLOSED"))),
+                Map.entry(SignalGenerated.class,          entry(GatewayTopic.STRATEGY_SIGNAL,   e -> signalPayload((SignalGenerated) e))),
+                Map.entry(ReplayTimeChangedEvent.class,   entry(GatewayTopic.REPLAY_CONTROL,   e -> replayPayload((ReplayTimeChangedEvent) e))),
+                Map.entry(PnlUpdatedEvent.class,          entry(GatewayTopic.PNL_UPDATE,       e -> pnlPayload((PnlUpdatedEvent) e))),
+                Map.entry(ScanResultsPublished.class,     entry(GatewayTopic.SCAN_COMPLETED,   e -> scanPayload((ScanResultsPublished) e))),
+                Map.entry(OptionChainUpdated.class,       entry(GatewayTopic.STRATEGY_SIGNAL,  e -> optionChainPayload((OptionChainUpdated) e))),
+                Map.entry(GreeksComputed.class,           entry(GatewayTopic.STRATEGY_SIGNAL,  e -> greeksPayload((GreeksComputed) e))),
+                Map.entry(MaxPainComputed.class,          entry(GatewayTopic.STRATEGY_SIGNAL,  e -> maxPainPayload((MaxPainComputed) e))),
+                Map.entry(GammaExposureComputed.class,    entry(GatewayTopic.STRATEGY_SIGNAL,  e -> gammaPayload((GammaExposureComputed) e)))
+        );
+    }
+
+    private static SerializerEntry entry(GatewayTopic topic, Function<DomainEvent, ObjectNode> serializer) {
+        return new SerializerEntry(topic, serializer);
     }
 
     /**
@@ -94,44 +131,9 @@ public final class GatewayEventBridge implements AutoCloseable {
         }
 
         try {
-            switch (event) {
-                case MarketTickEvent tick ->
-                        router.publish(GatewayTopic.MARKET_TICK, writeJson(marketTickPayload(tick)));
-                case DepthUpdateEvent depth ->
-                        router.publish(GatewayTopic.MARKET_DEPTH, writeJson(depthPayload(depth)));
-                case CandleDeveloping dev ->
-                        router.publish(GatewayTopic.CANDLE_DEVELOPING, writeJson(candlePayload(dev.candle())));
-                case CandleClosed closed ->
-                        router.publish(GatewayTopic.CANDLE_CLOSED, writeJson(candlePayload(closed.candle())));
-                case OrderAccepted accepted ->
-                        router.publish(GatewayTopic.ORDER_UPDATE, writeJson(orderAckPayload(accepted)));
-                case OrderRejected rejected ->
-                        router.publish(GatewayTopic.ORDER_UPDATE, writeJson(orderRejectPayload(rejected)));
-                case OrderFilled filled ->
-                        router.publish(GatewayTopic.ORDER_UPDATE, writeJson(orderPayload(filled)));
-                case TradeOpened opened ->
-                        router.publish(GatewayTopic.POSITION_UPDATE, writeJson(positionPayload(
-                                opened.symbol(), resolveSegment(opened.symbol()), opened.size(), opened.entryPricePaisa(), "OPEN")));
-                case TradeClosed closed ->
-                        router.publish(GatewayTopic.POSITION_UPDATE, writeJson(positionPayload(
-                                closed.symbol(), resolveSegment(closed.symbol()), 0L, 0L, "CLOSED")));
-                case SignalGenerated signal ->
-                        router.publish(GatewayTopic.STRATEGY_SIGNAL, writeJson(signalPayload(signal)));
-                case ReplayTimeChangedEvent replay ->
-                        router.publish(GatewayTopic.REPLAY_CONTROL, writeJson(replayPayload(replay)));
-                case PnlUpdatedEvent pnl ->
-                        router.publish(GatewayTopic.PNL_UPDATE, writeJson(pnlPayload(pnl)));
-                case ScanResultsPublished scan ->
-                        router.publish(GatewayTopic.SCAN_COMPLETED, writeJson(scanPayload(scan)));
-                case OptionChainUpdated chain ->
-                        router.publish(GatewayTopic.STRATEGY_SIGNAL, writeJson(optionChainPayload(chain)));
-                case GreeksComputed greeks ->
-                        router.publish(GatewayTopic.STRATEGY_SIGNAL, writeJson(greeksPayload(greeks)));
-                case MaxPainComputed maxPain ->
-                        router.publish(GatewayTopic.STRATEGY_SIGNAL, writeJson(maxPainPayload(maxPain)));
-                case GammaExposureComputed gamma ->
-                        router.publish(GatewayTopic.STRATEGY_SIGNAL, writeJson(gammaPayload(gamma)));
-                default -> { }
+            SerializerEntry entry = serializers.get(event.getClass());
+            if (entry != null) {
+                router.publish(entry.topic(), writeJson(entry.serializer().apply(event)));
             }
             eventCount.incrementAndGet();
         } catch (Exception e) {

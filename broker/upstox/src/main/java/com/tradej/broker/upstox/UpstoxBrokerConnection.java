@@ -28,6 +28,8 @@ import com.tradej.broker.upstox.instrument.UpstoxInstrumentResolver;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Objects;
 
@@ -54,6 +56,7 @@ public final class UpstoxBrokerConnection implements IBrokerConnection {
     private final UpstoxInstrumentResolver upstoxInstrumentResolver;
     private final MarketStatusProvider marketStatusProvider;
     private final CoverOrderProvider coverOrderProvider;
+    private final Map<Class<?>, Object> capabilityMap;
     
 
 
@@ -92,7 +95,7 @@ public final class UpstoxBrokerConnection implements IBrokerConnection {
         this.upstoxInstrumentResolver = Objects.requireNonNull(instrumentResolver);
         this.marketStatusProvider = new UpstoxMarketStatusProvider();
         this.coverOrderProvider = new UpstoxCoverOrderAdapter();
-
+        this.capabilityMap = buildCapabilityMap();
     }
 
     @Override
@@ -208,24 +211,45 @@ public final class UpstoxBrokerConnection implements IBrokerConnection {
         if (capabilityClass.isInstance(this)) {
             return Optional.of(capabilityClass.cast(this));
         }
-        if (marketDataProvider != null && capabilityClass.isInstance(marketDataProvider)) return Optional.of(capabilityClass.cast(marketDataProvider));
-        if (orderCommand != null && capabilityClass.isInstance(orderCommand)) return Optional.of(capabilityClass.cast(orderCommand));
-        if (orderQuery != null && capabilityClass.isInstance(orderQuery)) return Optional.of(capabilityClass.cast(orderQuery));
-        if (portfolioProvider != null && capabilityClass.isInstance(portfolioProvider)) return Optional.of(capabilityClass.cast(portfolioProvider));
-        if (marginProvider != null && capabilityClass.isInstance(marginProvider)) return Optional.of(capabilityClass.cast(marginProvider));
-        if (instrumentResolver != null && capabilityClass.isInstance(instrumentResolver)) return Optional.of(capabilityClass.cast(instrumentResolver));
-        if (webSocketMultiplexer != null && capabilityClass.isInstance(webSocketMultiplexer)) return Optional.of(capabilityClass.cast(webSocketMultiplexer));
-        if (marketStatusProvider != null && capabilityClass.isInstance(marketStatusProvider)) return Optional.of(capabilityClass.cast(marketStatusProvider));
-        if (coverOrderProvider != null && capabilityClass.isInstance(coverOrderProvider)) return Optional.of(capabilityClass.cast(coverOrderProvider));
-        if (newsProvider != null && capabilityClass.isInstance(newsProvider)) return Optional.of(capabilityClass.cast(newsProvider));
-        
-        if (futuresProvider != null && capabilityClass.isInstance(futuresProvider)) return Optional.of(capabilityClass.cast(futuresProvider));
-        if (optionsProvider != null && capabilityClass.isInstance(optionsProvider)) return Optional.of(capabilityClass.cast(optionsProvider));
-        if (sliceOrderCommand != null && capabilityClass.isInstance(sliceOrderCommand)) return Optional.of(capabilityClass.cast(sliceOrderCommand));
-        if (dataServicesProvider != null && capabilityClass.isInstance(dataServicesProvider)) return Optional.of(capabilityClass.cast(dataServicesProvider));
-        if (profileProvider != null && capabilityClass.isInstance(profileProvider)) return Optional.of(capabilityClass.cast(profileProvider));
-        if (conditionalAlertProvider != null && capabilityClass.isInstance(conditionalAlertProvider)) return Optional.of(capabilityClass.cast(conditionalAlertProvider));
-        
+        Object impl = capabilityMap.get(capabilityClass);
+        if (impl != null && capabilityClass.isInstance(impl)) {
+            return Optional.of(capabilityClass.cast(impl));
+        }
+        // Fallback: scan all registered implementations (handles concrete-type lookups
+        // and multi-interface implementations where the same instance satisfies
+        // multiple capability interfaces)
+        for (Object value : capabilityMap.values()) {
+            if (capabilityClass.isInstance(value)) {
+                return Optional.of(capabilityClass.cast(value));
+            }
+        }
         return Optional.empty();
+    }
+
+    private Map<Class<?>, Object> buildCapabilityMap() {
+        Map<Class<?>, Object> map = new HashMap<>();
+        putIfNotNull(map, MarketDataProvider.class, marketDataProvider);
+        putIfNotNull(map, OrderCommand.class, orderCommand);
+        putIfNotNull(map, OrderQuery.class, orderQuery);
+        putIfNotNull(map, PortfolioProvider.class, portfolioProvider);
+        putIfNotNull(map, MarginProvider.class, marginProvider);
+        putIfNotNull(map, InstrumentResolver.class, instrumentResolver);
+        putIfNotNull(map, WebSocketMultiplexer.class, webSocketMultiplexer);
+        putIfNotNull(map, MarketStatusProvider.class, marketStatusProvider);
+        putIfNotNull(map, CoverOrderProvider.class, coverOrderProvider);
+        putIfNotNull(map, NewsProvider.class, newsProvider);
+        putIfNotNull(map, FuturesProvider.class, futuresProvider);
+        putIfNotNull(map, OptionsProvider.class, optionsProvider);
+        putIfNotNull(map, SliceOrderCommand.class, sliceOrderCommand);
+        putIfNotNull(map, UpstoxDataServicesProvider.class, dataServicesProvider);
+        putIfNotNull(map, UpstoxProfileProvider.class, profileProvider);
+        putIfNotNull(map, ConditionalAlertProvider.class, conditionalAlertProvider);
+        return map;
+    }
+
+    private static void putIfNotNull(Map<Class<?>, Object> map, Class<?> type, Object impl) {
+        if (impl != null) {
+            map.put(type, impl);
+        }
     }
 }

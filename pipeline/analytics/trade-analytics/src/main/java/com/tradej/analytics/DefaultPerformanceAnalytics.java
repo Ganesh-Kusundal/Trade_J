@@ -143,12 +143,11 @@ public final class DefaultPerformanceAnalytics implements PerformanceAnalytics {
         BigDecimal mean = returns.stream().reduce(BigDecimal.ZERO, BigDecimal::add)
                 .divide(BigDecimal.valueOf(returns.size()), MC);
 
-        BigDecimal variance = BigDecimal.ZERO;
-        for (BigDecimal r : returns) {
-            BigDecimal diff = r.subtract(mean);
-            variance = variance.add(diff.multiply(diff));
-        }
-        variance = variance.divide(BigDecimal.valueOf(returns.size()), MC);
+        BigDecimal variance = returns.stream()
+                .map(r -> r.subtract(mean))
+                .map(diff -> diff.multiply(diff))
+                .reduce(BigDecimal.ZERO, BigDecimal::add)
+                .divide(BigDecimal.valueOf(returns.size()), MC);
 
         BigDecimal stdDev = sqrt(variance);
         if (stdDev.compareTo(BigDecimal.ZERO) == 0) return BigDecimal.ZERO;
@@ -162,18 +161,16 @@ public final class DefaultPerformanceAnalytics implements PerformanceAnalytics {
         BigDecimal mean = returns.stream().reduce(BigDecimal.ZERO, BigDecimal::add)
                 .divide(BigDecimal.valueOf(returns.size()), MC);
 
-        BigDecimal downsideVariance = BigDecimal.ZERO;
-        int downsideCount = 0;
-        for (BigDecimal r : returns) {
-            if (r.compareTo(BigDecimal.ZERO) < 0) {
-                downsideVariance = downsideVariance.add(r.multiply(r));
-                downsideCount++;
-            }
-        }
+        BigDecimal downsideVariance = returns.stream()
+                .filter(r -> r.compareTo(BigDecimal.ZERO) < 0)
+                .map(r -> r.multiply(r))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        if (downsideCount == 0) return mean.compareTo(BigDecimal.ZERO) > 0
-                ? BigDecimal.valueOf(Double.MAX_VALUE)
-                : BigDecimal.ZERO;
+        if (downsideVariance.compareTo(BigDecimal.ZERO) == 0) {
+            return mean.compareTo(BigDecimal.ZERO) > 0
+                    ? BigDecimal.valueOf(Double.MAX_VALUE)
+                    : BigDecimal.ZERO;
+        }
 
         downsideVariance = downsideVariance.divide(BigDecimal.valueOf(returns.size()), MC);
         BigDecimal downsideDev = sqrt(downsideVariance);

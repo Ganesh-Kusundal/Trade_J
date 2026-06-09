@@ -59,6 +59,8 @@ import com.tradej.broker.dhan.resilience.DhanRetryExecutor;
 import com.tradej.broker.dhan.websocket.DhanWebSocketMultiplexer;
 
 import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -83,6 +85,7 @@ public final class DhanBrokerConnection implements IBrokerConnection {
     private final ConditionalAlertProvider conditionalAlertProvider;
     private final WebSocketMultiplexer webSocketMultiplexer;
     private final MarketStatusProvider marketStatusProvider;
+    private final Map<Class<?>, Object> capabilityMap;
 
 
     /**
@@ -128,7 +131,7 @@ public final class DhanBrokerConnection implements IBrokerConnection {
         this.conditionalAlertProvider = conditionalAlertProvider;
         this.webSocketMultiplexer = webSocketMultiplexer;
         this.marketStatusProvider = new DhanMarketStatusProvider();
-
+        this.capabilityMap = buildCapabilityMap();
     }
 
     /**
@@ -249,7 +252,7 @@ public final class DhanBrokerConnection implements IBrokerConnection {
                 tokenProvider
         );
         this.marketStatusProvider = new DhanMarketStatusProvider();
-
+        this.capabilityMap = buildCapabilityMap();
     }
 
     @Override
@@ -362,24 +365,45 @@ public final class DhanBrokerConnection implements IBrokerConnection {
         if (capabilityClass.isInstance(this)) {
             return Optional.of(capabilityClass.cast(this));
         }
-        if (marketDataProvider != null && capabilityClass.isInstance(marketDataProvider)) return Optional.of(capabilityClass.cast(marketDataProvider));
-        if (futuresProvider != null && capabilityClass.isInstance(futuresProvider)) return Optional.of(capabilityClass.cast(futuresProvider));
-        if (optionsProvider != null && capabilityClass.isInstance(optionsProvider)) return Optional.of(capabilityClass.cast(optionsProvider));
-        if (orderCommand != null && capabilityClass.isInstance(orderCommand)) return Optional.of(capabilityClass.cast(orderCommand));
-        if (orderQuery != null && capabilityClass.isInstance(orderQuery)) return Optional.of(capabilityClass.cast(orderQuery));
-        if (portfolioProvider != null && capabilityClass.isInstance(portfolioProvider)) return Optional.of(capabilityClass.cast(portfolioProvider));
-        if (marginProvider != null && capabilityClass.isInstance(marginProvider)) return Optional.of(capabilityClass.cast(marginProvider));
-        if (instrumentResolver != null && capabilityClass.isInstance(instrumentResolver)) return Optional.of(capabilityClass.cast(instrumentResolver));
-        if (webSocketMultiplexer != null && capabilityClass.isInstance(webSocketMultiplexer)) return Optional.of(capabilityClass.cast(webSocketMultiplexer));
-        if (marketStatusProvider != null && capabilityClass.isInstance(marketStatusProvider)) return Optional.of(capabilityClass.cast(marketStatusProvider));
-        
-        if (sliceOrderCommand != null && capabilityClass.isInstance(sliceOrderCommand)) return Optional.of(capabilityClass.cast(sliceOrderCommand));
-        if (bracketOrderProvider != null && capabilityClass.isInstance(bracketOrderProvider)) return Optional.of(capabilityClass.cast(bracketOrderProvider));
-        if (coverOrderProvider != null && capabilityClass.isInstance(coverOrderProvider)) return Optional.of(capabilityClass.cast(coverOrderProvider));
-        if (gttOrderProvider != null && capabilityClass.isInstance(gttOrderProvider)) return Optional.of(capabilityClass.cast(gttOrderProvider));
-        if (sessionRiskProvider != null && capabilityClass.isInstance(sessionRiskProvider)) return Optional.of(capabilityClass.cast(sessionRiskProvider));
-        if (conditionalAlertProvider != null && capabilityClass.isInstance(conditionalAlertProvider)) return Optional.of(capabilityClass.cast(conditionalAlertProvider));
-        
+        Object impl = capabilityMap.get(capabilityClass);
+        if (impl != null && capabilityClass.isInstance(impl)) {
+            return Optional.of(capabilityClass.cast(impl));
+        }
+        // Fallback: scan all registered implementations (handles concrete-type lookups
+        // and multi-interface implementations where the same instance satisfies
+        // multiple capability interfaces)
+        for (Object value : capabilityMap.values()) {
+            if (capabilityClass.isInstance(value)) {
+                return Optional.of(capabilityClass.cast(value));
+            }
+        }
         return Optional.empty();
+    }
+
+    private Map<Class<?>, Object> buildCapabilityMap() {
+        Map<Class<?>, Object> map = new HashMap<>();
+        putIfNotNull(map, MarketDataProvider.class, marketDataProvider);
+        putIfNotNull(map, FuturesProvider.class, futuresProvider);
+        putIfNotNull(map, OptionsProvider.class, optionsProvider);
+        putIfNotNull(map, OrderCommand.class, orderCommand);
+        putIfNotNull(map, OrderQuery.class, orderQuery);
+        putIfNotNull(map, SliceOrderCommand.class, sliceOrderCommand);
+        putIfNotNull(map, BracketOrderProvider.class, bracketOrderProvider);
+        putIfNotNull(map, CoverOrderProvider.class, coverOrderProvider);
+        putIfNotNull(map, GttOrderProvider.class, gttOrderProvider);
+        putIfNotNull(map, PortfolioProvider.class, portfolioProvider);
+        putIfNotNull(map, MarginProvider.class, marginProvider);
+        putIfNotNull(map, SessionRiskProvider.class, sessionRiskProvider);
+        putIfNotNull(map, ConditionalAlertProvider.class, conditionalAlertProvider);
+        putIfNotNull(map, InstrumentResolver.class, instrumentResolver);
+        putIfNotNull(map, WebSocketMultiplexer.class, webSocketMultiplexer);
+        putIfNotNull(map, MarketStatusProvider.class, marketStatusProvider);
+        return map;
+    }
+
+    private static void putIfNotNull(Map<Class<?>, Object> map, Class<?> type, Object impl) {
+        if (impl != null) {
+            map.put(type, impl);
+        }
     }
 }

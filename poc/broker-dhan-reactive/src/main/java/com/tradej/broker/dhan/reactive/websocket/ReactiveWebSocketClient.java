@@ -1,39 +1,28 @@
 package com.tradej.broker.dhan.reactive.websocket;
 
 import com.tradej.core.domain.model.InstrumentKey;
-import com.tradej.core.domain.model.Quote;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.util.Collection;
+import java.util.List;
 
 /**
- * Reactive WebSocket client interface.
+ * Reactive WebSocket client interface for Dhan.
  */
 public interface ReactiveWebSocketClient {
     
     /**
-     * Connect to WebSocket server.
+     * Subscribe to LTP (Last Traded Price) updates.
      */
-    Mono<Void> connect();
+    Flux<DhanReactiveWebSocketClient.MarketDataUpdate> subscribeToLtp(List<InstrumentKey> instruments);
     
     /**
-     * Subscribe to LTP (Last Traded Price) stream.
+     * Subscribe to full quote updates (OHLCV).
      */
-    Flux<Quote> subscribeToLtp(Collection<InstrumentKey> instruments);
+    Flux<DhanReactiveWebSocketClient.MarketDataUpdate> subscribeToQuote(List<InstrumentKey> instruments);
     
     /**
-     * Subscribe to full quote stream.
+     * Subscribe to market depth (order book).
      */
-    Flux<Quote> subscribeToQuote(Collection<InstrumentKey> instruments);
-    
-    /**
-     * Unsubscribe from instruments.
-     */
-    Mono<Void> unsubscribe(Collection<InstrumentKey> instruments);
-    
-    /**
-     * Disconnect from WebSocket server.
-     */
-    Mono<Void> disconnect();
+    Flux<DhanReactiveWebSocketClient.MarketDataUpdate> subscribeToDepth(List<InstrumentKey> instruments);
 }

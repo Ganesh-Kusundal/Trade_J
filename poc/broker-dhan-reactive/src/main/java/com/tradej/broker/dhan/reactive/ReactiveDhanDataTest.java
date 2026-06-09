@@ -2,13 +2,17 @@ package com.tradej.broker.dhan.reactive;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.tradej.broker.dhan.reactive.adapter.DhanReactiveFuturesProvider;
 import com.tradej.broker.dhan.reactive.adapter.DhanReactiveMarketDataProvider;
+import com.tradej.broker.dhan.reactive.adapter.DhanReactiveOptionsProvider;
 import com.tradej.broker.dhan.reactive.adapter.DhanReactivePortfolioProvider;
 import com.tradej.broker.dhan.reactive.auth.DhanReactiveTokenManager;
 import com.tradej.broker.dhan.reactive.client.DhanReactiveHttpClient;
 import com.tradej.broker.dhan.reactive.config.DhanReactiveConnectionSettings;
 import com.tradej.broker.dhan.reactive.instrument.DhanInstrumentDefinition;
 import com.tradej.broker.dhan.reactive.instrument.DhanInstrumentResolver;
+import com.tradej.broker.dhan.reactive.resilience.DhanRateLimits;
+import com.tradej.broker.dhan.reactive.resilience.MultiBucketRateLimiter;
 import com.tradej.core.domain.model.Candle;
 import com.tradej.core.domain.model.CandleHistoryRequest;
 import com.tradej.core.domain.model.FundLimits;
@@ -49,6 +53,8 @@ import java.util.Properties;
 public class ReactiveDhanDataTest {
     
     private static DhanReactiveBroker broker;
+    private static DhanReactiveOptionsProvider optionsProvider;
+    private static DhanReactiveFuturesProvider futuresProvider;
     
     public static void main(String[] args) {
         System.out.println("🚀 Reactive Dhan Broker - Data Endpoints Test");
@@ -68,6 +74,16 @@ public class ReactiveDhanDataTest {
             testHistoricalCandles().block();
             testBatchLtp().block();
             
+            // Options tests
+            testOptionExpiries().block();
+            testOptionChain().block();
+            
+            // Futures test
+            testFuturesHistory().block();
+            
+            // MCX Commodities test
+            testMcxFutures().block();
+            
             System.out.println();
             System.out.println("=".repeat(60));
             System.out.println("✅ ALL TESTS PASSED!");
@@ -84,19 +100,19 @@ public class ReactiveDhanDataTest {
     }
     
     private static void initBroker() {
-        // Load credentials from config file (same as original broker-dhan)
-        DhanCredentials credentials = loadCredentials();
+        // Load credentials from config file (live/production)
+        DhanCredentials credentials = loadLiveCredentials();
         
-        System.out.println("📡 Connecting to Dhan Sandbox API...");
+        System.out.println("📡 Connecting to Dhan LIVE/Production API...");
         System.out.println("   Client ID: " + credentials.clientId());
-        System.out.println("   Source: config/dhan-sandbox.properties");
+        System.out.println("   Source: config/dhan-local.properties");
         System.out.println();
         
-        // Create settings (sandbox mode)
+        // Create settings (LIVE mode - not sandbox)
         DhanReactiveConnectionSettings settings = new DhanReactiveConnectionSettings(
             credentials.clientId(),
             credentials.accessToken(),
-            true, // sandbox
+            false, // LIVE (not sandbox)
             10,
             java.time.Duration.ofSeconds(10),
             java.time.Duration.ofSeconds(15)
@@ -104,7 +120,7 @@ public class ReactiveDhanDataTest {
         
         // Create WebClient
         WebClient webClient = WebClient.builder()
-            .baseUrl(settings.restBaseUrl())
+            .baseUrl(settings.baseUrl())
             .build();
         
         // Create HTTP client with token provider
@@ -116,7 +132,8 @@ public class ReactiveDhanDataTest {
         DhanReactiveHttpClient httpClient = new DhanReactiveHttpClient(
             webClient,
             tokenManager,
-            settings
+            settings,
+            DhanRateLimits.createDefault()
         );
         
         // Create instrument resolver
@@ -128,6 +145,12 @@ public class ReactiveDhanDataTest {
             resolver
         );
         DhanReactivePortfolioProvider portfolioProvider = new DhanReactivePortfolioProvider(httpClient);
+        
+        // Create options provider
+        optionsProvider = new DhanReactiveOptionsProvider(httpClient, resolver);
+        
+        // Create futures provider
+        futuresProvider = new DhanReactiveFuturesProvider(httpClient, resolver);
         
         // Create broker facade
         broker = new DhanReactiveBroker(
@@ -145,11 +168,15 @@ public class ReactiveDhanDataTest {
             WebClient webClient, 
             DhanReactiveConnectionSettings settings
     ) {
+        // Create rate limiter
+        MultiBucketRateLimiter rateLimiter = DhanRateLimits.createDefault();
+        
         // Temporary client just for token refresh (before main client is created)
         return new DhanReactiveHttpClient(
             webClient,
             () -> Mono.empty(), // No token provider yet
-            settings
+            settings,
+            rateLimiter
         );
     }
     
@@ -158,29 +185,46 @@ public class ReactiveDhanDataTest {
             @Override
             public DhanInstrumentDefinition resolve(InstrumentKey key) {
                 return switch (key.symbol()) {
-                    case "RELIANCE" -> new DhanInstrumentDefinition("NSE_EQ", "2885", "RELIANCE", null, null, null, 0L);
-                    case "TCS" -> new DhanInstrumentDefinition("NSE_EQ", "3647", "TCS", null, null, null, 0L);
-                    case "NIFTY" -> new DhanInstrumentDefinition("NSE_FNO", "13013", "NIFTY", null, null, null, 0L);
-                    case "BANKNIFTY" -> new DhanInstrumentDefinition("NSE_FNO", "13014", "BANKNIFTY", null, null, null, 0L);
-                    default -> new DhanInstrumentDefinition("NSE_EQ", "2885", key.symbol(), null, null, null, 0L);
+                    // Index
+                    case "NIFTY" -> new DhanInstrumentDefinition("IDX_I", "13", "NIFTY");
+                    case "BANKNIFTY" -> new DhanInstrumentDefinition("IDX_I", "14", "BANKNIFTY");
+                    
+                    // Equity
+                    case "RELIANCE" -> new DhanInstrumentDefinition("NSE_EQ", "2885", "RELIANCE");
+                    case "TCS" -> new DhanInstrumentDefinition("NSE_EQ", "3647", "TCS");
+                    
+                    // MCX Commodities
+                    case "GOLD" -> new DhanInstrumentDefinition("MCX", "100", "GOLD");
+                    case "SILVER" -> new DhanInstrumentDefinition("MCX", "101", "SILVER");
+                    case "CRUDEOIL" -> new DhanInstrumentDefinition("MCX", "102", "CRUDEOIL");
+                    case "NATURALGAS" -> new DhanInstrumentDefinition("MCX", "103", "NATURALGAS");
+                    
+                    default -> {
+                        // Default to MCX for commodity-like symbols
+                        String sym = key.symbol().toUpperCase();
+                        if (sym.contains("GOLD") || sym.contains("SILVER") || 
+                            sym.contains("CRUDE") || sym.contains("GAS") || sym.contains("COPPER")) {
+                            yield new DhanInstrumentDefinition("MCX", "100", sym);
+                        }
+                        yield new DhanInstrumentDefinition("IDX_I", "13", sym);
+                    }
                 };
             }
         };
     }
     
     /**
-     * Load credentials from config/dhan-sandbox.properties
-     * Same approach as original broker-dhan module
+     * Load credentials from config/dhan-local.properties (LIVE/PRODUCTION)
      */
-    private static DhanCredentials loadCredentials() {
-        Path configFile = Path.of("config/dhan-sandbox.properties");
+    private static DhanCredentials loadLiveCredentials() {
+        Path configFile = Path.of("config/dhan-local.properties");
         
         if (!Files.exists(configFile)) {
             throw new IllegalStateException(
                 "Config file not found: " + configFile.toAbsolutePath() + "\n" +
-                "Please ensure config/dhan-sandbox.properties exists with:\n" +
-                "  dhan.sandbox.clientId=your_client_id\n" +
-                "  dhan.sandbox.accessToken=your_access_token"
+                "Please ensure config/dhan-local.properties exists with:\n" +
+                "  dhan.clientId=your_client_id\n" +
+                "  dhan.accessToken=your_access_token"
             );
         }
         
@@ -191,14 +235,14 @@ public class ReactiveDhanDataTest {
             throw new RuntimeException("Failed to load config file: " + configFile, e);
         }
         
-        String clientId = props.getProperty("dhan.sandbox.clientId");
-        String accessToken = props.getProperty("dhan.sandbox.accessToken");
+        String clientId = props.getProperty("dhan.clientId");
+        String accessToken = props.getProperty("dhan.accessToken");
         
         if (clientId == null || clientId.isBlank()) {
-            throw new IllegalStateException("Missing dhan.sandbox.clientId in config file");
+            throw new IllegalStateException("Missing dhan.clientId in config file");
         }
         if (accessToken == null || accessToken.isBlank()) {
-            throw new IllegalStateException("Missing dhan.sandbox.accessToken in config file");
+            throw new IllegalStateException("Missing dhan.accessToken in config file");
         }
         
         return new DhanCredentials(clientId, accessToken);
@@ -208,15 +252,15 @@ public class ReactiveDhanDataTest {
     
     // Test 1: Get LTP
     private static Mono<Void> testLtp() {
-        System.out.println("🔵 Test 1: Fetch LTP for RELIANCE");
+        System.out.println("🔵 Test 1: Fetch REAL LTP for NIFTY (Live Market)");
         
-        InstrumentKey key = new InstrumentKey("RELIANCE", ExchangeSegment.NSE_EQ);
+        InstrumentKey key = new InstrumentKey("NIFTY", ExchangeSegment.IDX_I);
         
         return broker.getLtpPaisa(key)
             .doOnNext(ltp -> {
-                System.out.println("   ✅ LTP: ₹" + (ltp / 100.0));
+                System.out.println("   ✅ NIFTY LTP: " + (ltp / 100.0));
                 assert ltp > 0 : "LTP should be positive";
-                assert ltp < 1_000_000 : "LTP should be reasonable";
+                assert ltp > 1000000 : "NIFTY should be > 10,000"; // NIFTY is around 24,000+
             })
             .doOnSuccess(v -> System.out.println())
             .then();
@@ -298,29 +342,32 @@ public class ReactiveDhanDataTest {
     
     // Test 6: Get Historical Candles
     private static Mono<Void> testHistoricalCandles() {
-        System.out.println("🔵 Test 6: Fetch Historical Candles (5-min, last 1 day)");
+        System.out.println("🔵 Test 6: Fetch REAL Historical Candles for NIFTY (Daily, last 30 days)");
         
-        InstrumentKey key = new InstrumentKey("RELIANCE", ExchangeSegment.NSE_EQ);
+        InstrumentKey key = new InstrumentKey("NIFTY", ExchangeSegment.IDX_I);
         CandleHistoryRequest request = new CandleHistoryRequest(
             key,
-            "5m",
-            LocalDate.now().minusDays(1),
+            "1d",  // Daily candles
+            LocalDate.now().minusDays(30),
             LocalDate.now()
         );
         
         return broker.getCandles(request)
-            .take(5)
+            .take(10)
             .collectList()
             .doOnNext(candles -> {
-                System.out.println("   ✅ Candles Received: " + candles.size());
+                System.out.println("   ✅ REAL Historical Candles Received: " + candles.size());
                 if (!candles.isEmpty()) {
-                    System.out.println("   Latest Candle:");
-                    Candle latest = candles.get(candles.size() - 1);
-                    System.out.println("      O: " + latest.openPaisa() + 
-                                     ", H: " + latest.highPaisa() + 
-                                     ", L: " + latest.lowPaisa() + 
-                                     ", C: " + latest.closePaisa());
+                    System.out.println("   Sample Candles (NIFTY Daily):");
+                    candles.stream().limit(3).forEach(c -> 
+                        System.out.println("      Date: " + c.startTime() + 
+                                         ", O: " + c.openPaisa() + 
+                                         ", H: " + c.highPaisa() + 
+                                         ", L: " + c.lowPaisa() + 
+                                         ", C: " + c.closePaisa())
+                    );
                 }
+                assert !candles.isEmpty() : "Should receive historical candles";
             })
             .doOnSuccess(v -> System.out.println())
             .then();
@@ -328,20 +375,133 @@ public class ReactiveDhanDataTest {
     
     // Test 7: Get Batch LTP
     private static Mono<Void> testBatchLtp() {
-        System.out.println("🔵 Test 7: Fetch Batch LTP (RELIANCE, TCS)");
+        System.out.println("🔵 Test 7: Fetch Batch LTP (NIFTY, BANKNIFTY) - Live Market");
         
         List<InstrumentKey> symbols = List.of(
-            new InstrumentKey("RELIANCE", ExchangeSegment.NSE_EQ),
-            new InstrumentKey("TCS", ExchangeSegment.NSE_EQ)
+            new InstrumentKey("NIFTY", ExchangeSegment.IDX_I),
+            new InstrumentKey("BANKNIFTY", ExchangeSegment.IDX_I)
         );
         
         return broker.getLtpBatch(symbols)
             .doOnNext(ltpMap -> {
-                System.out.println("   ✅ Batch LTP:");
+                System.out.println("   ✅ REAL Batch LTP:");
                 ltpMap.forEach((key, ltp) -> 
-                    System.out.println("      " + key.symbol() + ": ₹" + (ltp / 100.0))
+                    System.out.println("      " + key.symbol() + ": " + (ltp / 100.0))
                 );
                 assert ltpMap.size() == 2 : "Should have 2 symbols";
+            })
+            .doOnSuccess(v -> System.out.println())
+            .then();
+    }
+    
+    // Test 8: Get Option Expiries
+    private static Mono<Void> testOptionExpiries() {
+        System.out.println("🔵 Test 8: Fetch REAL Option Expiries for NIFTY");
+        
+        InstrumentKey key = new InstrumentKey("NIFTY", ExchangeSegment.IDX_I);
+        
+        return optionsProvider.getExpiries(key)
+            .take(5)
+            .collectList()
+            .doOnNext(expiries -> {
+                System.out.println("   ✅ NIFTY Option Expiries (next 5):");
+                expiries.forEach(expiry -> 
+                    System.out.println("      - " + expiry)
+                );
+                assert !expiries.isEmpty() : "Should have option expiries";
+            })
+            .doOnSuccess(v -> System.out.println())
+            .then();
+    }
+    
+    // Test 9: Get Option Chain
+    private static Mono<Void> testOptionChain() {
+        System.out.println("🔵 Test 9: Fetch REAL Option Chain for NIFTY (nearest expiry)");
+        
+        InstrumentKey key = new InstrumentKey("NIFTY", ExchangeSegment.IDX_I);
+        
+        // First get expiries, then fetch chain for first expiry
+        return optionsProvider.getExpiries(key)
+            .next()
+            .flatMap(nearestExpiry -> {
+                System.out.println("   Fetching option chain for expiry: " + nearestExpiry);
+                
+                return optionsProvider.getOptionChain(key, nearestExpiry)
+                    .take(10)
+                    .collectList()
+                    .doOnNext(strikes -> {
+                        System.out.println("   ✅ NIFTY Option Chain (first 10 strikes):");
+                        strikes.stream().limit(5).forEach(strike -> {
+                            System.out.println("      Strike: " + (strike.strikePricePaisa() / 100.0));
+                            if (strike.call() != null) {
+                                System.out.println("        CE: LTP=" + strike.call().ltp() + 
+                                                 ", OI=" + strike.call().openInterest());
+                            }
+                            if (strike.put() != null) {
+                                System.out.println("        PE: LTP=" + strike.put().ltp() + 
+                                                 ", OI=" + strike.put().openInterest());
+                            }
+                        });
+                        assert !strikes.isEmpty() : "Should have option strikes";
+                    });
+            })
+            .doOnSuccess(v -> System.out.println())
+            .then();
+    }
+    
+    // Test 10: Get Futures History
+    private static Mono<Void> testFuturesHistory() {
+        System.out.println("🔵 Test 10: Fetch REAL NIFTY Futures History (last 30 days)");
+        
+        InstrumentKey key = new InstrumentKey("NIFTY", ExchangeSegment.IDX_I);
+        
+        return futuresProvider.getFuturesHistory(
+                key,
+                LocalDate.now().minusDays(30),
+                LocalDate.now()
+            )
+            .take(10)
+            .collectList()
+            .doOnNext(bars -> {
+                System.out.println("   ✅ NIFTY Futures Historical Bars (last 10):");
+                bars.stream().limit(5).forEach(bar -> {
+                    System.out.println("      Date: " + bar.timestamp().substring(0, 10));
+                    System.out.println("        O: " + bar.openPaisa() + 
+                                     ", H: " + bar.highPaisa() + 
+                                     ", L: " + bar.lowPaisa() + 
+                                     ", C: " + bar.closePaisa());
+                    System.out.println("        Volume: " + bar.volume() + ", OI: " + bar.openInterest());
+                });
+                assert !bars.isEmpty() : "Should have futures bars";
+            })
+            .doOnSuccess(v -> System.out.println())
+            .then();
+    }
+    
+    // Test 11: Get MCX Commodity Futures
+    private static Mono<Void> testMcxFutures() {
+        System.out.println("🔵 Test 11: Fetch REAL GOLD MCX Futures History (last 30 days)");
+        
+        InstrumentKey key = new InstrumentKey("GOLD", ExchangeSegment.MCX);
+        
+        return futuresProvider.getFuturesHistory(
+                key,
+                LocalDate.now().minusDays(30),
+                LocalDate.now()
+            )
+            .take(10)
+            .collectList()
+            .doOnNext(bars -> {
+                System.out.println("   ✅ GOLD MCX Futures Historical Bars (last 10):");
+                bars.stream().limit(5).forEach(bar -> {
+                    System.out.println("      Date: " + bar.timestamp().substring(0, 10));
+                    System.out.println("        O: " + bar.openPaisa() + 
+                                     ", H: " + bar.highPaisa() + 
+                                     ", L: " + bar.lowPaisa() + 
+                                     ", C: " + bar.closePaisa());
+                    System.out.println("        Volume: " + bar.volume() + ", OI: " + bar.openInterest() + ", Spot: " + bar.spotPrice());
+                });
+                assert !bars.isEmpty() : "Should have MCX futures bars";
             })
             .doOnSuccess(v -> System.out.println())
             .then();

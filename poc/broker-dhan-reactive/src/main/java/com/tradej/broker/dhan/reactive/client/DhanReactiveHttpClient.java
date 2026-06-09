@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.tradej.broker.dhan.reactive.auth.DhanTokenProvider;
 import com.tradej.broker.dhan.reactive.config.DhanReactiveConnectionSettings;
 import com.tradej.broker.dhan.reactive.mapper.DhanJsonResponse;
+import com.tradej.broker.dhan.reactive.resilience.MultiBucketRateLimiter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -16,9 +17,12 @@ import java.time.Duration;
 import java.util.function.Supplier;
 
 /**
- * Reactive HTTP client for Dhan API.
+ * Reactive HTTP client for Dhan API with rate limiting.
  * 
- * GREEN Phase: Minimal implementation to make tests pass.
+ * Features:
+ * - Token-based rate limiting per API category
+ * - Automatic retry with exponential backoff
+ * - Reactive Mono/Flux patterns throughout
  */
 public final class DhanReactiveHttpClient {
     
@@ -27,88 +31,133 @@ public final class DhanReactiveHttpClient {
     private final WebClient webClient;
     private final DhanTokenProvider tokenProvider;
     private final DhanReactiveConnectionSettings settings;
+    private final MultiBucketRateLimiter rateLimiter;
     
     public DhanReactiveHttpClient(
             WebClient webClient,
             DhanTokenProvider tokenProvider,
-            DhanReactiveConnectionSettings settings
+            DhanReactiveConnectionSettings settings,
+            MultiBucketRateLimiter rateLimiter
     ) {
         this.webClient = webClient;
         this.tokenProvider = tokenProvider;
         this.settings = settings;
+        this.rateLimiter = rateLimiter;
     }
     
     public Mono<DhanJsonResponse> postJson(String url, ObjectNode payload) {
-        return executeRequestWithToken((token) -> 
-            webClient.post()
-                .uri(url)
-                .header("access-token", token)
-                .header("client-id", settings.clientId())
-                .header("Accept", "application/json")
-                .header("Content-Type", "application/json")
-                .bodyValue(payload)
-                .retrieve()
-                .bodyToMono(String.class)
-        );
+        return postJson(url, payload, "DATA");
+    }
+    
+    public Mono<DhanJsonResponse> postJson(String url, ObjectNode payload, String rateLimitCategory) {
+        return Mono.fromCallable(() -> {
+                rateLimiter.acquire(rateLimitCategory);
+                return null;
+            })
+            .flatMap(ignored -> executeRequestWithToken((token) -> 
+                webClient.post()
+                    .uri(url)
+                    .header("access-token", token)
+                    .header("client-id", settings.clientId())
+                    .header("Accept", "application/json")
+                    .header("Content-Type", "application/json")
+                    .bodyValue(payload)
+                    .retrieve()
+                    .bodyToMono(String.class)
+            ));
     }
     
     public Mono<DhanJsonResponse> getJson(String url) {
-        return executeRequestWithToken((token) -> 
-            webClient.get()
-                .uri(url)
-                .header("access-token", token)
-                .header("client-id", settings.clientId())
-                .header("Accept", "application/json")
-                .retrieve()
-                .bodyToMono(String.class)
-        );
+        return getJson(url, "DATA");
+    }
+    
+    public Mono<DhanJsonResponse> getJson(String url, String rateLimitCategory) {
+        return Mono.fromCallable(() -> {
+                rateLimiter.acquire(rateLimitCategory);
+                return null;
+            })
+            .flatMap(ignored -> executeRequestWithToken((token) -> 
+                webClient.get()
+                    .uri(url)
+                    .header("access-token", token)
+                    .header("client-id", settings.clientId())
+                    .header("Accept", "application/json")
+                    .retrieve()
+                    .bodyToMono(String.class)
+            ));
     }
     
     public Mono<DhanJsonResponse> deleteJson(String url) {
-        return executeRequestWithToken((token) -> 
-            webClient.delete()
-                .uri(url)
-                .header("access-token", token)
-                .header("client-id", settings.clientId())
-                .header("Accept", "application/json")
-                .retrieve()
-                .bodyToMono(String.class)
-        );
+        return deleteJson(url, "NON_TRADING");
+    }
+    
+    public Mono<DhanJsonResponse> deleteJson(String url, String rateLimitCategory) {
+        return Mono.fromCallable(() -> {
+                rateLimiter.acquire(rateLimitCategory);
+                return null;
+            })
+            .flatMap(ignored -> executeRequestWithToken((token) -> 
+                webClient.delete()
+                    .uri(url)
+                    .header("access-token", token)
+                    .header("client-id", settings.clientId())
+                    .header("Accept", "application/json")
+                    .retrieve()
+                    .bodyToMono(String.class)
+            ));
     }
     
     public Flux<DhanJsonResponse> getJsonStream(String url) {
-        return executeRequestWithTokenStream((token) -> 
-            webClient.get()
-                .uri(url)
-                .header("access-token", token)
-                .header("client-id", settings.clientId())
-                .header("Accept", "application/json")
-                .retrieve()
-                .bodyToFlux(String.class)
-                .map(DhanJsonResponse::new)
-        );
+        return getJsonStream(url, "DATA");
+    }
+    
+    public Flux<DhanJsonResponse> getJsonStream(String url, String rateLimitCategory) {
+        return Mono.fromCallable(() -> {
+                rateLimiter.acquire(rateLimitCategory);
+                return null;
+            })
+            .flatMapMany(ignored -> executeRequestWithTokenStream((token) -> 
+                webClient.get()
+                    .uri(url)
+                    .header("access-token", token)
+                    .header("client-id", settings.clientId())
+                    .header("Accept", "application/json")
+                    .retrieve()
+                    .bodyToFlux(String.class)
+                    .map(DhanJsonResponse::new)
+            ));
     }
     
     public Mono<DhanJsonResponse> putJson(String url, ObjectNode payload) {
-        return executeRequestWithToken((token) -> 
-            webClient.put()
-                .uri(url)
-                .header("access-token", token)
-                .header("client-id", settings.clientId())
-                .header("Accept", "application/json")
-                .header("Content-Type", "application/json")
-                .bodyValue(payload)
-                .retrieve()
-                .bodyToMono(String.class)
-        );
+        return putJson(url, payload, "ORDER");
+    }
+    
+    public Mono<DhanJsonResponse> putJson(String url, ObjectNode payload, String rateLimitCategory) {
+        return Mono.fromCallable(() -> {
+                rateLimiter.acquire(rateLimitCategory);
+                return null;
+            })
+            .flatMap(ignored -> executeRequestWithToken((token) -> 
+                webClient.put()
+                    .uri(url)
+                    .header("access-token", token)
+                    .header("client-id", settings.clientId())
+                    .header("Accept", "application/json")
+                    .header("Content-Type", "application/json")
+                    .bodyValue(payload)
+                    .retrieve()
+                    .bodyToMono(String.class)
+            ));
     }
     
     private Mono<DhanJsonResponse> executeRequestWithToken(java.util.function.Function<String, Mono<String>> request) {
         return tokenProvider.ensureValidReactive()
             .flatMap(token -> request.apply(token)
                 .map(DhanJsonResponse::new)
-                .retryWhen(Retry.backoff(2, Duration.ofMillis(500))
+                .retryWhen(Retry.backoff(3, Duration.ofSeconds(1))
+                    .maxBackoff(Duration.ofSeconds(10))
                     .filter(this::isRetryable)
+                    .jitter(0.5)
                     .doBeforeRetry(signal -> 
                         log.warn("HTTP retry, attempt: {}", signal.totalRetries() + 1)
                     )
@@ -119,8 +168,10 @@ public final class DhanReactiveHttpClient {
     private <T> Flux<T> executeRequestWithTokenStream(java.util.function.Function<String, Flux<T>> request) {
         return tokenProvider.ensureValidReactive()
             .flatMapMany(token -> request.apply(token)
-                .retryWhen(Retry.backoff(2, Duration.ofMillis(500))
+                .retryWhen(Retry.backoff(3, Duration.ofSeconds(1))
+                    .maxBackoff(Duration.ofSeconds(10))
                     .filter(this::isRetryable)
+                    .jitter(0.5)
                     .doBeforeRetry(signal -> 
                         log.warn("HTTP stream retry, attempt: {}", signal.totalRetries() + 1)
                     )
