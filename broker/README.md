@@ -8,4 +8,4 @@
 | `upstox/` | `:broker-upstox` | Upstox adapter |
 | `icici/` | `:broker-icici` | ICICI Direct Breeze adapter |
 
-Spring configuration currently lives in `app/` — see [docs/CODE_EXTRACTION.md](../docs/CODE_EXTRACTION.md).
+Spring configuration currently lives in `app/` — 

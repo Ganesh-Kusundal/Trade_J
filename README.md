@@ -27,12 +27,7 @@ Copy credential examples from `config/*.example` into gitignored property files 
 | [CLI.md](CLI.md) | `cli` / `scripts/tradej` |
 | [TRADEHULL_PARITY.md](TRADEHULL_PARITY.md) | Dhan capability matrix |
 | [CONTRACT_NAMING.md](CONTRACT_NAMING.md) | Symbol normalization |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Module layout and runtime |
-| [docs/ARCHITECTURE_REPORT.md](docs/ARCHITECTURE_REPORT.md) | Full architecture, flows, test pyramid (§0 = diagram index) |
-| [docs/CODEBASE_LEAF_INDEX.md](docs/CODEBASE_LEAF_INDEX.md) | Every Java class by module/package (leaf-level) |
-| [docs/visuals/Trade-J-Architecture-Visual.html](docs/visuals/Trade-J-Architecture-Visual.html) | Interactive architecture, component, and flow diagrams (browser) |
-| [docs/runtime-mode-audit.md](docs/runtime-mode-audit.md) | LIVE / REPLAY / BACKTEST |
-| [docs/BACKLOG.md](docs/BACKLOG.md) | Open architecture findings |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | Full architecture, module layout, diagrams, and runtime flows |
 
 ## Module layout
 

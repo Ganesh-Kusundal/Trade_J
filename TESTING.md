@@ -77,7 +77,7 @@ Requires both credential files:
 
 The script sets all `*_TEST_ENABLED=true` flags and runs `./gradlew fullRegressionTest --no-daemon`.
 
-Mapping of tests to invariants: [REGRESSION_MANIFEST.md](REGRESSION_MANIFEST.md). Architecture overview: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Open findings: [docs/BACKLOG.md](docs/BACKLOG.md).
+Mapping of tests to invariants: [REGRESSION_MANIFEST.md](REGRESSION_MANIFEST.md). 
 
 Cross-layer tests (`DHAN_CROSS_LAYER_TEST_ENABLED=true`):
 

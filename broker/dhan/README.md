@@ -146,4 +146,4 @@ Request payloads must use Dhan field names (e.g., `UnderlyingScrip`, `Underlying
 
 This module depends only on `broker-api`, `broker-core`, Jackson, SLF4J, and `java-otp`. It has zero Spring coupling. The host app wires it via `IBrokerConnection` and `BrokerConfiguration`. Token rotation is observable — `DhanClientHolder` notifies rotation listeners, which triggers live WebSocket reconnect.
 
-For implementation / safety-rule progress, see `DHAN_SAFETY_RULES_PLAN.md`. For agent-style coding conventions, see `AGENT.md`.
+
