@@ -13,6 +13,7 @@ import com.tradej.execution.position.EventSourcedNetPositionProvider;
 import com.tradej.execution.risk.KillSwitchCoordinator;
 import com.tradej.execution.risk.MarginEnforcementHandler;
 import com.tradej.execution.risk.PositionRiskHandler;
+import com.tradej.execution.service.ExecutionConfig;
 import com.tradej.execution.service.ExecutionHandler;
 import com.tradej.execution.service.OrderManagementService;
 import com.tradej.execution.service.TradingCircuitBreaker;
@@ -243,7 +244,8 @@ public class TradingConfiguration {
                 tradingClock,
                 circuitBreaker,
                 identityRegistry,
-                deadLetterQueue
+                deadLetterQueue,
+                ExecutionConfig.DEFAULTS
         );
     }
 

@@ -66,7 +66,7 @@ class OmsToExecutionSandboxIntegrationTest {
         OrderStateMachine machine = new OrderStateMachine("ORD-1", "TCS", 10L);
         machine.on(OrderSubmitted.create("ORD-1", "sig-1", "TCS", 10L));
         machine.on(OrderAcknowledged.event("ORD-1", "broker-1"));
-        assertEquals(LifecycleState.SUBMITTED, machine.currentStatus());
+        assertEquals(LifecycleState.SUBMITTED, machine.toProjection().status());
     }
 
     @Test

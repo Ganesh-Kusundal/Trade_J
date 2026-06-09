@@ -43,22 +43,22 @@ class OrderStateMachinePropertyTest {
                 assertInvariants(machine, totalQty);
             }
 
-            long finalReport = Math.min(totalQty, Math.max(machine.filledQuantity(), reportedFilled));
+            long finalReport = Math.min(totalQty, Math.max(machine.toProjection().filledQuantity(), reportedFilled));
             OrderFullyFilled terminal = OrderFullyFilled.event(ORDER_ID, finalReport, 101_00L);
             events.add(terminal);
             machine.on(terminal);
             assertInvariants(machine, totalQty);
 
             OrderStateMachine replayed = OrderStateMachine.replay(ORDER_ID, SYMBOL, totalQty, events);
-            assertEquals(machine.filledQuantity(), replayed.filledQuantity());
-            assertEquals(machine.averagePricePaisa(), replayed.averagePricePaisa());
-            assertEquals(machine.currentStatus(), replayed.currentStatus());
+            assertEquals(machine.toProjection().filledQuantity(), replayed.toProjection().filledQuantity());
+            assertEquals(machine.toProjection().averagePricePaisa(), replayed.toProjection().averagePricePaisa());
+            assertEquals(machine.toProjection().status(), replayed.toProjection().status());
         }
     }
 
     private static void assertInvariants(OrderStateMachine machine, long totalQty) {
-        assertTrue(machine.filledQuantity() >= 0L);
-        assertTrue(machine.filledQuantity() <= totalQty);
-        assertTrue(machine.averagePricePaisa() >= 0L);
+        assertTrue(machine.toProjection().filledQuantity() >= 0L);
+        assertTrue(machine.toProjection().filledQuantity() <= totalQty);
+        assertTrue(machine.toProjection().averagePricePaisa() >= 0L);
     }
 }

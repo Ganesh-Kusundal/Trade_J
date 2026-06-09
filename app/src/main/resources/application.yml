@@ -60,6 +60,7 @@ trade:
     chain-poll-interval-ms: 60000
   tracing:
     enabled: false
+    sample-rate: 1.0
   portfolio:
     default-capital-paisa: 1000000
     max-net-exposure-paisa: 5000000
@@ -67,6 +68,9 @@ trade:
     mode: LIVE
   hot-path:
     shard-count: ${TRADE_HOTPATH_SHARD_COUNT:0}
+  virtual-threads:
+    enabled: ${TRADE_VIRTUAL_THREADS_ENABLED:true}
+    max-concurrency: ${TRADE_VIRTUAL_THREADS_MAX_CONCURRENCY:0}
   gateway:
     enabled: ${TRADE_GATEWAY_ENABLED:true}
     endpoint: /ws/gateway

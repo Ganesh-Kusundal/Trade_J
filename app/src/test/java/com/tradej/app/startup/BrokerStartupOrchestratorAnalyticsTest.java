@@ -96,7 +96,7 @@ class BrokerStartupOrchestratorAnalyticsTest {
         return new TradingProperties(
                 null, null, null, null, null, null, null, null,
                 null, null, null, null, null, null, null, null,
-                null, null
+                null, null, null
         );
     }
 

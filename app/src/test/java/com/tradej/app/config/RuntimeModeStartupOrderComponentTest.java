@@ -10,7 +10,7 @@ import org.springframework.boot.DefaultApplicationArguments;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
- * NR-02 regression: {@link RuntimeConfiguration#applyConfiguredMode()} must run
+ * NR-02 regression: {@link RuntimeAndStartupConfiguration#applyConfiguredMode()} must run
  * (today via {@code @PostConstruct}) before any {@link ApplicationRunner} reads
  * {@link RuntimeModeHolder#mode()}.
  */
@@ -32,9 +32,9 @@ class RuntimeModeStartupOrderComponentTest {
                 null, null, null, null, null, null, null, null,
                 new TradingProperties.RuntimeProperties(configured),
                 null, null, null, null, null, null, null, null,
-                null
+                null, null
         );
-        RuntimeModeHolder holder = new RuntimeConfiguration().runtimeModeHolder(properties);
+        RuntimeModeHolder holder = new RuntimeAndStartupConfiguration().runtimeModeHolder(properties);
 
         ApplicationRunner startupRunner = args -> { /* no-op: simulates BrokerStartupOrchestrator entry */ };
         try {

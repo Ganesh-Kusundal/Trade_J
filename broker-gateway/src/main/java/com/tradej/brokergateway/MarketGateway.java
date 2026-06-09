@@ -113,23 +113,6 @@ public final class MarketGateway {
 
     // ── Pragmatic bridge ─────────────────────────────────────────────
 
-    /**
-     * Returns the active broker's {@link MarketDataProvider} for consumers
-     * that need the full interface (e.g. {@code getCandles()}, {@code getLtpBatch()}).
-     *
-     * <p>Prefer the typed facade methods ({@link #ltp}, {@link #quote}, etc.)
-     * when possible. This escape hatch exists for services like
-     * {@code IncrementalSyncService} that require batch or candle operations
-     * not yet exposed on the gateway.
-     *
-     * @deprecated Prefer typed facade methods or {@link #capabilities()} for discovery.
-     *             Will be removed in a future release.
-     */
-    @Deprecated
-    public MarketDataProvider marketData() {
-        return router.active().connection().marketData();
-    }
-
     // ── Capability discovery ──────────────────────────────────────────
 
     /**

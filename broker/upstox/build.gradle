@@ -4,9 +4,12 @@ dependencies {
 
     implementation 'com.fasterxml.jackson.core:jackson-databind'
     implementation 'org.slf4j:slf4j-api'
+    implementation 'org.springframework.boot:spring-boot-autoconfigure'
 
     testImplementation project(':broker-api')
     testImplementation testFixtures(project(':broker-api'))
     testImplementation 'org.mockito:mockito-core'
     testImplementation 'org.mockito:mockito-junit-jupiter'
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.boot:spring-boot-autoconfigure'
 }

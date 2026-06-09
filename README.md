@@ -22,6 +22,7 @@ Copy credential examples from `config/*.example` into gitignored property files 
 | Doc | Purpose |
 |-----|---------|
 | [CONFIG.md](CONFIG.md) | Spring profiles, credentials, broker routing |
+| [CHANGELOG.md](CHANGELOG.md) | Platform version history and changes |
 | [TESTING.md](TESTING.md) | Test pyramid, Gradle tasks, regression |
 | [REGRESSION_MANIFEST.md](REGRESSION_MANIFEST.md) | Test → invariant mapping |
 | [CLI.md](CLI.md) | `cli` / `scripts/tradej` |
@@ -39,7 +40,7 @@ Copy credential examples from `config/*.example` into gitignored property files 
 | Folder | Modules |
 |--------|---------|
 | `core/` | Domain events, ports, pipeline graph types |
-| `broker/` | `api`, `core`, `dhan`, `upstox` |
+| `broker/` | `api`, `core`, `dhan`, `upstox`, `icici`, `template` |
 | `runtime/` | `disruptor`, `hotpath` |
 | `trading/` | `strategy`, `execution`, `scanner`, `institutional-scanner`, `indicators`, `simulation` |
 | `data/` | `persistence`, `feature-store`, `historical-ingest`, `analytics` |

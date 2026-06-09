@@ -38,7 +38,8 @@ public record TradingProperties(
         AnalyticsProperties analytics,
         List<SubscriptionProperties> subscriptions,
         Map<String, VenueProperties> venues,
-        SyncProperties sync
+        SyncProperties sync,
+        VirtualThreadProperties virtualThreads
 ) {
     public TradingProperties {
         if (runtime == null) {
@@ -84,6 +85,9 @@ public record TradingProperties(
                     10_000,
                     30_000L
             );
+        }
+        if (virtualThreads == null) {
+            virtualThreads = VirtualThreadProperties.defaults();
         }
     }
 
@@ -294,5 +298,17 @@ public record TradingProperties(
             @DefaultValue("false") boolean autoResample,
             @DefaultValue("true") boolean refreshHolidays
     ) {
+    }
+
+    public record VirtualThreadProperties(
+            boolean enabled,
+            int maxConcurrency
+    ) {
+        public VirtualThreadProperties {
+            if (maxConcurrency <= 0) maxConcurrency = Runtime.getRuntime().availableProcessors();
+        }
+        public static VirtualThreadProperties defaults() {
+            return new VirtualThreadProperties(true, Runtime.getRuntime().availableProcessors());
+        }
     }
 }

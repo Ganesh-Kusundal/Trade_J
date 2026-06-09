@@ -8,7 +8,11 @@ dependencies {
     implementation 'io.socket:socket.io-client:2.1.1'
     implementation 'org.seleniumhq.selenium:selenium-java:4.27.0'
     implementation 'org.slf4j:slf4j-api'
+    implementation 'org.springframework.boot:spring-boot-autoconfigure'
 
     testImplementation 'org.mockito:mockito-core'
     testImplementation 'org.mockito:mockito-junit-jupiter'
+    testImplementation 'org.springframework.boot:spring-boot-test'
+    testImplementation 'org.springframework.boot:spring-boot-test-autoconfigure'
+    testImplementation 'org.assertj:assertj-core'
 }

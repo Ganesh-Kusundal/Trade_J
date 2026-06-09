@@ -67,7 +67,8 @@ class DisruptorTickToCandleComponentTest {
                 clock,
                 new TradingCircuitBreaker(),
                 new OrderIdentityRegistry(),
-                com.tradej.core.domain.port.DeadLetterQueue.noop()
+                com.tradej.core.domain.port.DeadLetterQueue.noop(),
+                com.tradej.execution.service.ExecutionConfig.DEFAULTS
         );
 
         var bridge = new com.tradej.disruptor.testsupport.TestPipelineGraphBridge(

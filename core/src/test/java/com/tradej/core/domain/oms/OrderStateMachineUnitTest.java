@@ -19,10 +19,10 @@ class OrderStateMachineUnitTest {
     @Test
     void proceedsFromNewToPendingSubmit() {
         OrderStateMachine oms = new OrderStateMachine(ORDER_ID, SYMBOL, TOTAL_QTY);
-        assertEquals(LifecycleState.NEW, oms.currentStatus());
+        assertEquals(LifecycleState.NEW, oms.toProjection().status());
 
         oms.on(OrderSubmitted.event(ORDER_ID));
-        assertEquals(LifecycleState.PENDING_SUBMIT, oms.currentStatus());
+        assertEquals(LifecycleState.PENDING_SUBMIT, oms.toProjection().status());
     }
 
     @Test
@@ -30,28 +30,28 @@ class OrderStateMachineUnitTest {
         OrderStateMachine oms = new OrderStateMachine(ORDER_ID, SYMBOL, TOTAL_QTY);
         oms.on(OrderSubmitted.event(ORDER_ID));
         oms.on(OrderAcknowledged.event(ORDER_ID, "EX-001"));
-        assertEquals(LifecycleState.SUBMITTED, oms.currentStatus());
+        assertEquals(LifecycleState.SUBMITTED, oms.toProjection().status());
     }
 
     @Test
     void proceedsThroughFullLifecycle() {
         OrderStateMachine oms = new OrderStateMachine(ORDER_ID, SYMBOL, TOTAL_QTY);
-        assertEquals(LifecycleState.NEW, oms.currentStatus());
+        assertEquals(LifecycleState.NEW, oms.toProjection().status());
 
         oms.on(OrderSubmitted.event(ORDER_ID));
-        assertEquals(LifecycleState.PENDING_SUBMIT, oms.currentStatus());
+        assertEquals(LifecycleState.PENDING_SUBMIT, oms.toProjection().status());
 
         oms.on(OrderAcknowledged.event(ORDER_ID, "EX-001"));
-        assertEquals(LifecycleState.SUBMITTED, oms.currentStatus());
+        assertEquals(LifecycleState.SUBMITTED, oms.toProjection().status());
 
         oms.on(OrderPartiallyFilled.event(ORDER_ID, 25, 150_00L));
-        assertEquals(LifecycleState.PARTIALLY_FILLED, oms.currentStatus());
+        assertEquals(LifecycleState.PARTIALLY_FILLED, oms.toProjection().status());
 
         oms.on(OrderPartiallyFilled.event(ORDER_ID, 25, 151_00L));
-        assertEquals(LifecycleState.PARTIALLY_FILLED, oms.currentStatus());
+        assertEquals(LifecycleState.PARTIALLY_FILLED, oms.toProjection().status());
 
         oms.on(OrderFullyFilled.event(ORDER_ID, 100, 150_50L));
-        assertEquals(LifecycleState.FILLED, oms.currentStatus());
+        assertEquals(LifecycleState.FILLED, oms.toProjection().status());
     }
 
     // ── Terminal transitions ────────────────────────────────────────────────
@@ -60,49 +60,49 @@ class OrderStateMachineUnitTest {
     void submittedOrderCanBeCancelled() {
         OrderStateMachine oms = machineInState(LifecycleState.SUBMITTED);
         oms.on(OrderCancelled.event(ORDER_ID));
-        assertEquals(LifecycleState.CANCELLED, oms.currentStatus());
+        assertEquals(LifecycleState.CANCELLED, oms.toProjection().status());
     }
 
     @Test
     void submittedOrderCanBeRejected() {
         OrderStateMachine oms = machineInState(LifecycleState.SUBMITTED);
         oms.on(OrderRejected.event(ORDER_ID, "Insufficient margin"));
-        assertEquals(LifecycleState.REJECTED, oms.currentStatus());
+        assertEquals(LifecycleState.REJECTED, oms.toProjection().status());
     }
 
     @Test
     void submittedOrderCanExpire() {
         OrderStateMachine oms = machineInState(LifecycleState.SUBMITTED);
         oms.on(OrderExpired.event(ORDER_ID));
-        assertEquals(LifecycleState.EXPIRED, oms.currentStatus());
+        assertEquals(LifecycleState.EXPIRED, oms.toProjection().status());
     }
 
     @Test
     void submittedOrderCanBeFilledInOneShot() {
         OrderStateMachine oms = machineInState(LifecycleState.SUBMITTED);
         oms.on(OrderFullyFilled.event(ORDER_ID, TOTAL_QTY, 150_00L));
-        assertEquals(LifecycleState.FILLED, oms.currentStatus());
+        assertEquals(LifecycleState.FILLED, oms.toProjection().status());
     }
 
     @Test
     void partiallyFilledOrderCanBeCancelled() {
         OrderStateMachine oms = machineInState(LifecycleState.PARTIALLY_FILLED);
         oms.on(OrderCancelled.event(ORDER_ID));
-        assertEquals(LifecycleState.CANCELLED, oms.currentStatus());
+        assertEquals(LifecycleState.CANCELLED, oms.toProjection().status());
     }
 
     @Test
     void partiallyFilledOrderCanBeRejected() {
         OrderStateMachine oms = machineInState(LifecycleState.PARTIALLY_FILLED);
         oms.on(OrderRejected.event(ORDER_ID, "Exchange rejection"));
-        assertEquals(LifecycleState.REJECTED, oms.currentStatus());
+        assertEquals(LifecycleState.REJECTED, oms.toProjection().status());
     }
 
     @Test
     void partiallyFilledOrderCanExpire() {
         OrderStateMachine oms = machineInState(LifecycleState.PARTIALLY_FILLED);
         oms.on(OrderExpired.event(ORDER_ID));
-        assertEquals(LifecycleState.EXPIRED, oms.currentStatus());
+        assertEquals(LifecycleState.EXPIRED, oms.toProjection().status());
     }
 
     // ── Cancel pending flow ─────────────────────────────────────────────────
@@ -111,42 +111,42 @@ class OrderStateMachineUnitTest {
     void newOrderCanRequestCancel() {
         OrderStateMachine oms = new OrderStateMachine(ORDER_ID, SYMBOL, TOTAL_QTY);
         oms.on(CancelRequested.event(ORDER_ID));
-        assertEquals(LifecycleState.CANCEL_PENDING, oms.currentStatus());
+        assertEquals(LifecycleState.CANCEL_PENDING, oms.toProjection().status());
     }
 
     @Test
     void submittedOrderCanRequestCancel() {
         OrderStateMachine oms = machineInState(LifecycleState.SUBMITTED);
         oms.on(CancelRequested.event(ORDER_ID));
-        assertEquals(LifecycleState.CANCEL_PENDING, oms.currentStatus());
+        assertEquals(LifecycleState.CANCEL_PENDING, oms.toProjection().status());
     }
 
     @Test
     void cancelPendingThenConfirmed() {
         OrderStateMachine oms = machineInState(LifecycleState.CANCEL_PENDING);
         oms.on(OrderCancelled.event(ORDER_ID));
-        assertEquals(LifecycleState.CANCELLED, oms.currentStatus());
+        assertEquals(LifecycleState.CANCELLED, oms.toProjection().status());
     }
 
     @Test
     void cancelPendingThenRejected() {
         OrderStateMachine oms = machineInState(LifecycleState.CANCEL_PENDING);
         oms.on(OrderRejected.event(ORDER_ID, "Cancel failed"));
-        assertEquals(LifecycleState.REJECTED, oms.currentStatus());
+        assertEquals(LifecycleState.REJECTED, oms.toProjection().status());
     }
 
     @Test
     void cancelPendingThenFilled() {
         OrderStateMachine oms = machineInState(LifecycleState.CANCEL_PENDING);
         oms.on(OrderFullyFilled.event(ORDER_ID, TOTAL_QTY, 150_00L));
-        assertEquals(LifecycleState.FILLED, oms.currentStatus());
+        assertEquals(LifecycleState.FILLED, oms.toProjection().status());
     }
 
     @Test
     void cancelPendingThenExpired() {
         OrderStateMachine oms = machineInState(LifecycleState.CANCEL_PENDING);
         oms.on(OrderExpired.event(ORDER_ID));
-        assertEquals(LifecycleState.EXPIRED, oms.currentStatus());
+        assertEquals(LifecycleState.EXPIRED, oms.toProjection().status());
     }
 
     // ── Invalid transitions ─────────────────────────────────────────────────
@@ -182,16 +182,16 @@ class OrderStateMachineUnitTest {
         oms.on(OrderAcknowledged.event(ORDER_ID, "EX-001"));
 
         oms.on(OrderPartiallyFilled.event(ORDER_ID, 25, 150_00L));
-        assertEquals(25, oms.filledQuantity());
+        assertEquals(25, oms.toProjection().filledQuantity());
         assertEquals(150_00L, oms.averagePricePaisa());
 
         oms.on(OrderPartiallyFilled.event(ORDER_ID, 25, 152_00L));
-        assertEquals(50, oms.filledQuantity());
+        assertEquals(50, oms.toProjection().filledQuantity());
         // VWAP = (25*15000 + 25*15200) / 50 = (375000 + 380000) / 50 = 755000 / 50 = 15100
         assertEquals(151_00L, oms.averagePricePaisa());
 
         oms.on(OrderFullyFilled.event(ORDER_ID, 100, 151_00L));
-        assertEquals(100, oms.filledQuantity());
+        assertEquals(100, oms.toProjection().filledQuantity());
     }
 
     @Test
@@ -204,7 +204,7 @@ class OrderStateMachineUnitTest {
     void fullFillSetsCorrectQuantity() {
         OrderStateMachine oms = machineInState(LifecycleState.SUBMITTED);
         oms.on(OrderFullyFilled.event(ORDER_ID, TOTAL_QTY, 150_50L));
-        assertEquals(TOTAL_QTY, oms.filledQuantity());
+        assertEquals(TOTAL_QTY, oms.toProjection().filledQuantity());
         assertEquals(150_50L, oms.averagePricePaisa());
     }
 
@@ -212,11 +212,11 @@ class OrderStateMachineUnitTest {
     void cumulativeFullyFilledWithNoAdditionalQtyPreservesVwap() {
         OrderStateMachine oms = machineInState(LifecycleState.PARTIALLY_FILLED);
         oms.on(OrderPartiallyFilled.event(ORDER_ID, 75, 152_00L));
-        assertEquals(TOTAL_QTY, oms.filledQuantity());
+        assertEquals(TOTAL_QTY, oms.toProjection().filledQuantity());
         long vwapBeforeTerminal = oms.averagePricePaisa();
 
         oms.on(OrderFullyFilled.event(ORDER_ID, TOTAL_QTY, 999_00L));
-        assertEquals(TOTAL_QTY, oms.filledQuantity());
+        assertEquals(TOTAL_QTY, oms.toProjection().filledQuantity());
         assertEquals(vwapBeforeTerminal, oms.averagePricePaisa());
     }
 
@@ -224,10 +224,10 @@ class OrderStateMachineUnitTest {
     void cumulativeFullyFilledDoesNotShrinkFilledQuantity() {
         OrderStateMachine oms = machineInState(LifecycleState.PARTIALLY_FILLED);
         oms.on(OrderPartiallyFilled.event(ORDER_ID, 60, 150_00L));
-        assertEquals(85, oms.filledQuantity());
+        assertEquals(85, oms.toProjection().filledQuantity());
 
         oms.on(OrderFullyFilled.event(ORDER_ID, 50, 140_00L));
-        assertEquals(85, oms.filledQuantity());
+        assertEquals(85, oms.toProjection().filledQuantity());
     }
 
     @Test
@@ -237,7 +237,7 @@ class OrderStateMachineUnitTest {
         OrderStateMachine oms = OrderStateMachine.fromProjection(
                 ORDER_ID, SYMBOL, TOTAL_QTY,
                 LifecycleState.PARTIALLY_FILLED, TOTAL_QTY, 150_50L);
-        assertEquals(TOTAL_QTY, oms.filledQuantity());
+        assertEquals(TOTAL_QTY, oms.toProjection().filledQuantity());
         long vwapAtFull = oms.averagePricePaisa();
 
         // Receive another FullyFilled reporting 120 total (overfill)
@@ -245,9 +245,9 @@ class OrderStateMachineUnitTest {
         // Should NOT update VWAP or filledQuantity
         oms.on(OrderFullyFilled.event(ORDER_ID, 120, 999_00L));
 
-        assertEquals(TOTAL_QTY, oms.filledQuantity(), "Filled quantity should not exceed total");
+        assertEquals(TOTAL_QTY, oms.toProjection().filledQuantity(), "Filled quantity should not exceed total");
         assertEquals(vwapAtFull, oms.averagePricePaisa(), "VWAP should not change on overfill");
-        assertEquals(LifecycleState.FILLED, oms.currentStatus());
+        assertEquals(LifecycleState.FILLED, oms.toProjection().status());
     }
 
     // ── replay() static factory ─────────────────────────────────────────────
@@ -263,8 +263,8 @@ class OrderStateMachineUnitTest {
 
         // VWAP = (25×15000 + 75×15050) / 100 = (375000 + 1128750) / 100 = 15037 (integer division)
         OrderStateMachine oms = OrderStateMachine.replay(ORDER_ID, SYMBOL, TOTAL_QTY, events);
-        assertEquals(LifecycleState.FILLED, oms.currentStatus());
-        assertEquals(100, oms.filledQuantity());
+        assertEquals(LifecycleState.FILLED, oms.toProjection().status());
+        assertEquals(100, oms.toProjection().filledQuantity());
         assertEquals(15037L, oms.averagePricePaisa());
     }
 

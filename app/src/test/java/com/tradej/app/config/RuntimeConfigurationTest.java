@@ -18,13 +18,13 @@ class RuntimeConfigurationTest {
                 null, null, null, null, null, null, null, null,
                 runtime,
                 null, null, null, null, null, null,
-                null, null, null
+                null, null, null, null
         );
     }
 
     @Test
     void postConstructAppliesConfiguredModeBeforeApplicationRunnerFires() {
-        RuntimeModeHolder holder = new RuntimeConfiguration().runtimeModeHolder(
+        RuntimeModeHolder holder = new RuntimeAndStartupConfiguration().runtimeModeHolder(
                 withRuntime(new TradingProperties.RuntimeProperties(RuntimeMode.BACKTEST))
         );
 
@@ -34,7 +34,7 @@ class RuntimeConfigurationTest {
 
     @Test
     void postConstructLeavesDefaultWhenNoRuntimeProperties() {
-        RuntimeModeHolder holder = new RuntimeConfiguration().runtimeModeHolder(withRuntime(null));
+        RuntimeModeHolder holder = new RuntimeAndStartupConfiguration().runtimeModeHolder(withRuntime(null));
 
         assertEquals(RuntimeMode.LIVE, holder.mode(),
                 "Without explicit runtime config the holder must remain at its default LIVE");
@@ -42,7 +42,7 @@ class RuntimeConfigurationTest {
 
     @Test
     void postConstructHonorsReplayMode() {
-        RuntimeModeHolder holder = new RuntimeConfiguration().runtimeModeHolder(
+        RuntimeModeHolder holder = new RuntimeAndStartupConfiguration().runtimeModeHolder(
                 withRuntime(new TradingProperties.RuntimeProperties(RuntimeMode.REPLAY))
         );
 

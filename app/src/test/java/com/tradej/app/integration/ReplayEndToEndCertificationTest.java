@@ -17,6 +17,7 @@ import com.tradej.disruptor.config.StageTimings;
 import com.tradej.disruptor.testsupport.PassthroughNode;
 import com.tradej.execution.identity.OrderIdentityRegistry;
 import com.tradej.execution.risk.PositionRiskHandler;
+import com.tradej.execution.service.ExecutionConfig;
 import com.tradej.execution.service.ExecutionHandler;
 import com.tradej.execution.service.TradingCircuitBreaker;
 import com.tradej.persistence.duckdb.DuckDbEventStore;
@@ -196,7 +197,8 @@ class ReplayEndToEndCertificationTest {
         var idReg = new OrderIdentityRegistry();
         var runtimeModeHolder = new com.tradej.core.domain.runtime.RuntimeModeHolder();
         var execHandler = new ExecutionHandler(null, runtimeModeHolder,
-                new com.tradej.core.domain.time.LiveTradingClock(), cb, idReg, DeadLetterQueue.noop());
+                new com.tradej.core.domain.time.LiveTradingClock(), cb, idReg, DeadLetterQueue.noop(),
+                ExecutionConfig.DEFAULTS);
         var riskHandler = new PositionRiskHandler(RiskLimits.conservative(),
                 () -> java.util.Collections.emptyMap());
         var bridge = PassthroughNode.passthroughBridge();

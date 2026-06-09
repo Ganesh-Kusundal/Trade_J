@@ -16,6 +16,8 @@ include 'broker-upstox'
 project(':broker-upstox').projectDir = file('broker/upstox')
 include 'broker-icici'
 project(':broker-icici').projectDir = file('broker/icici')
+// include 'broker-template'
+// project(':broker-template').projectDir = file('broker/template')
 
 include 'broker-gateway'
 project(':broker-gateway').projectDir = file('broker-gateway')

@@ -6,14 +6,28 @@ import com.tradej.app.health.LoggingAlertChannel;
 import com.tradej.app.health.PagerDutyAlertChannel;
 import com.tradej.app.health.SlackAlertChannel;
 import com.tradej.app.health.WebhookAlertChannel;
+import com.tradej.broker.api.IBrokerConnection;
 import com.tradej.core.tracing.SpanFactory;
+import com.tradej.disruptor.DisruptorBusMetrics;
 import com.tradej.disruptor.config.StageTiming;
 import com.tradej.disruptor.config.StageTimings;
+import com.tradej.execution.service.ExecutionHandler;
+import com.tradej.feature.store.AsyncDuckDbWriter;
+import com.tradej.gateway.bridge.GatewayEventBridge;
+import com.tradej.gateway.router.GatewayTopicRouter;
+import com.tradej.hotpath.MarketDataPipeline;
+import com.tradej.hotpath.OrderPipeline;
+import com.tradej.persistence.duckdb.AsyncDuckDbEventStore;
+import io.micrometer.core.instrument.Gauge;
+import io.micrometer.core.instrument.Meter;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Timer;
+import io.micrometer.core.instrument.config.MeterFilter;
 import io.micrometer.observation.ObservationRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -89,6 +103,17 @@ public class ObservabilityConfiguration {
         return registry;
     }
 
+    @Bean
+    MeterFilter traceCorrelationTags() {
+        return new MeterFilter() {
+            @Override
+            public Meter.Id map(Meter.Id id) {
+                return id.withTag(Tag.of("trace.id", ""))
+                         .withTag(Tag.of("span.id", ""));
+            }
+        };
+    }
+
     // ── Stage timing ──
 
     private static final double[] STAGE_PERCENTILES = {0.5, 0.95, 0.99, 0.999};
@@ -112,5 +137,118 @@ public class ObservabilityConfiguration {
                 .publishPercentiles(STAGE_PERCENTILES)
                 .register(registry);
         return nanos -> timer.record(Duration.ofNanos(nanos));
+    }
+
+    // ── Micrometer gauge metrics ──
+
+    /**
+     * Registers Micrometer gauge metrics that track runtime state of the trading system.
+     * Replaces the former MicrometerConfiguration class.
+     */
+    @Bean
+    Object micrometerGauges(
+            IBrokerConnection brokerConnection,
+            ExecutionHandler executionHandler,
+            DisruptorBusMetrics disruptorBusMetrics,
+            MarketDataPipeline marketDataPipeline,
+            OrderPipeline orderPipeline,
+            MeterRegistry meterRegistry,
+            ObjectProvider<GatewayEventBridge> gatewayEventBridge,
+            ObjectProvider<GatewayTopicRouter> gatewayTopicRouter,
+            ObjectProvider<AsyncDuckDbEventStore> asyncDuckDbEventStore,
+            ObjectProvider<AsyncDuckDbWriter> asyncDuckDbWriter
+    ) {
+        // ── Broker health ──
+        Gauge.builder("dhan.websocket.connected",
+                        brokerConnection, conn -> conn.websocket().isConnected() ? 1.0 : 0.0)
+                .description("Broker WebSocket connection status (1 = connected, 0 = disconnected)")
+                .register(meterRegistry);
+
+        Gauge.builder("dhan.websocket.subscriptions",
+                        brokerConnection, conn -> conn.websocket().subscriptions().size())
+                .description("Number of active market data subscriptions")
+                .register(meterRegistry);
+
+        Gauge.builder("instruments.catalog.size",
+                        brokerConnection, conn -> conn.instruments().allInstruments().size())
+                .description("Number of instruments in the loaded catalog")
+                .register(meterRegistry);
+
+        // ── Execution queue ──
+        Gauge.builder("execution.queue.depth",
+                        executionHandler, ExecutionHandler::queueDepth)
+                .description("Number of pending execution commands")
+                .register(meterRegistry);
+
+        Gauge.builder("execution.queue.remaining_capacity",
+                        executionHandler, ExecutionHandler::queueRemainingCapacity)
+                .description("Remaining capacity of the execution command queue")
+                .register(meterRegistry);
+
+        // ── Disruptor ring buffer ──
+        Gauge.builder("disruptor.ring.buffer.remaining_capacity",
+                        disruptorBusMetrics, DisruptorBusMetrics::ringBufferRemainingCapacity)
+                .description("Remaining capacity of the Disruptor ring buffer")
+                .register(meterRegistry);
+
+        Gauge.builder("disruptor.ring.buffer.size",
+                        disruptorBusMetrics, DisruptorBusMetrics::ringBufferSize)
+                .description("Total size of the Disruptor ring buffer")
+                .register(meterRegistry);
+
+        // ── Market data pipeline ──
+        Gauge.builder("hotpath.ticks.total",
+                        marketDataPipeline, MarketDataPipeline::totalTicksProcessed)
+                .description("Cumulative number of ticks processed by the market data pipeline")
+                .register(meterRegistry);
+
+        Gauge.builder("hotpath.ticks.rate",
+                        marketDataPipeline, MarketDataPipeline::tickRate)
+                .description("Exponential moving average tick rate (ticks/second)")
+                .register(meterRegistry);
+
+        // ── Order pipeline (order lifecycle only — signals bypass OrderPipeline) ──
+        Gauge.builder("hotpath.orders.accepted.total",
+                        orderPipeline, OrderPipeline::totalOrdersAccepted)
+                .description("Cumulative number of orders accepted through the order pipeline")
+                .register(meterRegistry);
+
+        Gauge.builder("hotpath.orders.rate",
+                        orderPipeline, OrderPipeline::orderRate)
+                .description("Exponential moving average order rate (orders/second)")
+                .register(meterRegistry);
+
+        // ── Disruptor dispatch queue ──
+        Gauge.builder("disruptor.dispatch.queue.depth",
+                        disruptorBusMetrics, DisruptorBusMetrics::dispatchQueueDepth)
+                .description("Number of events waiting in the async dispatch queue")
+                .register(meterRegistry);
+
+        Gauge.builder("disruptor.dispatch.dropped_events",
+                        disruptorBusMetrics, DisruptorBusMetrics::dispatchDroppedEventCount)
+                .description("Total number of events dropped by the dispatch queue")
+                .register(meterRegistry);
+
+        Gauge.builder("disruptor.subscribers.count",
+                        disruptorBusMetrics, DisruptorBusMetrics::subscriberCount)
+                .description("Number of registered event subscribers")
+                .register(meterRegistry);
+
+        Gauge.builder("hotpath.ticks.rate_limited",
+                        marketDataPipeline, MarketDataPipeline::tickRateLimitedCount)
+                .description("Ticks dropped by hot-path rate limiter")
+                .register(meterRegistry);
+
+        gatewayEventBridge.ifAvailable(bridge -> Gauge.builder("gateway.events.sent", bridge, GatewayEventBridge::eventCount)
+                .register(meterRegistry));
+        gatewayTopicRouter.ifAvailable(router -> Gauge.builder("gateway.events.dropped", router, GatewayTopicRouter::droppedEventCount)
+                .register(meterRegistry));
+        asyncDuckDbEventStore.ifAvailable(store -> Gauge.builder("duckdb.events.dropped", store, AsyncDuckDbEventStore::droppedEventCount)
+                .register(meterRegistry));
+        asyncDuckDbWriter.ifAvailable(writer -> Gauge.builder("featurestore.events.dropped", writer, AsyncDuckDbWriter::droppedEventCount)
+                .register(meterRegistry));
+
+        log.info("Micrometer gauge metrics registered");
+        return new Object();
     }
 }

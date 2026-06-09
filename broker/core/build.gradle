@@ -5,6 +5,7 @@ dependencies {
     implementation 'com.fasterxml.jackson.core:jackson-databind'
     implementation 'org.slf4j:slf4j-api'
     implementation 'io.micrometer:micrometer-core'
+    implementation 'org.springframework:spring-context'
 
     testImplementation 'org.mockito:mockito-core'
     testImplementation 'org.mockito:mockito-junit-jupiter'

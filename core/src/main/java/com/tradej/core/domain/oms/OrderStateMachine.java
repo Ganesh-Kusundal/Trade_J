@@ -82,26 +82,15 @@ public final class OrderStateMachine {
         this.state = next;
     }
 
-    /** @deprecated Use {@link #toProjection()} for a consistent snapshot. */
-    @Deprecated
-    public synchronized LifecycleState currentStatus() {
-        return state;
-    }
-
-    /** @deprecated Use {@link #toProjection()} for a consistent snapshot. */
-    @Deprecated
-    public synchronized long filledQuantity() {
-        return filledQuantity;
-    }
-
-    /** @deprecated Use {@link #toProjection()} for a consistent snapshot. */
-    @Deprecated
-    public synchronized long averagePricePaisa() {
-        return filledQuantity == 0L ? 0L : accumulatedValuePaisa / filledQuantity;
-    }
-
     public synchronized OrderProjection toProjection() {
         return new OrderProjection(orderId, symbol, totalQuantity, filledQuantity, averagePricePaisa(), state);
+    }
+
+    /**
+     * Returns the volume-weighted average price (VWAP) of all fills, or 0 if no fills yet.
+     */
+    public synchronized long averagePricePaisa() {
+        return filledQuantity > 0 ? accumulatedValuePaisa / filledQuantity : 0L;
     }
 
     /**

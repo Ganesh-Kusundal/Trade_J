@@ -8,4 +8,12 @@ dependencies {
 
     testFixturesImplementation platform("org.junit:junit-bom:${versions.junitBom}")
     testFixturesImplementation 'org.junit.jupiter:junit-jupiter'
+
+    testImplementation project(':broker-dhan')
+    testImplementation project(':broker-upstox')
+    testImplementation project(':broker-icici')
+    testImplementation 'org.junit.jupiter:junit-jupiter-params'
+    testImplementation 'org.mockito:mockito-core'
+    testImplementation 'org.mockito:mockito-junit-jupiter'
+    testImplementation 'org.assertj:assertj-core'
 }
