@@ -22,7 +22,7 @@ public final class PortfolioNode extends BasePipelineNode {
     }
 
     @Override
-    protected void processEvent(DomainEvent event) throws Exception {
+    protected void processEvent(DomainEvent event) {
         portfolioEngine.onDomainEvent(event, context::publish);
     }
 }

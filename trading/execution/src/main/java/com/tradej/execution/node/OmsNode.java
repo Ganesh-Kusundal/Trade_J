@@ -27,7 +27,7 @@ public final class OmsNode extends BasePipelineNode {
     }
 
     @Override
-    protected void processEvent(DomainEvent event) throws Exception {
+    protected void processEvent(DomainEvent event) {
         executionHandler.onDomainEvent(event);
     }
 }

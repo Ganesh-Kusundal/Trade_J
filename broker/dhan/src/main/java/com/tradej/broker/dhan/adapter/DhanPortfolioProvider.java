@@ -23,28 +23,27 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
-public final class DhanPortfolioProvider extends DhanBaseRestAdapter implements PortfolioProvider {
+public final class DhanPortfolioProvider implements PortfolioProvider {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
+    private final DhanAdapterContext context;
     private final DhanAuthenticatedHttpClient httpClient;
     private final DhanApiUrlResolver apiUrlResolver;
 
     public DhanPortfolioProvider(
-            DhanClientHolder clientHolder,
-            DhanInstrumentResolver instrumentResolver,
-            DhanRetryExecutor resilienceExecutor,
+            DhanAdapterContext context,
             DhanAuthenticatedHttpClient httpClient,
             DhanApiUrlResolver apiUrlResolver
     ) {
-        super(clientHolder, instrumentResolver, resilienceExecutor);
+        this.context = context;
         this.httpClient = httpClient;
         this.apiUrlResolver = apiUrlResolver;
     }
 
     @Override
     public List<Position> getPositions() {
-        return execute(ApiCategory.NON_TRADING, "positions", () -> {
+        return context.execute(ApiCategory.NON_TRADING, "positions", () -> {
             var response = httpClient.getJson(apiUrlResolver.positionsUrl());
             var data = response.has("data") ? response.path("data") : response;
             if (!data.isArray()) {
@@ -52,7 +51,7 @@ public final class DhanPortfolioProvider extends DhanBaseRestAdapter implements 
             }
             List<Position> positions = new ArrayList<>();
             for (DhanJsonResponse item : data.asList()) {
-                DhanInstrumentDefinition definition = resolvePayload(item.raw());
+                DhanInstrumentDefinition definition = context.resolvePayload(item.raw());
                 positions.add(DhanJsonMapper.toPosition(item, definition.toInstrument()));
             }
             return List.copyOf(positions);
@@ -61,7 +60,7 @@ public final class DhanPortfolioProvider extends DhanBaseRestAdapter implements 
 
     @Override
     public List<Holding> getHoldings() {
-        return execute(ApiCategory.NON_TRADING, "holdings", () -> {
+        return context.execute(ApiCategory.NON_TRADING, "holdings", () -> {
             var response = httpClient.getJson(apiUrlResolver.holdingsUrl());
             var data = response.has("data") ? response.path("data") : response;
             if (!data.isArray()) {
@@ -69,7 +68,7 @@ public final class DhanPortfolioProvider extends DhanBaseRestAdapter implements 
             }
             List<Holding> holdings = new ArrayList<>();
             for (DhanJsonResponse item : data.asList()) {
-                DhanInstrumentDefinition definition = resolvePayload(item.raw());
+                DhanInstrumentDefinition definition = context.resolvePayload(item.raw());
                 holdings.add(DhanJsonMapper.toHolding(item, definition.toInstrument()));
             }
             return List.copyOf(holdings);
@@ -78,7 +77,7 @@ public final class DhanPortfolioProvider extends DhanBaseRestAdapter implements 
 
     @Override
     public Balance getBalance() {
-        return execute(ApiCategory.NON_TRADING, "fund-limits", () -> {
+        return context.execute(ApiCategory.NON_TRADING, "fund-limits", () -> {
             var response = httpClient.getJson(apiUrlResolver.fundLimitUrl());
             var data = response.has("data") ? response.path("data") : response;
             return DhanJsonMapper.toBalance(data);
@@ -96,7 +95,7 @@ public final class DhanPortfolioProvider extends DhanBaseRestAdapter implements 
         if (fromDate == null || toDate == null) {
             throw new IllegalArgumentException("fromDate and toDate are required for ledger report");
         }
-        return execute(ApiCategory.NON_TRADING, "ledger", () -> {
+        return context.execute(ApiCategory.NON_TRADING, "ledger", () -> {
             String url = apiUrlResolver.ledgerUrl()
                     + "?from-date=" + fromDate
                     + "&to-date=" + toDate;
@@ -129,7 +128,7 @@ public final class DhanPortfolioProvider extends DhanBaseRestAdapter implements 
      * @return true if the T-PIN was sent successfully (HTTP 202)
      */
     public boolean generateEdisTpin() {
-        return execute(ApiCategory.NON_TRADING, "edis-tpin", () -> {
+        return context.execute(ApiCategory.NON_TRADING, "edis-tpin", () -> {
             httpClient.getJson(apiUrlResolver.edisTpinUrl());
             return true;
         });
@@ -146,7 +145,7 @@ public final class DhanPortfolioProvider extends DhanBaseRestAdapter implements 
      * @return eDIS form result with embedded HTML form
      */
     public DhanEdisFormResult generateEdisForm(String isin, long quantity, String exchange, String segment, boolean bulk) {
-        return execute(ApiCategory.NON_TRADING, "edis-form", () -> {
+        return context.execute(ApiCategory.NON_TRADING, "edis-form", () -> {
             ObjectNode payload = MAPPER.createObjectNode();
             payload.put("isin", isin);
             payload.put("qty", quantity);
@@ -169,7 +168,7 @@ public final class DhanPortfolioProvider extends DhanBaseRestAdapter implements 
      * @return eDIS inquiry result
      */
     public DhanEdisInquiryResult edisInquiry(String isin) {
-        return execute(ApiCategory.NON_TRADING, "edis-inquiry", () -> {
+        return context.execute(ApiCategory.NON_TRADING, "edis-inquiry", () -> {
             var response = httpClient.getJson(apiUrlResolver.edisInquiryUrl(isin));
             var data = response.has("data") ? response.path("data") : response;
             return new DhanEdisInquiryResult(
@@ -189,7 +188,7 @@ public final class DhanPortfolioProvider extends DhanBaseRestAdapter implements 
      * @return profile information including token validity, data plan, and segment access
      */
     public DhanProfileInfo getProfile() {
-        return execute(ApiCategory.NON_TRADING, "profile", () -> {
+        return context.execute(ApiCategory.NON_TRADING, "profile", () -> {
             var response = httpClient.getJson(apiUrlResolver.profileUrl());
             var data = response.has("data") ? response.path("data") : response;
             return new DhanProfileInfo(

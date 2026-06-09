@@ -4,7 +4,10 @@ spring:
       - optional:file:./config/dhan-local.properties
       - optional:file:./config/dhan-sandbox.properties
 
+# ─── Dhan SANDBOX (default dev) ───────────────────────────────────────────────
 trade:
+  broker-type: dhan
+
   broker:
     client-id: ${dhan.sandbox.clientId}
     access-token: ${dhan.sandbox.accessToken}
@@ -106,3 +109,25 @@ trade:
           max-spread-bps: 250
           top-n-per-underlying: 5
           top-n-global: 20
+
+# ─── Dhan LIVE override (activate profile: dev-live instead of dev) ───────────
+# To use live Dhan credentials in dev, run with:
+#   --spring.profiles.active=dev-live
+# The dev-live profile overlays these settings on top of the common base:
+#
+# trade:
+#   broker:
+#     client-id: ${dhan.clientId:${DHAN_CLIENT_ID:}}
+#     access-token: ${dhan.accessToken:${DHAN_ACCESS_TOKEN:}}
+#     environment: LIVE
+#     rest-base-url: ${dhan.restBaseUrl:}
+#     auth-mode: ${dhan.authMode:TOTP_GENERATED}
+#     token-state-file: ${dhan.tokenStateFile:runtime-dev/dhan-token-state.json}
+#   storage:
+#     chronicle-path: runtime-dev/chronicle
+#     duckdb-path: runtime-dev/trade.duckdb
+#   instruments:
+#     cache-directory: runtime-dev/instruments
+#
+# (These settings are now inline above. Use application-dev-live.yml if you
+#  need a separate profile file, or just override via env vars.)

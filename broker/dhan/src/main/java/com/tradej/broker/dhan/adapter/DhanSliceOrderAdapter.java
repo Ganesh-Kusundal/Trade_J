@@ -14,20 +14,19 @@ import com.tradej.core.domain.model.SliceOrderRequest;
 
 import java.util.List;
 
-public final class DhanSliceOrderAdapter extends DhanBaseRestAdapter implements SliceOrderCommand {
+public final class DhanSliceOrderAdapter implements SliceOrderCommand {
+    private final DhanAdapterContext context;
     private final OrderCommand orderCommand;
     private final DhanConnectionSettings settings;
     private final DhanRestOrderClient restOrderClient;
 
     public DhanSliceOrderAdapter(
-            DhanClientHolder clientHolder,
-            DhanInstrumentResolver instrumentResolver,
-            DhanRetryExecutor resilienceExecutor,
+            DhanAdapterContext context,
             DhanConnectionSettings settings,
             DhanRestOrderClient restOrderClient,
             OrderCommand orderCommand
     ) {
-        super(clientHolder, instrumentResolver, resilienceExecutor);
+        this.context = context;
         this.settings = settings;
         this.restOrderClient = restOrderClient;
         this.orderCommand = orderCommand;
@@ -35,8 +34,8 @@ public final class DhanSliceOrderAdapter extends DhanBaseRestAdapter implements 
 
     @Override
     public List<Order> placeSliceOrder(SliceOrderRequest request) {
-        return execute(ApiCategory.ORDER, "place-slice-order", () -> {
-            DhanInstrumentDefinition definition = resolveDef(request.symbol(), request.exchangeSegment());
+        return context.execute(ApiCategory.ORDER, "place-slice-order", () -> {
+            DhanInstrumentDefinition definition = context.resolveDef(request.symbol(), request.exchangeSegment());
             List<Order> result = restOrderClient.placeSliceOrder(request, definition);
             if (result != null && !result.isEmpty()) {
                 return result;

@@ -35,11 +35,11 @@ public final class ScanService {
     private final ScanProperties scanProperties;
     private final ScanEngine scanEngine;
     private final OptionLiquidityScanner optionLiquidityScanner;
-    private final Optional<InstitutionalScanEngine> institutionalScanEngine;
-    private final Optional<HistoricalBarRepository> historicalBarRepository;
+    private final InstitutionalScanEngine institutionalScanEngine;
+    private final HistoricalBarRepository historicalBarRepository;
     private final DuckDbScanStore scanStore;
     private final RuntimeSubscriptionManager subscriptionManager;
-    private final Optional<GatewayTopicRouter> gatewayRouter;
+    private final GatewayTopicRouter gatewayRouter;
     private final ObjectMapper objectMapper;
 
     public ScanService(
@@ -47,19 +47,19 @@ public final class ScanService {
             ScanDependencies scanDependencies,
             DuckDbScanStore scanStore,
             RuntimeSubscriptionManager subscriptionManager,
-            Optional<GatewayTopicRouter> gatewayRouter,
+            GatewayTopicRouter gatewayRouter,
             ObjectMapper objectMapper,
-            Optional<InstitutionalScanEngine> institutionalScanEngine,
-            Optional<HistoricalBarRepository> historicalBarRepository
+            InstitutionalScanEngine institutionalScanEngine,
+            HistoricalBarRepository historicalBarRepository
     ) {
         this.scanProperties = scanProperties;
         this.scanEngine = new ScanEngine(scanDependencies);
         this.optionLiquidityScanner = new OptionLiquidityScanner(scanDependencies.optionsProvider());
-        this.institutionalScanEngine = institutionalScanEngine;
-        this.historicalBarRepository = historicalBarRepository;
+        this.institutionalScanEngine = institutionalScanEngine != null ? institutionalScanEngine : new com.tradej.institutional.NoOpInstitutionalScanEngine();
+        this.historicalBarRepository = historicalBarRepository != null ? historicalBarRepository : new com.tradej.core.domain.port.NoOpHistoricalBarRepository();
         this.scanStore = scanStore;
         this.subscriptionManager = subscriptionManager;
-        this.gatewayRouter = gatewayRouter;
+        this.gatewayRouter = gatewayRouter != null ? gatewayRouter : new com.tradej.gateway.router.NoOpGatewayTopicRouter();
         this.objectMapper = objectMapper;
     }
 
@@ -78,16 +78,18 @@ public final class ScanService {
     }
 
     private ScanResult runInstitutionalScan(ScanProfile profile) {
-        InstitutionalScanEngine engine = institutionalScanEngine.orElseThrow(() ->
-                new IllegalStateException("Institutional scan engine is not configured"));
-        HistoricalBarRepository repository = historicalBarRepository.orElseThrow(() ->
-                new IllegalStateException("Historical bar repository is not configured"));
-        LocalDate scanDate = repository.latestAvailableTradingDay(0)
+        if (institutionalScanEngine instanceof com.tradej.institutional.NoOpInstitutionalScanEngine) {
+            throw new IllegalStateException("Institutional scan engine is not configured");
+        }
+        if (historicalBarRepository instanceof com.tradej.core.domain.port.NoOpHistoricalBarRepository) {
+            throw new IllegalStateException("Historical bar repository is not configured");
+        }
+        LocalDate scanDate = historicalBarRepository.latestAvailableTradingDay(0)
                 .orElseThrow(() -> new IllegalStateException("No parquet trading days available"));
-        int universeSize = repository.querySymbols(200).size();
+        int universeSize = historicalBarRepository.querySymbols(200).size();
         ScanRun run = ScanRun.started(profile.id(), universeSize);
         try {
-            InstitutionalScanResult institutional = engine.runHistoricalScan(scanDate, null);
+            InstitutionalScanResult institutional = institutionalScanEngine.runHistoricalScan(scanDate, null);
             List<ScanHit> hits = institutional.candidates().stream()
                     .map(this::toInstitutionalHit)
                     .toList();
@@ -177,7 +179,7 @@ public final class ScanService {
     }
 
     private void publishGateway(ScanResult result) {
-        gatewayRouter.ifPresent(router -> {
+        if (!(gatewayRouter instanceof com.tradej.gateway.router.NoOpGatewayTopicRouter)) {
             try {
                 Map<String, Object> payload = new LinkedHashMap<>();
                 payload.put("runId", result.run().runId());
@@ -185,11 +187,11 @@ public final class ScanService {
                 payload.put("status", result.run().status().name());
                 payload.put("hitCount", result.hits().size());
                 payload.put("hits", result.hits().stream().map(this::hitPayload).toList());
-                router.publish(GatewayTopic.SCAN_COMPLETED, objectMapper.writeValueAsBytes(payload));
+                gatewayRouter.publish(GatewayTopic.SCAN_COMPLETED, objectMapper.writeValueAsBytes(payload));
             } catch (Exception ex) {
                 log.warn("Failed to publish SCAN_COMPLETED: {}", ex.getMessage());
             }
-        });
+        }
     }
 
     private Map<String, Object> hitPayload(ScanHit hit) {

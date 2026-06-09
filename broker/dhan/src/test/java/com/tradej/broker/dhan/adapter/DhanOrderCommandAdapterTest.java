@@ -86,8 +86,9 @@ class DhanOrderCommandAdapterTest {
             return null;
         }).when(executor).run(any(), any(), any());
 
+        DhanAdapterContext context = new DhanAdapterContext(clientHolder, instrumentResolver, executor);
         adapter = new DhanOrderCommandAdapter(
-                clientHolder, instrumentResolver, executor, settings, restOrderClient, idempotencyCache, validator);
+                context, settings, restOrderClient, idempotencyCache, validator);
     }
 
     private DhanInstrumentDefinition equityInstrument() {
@@ -180,8 +181,9 @@ class DhanOrderCommandAdapterTest {
         @DisplayName("placeOrder throws when catalog not loaded")
         void placeOrderThrowsWhenCatalogNotLoaded() {
             InMemoryInstrumentResolver emptyResolver = new InMemoryInstrumentResolver();
+            DhanAdapterContext context = new DhanAdapterContext(clientHolder, emptyResolver, executor);
             DhanOrderCommandAdapter guardedAdapter = new DhanOrderCommandAdapter(
-                    clientHolder, emptyResolver, executor, settings, restOrderClient, idempotencyCache, validator);
+                    context, settings, restOrderClient, idempotencyCache, validator);
             OrderRequest request = equityLimitOrder();
 
             assertThrows(IllegalStateException.class, () -> guardedAdapter.placeOrder(request));

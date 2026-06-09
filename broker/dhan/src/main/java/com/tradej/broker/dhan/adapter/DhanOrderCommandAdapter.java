@@ -26,9 +26,11 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public final class DhanOrderCommandAdapter extends DhanBaseRestAdapter implements OrderCommand {
+public final class DhanOrderCommandAdapter implements OrderCommand {
     private static final int MAX_MODIFICATIONS_PER_ORDER = 25;
 
+    private final DhanAdapterContext context;
+    private final DhanInstrumentResolver resolver;
     private final IdempotencyCachePort idempotencyCache;
     private final DhanConnectionSettings settings;
     private final DhanRestOrderClient restOrderClient;
@@ -37,15 +39,14 @@ public final class DhanOrderCommandAdapter extends DhanBaseRestAdapter implement
     private final ConcurrentHashMap<String, AtomicInteger> modificationCounts = new ConcurrentHashMap<>();
 
     public DhanOrderCommandAdapter(
-            DhanClientHolder clientHolder,
-            DhanInstrumentResolver instrumentResolver,
-            DhanRetryExecutor resilienceExecutor,
+            DhanAdapterContext context,
             DhanConnectionSettings settings,
             DhanRestOrderClient restOrderClient,
             IdempotencyCachePort idempotencyCache,
             DhanOrderValidator validator
     ) {
-        super(clientHolder, instrumentResolver, resilienceExecutor);
+        this.context = context;
+        this.resolver = context.resolver();
         this.settings = settings;
         this.restOrderClient = restOrderClient;
         this.idempotencyCache = idempotencyCache;
@@ -86,7 +87,7 @@ public final class DhanOrderCommandAdapter extends DhanBaseRestAdapter implement
         if (settings.isSandbox()) {
             return restOrderClient.placeOrder(request, instrument);
         }
-        return execute(ApiCategory.ORDER, "place-order", () -> {
+        return context.execute(ApiCategory.ORDER, "place-order", () -> {
             var response = DhanJsonMapper.wrap(
                     restOrderClient.placeOrderViaApi(request, instrument, settings)
             );
@@ -96,7 +97,7 @@ public final class DhanOrderCommandAdapter extends DhanBaseRestAdapter implement
 
     @Override
     public boolean cancelOrder(String orderId) {
-        return execute(ApiCategory.ORDER, "cancel-order", () -> restOrderClient.cancelOrderViaApi(orderId, settings));
+        return context.execute(ApiCategory.ORDER, "cancel-order", () -> restOrderClient.cancelOrderViaApi(orderId, settings));
     }
 
     @Override
@@ -111,11 +112,11 @@ public final class DhanOrderCommandAdapter extends DhanBaseRestAdapter implement
                             + " per order. Order " + orderId + " has been modified " + (count - 1) + " times.");
         }
         try {
-            return execute(ApiCategory.ORDER, "modify-order", () -> {
+            return context.execute(ApiCategory.ORDER, "modify-order", () -> {
                 var response = DhanJsonMapper.wrap(
                         restOrderClient.modifyOrderViaApi(request, null, settings)
                 );
-                DhanInstrumentDefinition definition = resolvePayload(response.raw());
+                DhanInstrumentDefinition definition = context.resolvePayload(response.raw());
                 return DhanJsonMapper.toOrder(response, definition.toInstrument());
             });
         } catch (RuntimeException ex) {
@@ -130,7 +131,7 @@ public final class DhanOrderCommandAdapter extends DhanBaseRestAdapter implement
         List<Order> openOrders = restOrderClient.getOrders();
         for (Order order : openOrders) {
             if (order.status().isActive()) {
-                DhanInstrumentDefinition definition = resolveDef(order.symbol(), order.exchangeSegment());
+                DhanInstrumentDefinition definition = context.resolveDef(order.symbol(), order.exchangeSegment());
                 if (restOrderClient.cancelOrderViaApi(order.orderId(), settings)) {
                     cancelled.add(order.orderId());
                 }
@@ -142,7 +143,7 @@ public final class DhanOrderCommandAdapter extends DhanBaseRestAdapter implement
     @Override
     public List<String> cancelAndSquareOffIntradayPositions() {
         List<String> cancelled = cancelAllOpenOrders();
-        List<Position> positions = execute(ApiCategory.NON_TRADING, "list-positions-for-squareoff",
+        List<Position> positions = context.execute(ApiCategory.NON_TRADING, "list-positions-for-squareoff",
                 () -> restOrderClient.fetchPositionsViaApi(settings)
         );
         for (Position position : positions) {
@@ -164,7 +165,7 @@ public final class DhanOrderCommandAdapter extends DhanBaseRestAdapter implement
 
     @Override
     public boolean setKillSwitch(boolean enabled) {
-        return execute(ApiCategory.ORDER, "kill-switch", () -> restOrderClient.setKillSwitchViaApi(enabled, settings));
+        return context.execute(ApiCategory.ORDER, "kill-switch", () -> restOrderClient.setKillSwitchViaApi(enabled, settings));
     }
 
     @Override
@@ -173,7 +174,7 @@ public final class DhanOrderCommandAdapter extends DhanBaseRestAdapter implement
     }
 
     private DhanInstrumentDefinition resolveInstrument(OrderRequest request) {
-        DhanInstrumentDefinition instrument = resolveDef(request.symbol(), request.exchangeSegment());
+        DhanInstrumentDefinition instrument = context.resolveDef(request.symbol(), request.exchangeSegment());
         if (request.exchangeSegment() == instrument.exchangeSegment()) {
             return instrument;
         }

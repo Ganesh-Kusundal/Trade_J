@@ -35,16 +35,6 @@ class ProfileIsolationArchitectureTest {
                 .importPackages("com.tradej");
     }
 
-    /** ClockConfiguration duplicates TradingClock bean — must be excluded during replay. */
-    @Test
-    void clockConfigurationIsAnnotatedWithProfile() {
-        classes()
-                .that().haveSimpleName("ClockConfiguration")
-                .should().beAnnotatedWith(Profile.class)
-                .allowEmptyShould(false)
-                .check(allClasses);
-    }
-
     /** ReplayTradingClock is in core module, not app — safe from auto-scanning. */
     @Test
     void replayTradingClockIsInCoreModule() {

@@ -46,11 +46,11 @@ public final class QueryEngine {
         return OptionAnalytics.topOi(result.data(), n);
     }
 
-    public List<OptionAnalytics.StrikeOi> topVolume(String underlying, int n) {
+    public List<OptionAnalytics.StrikeVolume> topVolume(String underlying, int n) {
         return topVolume(underlying, ExchangeSegment.IDX_I, n);
     }
 
-    public List<OptionAnalytics.StrikeOi> topVolume(String underlying, ExchangeSegment segment, int n) {
+    public List<OptionAnalytics.StrikeVolume> topVolume(String underlying, ExchangeSegment segment, int n) {
         GatewayResult<OptionChainSnapshot> result = marketGateway.optionChain(underlying, segment, null);
         return OptionAnalytics.topVolume(result.data(), n);
     }

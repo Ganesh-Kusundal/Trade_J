@@ -22,7 +22,7 @@ public final class FeatureNode extends BasePipelineNode {
     }
 
     @Override
-    protected void processEvent(DomainEvent event) throws Exception {
+    protected void processEvent(DomainEvent event) {
         // Hot-path feature sync only — no pass-through publish (matches FeatureSyncDisruptorHandler).
         featureStore.feed(event);
     }

@@ -195,22 +195,18 @@ public final class DhanWebSocketMultiplexer implements WebSocketMultiplexer {
         if (depthClient != null) {
             depthClient.disconnect();
         }
-        reconnectScheduler.shutdown();
+        shutdownScheduler(reconnectScheduler);
+        shutdownScheduler(reconciliationScheduler);
+    }
+
+    private void shutdownScheduler(ScheduledExecutorService scheduler) {
+        scheduler.shutdown();
         try {
-            if (!reconnectScheduler.awaitTermination(5, TimeUnit.SECONDS)) {
-                reconnectScheduler.shutdownNow();
+            if (!scheduler.awaitTermination(5, TimeUnit.SECONDS)) {
+                scheduler.shutdownNow();
             }
         } catch (InterruptedException e) {
-            reconnectScheduler.shutdownNow();
-            Thread.currentThread().interrupt();
-        }
-        reconciliationScheduler.shutdown();
-        try {
-            if (!reconciliationScheduler.awaitTermination(5, TimeUnit.SECONDS)) {
-                reconciliationScheduler.shutdownNow();
-            }
-        } catch (InterruptedException e) {
-            reconciliationScheduler.shutdownNow();
+            scheduler.shutdownNow();
             Thread.currentThread().interrupt();
         }
     }
@@ -420,9 +416,9 @@ public final class DhanWebSocketMultiplexer implements WebSocketMultiplexer {
             boolean shouldReconnect = connected || !subscriptionManager.isEmpty();
             closeClientsLocked();
             if (shouldReconnect) {
-            bindClientsLocked();
-            healthMonitor.resetTimestamps();
-            resetReconnectCircuitLocked();
+                bindClientsLocked();
+                healthMonitor.resetTimestamps();
+                resetReconnectCircuitLocked();
                 connectMarketFeedLocked();
                 connectOrderStreamLocked();
             }

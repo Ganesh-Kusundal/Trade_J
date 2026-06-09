@@ -32,25 +32,24 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-public final class DhanMarketDataProvider extends DhanBaseRestAdapter implements MarketDataProvider {
+public final class DhanMarketDataProvider implements MarketDataProvider {
     private static final Logger log = LoggerFactory.getLogger(DhanMarketDataProvider.class);
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
+    private final DhanAdapterContext context;
     private final DhanHistoricalDataClient historicalDataClient;
     private final DhanHistoricalDataMapper historicalDataMapper;
     private final DhanAuthenticatedHttpClient httpClient;
     private final DhanApiUrlResolver apiUrlResolver;
 
     public DhanMarketDataProvider(
-            DhanClientHolder clientHolder,
-            DhanInstrumentResolver instrumentResolver,
-            DhanRetryExecutor resilienceExecutor,
+            DhanAdapterContext context,
             DhanHistoricalDataClient historicalDataClient,
             DhanHistoricalDataMapper historicalDataMapper,
             DhanAuthenticatedHttpClient httpClient,
             DhanApiUrlResolver apiUrlResolver
     ) {
-        super(clientHolder, instrumentResolver, resilienceExecutor);
+        this.context = context;
         this.historicalDataClient = historicalDataClient;
         this.historicalDataMapper = historicalDataMapper;
         this.httpClient = httpClient;
@@ -59,8 +58,8 @@ public final class DhanMarketDataProvider extends DhanBaseRestAdapter implements
 
     @Override
     public long getLtpPaisa(InstrumentKey instrumentKey) {
-        DhanInstrumentDefinition definition = resolveDef(instrumentKey);
-        return execute(ApiCategory.QUOTE, "quote-ltp", () -> {
+        DhanInstrumentDefinition definition = context.resolveDef(instrumentKey);
+        return context.execute(ApiCategory.QUOTE, "quote-ltp", () -> {
             DhanJsonResponse response = fetchMarketFeed(definition, apiUrlResolver.marketFeedLtpUrl());
             DhanJsonResponse payload = extractQuotePayload(response, definition);
             return payload.decimalPrice("last_price", "lastPrice", "ltp");
@@ -69,8 +68,8 @@ public final class DhanMarketDataProvider extends DhanBaseRestAdapter implements
 
     @Override
     public Quote getQuote(InstrumentKey instrumentKey) {
-        DhanInstrumentDefinition definition = resolveDef(instrumentKey);
-        return execute(ApiCategory.QUOTE, "quote-snapshot", () -> {
+        DhanInstrumentDefinition definition = context.resolveDef(instrumentKey);
+        return context.execute(ApiCategory.QUOTE, "quote-snapshot", () -> {
             DhanJsonResponse response = fetchMarketFeed(definition, apiUrlResolver.marketFeedQuoteUrl());
             DhanJsonResponse payload = extractQuotePayload(response, definition);
             return DhanJsonMapper.toQuote(payload, definition.toInstrument());
@@ -79,8 +78,8 @@ public final class DhanMarketDataProvider extends DhanBaseRestAdapter implements
 
     @Override
     public MarketDepth getDepth(InstrumentKey instrumentKey) {
-        DhanInstrumentDefinition definition = resolveDef(instrumentKey);
-        return execute(ApiCategory.QUOTE, "quote-depth", () -> {
+        DhanInstrumentDefinition definition = context.resolveDef(instrumentKey);
+        return context.execute(ApiCategory.QUOTE, "quote-depth", () -> {
             DhanJsonResponse response = fetchMarketFeed(definition, apiUrlResolver.marketFeedQuoteUrl());
             DhanJsonResponse payload = extractQuotePayload(response, definition);
             return DhanJsonMapper.toDepth(payload, definition.toInstrument());
@@ -95,7 +94,7 @@ public final class DhanMarketDataProvider extends DhanBaseRestAdapter implements
     @Override
     public List<Candle> getCandles(CandleHistoryRequest request) {
         validateInterval(request.interval());
-        DhanInstrumentDefinition definition = resolveDef(request.instrument());
+        DhanInstrumentDefinition definition = context.resolveDef(request.instrument());
         Instrument instrument = definition.toInstrument();
         List<Candle> merged = new ArrayList<>();
         for (var payload : historicalDataClient.fetchRange(request, definition)) {
@@ -129,11 +128,11 @@ public final class DhanMarketDataProvider extends DhanBaseRestAdapter implements
         if (instrumentKeys == null || instrumentKeys.isEmpty()) {
             return Map.of();
         }
-        return execute(ApiCategory.QUOTE, "quote-ltp-batch", () -> {
+        return context.execute(ApiCategory.QUOTE, "quote-ltp-batch", () -> {
             Map<InstrumentKey, DhanInstrumentDefinition> defs = new HashMap<>();
             Map<String, List<String>> segmentSecurityIds = new HashMap<>();
             for (InstrumentKey key : instrumentKeys) {
-                DhanInstrumentDefinition def = resolveDef(key);
+                DhanInstrumentDefinition def = context.resolveDef(key);
                 defs.put(key, def);
                 segmentSecurityIds
                         .computeIfAbsent(DhanSegmentMapper.toWireValue(def.exchangeSegment()), ignored -> new ArrayList<>())
@@ -145,10 +144,10 @@ public final class DhanMarketDataProvider extends DhanBaseRestAdapter implements
             for (InstrumentKey key : instrumentKeys) {
                 DhanInstrumentDefinition def = defs.get(key);
                 try {
-                    DhanJsonResponse nested = extractQuotePayload(response, def);
-                    out.put(key, nested.decimalPrice("last_price", "lastPrice", "ltp"));
+                     DhanJsonResponse nested = extractQuotePayload(response, def);
+                     out.put(key, nested.decimalPrice("last_price", "lastPrice", "ltp"));
                 } catch (RuntimeException ex) {
-                    log.warn("Failed to extract LTP for {}:{}: {}", def.exchangeSegment(), def.securityId(), ex.getMessage());
+                     log.warn("Failed to extract LTP for {}:{}: {}", def.exchangeSegment(), def.securityId(), ex.getMessage());
                 }
             }
             return Map.copyOf(out);
@@ -160,11 +159,11 @@ public final class DhanMarketDataProvider extends DhanBaseRestAdapter implements
         if (instrumentKeys == null || instrumentKeys.isEmpty()) {
             return Map.of();
         }
-        return execute(ApiCategory.QUOTE, "quote-snapshot-batch", () -> {
+        return context.execute(ApiCategory.QUOTE, "quote-snapshot-batch", () -> {
             Map<InstrumentKey, DhanInstrumentDefinition> defs = new HashMap<>();
             Map<String, List<String>> segmentSecurityIds = new HashMap<>();
             for (InstrumentKey key : instrumentKeys) {
-                DhanInstrumentDefinition def = resolveDef(key);
+                DhanInstrumentDefinition def = context.resolveDef(key);
                 defs.put(key, def);
                 segmentSecurityIds
                         .computeIfAbsent(DhanSegmentMapper.toWireValue(def.exchangeSegment()), ignored -> new ArrayList<>())
@@ -176,10 +175,10 @@ public final class DhanMarketDataProvider extends DhanBaseRestAdapter implements
             for (InstrumentKey key : instrumentKeys) {
                 DhanInstrumentDefinition def = defs.get(key);
                 try {
-                    DhanJsonResponse nested = extractQuotePayload(response, def);
-                    out.put(key, DhanJsonMapper.toQuote(nested, def.toInstrument()));
+                     DhanJsonResponse nested = extractQuotePayload(response, def);
+                     out.put(key, DhanJsonMapper.toQuote(nested, def.toInstrument()));
                 } catch (RuntimeException ex) {
-                    log.warn("Failed to extract quote for {}:{}: {}", def.exchangeSegment(), def.securityId(), ex.getMessage());
+                     log.warn("Failed to extract quote for {}:{}: {}", def.exchangeSegment(), def.securityId(), ex.getMessage());
                 }
             }
             return Map.copyOf(out);

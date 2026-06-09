@@ -35,7 +35,7 @@ public class AdminConfiguration {
 
     // ── Scheduler thread pools ──
 
-    @Bean("reconciliationScheduler")
+    @Bean
     ThreadPoolTaskScheduler reconciliationTaskScheduler() {
         ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
         scheduler.setPoolSize(2);
@@ -44,7 +44,7 @@ public class AdminConfiguration {
         return scheduler;
     }
 
-    @Bean("dailyRiskResetScheduler")
+    @Bean
     ThreadPoolTaskScheduler dailyRiskResetTaskScheduler() {
         ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
         scheduler.setPoolSize(1);

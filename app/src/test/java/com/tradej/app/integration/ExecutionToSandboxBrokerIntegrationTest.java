@@ -85,13 +85,15 @@ class ExecutionToSandboxBrokerIntegrationTest {
         omsRepository = new EventSourcedOrderRepository(omsPath);
         var runtimeModeHolder = new com.tradej.core.domain.runtime.RuntimeModeHolder();
         TradingClock clock = new LiveTradingClock();
+        List<DomainEvent> emitted = new ArrayList<>();
         executionHandler = new ExecutionHandler(
                 new OrderManagementService(brokerConnection, runtimeModeHolder, clock, omsRepository),
                 runtimeModeHolder,
                 clock,
                 new TradingCircuitBreaker(),
                 new OrderIdentityRegistry(),
-                com.tradej.core.domain.port.DeadLetterQueue.noop()
+                com.tradej.core.domain.port.DeadLetterQueue.noop(),
+                com.tradej.execution.service.ExecutionConfig.DEFAULTS.withDownstream(emitted::add)
         );
         executionHandler.start();
 
@@ -109,14 +111,12 @@ class ExecutionToSandboxBrokerIntegrationTest {
                 correlationId
         );
 
-        List<DomainEvent> emitted = new ArrayList<>();
-
         executionHandler.onDomainEvent(new SignalPendingExecution(
                 EventMetadata.root(),
                 "sig-xlayer",
                 orderRequest,
                 Map.of()
-        ), emitted::add);
+        ));
 
         awaitOrderAccepted(emitted, 30);
         OrderAccepted accepted = emitted.stream()

@@ -70,17 +70,17 @@ public final class CliMarketCommands extends CliCommandSupport {
     public void topVolume(String underlying, String segmentName, int top) {
         QueryEngine qe = createQueryEngine();
         ExchangeSegment segment = parseSegment(segmentName);
-        List<OptionAnalytics.StrikeOi> results = qe.topVolume(underlying, segment, top);
+        List<OptionAnalytics.StrikeVolume> results = qe.topVolume(underlying, segment, top);
         if (context().json()) {
             out().print(Map.of("underlying", underlying, "topVolume", results));
             return;
         }
         out().println("Top " + top + " Volume: " + underlying);
         List<String[]> rows = new ArrayList<>();
-        for (OptionAnalytics.StrikeOi s : results) {
+        for (OptionAnalytics.StrikeVolume s : results) {
             rows.add(new String[]{
                     String.valueOf(s.strikePricePaisa()),
-                    String.valueOf(s.openInterest()),
+                    String.valueOf(s.volume()),
                     s.side()
             });
         }

@@ -11,7 +11,6 @@ import java.util.List;
  */
 public record CompilationResult(
         PipelineGraph originalGraph,
-        PipelineGraph normalizedGraph,
         ExecutionPlan plan,
         List<CompilationWarning> warnings,
         long compileTimeNs,

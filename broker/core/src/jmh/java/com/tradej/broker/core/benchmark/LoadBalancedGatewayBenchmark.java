@@ -1,7 +1,6 @@
 package com.tradej.broker.core.benchmark;
 
 import com.tradej.broker.api.IBrokerConnection;
-import com.tradej.broker.api.capability.OptionsCapable;
 import com.tradej.broker.api.port.*;
 import com.tradej.broker.core.routing.LoadBalancedBrokerGateway;
 import com.tradej.core.domain.model.*;
@@ -73,7 +72,7 @@ public class LoadBalancedGatewayBenchmark {
     /*  Fake implementations — Mockito is incompatible with JMH classloaders */
     /* ------------------------------------------------------------------ */
 
-    private static final class FakeBrokerConnection implements IBrokerConnection, OptionsCapable {
+    private static final class FakeBrokerConnection implements IBrokerConnection {
         private final String label;
         private final MarketDataProvider marketData = new FakeLatencyMarketDataProvider();
         private final OrderCommand orders = new FakeOrderCommand();
@@ -96,7 +95,7 @@ public class LoadBalancedGatewayBenchmark {
         @Override public void loadInstrumentCatalog(Path catalogPath) { }
         @Override public OptionsProvider options() { return options; }
         @Override public <T> Optional<T> getCapability(Class<T> capabilityClass) {
-            if (capabilityClass == OptionsCapable.class) return Optional.of(capabilityClass.cast(this));
+            if (capabilityClass == OptionsProvider.class) return Optional.of(capabilityClass.cast(options));
             return Optional.empty();
         }
     }

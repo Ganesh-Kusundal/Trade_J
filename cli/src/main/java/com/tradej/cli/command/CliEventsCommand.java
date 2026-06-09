@@ -74,7 +74,7 @@ public final class CliEventsCommand implements Callable<Integer> {
 
     static List<EventCatalogEntry> discoverEvents() {
         List<EventCatalogEntry> entries = new ArrayList<>();
-        for (Method method : DomainEventVisitor.class.getDeclaredMethods()) {
+        for (Method method : DomainEventVisitor.class.getMethods()) {
             if (method.getName().equals("visit") && method.getParameterCount() == 1) {
                 Class<?> eventClass = method.getParameterTypes()[0];
                 entries.add(EventCatalogEntry.fromClass(eventClass));

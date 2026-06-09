@@ -33,21 +33,23 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-public final class DhanOptionsAdapter extends DhanBaseRestAdapter implements OptionsProvider {
+public final class DhanOptionsAdapter implements OptionsProvider {
     private static final Map<String, Long> DEFAULT_STRIKE_STEPS_PAISA = DhanProtocolConstants.DEFAULT_STRIKE_STEPS_PAISA;
 
+    private final DhanAdapterContext context;
+    private final DhanInstrumentResolver resolver;
     private final DhanOptionChainClient optionChainClient;
     private final DhanRollingOptionClient rollingOptionClient;
     private final OptionExpiryCache expiryCache;
 
     public DhanOptionsAdapter(
-            DhanInstrumentResolver instrumentResolver,
+            DhanAdapterContext context,
             DhanOptionChainClient optionChainClient,
             DhanRollingOptionClient rollingOptionClient,
-            OptionExpiryCache expiryCache,
-            DhanRetryExecutor resilienceExecutor
+            OptionExpiryCache expiryCache
     ) {
-        super(instrumentResolver, resilienceExecutor);
+        this.context = context;
+        this.resolver = context.resolver();
         this.optionChainClient = optionChainClient;
         this.rollingOptionClient = rollingOptionClient;
         this.expiryCache = expiryCache;
@@ -120,7 +122,7 @@ public final class DhanOptionsAdapter extends DhanBaseRestAdapter implements Opt
 
     @Override
     public OptionQuote getGreeks(InstrumentKey instrumentKey) {
-        DhanInstrumentDefinition contract = resolveDef(instrumentKey);
+        DhanInstrumentDefinition contract = context.resolveDef(instrumentKey);
         if (!contract.isOption() || contract.expiry() == null || contract.strikePricePaisa() == null || contract.underlying().isBlank()) {
             throw new IllegalArgumentException("Instrument is not a resolvable option contract: " + instrumentKey);
         }

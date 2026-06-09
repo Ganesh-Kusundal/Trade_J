@@ -53,7 +53,7 @@ public final class SimpleEventBus implements EventBus {
         // Dispatch to exact-type subscribers
         List<DomainEventHandler<? extends DomainEvent>> exact = subscribers.get(event.getClass());
         if (exact != null) {
-            for (DomainEventHandler handler : exact) {
+            for (DomainEventHandler<? extends DomainEvent> handler : exact) {
                 dispatch(handler, event);
             }
         }
@@ -61,7 +61,7 @@ public final class SimpleEventBus implements EventBus {
         if (event.getClass() != DomainEvent.class) {
             List<DomainEventHandler<? extends DomainEvent>> catchAll = subscribers.get(DomainEvent.class);
             if (catchAll != null) {
-                for (DomainEventHandler handler : catchAll) {
+                for (DomainEventHandler<? extends DomainEvent> handler : catchAll) {
                     dispatch(handler, event);
                 }
             }

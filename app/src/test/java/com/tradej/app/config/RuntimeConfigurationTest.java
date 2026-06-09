@@ -24,22 +24,17 @@ class RuntimeConfigurationTest {
 
     @Test
     void postConstructAppliesConfiguredModeBeforeApplicationRunnerFires() {
-        RuntimeModeHolder holder = new RuntimeModeHolder();
-        assertEquals(RuntimeMode.LIVE, holder.mode(), "Default mode is LIVE");
-
-        new RuntimeConfiguration(
-                withRuntime(new TradingProperties.RuntimeProperties(RuntimeMode.BACKTEST)),
-                holder
-        ).applyConfiguredMode();
+        RuntimeModeHolder holder = new RuntimeConfiguration().runtimeModeHolder(
+                withRuntime(new TradingProperties.RuntimeProperties(RuntimeMode.BACKTEST))
+        );
 
         assertEquals(RuntimeMode.BACKTEST, holder.mode(),
-                "Configured mode must be applied during @PostConstruct, before any ApplicationRunner");
+                "Configured mode must be applied during bean initialization");
     }
 
     @Test
     void postConstructLeavesDefaultWhenNoRuntimeProperties() {
-        RuntimeModeHolder holder = new RuntimeModeHolder();
-        new RuntimeConfiguration(withRuntime(null), holder).applyConfiguredMode();
+        RuntimeModeHolder holder = new RuntimeConfiguration().runtimeModeHolder(withRuntime(null));
 
         assertEquals(RuntimeMode.LIVE, holder.mode(),
                 "Without explicit runtime config the holder must remain at its default LIVE");
@@ -47,11 +42,9 @@ class RuntimeConfigurationTest {
 
     @Test
     void postConstructHonorsReplayMode() {
-        RuntimeModeHolder holder = new RuntimeModeHolder();
-        new RuntimeConfiguration(
-                withRuntime(new TradingProperties.RuntimeProperties(RuntimeMode.REPLAY)),
-                holder
-        ).applyConfiguredMode();
+        RuntimeModeHolder holder = new RuntimeConfiguration().runtimeModeHolder(
+                withRuntime(new TradingProperties.RuntimeProperties(RuntimeMode.REPLAY))
+        );
 
         assertEquals(RuntimeMode.REPLAY, holder.mode());
     }

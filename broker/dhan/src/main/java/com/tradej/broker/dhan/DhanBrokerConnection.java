@@ -1,11 +1,6 @@
 package com.tradej.broker.dhan;
 
 import com.tradej.broker.api.IBrokerConnection;
-import com.tradej.broker.api.capability.AdvancedOrderCapable;
-import com.tradej.broker.api.capability.AlertCapable;
-import com.tradej.broker.api.capability.FuturesCapable;
-import com.tradej.broker.api.capability.MarginCapable;
-import com.tradej.broker.api.capability.OptionsCapable;
 import com.tradej.broker.api.port.FuturesProvider;
 import com.tradej.broker.api.port.BracketOrderProvider;
 import com.tradej.broker.api.port.ConditionalAlertProvider;
@@ -25,6 +20,7 @@ import com.tradej.broker.api.port.SliceOrderCommand;
 import com.tradej.broker.api.port.WebSocketMultiplexer;
 import com.tradej.broker.dhan.auth.DhanTokenManager;
 import com.tradej.broker.dhan.auth.DhanTokenProvider;
+import com.tradej.broker.dhan.adapter.DhanAdapterContext;
 import com.tradej.broker.dhan.adapter.DhanInstrumentResolver;
 import com.tradej.broker.dhan.adapter.DhanMarketDataProvider;
 import com.tradej.broker.dhan.adapter.DhanMarketStatusProvider;
@@ -56,7 +52,7 @@ import com.tradej.broker.dhan.options.OptionExpiryCache;
 import com.tradej.broker.api.model.BrokerCapabilities;
 import com.tradej.core.domain.event.EventMetadataFactory;
 import com.tradej.core.domain.time.LiveTradingClock;
-import com.tradej.broker.core.capability.CapabilityMap;
+
 import com.tradej.broker.core.resilience.CircuitBreaker;
 import com.tradej.broker.dhan.constants.DhanProtocolConstants;
 import com.tradej.broker.dhan.resilience.DhanRetryExecutor;
@@ -68,11 +64,7 @@ import java.util.Optional;
 
 public final class DhanBrokerConnection implements IBrokerConnection {
 
-    private static final OptionsCapable OPTIONS_CAPABLE = new OptionsCapable() { };
-    private static final FuturesCapable FUTURES_CAPABLE = new FuturesCapable() { };
-    private static final MarginCapable MARGIN_CAPABLE = new MarginCapable() { };
-    private static final AlertCapable ALERT_CAPABLE = new AlertCapable() { };
-    private static final AdvancedOrderCapable ADVANCED_ORDER_CAPABLE = new AdvancedOrderCapable() { };
+
 
     private final DhanClientHolder clientHolder;
     private final DhanInstrumentResolver instrumentResolver;
@@ -91,7 +83,7 @@ public final class DhanBrokerConnection implements IBrokerConnection {
     private final ConditionalAlertProvider conditionalAlertProvider;
     private final WebSocketMultiplexer webSocketMultiplexer;
     private final MarketStatusProvider marketStatusProvider;
-    private final CapabilityMap capabilityMap;
+
 
     /**
      * Multi-adapter constructor — all dependencies are injected from outside.
@@ -136,29 +128,30 @@ public final class DhanBrokerConnection implements IBrokerConnection {
         this.conditionalAlertProvider = conditionalAlertProvider;
         this.webSocketMultiplexer = webSocketMultiplexer;
         this.marketStatusProvider = new DhanMarketStatusProvider();
-        this.capabilityMap = CapabilityMap.builder()
-                .register(MarketDataProvider.class, marketDataProvider)
-                .register(FuturesProvider.class, futuresProvider)
-                .register(OptionsProvider.class, optionsProvider)
-                .register(OrderCommand.class, orderCommand)
-                .register(OrderQuery.class, orderQuery)
-                .registerIfNotNull(SliceOrderCommand.class, sliceOrderCommand)
-                .registerIfNotNull(BracketOrderProvider.class, bracketOrderProvider)
-                .registerIfNotNull(CoverOrderProvider.class, coverOrderProvider)
-                .registerIfNotNull(GttOrderProvider.class, gttOrderProvider)
-                .register(PortfolioProvider.class, portfolioProvider)
-                .register(MarginProvider.class, marginProvider)
-                .registerIfNotNull(SessionRiskProvider.class, sessionRiskProvider)
-                .registerIfNotNull(ConditionalAlertProvider.class, conditionalAlertProvider)
-                .register(InstrumentResolver.class, instrumentResolver)
-                .register(WebSocketMultiplexer.class, webSocketMultiplexer)
-                .register(MarketStatusProvider.class, marketStatusProvider)
-                .register(OptionsCapable.class, OPTIONS_CAPABLE)
-                .register(FuturesCapable.class, FUTURES_CAPABLE)
-                .register(MarginCapable.class, MARGIN_CAPABLE)
-                .register(AlertCapable.class, ALERT_CAPABLE)
-                .register(AdvancedOrderCapable.class, ADVANCED_ORDER_CAPABLE)
-                .build();
+
+    }
+
+    /**
+     * Convenience factory that auto-creates a default {@link MultiBucketRateLimiter}
+     * using Dhan-specific rate limits from {@link DhanProtocolConstants#defaultRateLimiter()}.
+     *
+     * <p>Callers only need to supply settings and an idempotency cache.
+     * The created rate limiter is pre-configured with Dhan's published API limits
+     * for ORDER, DATA, QUOTE, OPTION_CHAIN, and NON_TRADING categories.
+     *
+     * @deprecated For Spring-managed environments, use the multi-adapter constructor.
+     *             This factory exists only for legacy non-DI callers.
+     */
+    @Deprecated
+    public static DhanBrokerConnection create(
+            DhanConnectionSettings settings,
+            IdempotencyCachePort idempotencyCache
+    ) {
+        return new DhanBrokerConnection(
+                settings,
+                DhanProtocolConstants.defaultRateLimiter(),
+                idempotencyCache
+        );
     }
 
     /**
@@ -178,6 +171,7 @@ public final class DhanBrokerConnection implements IBrokerConnection {
         DhanClientHolder clientHolder = new DhanClientHolder(settings, tokenProvider);
         DhanInstrumentResolver instrumentResolver = new InMemoryInstrumentResolver();
         DhanRetryExecutor resilienceExecutor = new DhanRetryExecutor(rateLimiter, new CircuitBreaker());
+        DhanAdapterContext adapterContext = new DhanAdapterContext(clientHolder, instrumentResolver, resilienceExecutor);
         DhanAuthenticatedHttpClient httpClient = new DhanAuthenticatedHttpClient(tokenProvider, settings);
         DhanApiUrlResolver apiUrlResolver = new DhanApiUrlResolver(settings);
         DhanRestOrderClient restOrderClient = new DhanRestOrderClient(httpClient, settings, apiUrlResolver, resilienceExecutor);
@@ -186,9 +180,7 @@ public final class DhanBrokerConnection implements IBrokerConnection {
         this.clientHolder = clientHolder;
         this.instrumentResolver = instrumentResolver;
         this.marketDataProvider = new DhanMarketDataProvider(
-                clientHolder,
-                instrumentResolver,
-                resilienceExecutor,
+                adapterContext,
                 historicalDataClient,
                 historicalDataMapper,
                 httpClient,
@@ -198,73 +190,56 @@ public final class DhanBrokerConnection implements IBrokerConnection {
         DhanOptionChainClient optionChainClient = new DhanOptionChainClient(httpClient, apiUrlResolver, resilienceExecutor);
         DhanRollingOptionClient rollingOptionClient = new DhanRollingOptionClient(httpClient, apiUrlResolver, resilienceExecutor);
         this.optionsProvider = new DhanOptionsAdapter(
-                instrumentResolver,
+                adapterContext,
                 optionChainClient,
                 rollingOptionClient,
-                new OptionExpiryCache(5L),
-                resilienceExecutor
+                new OptionExpiryCache(5L)
         );
         DhanOrderValidator validator = new DhanOrderValidator(instrumentResolver, settings, marketDataProvider);
         this.orderCommand = new DhanOrderCommandAdapter(
-                clientHolder,
-                instrumentResolver,
-                resilienceExecutor,
+                adapterContext,
                 settings,
                 restOrderClient,
                 idempotencyCachePort,
                 validator
         );
         this.orderQuery = new DhanOrderQueryAdapter(
-                clientHolder,
-                instrumentResolver,
-                resilienceExecutor,
+                adapterContext,
                 settings,
                 restOrderClient
         );
         this.sliceOrderCommand = new DhanSliceOrderAdapter(
-                clientHolder,
-                instrumentResolver,
-                resilienceExecutor,
+                adapterContext,
                 settings,
                 restOrderClient,
                 this.orderCommand
         );
         this.bracketOrderProvider = new DhanBracketOrderAdapter(
-                clientHolder,
-                instrumentResolver,
-                resilienceExecutor,
+                adapterContext,
                 settings,
                 restOrderClient
         );
         this.coverOrderProvider = new DhanCoverOrderAdapter(
-                clientHolder,
-                instrumentResolver,
-                resilienceExecutor
+                adapterContext
         );
         this.gttOrderProvider = new DhanGttOrderAdapter(
-                clientHolder,
-                instrumentResolver,
-                resilienceExecutor,
+                adapterContext,
                 settings,
                 restOrderClient
         );
         this.portfolioProvider = new DhanPortfolioProvider(
-                clientHolder,
-                instrumentResolver,
-                resilienceExecutor,
+                adapterContext,
                 httpClient,
                 apiUrlResolver
         );
         this.marginProvider = new DhanMarginProvider(
-                clientHolder,
-                instrumentResolver,
-                resilienceExecutor,
+                adapterContext,
                 httpClient,
                 apiUrlResolver,
                 settings
         );
         this.sessionRiskProvider = new DhanSessionRiskProvider(httpClient, apiUrlResolver, resilienceExecutor);
-        this.conditionalAlertProvider = new DhanConditionalAlertProvider(instrumentResolver, httpClient, apiUrlResolver, resilienceExecutor);
+        this.conditionalAlertProvider = new DhanConditionalAlertProvider(adapterContext, httpClient, apiUrlResolver);
         this.webSocketMultiplexer = new DhanWebSocketMultiplexer(
                 clientHolder,
                 instrumentResolver,
@@ -274,29 +249,7 @@ public final class DhanBrokerConnection implements IBrokerConnection {
                 tokenProvider
         );
         this.marketStatusProvider = new DhanMarketStatusProvider();
-        this.capabilityMap = CapabilityMap.builder()
-                .register(MarketDataProvider.class, marketDataProvider)
-                .register(FuturesProvider.class, futuresProvider)
-                .register(OptionsProvider.class, optionsProvider)
-                .register(OrderCommand.class, orderCommand)
-                .register(OrderQuery.class, orderQuery)
-                .registerIfNotNull(SliceOrderCommand.class, sliceOrderCommand)
-                .registerIfNotNull(BracketOrderProvider.class, bracketOrderProvider)
-                .registerIfNotNull(CoverOrderProvider.class, coverOrderProvider)
-                .registerIfNotNull(GttOrderProvider.class, gttOrderProvider)
-                .register(PortfolioProvider.class, portfolioProvider)
-                .register(MarginProvider.class, marginProvider)
-                .registerIfNotNull(SessionRiskProvider.class, sessionRiskProvider)
-                .registerIfNotNull(ConditionalAlertProvider.class, conditionalAlertProvider)
-                .register(InstrumentResolver.class, instrumentResolver)
-                .register(WebSocketMultiplexer.class, webSocketMultiplexer)
-                .register(MarketStatusProvider.class, marketStatusProvider)
-                .register(OptionsCapable.class, OPTIONS_CAPABLE)
-                .register(FuturesCapable.class, FUTURES_CAPABLE)
-                .register(MarginCapable.class, MARGIN_CAPABLE)
-                .register(AlertCapable.class, ALERT_CAPABLE)
-                .register(AdvancedOrderCapable.class, ADVANCED_ORDER_CAPABLE)
-                .build();
+
     }
 
     @Override
@@ -403,6 +356,30 @@ public final class DhanBrokerConnection implements IBrokerConnection {
 
     @Override
     public <T> Optional<T> getCapability(Class<T> capabilityClass) {
-        return capabilityMap.get(capabilityClass);
+        if (capabilityClass == null) {
+            return Optional.empty();
+        }
+        if (capabilityClass.isInstance(this)) {
+            return Optional.of(capabilityClass.cast(this));
+        }
+        if (marketDataProvider != null && capabilityClass.isInstance(marketDataProvider)) return Optional.of(capabilityClass.cast(marketDataProvider));
+        if (futuresProvider != null && capabilityClass.isInstance(futuresProvider)) return Optional.of(capabilityClass.cast(futuresProvider));
+        if (optionsProvider != null && capabilityClass.isInstance(optionsProvider)) return Optional.of(capabilityClass.cast(optionsProvider));
+        if (orderCommand != null && capabilityClass.isInstance(orderCommand)) return Optional.of(capabilityClass.cast(orderCommand));
+        if (orderQuery != null && capabilityClass.isInstance(orderQuery)) return Optional.of(capabilityClass.cast(orderQuery));
+        if (portfolioProvider != null && capabilityClass.isInstance(portfolioProvider)) return Optional.of(capabilityClass.cast(portfolioProvider));
+        if (marginProvider != null && capabilityClass.isInstance(marginProvider)) return Optional.of(capabilityClass.cast(marginProvider));
+        if (instrumentResolver != null && capabilityClass.isInstance(instrumentResolver)) return Optional.of(capabilityClass.cast(instrumentResolver));
+        if (webSocketMultiplexer != null && capabilityClass.isInstance(webSocketMultiplexer)) return Optional.of(capabilityClass.cast(webSocketMultiplexer));
+        if (marketStatusProvider != null && capabilityClass.isInstance(marketStatusProvider)) return Optional.of(capabilityClass.cast(marketStatusProvider));
+        
+        if (sliceOrderCommand != null && capabilityClass.isInstance(sliceOrderCommand)) return Optional.of(capabilityClass.cast(sliceOrderCommand));
+        if (bracketOrderProvider != null && capabilityClass.isInstance(bracketOrderProvider)) return Optional.of(capabilityClass.cast(bracketOrderProvider));
+        if (coverOrderProvider != null && capabilityClass.isInstance(coverOrderProvider)) return Optional.of(capabilityClass.cast(coverOrderProvider));
+        if (gttOrderProvider != null && capabilityClass.isInstance(gttOrderProvider)) return Optional.of(capabilityClass.cast(gttOrderProvider));
+        if (sessionRiskProvider != null && capabilityClass.isInstance(sessionRiskProvider)) return Optional.of(capabilityClass.cast(sessionRiskProvider));
+        if (conditionalAlertProvider != null && capabilityClass.isInstance(conditionalAlertProvider)) return Optional.of(capabilityClass.cast(conditionalAlertProvider));
+        
+        return Optional.empty();
     }
 }

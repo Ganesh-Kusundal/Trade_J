@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-public final class InstitutionalScanEngine {
+public class InstitutionalScanEngine {
 
     private static final Logger log = LoggerFactory.getLogger(InstitutionalScanEngine.class);
 

@@ -12,6 +12,10 @@ public record HistoricalDataCapabilities(
         boolean supportsSecondHistorical,
         int maxRowsPerRequest
 ) {
+    public static final HistoricalDataCapabilities EMPTY = new HistoricalDataCapabilities(
+            java.util.Set.of(), 0, 0, false, 0
+    );
+
     public static HistoricalDataCapabilities iciciDefaults() {
         return new HistoricalDataCapabilities(
                 Set.of("1s", "1second", "1m", "1minute", "minute", "5m", "5minute", "30m", "30minute", "1d", "1day", "day"),

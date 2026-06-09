@@ -87,95 +87,6 @@ class BrokerGatewayLiveConnectionTest {
         assertNotNull(result.data().greeks(), "Live OptionQuote should carry greeks (delta/theta/gamma/vega/iv).");
     }
 
-    @Test
-    void extrasOptionGreeksReturnsPresentQuote() throws Exception {
-        connect();
-        InstrumentKeyRef key = resolveNiftyOption();
-
-        Optional<OptionQuote> quote = gateway.broker("dhan").extras().optionGreeks(key.value);
-
-        assertTrue(quote.isPresent(), "extras().optionGreeks(key) should return a present OptionQuote for a connected Dhan broker.");
-        assertNotNull(quote.get().greeks(), "Live OptionQuote should carry greeks (delta/theta/gamma/vega/iv).");
-    }
-
-    @Test
-    void extrasOptionsProviderDirectAccessReturnsSameGreeks() throws Exception {
-        connect();
-        InstrumentKeyRef key = resolveNiftyOption();
-
-        Optional<OptionQuote> direct = gateway.broker("dhan").extras()
-                .optionsProvider()
-                .map(provider -> provider.getGreeks(key.value));
-
-        assertTrue(direct.isPresent(), "optionsProvider() should be resolvable for Dhan.");
-        assertNotNull(direct.get().greeks(), "Direct optionsProvider access should carry greeks.");
-    }
-
-    @Test
-    void extrasInvokeOptionGreeksByNameReturnsPresentQuote() throws Exception {
-        connect();
-        InstrumentKeyRef key = resolveNiftyOption();
-
-        Optional<Object> result = gateway.broker("dhan").extras()
-                .invoke("optionGreeks", key.value);
-
-        assertTrue(result.isPresent(), "extras().invoke('optionGreeks', key) should resolve for Dhan.");
-        assertTrue(result.get() instanceof OptionQuote,
-                "Result should be an OptionQuote, got: " + result.get().getClass().getSimpleName());
-        OptionQuote quote = (OptionQuote) result.get();
-        assertNotNull(quote.greeks(), "Live OptionQuote should carry greeks.");
-    }
-
-    @Test
-    void extrasInvokeGetOptionGreeksAliasAlsoResolves() throws Exception {
-        connect();
-        InstrumentKeyRef key = resolveNiftyOption();
-
-        Optional<Object> result = gateway.broker("dhan").extras()
-                .invoke("getOptionGreeks", key.value);
-
-        assertTrue(result.isPresent(), "extras().invoke('getOptionGreeks', key) alias should resolve for Dhan.");
-        assertTrue(result.get() instanceof OptionQuote,
-                "Aliased result should be an OptionQuote, got: " + result.get().getClass().getSimpleName());
-    }
-
-    @Test
-    void handleInvokeGetOptionGreeksWithExplicitInstrumentKeySkipsResolution() throws Exception {
-        connect();
-        InstrumentKeyRef key = resolveNiftyOption();
-
-        Map<String, Object> params = Map.of("instrumentKey", key.value);
-
-        Optional<Object> result = gateway.broker("dhan").invoke("getOptionGreeks", params);
-
-        assertTrue(result.isPresent(), "handle.invoke('getOptionGreeks', {instrumentKey: ik}) should resolve.");
-        assertTrue(result.get() instanceof GatewayResult,
-                "Map-based dispatch should return a GatewayResult, got: " + result.get().getClass().getSimpleName());
-        @SuppressWarnings("unchecked")
-        GatewayResult<OptionQuote> gatewayResult = (GatewayResult<OptionQuote>) result.get();
-        assertTrue(gatewayResult.isSuccess(),
-                "Direct-key greeks call should succeed but data was null.");
-        assertNotNull(gatewayResult.data().greeks(),
-                "Live OptionQuote should carry greeks (delta/theta/gamma/vega/iv).");
-    }
-
-    @Test
-    void handleInvokeGetOptionGreeksWithUnderlyingSymbolIsAmbiguous() throws Exception {
-        connect();
-
-        // The Map-based dispatch resolves symbol+segment via the cash-instrument catalog,
-        // which yields the underlying (NIFTY) — not a specific option contract.
-        // For options, callers must supply the explicit InstrumentKey.
-        Map<String, Object> params = Map.of(
-                "symbol", "NIFTY",
-                "segment", "IDX_I"
-        );
-
-        assertThrows(IllegalArgumentException.class,
-                () -> gateway.broker("dhan").invoke("getOptionGreeks", params),
-                "symbol+segment resolution must fail clearly for options because a single underlying maps to many contracts.");
-    }
-
     // ── End-to-end canonical index name resolution (RP-100) ─────────
 
     @Test
@@ -252,7 +163,7 @@ class BrokerGatewayLiveConnectionTest {
 
     private void connect() throws Exception {
         DhanConnectionSettings settings = LiveDhanTestSupport.connectionSettingsOrSkip();
-        brokerConnection = new DhanBrokerConnection(settings, new CaffeineIdempotencyCache());
+        brokerConnection = DhanBrokerConnection.create(settings, new CaffeineIdempotencyCache());
         brokerConnection.loadDailyInstrumentCatalog(Files.createTempDirectory("dhan-master-cache"), false);
         gateway = BrokerGateway.of(BrokerSource.DHAN, brokerConnection);
     }

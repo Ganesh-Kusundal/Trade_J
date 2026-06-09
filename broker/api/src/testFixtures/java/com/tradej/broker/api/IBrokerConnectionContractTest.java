@@ -1,10 +1,7 @@
 package com.tradej.broker.api;
 
-import com.tradej.broker.api.capability.AdvancedOrderCapable;
-import com.tradej.broker.api.capability.AlertCapable;
-import com.tradej.broker.api.capability.FuturesCapable;
-import com.tradej.broker.api.capability.MarginCapable;
-import com.tradej.broker.api.capability.OptionsCapable;
+import com.tradej.broker.api.port.ConditionalAlertProvider;
+import com.tradej.broker.api.port.NewsProvider;
 import com.tradej.broker.api.port.FuturesProvider;
 import com.tradej.broker.api.port.InstrumentResolver;
 import com.tradej.broker.api.port.MarginProvider;
@@ -54,21 +51,20 @@ public abstract class IBrokerConnectionContractTest {
 
     @Test
     void getCapabilityNeverReturnsNull() {
-        assertNotNull(connection.getCapability(OptionsCapable.class));
-        assertNotNull(connection.getCapability(FuturesCapable.class));
-        assertNotNull(connection.getCapability(MarginCapable.class));
-        assertNotNull(connection.getCapability(AlertCapable.class));
-        assertNotNull(connection.getCapability(AdvancedOrderCapable.class));
+        assertNotNull(connection.getCapability(OptionsProvider.class));
+        assertNotNull(connection.getCapability(FuturesProvider.class));
+        assertNotNull(connection.getCapability(MarginProvider.class));
+        assertNotNull(connection.getCapability(ConditionalAlertProvider.class));
         assertNotNull(connection.getCapability(String.class));
     }
 
     @Test
     void getCapabilityReturnsPresentForKnownCapabilities() {
-        // At minimum, every broker must advertise these three capabilities
-        assertTrue(connection.getCapability(OptionsCapable.class).isPresent(),
-                "OptionsCapable must be advertised");
-        assertTrue(connection.getCapability(MarginCapable.class).isPresent(),
-                "MarginCapable must be advertised");
+        // At minimum, every broker must advertise these two capabilities
+        assertTrue(connection.getCapability(OptionsProvider.class).isPresent(),
+                "OptionsProvider must be advertised");
+        assertTrue(connection.getCapability(MarginProvider.class).isPresent(),
+                "MarginProvider must be advertised");
     }
 
     @Test
@@ -81,9 +77,9 @@ public abstract class IBrokerConnectionContractTest {
     void capabilityInstancesAreConsistent() {
         // Calling getCapability and then the typed method should yield the same object
         // for the well-known capabilities that this broker supports.
-        var optionsCap = connection.getCapability(OptionsCapable.class);
+        var optionsCap = connection.getCapability(OptionsProvider.class);
         if (optionsCap.isPresent()) {
-            assertSame(optionsCap.get(), connection.getCapability(OptionsCapable.class).orElseThrow(),
+            assertSame(optionsCap.get(), connection.getCapability(OptionsProvider.class).orElseThrow(),
                     "getCapability must be stable (same instance on repeated calls)");
         }
     }

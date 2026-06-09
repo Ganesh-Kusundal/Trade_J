@@ -22,7 +22,7 @@ public final class RiskNode extends BasePipelineNode {
     }
 
     @Override
-    protected void processEvent(DomainEvent event) throws Exception {
+    protected void processEvent(DomainEvent event) {
         riskHandler.onDomainEvent(event, context::publish);
     }
 }

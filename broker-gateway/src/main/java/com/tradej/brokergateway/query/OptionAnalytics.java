@@ -83,16 +83,16 @@ public final class OptionAnalytics {
     /**
      * Top N strikes by total volume.
      */
-    public static List<StrikeOi> topVolume(OptionChainSnapshot chain, int n) {
+    public static List<StrikeVolume> topVolume(OptionChainSnapshot chain, int n) {
         return chain.strikes().stream()
-                .map(e -> new StrikeOi(
+                .map(e -> new StrikeVolume(
                         e.strikePricePaisa(),
                         (e.call() != null ? e.call().volume() : 0) + (e.put() != null ? e.put().volume() : 0),
                         "TOTAL"))
-                .filter(s -> s.openInterest() > 0)
-                .sorted(Comparator.comparingLong(StrikeOi::openInterest).reversed())
+                .filter(s -> s.volume() > 0)
+                .sorted(Comparator.comparingLong(StrikeVolume::volume).reversed())
                 .limit(n)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     // ── Max Pain ────────────────────────────────────────────────────
@@ -193,6 +193,12 @@ public final class OptionAnalytics {
     public record StrikeOi(
             long strikePricePaisa,
             long openInterest,
+            String side
+    ) {}
+
+    public record StrikeVolume(
+            long strikePricePaisa,
+            long volume,
             String side
     ) {}
 

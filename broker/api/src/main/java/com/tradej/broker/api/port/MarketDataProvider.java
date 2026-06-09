@@ -30,7 +30,7 @@ public interface MarketDataProvider {
     Map<InstrumentKey, Quote> getOhlcBatch(Collection<InstrumentKey> instrumentKeys);
 
     default HistoricalDataCapabilities capabilities() {
-        return null;
+        return HistoricalDataCapabilities.EMPTY;
     }
 
     default void validateInterval(String interval) {

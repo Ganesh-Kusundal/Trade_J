@@ -92,13 +92,18 @@ public final class DuckDbEventStore implements DomainEventHandler<DomainEvent>, 
     }
 
     @Override
-    public void onEvent(DomainEvent event) throws Exception {
+    public void onEvent(DomainEvent event) {
         if (pool != null) {
             pool.withConnectionVoid(conn -> persistEvent(conn, event));
         } else {
             synchronized (this) {
-                ensureConnection();
-                persistEvent(connection, event);
+                try {
+                    ensureConnection();
+                    persistEvent(connection, event);
+                } catch (java.sql.SQLException ex) {
+                    throw new IllegalStateException("DuckDb event persistence failed for "
+                            + event.getClass().getSimpleName(), ex);
+                }
             }
         }
     }

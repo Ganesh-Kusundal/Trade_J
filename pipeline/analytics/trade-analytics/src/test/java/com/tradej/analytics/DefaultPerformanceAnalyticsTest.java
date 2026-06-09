@@ -107,4 +107,63 @@ class DefaultPerformanceAnalyticsTest {
         assertNotNull(report.expectancy());
         assertNotNull(report.extraMetrics().get("profitFactor"));
     }
+
+    @Test
+    void testTradeAccumulatorFrom() {
+        TradeRecord winning = new TradeRecord("1", "NIFTY", Instant.now(), Instant.now(),
+                BigDecimal.valueOf(100), BigDecimal.valueOf(105), BigDecimal.ONE,
+                BigDecimal.valueOf(5), BigDecimal.valueOf(5.0), "LONG");
+        DefaultPerformanceAnalytics.TradeAccumulator accWin = DefaultPerformanceAnalytics.TradeAccumulator.from(winning);
+        assertEquals(1, accWin.totalTrades());
+        assertEquals(1, accWin.winningTrades());
+        assertEquals(0, accWin.losingTrades());
+        assertEquals(BigDecimal.valueOf(5), accWin.totalReturn());
+        assertEquals(BigDecimal.valueOf(5), accWin.totalPositiveReturn());
+        assertEquals(BigDecimal.ZERO, accWin.totalNegativeReturn());
+        assertEquals(1, accWin.returns().size());
+
+        TradeRecord losing = new TradeRecord("2", "NIFTY", Instant.now(), Instant.now(),
+                BigDecimal.valueOf(100), BigDecimal.valueOf(95), BigDecimal.ONE,
+                BigDecimal.valueOf(-5), BigDecimal.valueOf(-5.0), "LONG");
+        DefaultPerformanceAnalytics.TradeAccumulator accLoss = DefaultPerformanceAnalytics.TradeAccumulator.from(losing);
+        assertEquals(1, accLoss.totalTrades());
+        assertEquals(0, accLoss.winningTrades());
+        assertEquals(1, accLoss.losingTrades());
+        assertEquals(BigDecimal.valueOf(-5), accLoss.totalReturn());
+        assertEquals(BigDecimal.ZERO, accLoss.totalPositiveReturn());
+        assertEquals(BigDecimal.valueOf(5), accLoss.totalNegativeReturn());
+
+        TradeRecord flat = new TradeRecord("3", "NIFTY", Instant.now(), Instant.now(),
+                BigDecimal.valueOf(100), BigDecimal.valueOf(100), BigDecimal.ONE,
+                BigDecimal.valueOf(0), BigDecimal.valueOf(0.0), "LONG");
+        DefaultPerformanceAnalytics.TradeAccumulator accFlat = DefaultPerformanceAnalytics.TradeAccumulator.from(flat);
+        assertEquals(1, accFlat.totalTrades());
+        assertEquals(0, accFlat.winningTrades());
+        assertEquals(0, accFlat.losingTrades());
+        assertEquals(BigDecimal.ZERO, accFlat.totalReturn());
+        assertEquals(BigDecimal.ZERO, accFlat.totalPositiveReturn());
+        assertEquals(BigDecimal.ZERO, accFlat.totalNegativeReturn());
+    }
+
+    @Test
+    void testTradeAccumulatorMerge() {
+        TradeRecord winning = new TradeRecord("1", "NIFTY", Instant.now(), Instant.now(),
+                BigDecimal.valueOf(100), BigDecimal.valueOf(105), BigDecimal.ONE,
+                BigDecimal.valueOf(5), BigDecimal.valueOf(5.0), "LONG");
+        TradeRecord losing = new TradeRecord("2", "NIFTY", Instant.now(), Instant.now(),
+                BigDecimal.valueOf(100), BigDecimal.valueOf(95), BigDecimal.ONE,
+                BigDecimal.valueOf(-5), BigDecimal.valueOf(-5.0), "LONG");
+
+        DefaultPerformanceAnalytics.TradeAccumulator acc1 = DefaultPerformanceAnalytics.TradeAccumulator.from(winning);
+        DefaultPerformanceAnalytics.TradeAccumulator acc2 = DefaultPerformanceAnalytics.TradeAccumulator.from(losing);
+        DefaultPerformanceAnalytics.TradeAccumulator merged = acc1.merge(acc2);
+
+        assertEquals(2, merged.totalTrades());
+        assertEquals(1, merged.winningTrades());
+        assertEquals(1, merged.losingTrades());
+        assertEquals(BigDecimal.ZERO, merged.totalReturn());
+        assertEquals(BigDecimal.valueOf(5), merged.totalPositiveReturn());
+        assertEquals(BigDecimal.valueOf(5), merged.totalNegativeReturn());
+        assertEquals(2, merged.returns().size());
+    }
 }

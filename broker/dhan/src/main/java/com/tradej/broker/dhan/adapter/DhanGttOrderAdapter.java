@@ -12,43 +12,42 @@ import com.tradej.core.domain.model.OrderRequest;
 
 import java.util.List;
 
-public final class DhanGttOrderAdapter extends DhanBaseRestAdapter implements GttOrderProvider {
+public final class DhanGttOrderAdapter implements GttOrderProvider {
+    private final DhanAdapterContext context;
     private final DhanConnectionSettings settings;
     private final DhanRestOrderClient restOrderClient;
 
     public DhanGttOrderAdapter(
-            DhanClientHolder clientHolder,
-            DhanInstrumentResolver resolver,
-            DhanRetryExecutor resilienceExecutor,
+            DhanAdapterContext context,
             DhanConnectionSettings settings,
             DhanRestOrderClient restOrderClient
     ) {
-        super(clientHolder, resolver, resilienceExecutor);
+        this.context = context;
         this.settings = settings;
         this.restOrderClient = restOrderClient;
     }
 
     @Override
     public Order placeForeverOrder(OrderRequest request, String orderFlag, Long quantity2, Long price2Paisa, Long trigger2Paisa) {
-        return execute(ApiCategory.ORDER, "forever-order-place", () -> {
-            DhanInstrumentDefinition definition = resolveDef(request.symbol(), request.exchangeSegment());
+        return context.execute(ApiCategory.ORDER, "forever-order-place", () -> {
+            DhanInstrumentDefinition definition = context.resolveDef(request.symbol(), request.exchangeSegment());
             return restOrderClient.placeForeverOrder(request, definition, orderFlag, quantity2, price2Paisa, trigger2Paisa);
         });
     }
 
     @Override
     public Order modifyForeverOrder(String orderId, String orderFlag, String legName, long quantity, long pricePaisa, long triggerPricePaisa) {
-        return execute(ApiCategory.ORDER, "forever-order-modify", () ->
+        return context.execute(ApiCategory.ORDER, "forever-order-modify", () ->
                 restOrderClient.modifyForeverOrder(orderId, orderFlag, legName, quantity, pricePaisa, triggerPricePaisa));
     }
 
     @Override
     public boolean cancelForeverOrder(String orderId) {
-        return execute(ApiCategory.ORDER, "forever-order-cancel", () -> restOrderClient.cancelForeverOrder(orderId));
+        return context.execute(ApiCategory.ORDER, "forever-order-cancel", () -> restOrderClient.cancelForeverOrder(orderId));
     }
 
     @Override
     public List<Order> getForeverOrders() {
-        return execute(ApiCategory.ORDER, "forever-order-list", restOrderClient::getForeverOrders);
+        return context.execute(ApiCategory.ORDER, "forever-order-list", restOrderClient::getForeverOrders);
     }
 }

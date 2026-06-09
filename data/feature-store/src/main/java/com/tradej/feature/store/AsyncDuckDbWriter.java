@@ -105,7 +105,7 @@ public final class AsyncDuckDbWriter implements DomainEventHandler<DomainEvent>,
      * is full, the event is dropped and the dropped-event counter is incremented.
      */
     @Override
-    public void onEvent(DomainEvent event) throws Exception {
+    public void onEvent(DomainEvent event) {
         if (!queue.offer(event)) {
             droppedEventCount.incrementAndGet();
             log.warn("AsyncDuckDbWriter queue full — dropping event type={} eventId={} droppedTotal={}",

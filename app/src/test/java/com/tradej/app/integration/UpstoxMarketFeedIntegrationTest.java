@@ -158,7 +158,12 @@ class UpstoxMarketFeedIntegrationTest {
                 futuresProvider,
                 optionsProvider,
                 newsProvider,
-                null, // conditionalAlertProvider - not needed for market feed test
+                new com.tradej.broker.api.port.ConditionalAlertProvider() {
+                    @Override public String placeAlert(com.tradej.core.domain.model.ConditionalAlertRequest request) { throw new UnsupportedOperationException(); }
+                    @Override public com.tradej.core.domain.model.ConditionalAlert getAlert(String alertId) { throw new UnsupportedOperationException(); }
+                    @Override public java.util.List<com.tradej.core.domain.model.ConditionalAlert> listAlerts() { throw new UnsupportedOperationException(); }
+                    @Override public boolean deleteAlert(String alertId) { throw new UnsupportedOperationException(); }
+                }, // conditionalAlertProvider - not needed for market feed test
                 null, // sliceOrderCommand - not needed for market feed test
                 null, // dataServicesProvider - not needed for market feed test
                 null, // profileProvider - not needed for market feed test

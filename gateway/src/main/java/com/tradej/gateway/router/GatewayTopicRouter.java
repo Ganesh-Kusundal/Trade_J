@@ -37,7 +37,7 @@ import java.util.function.Predicate;
  * only that transport's event is dropped with a DEBUG-level log and a per-transport
  * drop counter.
  */
-public final class GatewayTopicRouter {
+public class GatewayTopicRouter {
 
     private static final Logger log = LoggerFactory.getLogger(GatewayTopicRouter.class);
 

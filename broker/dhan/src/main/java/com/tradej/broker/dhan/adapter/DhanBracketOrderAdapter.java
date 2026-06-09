@@ -15,26 +15,25 @@ import com.tradej.core.domain.model.OrderRequest;
 import java.util.ArrayList;
 import java.util.List;
 
-public final class DhanBracketOrderAdapter extends DhanBaseRestAdapter implements BracketOrderProvider {
+public final class DhanBracketOrderAdapter implements BracketOrderProvider {
+    private final DhanAdapterContext context;
     private final DhanConnectionSettings settings;
     private final DhanRestOrderClient restOrderClient;
 
     public DhanBracketOrderAdapter(
-            DhanClientHolder clientHolder,
-            DhanInstrumentResolver resolver,
-            DhanRetryExecutor resilienceExecutor,
+            DhanAdapterContext context,
             DhanConnectionSettings settings,
             DhanRestOrderClient restOrderClient
     ) {
-        super(clientHolder, resolver, resilienceExecutor);
+        this.context = context;
         this.settings = settings;
         this.restOrderClient = restOrderClient;
     }
 
     @Override
     public Order placeSuperOrder(OrderRequest request, long targetPricePaisa, long stopLossPricePaisa, long trailingJumpPaisa) {
-        return execute(ApiCategory.ORDER, "super-order-place", () -> {
-            DhanInstrumentDefinition definition = resolveDef(request.symbol(), request.exchangeSegment());
+        return context.execute(ApiCategory.ORDER, "super-order-place", () -> {
+            DhanInstrumentDefinition definition = context.resolveDef(request.symbol(), request.exchangeSegment());
             return restOrderClient.placeSuperOrder(request, definition, targetPricePaisa, stopLossPricePaisa, trailingJumpPaisa);
         });
     }
@@ -44,24 +43,24 @@ public final class DhanBracketOrderAdapter extends DhanBaseRestAdapter implement
         Object raw = restOrderClient.modifySuperOrderViaApi(orderId, quantity, pricePaisa, triggerPricePaisa, settings);
         DhanJsonResponse response = DhanJsonMapper.wrap(raw);
         DhanJsonResponse data = response.has("data") ? response.path("data") : response;
-        DhanInstrumentDefinition definition = resolvePayload(data.raw());
+        DhanInstrumentDefinition definition = context.resolvePayload(data.raw());
         return DhanJsonMapper.toOrder(data, definition.toInstrument());
     }
 
     @Override
     public boolean cancelSuperOrder(String orderId, String legName) {
-        return execute(ApiCategory.ORDER, "cancel-super-order",
+        return context.execute(ApiCategory.ORDER, "cancel-super-order",
                 () -> restOrderClient.cancelSuperOrderViaApi(orderId, legName, settings));
     }
 
     @Override
     public List<Order> getSuperOrders() {
-        return execute(ApiCategory.ORDER, "get-super-orders", () -> {
+        return context.execute(ApiCategory.ORDER, "get-super-orders", () -> {
             List<Object> rawOrders = restOrderClient.fetchSuperOrdersViaApi(settings);
             List<Order> orders = new ArrayList<>();
             for (Object raw : rawOrders) {
                 DhanJsonResponse data = DhanJsonMapper.wrap(raw);
-                DhanInstrumentDefinition definition = resolvePayload(data.raw());
+                DhanInstrumentDefinition definition = context.resolvePayload(data.raw());
                 orders.add(DhanJsonMapper.toOrder(data, definition.toInstrument()));
             }
             return List.copyOf(orders);

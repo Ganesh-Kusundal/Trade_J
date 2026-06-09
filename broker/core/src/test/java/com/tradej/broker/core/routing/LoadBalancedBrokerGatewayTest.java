@@ -1,8 +1,8 @@
 package com.tradej.broker.core.routing;
 
 import com.tradej.broker.api.IBrokerConnection;
-import com.tradej.broker.api.capability.OptionsCapable;
 import com.tradej.broker.api.port.*;
+import static org.mockito.Mockito.mock;
 import com.tradej.core.domain.model.CandleHistoryRequest;
 import com.tradej.core.domain.model.InstrumentKey;
 import com.tradej.core.domain.model.Order;
@@ -41,7 +41,7 @@ class LoadBalancedBrokerGatewayTest {
     void advertisesOptionsCapability() {
         LoadBalancedBrokerGateway gateway = new LoadBalancedBrokerGateway(
                 List.of(stubConnection("only", new AtomicInteger(), 1L)));
-        assertTrue(gateway.getCapability(OptionsCapable.class).isPresent());
+        assertTrue(gateway.getCapability(OptionsProvider.class).isPresent());
     }
 
     private static final class StubMarketData implements MarketDataProvider {
@@ -260,8 +260,8 @@ class LoadBalancedBrokerGatewayTest {
 
             @Override
             public <T> Optional<T> getCapability(Class<T> capabilityClass) {
-                if (OptionsCapable.class.equals(capabilityClass)) {
-                    return Optional.of(capabilityClass.cast(new OptionsCapable() {}));
+                if (OptionsProvider.class.equals(capabilityClass)) {
+                    return Optional.of(capabilityClass.cast(mock(OptionsProvider.class)));
                 }
                 return Optional.empty();
             }

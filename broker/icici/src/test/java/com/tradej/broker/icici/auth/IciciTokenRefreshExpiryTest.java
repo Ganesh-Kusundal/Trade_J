@@ -34,10 +34,12 @@ class IciciTokenRefreshExpiryTest {
     void tokenManagerCreatesWithTotpMode() throws IOException {
         Path totpFile = tempDir.resolve("totp-secret.txt");
         Files.writeString(totpFile, "JBSWY3DPEHPK3PXP");
+        Path usernameFile = tempDir.resolve("username.txt");
+        Path passwordFile = tempDir.resolve("password.txt");
         Path tokenState = tempDir.resolve("token-state.json");
         BreezeConnectionSettings settings = BreezeConnectionSettings.withDefaults(
                 "app-key", "secret-key", null,
-                IciciAuthMode.TOTP_GENERATED, totpFile, null, null, null, tokenState,
+                IciciAuthMode.TOTP_GENERATED, totpFile, usernameFile, passwordFile, null, tokenState,
                 false, 5, 8080, "/callback", true, 30
         );
         BreezeTokenManager manager = new BreezeTokenManager(settings);

@@ -58,7 +58,8 @@ public class MarketDataPipeline {
     private final AtomicLong depthCount;
     private final AtomicLong tickRateLimitedCount;
     private volatile long lastTickTimestampMs;
-    private final AtomicReference<RateState> rateState;
+    private final AtomicLong lastEventNanos;
+    private final AtomicLong smoothedRateBits;
 
     /**
      * Creates an unlimited pipeline (no rate limiting).
@@ -83,7 +84,8 @@ public class MarketDataPipeline {
         this.depthCount = new AtomicLong(0);
         this.tickRateLimitedCount = new AtomicLong(0);
         this.lastTickTimestampMs = 0L;
-        this.rateState = new AtomicReference<>(new RateState(0.0, 0L));
+        this.lastEventNanos = new AtomicLong(0L);
+        this.smoothedRateBits = new AtomicLong(Double.doubleToRawLongBits(0.0));
     }
 
     /**
@@ -161,7 +163,7 @@ public class MarketDataPipeline {
      * {@value #RATE_ALPHA} as the EMA alpha factor.
      */
     public double tickRate() {
-        return rateState.get().smoothedRate;
+        return Double.longBitsToDouble(smoothedRateBits.get());
     }
 
     /**
@@ -194,33 +196,23 @@ public class MarketDataPipeline {
      */
     private void updateTickRate() {
         long now = System.nanoTime();
+        long prev = lastEventNanos.getAndSet(now);
+        if (prev == 0L) {
+            // First tick — no interval to compute rate yet
+            return;
+        }
+        double elapsedSec = (now - prev) / 1_000_000_000.0;
+        if (elapsedSec <= 0) {
+            return; // Same nanosecond tick, skip
+        }
+        double instantRate = 1.0 / elapsedSec;
         while (true) {
-            RateState current = rateState.get();
-            if (current.lastEventNanos == 0L) {
-                // First tick — no interval to compute rate yet
-                if (rateState.compareAndSet(current, new RateState(0.0, now))) {
-                    return;
-                }
-            } else {
-                double elapsedSec = (now - current.lastEventNanos) / 1_000_000_000.0;
-                if (elapsedSec <= 0) {
-                    return; // Same nanosecond tick, skip
-                }
-                double instantRate = 1.0 / elapsedSec;
-                double smoothed = RATE_ALPHA * instantRate + (1.0 - RATE_ALPHA) * current.smoothedRate;
-                if (rateState.compareAndSet(current, new RateState(smoothed, now))) {
-                    return;
-                }
+            long currentBits = smoothedRateBits.get();
+            double currentRate = Double.longBitsToDouble(currentBits);
+            double smoothed = RATE_ALPHA * instantRate + (1.0 - RATE_ALPHA) * currentRate;
+            if (smoothedRateBits.compareAndSet(currentBits, Double.doubleToRawLongBits(smoothed))) {
+                return;
             }
         }
-    }
-
-    /**
-     * Immutable rate tracking state for lock-free CAS updates.
-     *
-     * @param smoothedRate   exponential moving average ticks/second
-     * @param lastEventNanos System.nanoTime() of the most recent tick (0 for first tick)
-     */
-    private record RateState(double smoothedRate, long lastEventNanos) {
     }
 }

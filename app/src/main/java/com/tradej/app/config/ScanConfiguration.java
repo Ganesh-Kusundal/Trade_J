@@ -128,10 +128,10 @@ public class ScanConfiguration {
                 scanDependencies,
                 scanStore,
                 subscriptionManager,
-                Optional.ofNullable(gatewayRouter),
+                gatewayRouter,
                 objectMapper,
-                Optional.ofNullable(institutionalScanEngine),
-                Optional.ofNullable(historicalBarRepository)
+                institutionalScanEngine,
+                historicalBarRepository
         );
     }
 }

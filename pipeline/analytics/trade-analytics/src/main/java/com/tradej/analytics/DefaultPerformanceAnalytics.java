@@ -26,37 +26,62 @@ public final class DefaultPerformanceAnalytics implements PerformanceAnalytics {
         return PerformanceReport.empty(execution.executionId().toString());
     }
 
+    record TradeAccumulator(
+            int totalTrades,
+            int winningTrades,
+            int losingTrades,
+            BigDecimal totalReturn,
+            BigDecimal totalPositiveReturn,
+            BigDecimal totalNegativeReturn,
+            List<BigDecimal> returns
+    ) {
+        static TradeAccumulator from(TradeRecord trade) {
+            BigDecimal pnl = trade.pnl();
+            BigDecimal retPct = trade.returnPct();
+            return new TradeAccumulator(
+                    1,
+                    pnl.compareTo(BigDecimal.ZERO) > 0 ? 1 : 0,
+                    pnl.compareTo(BigDecimal.ZERO) < 0 ? 1 : 0,
+                    pnl,
+                    pnl.compareTo(BigDecimal.ZERO) > 0 ? pnl : BigDecimal.ZERO,
+                    pnl.compareTo(BigDecimal.ZERO) < 0 ? pnl.abs() : BigDecimal.ZERO,
+                    retPct != null ? List.of(retPct) : List.of()
+            );
+        }
+
+        TradeAccumulator merge(TradeAccumulator other) {
+            List<BigDecimal> mergedReturns = new ArrayList<>(this.returns);
+            mergedReturns.addAll(other.returns);
+            return new TradeAccumulator(
+                    this.totalTrades + other.totalTrades,
+                    this.winningTrades + other.winningTrades,
+                    this.losingTrades + other.losingTrades,
+                    this.totalReturn.add(other.totalReturn),
+                    this.totalPositiveReturn.add(other.totalPositiveReturn),
+                    this.totalNegativeReturn.add(other.totalNegativeReturn),
+                    mergedReturns
+            );
+        }
+    }
+
     @Override
     public PerformanceReport analyzeTrades(List<TradeRecord> trades) {
         if (trades == null || trades.isEmpty()) {
             return PerformanceReport.empty(UUID.randomUUID().toString());
         }
 
-        int totalTrades = trades.size();
-        int winningTrades = 0;
-        int losingTrades = 0;
-        BigDecimal totalReturn = BigDecimal.ZERO;
-        BigDecimal totalPositiveReturn = BigDecimal.ZERO;
-        BigDecimal totalNegativeReturn = BigDecimal.ZERO;
-        List<BigDecimal> returns = new ArrayList<>();
+        TradeAccumulator acc = trades.stream()
+                .map(TradeAccumulator::from)
+                .reduce(TradeAccumulator::merge)
+                .orElseThrow();
 
-        for (TradeRecord trade : trades) {
-            BigDecimal pnl = trade.pnl();
-            BigDecimal retPct = trade.returnPct();
-
-            if (pnl.compareTo(BigDecimal.ZERO) > 0) {
-                winningTrades++;
-                totalPositiveReturn = totalPositiveReturn.add(pnl);
-            } else if (pnl.compareTo(BigDecimal.ZERO) < 0) {
-                losingTrades++;
-                totalNegativeReturn = totalNegativeReturn.add(pnl.abs());
-            }
-
-            totalReturn = totalReturn.add(pnl);
-            if (retPct != null) {
-                returns.add(retPct);
-            }
-        }
+        int totalTrades = acc.totalTrades();
+        int winningTrades = acc.winningTrades();
+        int losingTrades = acc.losingTrades();
+        BigDecimal totalReturn = acc.totalReturn();
+        BigDecimal totalPositiveReturn = acc.totalPositiveReturn();
+        BigDecimal totalNegativeReturn = acc.totalNegativeReturn();
+        List<BigDecimal> returns = acc.returns();
 
         BigDecimal winRatePct = totalTrades > 0
                 ? HUNDRED.multiply(BigDecimal.valueOf(winningTrades)).divide(BigDecimal.valueOf(totalTrades), MC)

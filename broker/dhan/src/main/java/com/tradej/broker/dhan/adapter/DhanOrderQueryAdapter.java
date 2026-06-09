@@ -16,25 +16,24 @@ import com.tradej.core.domain.value.OrderStatus;
 import java.util.List;
 import java.util.OptionalLong;
 
-public final class DhanOrderQueryAdapter extends DhanBaseRestAdapter implements OrderQuery {
+public final class DhanOrderQueryAdapter implements OrderQuery {
+    private final DhanAdapterContext context;
     private final DhanConnectionSettings settings;
     private final DhanRestOrderClient restOrderClient;
 
     public DhanOrderQueryAdapter(
-            DhanClientHolder clientHolder,
-            DhanInstrumentResolver instrumentResolver,
-            DhanRetryExecutor resilienceExecutor,
+            DhanAdapterContext context,
             DhanConnectionSettings settings,
             DhanRestOrderClient restOrderClient
     ) {
-        super(clientHolder, instrumentResolver, resilienceExecutor);
+        this.context = context;
         this.settings = settings;
         this.restOrderClient = restOrderClient;
     }
 
     @Override
     public Order getOrder(String orderId) {
-        return execute(ApiCategory.ORDER, "get-order", () -> {
+        return context.execute(ApiCategory.ORDER, "get-order", () -> {
             Order order;
             if (settings.isSandbox()) {
                 order = restOrderClient.getOrder(orderId);
@@ -54,7 +53,7 @@ public final class DhanOrderQueryAdapter extends DhanBaseRestAdapter implements 
      * falls back to iterating the order book in sandbox mode.
      */
     public Order getOrderByCorrelationId(String correlationId) {
-        return execute(ApiCategory.ORDER, "get-order-by-correlation", () -> {
+        return context.execute(ApiCategory.ORDER, "get-order-by-correlation", () -> {
             Order order;
             if (settings.isSandbox()) {
                 order = getOrderBook().stream()
@@ -74,14 +73,14 @@ public final class DhanOrderQueryAdapter extends DhanBaseRestAdapter implements 
 
     @Override
     public List<Order> getOrderBook() {
-        return execute(ApiCategory.ORDER, "get-order-book",
+        return context.execute(ApiCategory.ORDER, "get-order-book",
                 () -> restOrderClient.getOrders().stream().map(this::resolveOrder).toList()
         );
     }
 
     @Override
     public List<Trade> getTradeBook() {
-        return execute(ApiCategory.ORDER, "get-trade-book", () -> {
+        return context.execute(ApiCategory.ORDER, "get-trade-book", () -> {
             if (settings.isSandbox()) {
                 return restOrderClient.getTrades().stream().map(this::resolveTrade).toList();
             }
@@ -89,7 +88,7 @@ public final class DhanOrderQueryAdapter extends DhanBaseRestAdapter implements 
             return rawTrades.stream()
                     .map(raw -> {
                         DhanJsonResponse resp = DhanJsonMapper.wrap(raw);
-                        DhanInstrumentDefinition def = resolvePayload(resp.raw());
+                        DhanInstrumentDefinition def = context.resolvePayload(resp.raw());
                         return DhanJsonMapper.toTrade(resp, def.toInstrument());
                     })
                     .map(this::resolveTrade)
@@ -103,7 +102,7 @@ public final class DhanOrderQueryAdapter extends DhanBaseRestAdapter implements 
      * filters from the full trade book in sandbox mode.
      */
     public List<Trade> getTradesForOrder(String orderId) {
-        return execute(ApiCategory.ORDER, "get-trades-for-order", () -> {
+        return context.execute(ApiCategory.ORDER, "get-trades-for-order", () -> {
             if (settings.isSandbox()) {
                 return getTradeBook().stream()
                         .filter(t -> orderId.equals(t.orderId()))
@@ -113,7 +112,7 @@ public final class DhanOrderQueryAdapter extends DhanBaseRestAdapter implements 
             return rawTrades.stream()
                     .map(raw -> {
                         DhanJsonResponse resp = DhanJsonMapper.wrap(raw);
-                        DhanInstrumentDefinition def = resolvePayload(resp.raw());
+                        DhanInstrumentDefinition def = context.resolvePayload(resp.raw());
                         return DhanJsonMapper.toTrade(resp, def.toInstrument());
                     })
                     .map(this::resolveTrade)
@@ -152,7 +151,7 @@ public final class DhanOrderQueryAdapter extends DhanBaseRestAdapter implements 
 
     private Order resolveOrder(Order order) {
         try {
-            DhanInstrumentDefinition definition = resolveDef(order.symbol(), order.exchangeSegment());
+            DhanInstrumentDefinition definition = context.resolveDef(order.symbol(), order.exchangeSegment());
             return new Order(
                     order.orderId(),
                     order.correlationId(),
@@ -176,7 +175,7 @@ public final class DhanOrderQueryAdapter extends DhanBaseRestAdapter implements 
 
     private Trade resolveTrade(Trade trade) {
         try {
-            DhanInstrumentDefinition definition = resolveDef(trade.symbol(), trade.exchangeSegment());
+            DhanInstrumentDefinition definition = context.resolveDef(trade.symbol(), trade.exchangeSegment());
             return new Trade(
                     trade.tradeId(),
                     trade.orderId(),

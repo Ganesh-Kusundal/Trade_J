@@ -5,6 +5,7 @@ import com.tradej.broker.api.port.FuturesProvider;
 import com.tradej.broker.api.port.GttOrderProvider;
 import com.tradej.broker.api.port.MarginProvider;
 import com.tradej.broker.api.port.NewsProvider;
+import com.tradej.broker.api.port.OptionsProvider;
 import com.tradej.broker.api.port.SessionRiskProvider;
 import com.tradej.broker.api.port.SliceOrderCommand;
 import com.tradej.brokergateway.BrokerHandle;
@@ -120,7 +121,7 @@ public final class BrokerCertification {
         }));
 
         checks.add(runCheck("option-greeks", () -> {
-            if (!broker.supports(com.tradej.broker.api.capability.OptionsCapable.class)) {
+            if (!broker.supports(OptionsProvider.class)) {
                 throw new UnsupportedOperationException("Broker does not support options capability");
             }
             var expiries = broker.connection().options().getExpiries(underlying, segment);

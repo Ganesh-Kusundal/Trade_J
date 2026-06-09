@@ -28,14 +28,13 @@ class RuntimeModeStartupOrderComponentTest {
     }
 
     private static void assertModeVisibleToRunner(RuntimeMode configured) {
-        RuntimeModeHolder holder = new RuntimeModeHolder();
         TradingProperties properties = new TradingProperties(
                 null, null, null, null, null, null, null, null,
                 new TradingProperties.RuntimeProperties(configured),
                 null, null, null, null, null, null, null, null,
                 null
         );
-        new RuntimeConfiguration(properties, holder).applyConfiguredMode();
+        RuntimeModeHolder holder = new RuntimeConfiguration().runtimeModeHolder(properties);
 
         ApplicationRunner startupRunner = args -> { /* no-op: simulates BrokerStartupOrchestrator entry */ };
         try {

@@ -3,16 +3,16 @@ spring:
     name: trade-j
   profiles:
     default: dev
-    group:
-      dev-live:
-        - dev
-        - dev-live
-      upstox-dev:
-        - upstox-dev
-      upstox-prod:
-        - upstox-prod
-      upstox-analytics:
-        - upstox-analytics
+    # Active profiles:
+    #   dev          — Dhan sandbox, local dev (application-dev.yml)
+    #   dev-live     — Dhan live credentials in dev env (application-dev-live.yml)
+    #   prod         — Dhan live, production (application-prod.yml)
+    #   gateway      — Multi-broker load-balanced (application-gateway.yml)
+    #   replay       — Offline replay mode, no live broker (application-replay.yml)
+    #   test         — Integration tests with sandbox (application-test.yml)
+    #
+    # To switch broker type, set trade.broker-type=upstox|icici|gateway
+    # and provide the corresponding env vars (see application-prod.yml comments)
 
 management:
   endpoints:

@@ -23,7 +23,7 @@ public final class CandleNode extends BasePipelineNode {
     }
 
     @Override
-    protected void processEvent(DomainEvent event) throws Exception {
+    protected void processEvent(DomainEvent event) {
         if (event instanceof CandleClosed closed) {
             context.publish(closed);
             return;

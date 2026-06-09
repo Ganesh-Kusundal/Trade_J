@@ -78,7 +78,7 @@ class GatewayFailoverTest {
         IBrokerConnection primary = mockConnectionWithOrders(primaryOrders, ws1);
         IBrokerConnection backup = mockConnectionWithOrders(backupOrders, ws2);
 
-        FailoverOrderCommand failover = new FailoverOrderCommand(List.of(primary, backup));
+        LoadBalancedBrokerGateway.FailoverOrderCommand failover = new LoadBalancedBrokerGateway.FailoverOrderCommand(List.of(primary, backup));
 
         OrderRequest request = mock(OrderRequest.class);
         Order result = failover.placeOrder(request);
@@ -114,7 +114,7 @@ class GatewayFailoverTest {
         IBrokerConnection primary = mockConnectionWithOrders(primaryOrders, ws1);
         IBrokerConnection backup = mockConnectionWithOrders(backupOrders, ws2);
 
-        FailoverOrderCommand failover = new FailoverOrderCommand(List.of(primary, backup));
+        LoadBalancedBrokerGateway.FailoverOrderCommand failover = new LoadBalancedBrokerGateway.FailoverOrderCommand(List.of(primary, backup));
 
         // First call: primary fails, backup handles it (index rotates to 1)
         failover.placeOrder(request);
@@ -143,7 +143,7 @@ class GatewayFailoverTest {
         lenient().when(conn1.websocket()).thenReturn(ws1);
         lenient().when(conn2.websocket()).thenReturn(ws2);
 
-        FailoverWebSocketMultiplexer mux = new FailoverWebSocketMultiplexer(List.of(conn1, conn2));
+        LoadBalancedBrokerGateway.FailoverWebSocketMultiplexer mux = new LoadBalancedBrokerGateway.FailoverWebSocketMultiplexer(List.of(conn1, conn2));
 
         MarketSubscriptionRequest sub = new MarketSubscriptionRequest("SBIN", ExchangeSegment.NSE_EQ);
         mux.subscribe(List.of(sub), FeedMode.QUOTE);

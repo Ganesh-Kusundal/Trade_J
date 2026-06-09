@@ -126,10 +126,23 @@ public final class PortfolioEngine {
      */
     public void onDomainEvent(DomainEvent event, Consumer<DomainEvent> downstream) {
         if (running) {
-            if (!eventQueue.offer(new PortfolioCommand(event, downstream))) {
-                long dropped = droppedEventCount.incrementAndGet();
-                log.warn("PortfolioEngine queue full — dropping event type={} droppedCount={}",
-                        event.getClass().getSimpleName(), dropped);
+            boolean isLedgerEvent = event instanceof TradeOpened
+                    || event instanceof TradeClosed
+                    || event instanceof OrderAccepted
+                    || event instanceof OrderRejected;
+            if (isLedgerEvent) {
+                try {
+                    eventQueue.put(new PortfolioCommand(event, downstream));
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    log.error("Interrupted while putting ledger event into PortfolioEngine queue", e);
+                }
+            } else {
+                if (!eventQueue.offer(new PortfolioCommand(event, downstream))) {
+                    long dropped = droppedEventCount.incrementAndGet();
+                    log.warn("PortfolioEngine queue full — dropping event type={} droppedCount={}",
+                            event.getClass().getSimpleName(), dropped);
+                }
             }
         } else {
             processEvent(event, downstream);

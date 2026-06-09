@@ -91,8 +91,9 @@ class DhanOrderQueryAdapterLiveTest {
     }
 
     private void createAdapter() {
+        DhanAdapterContext context = new DhanAdapterContext(clientHolder, instrumentResolver, executor);
         adapter = new DhanOrderQueryAdapter(
-                clientHolder, instrumentResolver, executor, settings, restOrderClient
+                context, settings, restOrderClient
         );
     }
 

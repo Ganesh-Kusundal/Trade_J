@@ -61,12 +61,15 @@ public final class BrokerExplorer {
         capabilities.put("MarketStatusProvider", conn.getCapability(MarketStatusProvider.class).isPresent());
 
         // ── 6 Capability Marker Interfaces ──
-        capabilities.put("OptionsCapable", conn.getCapability(com.tradej.broker.api.capability.OptionsCapable.class).isPresent());
-        capabilities.put("FuturesCapable", conn.getCapability(com.tradej.broker.api.capability.FuturesCapable.class).isPresent());
-        capabilities.put("MarginCapable", conn.getCapability(com.tradej.broker.api.capability.MarginCapable.class).isPresent());
-        capabilities.put("AlertCapable", conn.getCapability(com.tradej.broker.api.capability.AlertCapable.class).isPresent());
-        capabilities.put("AdvancedOrderCapable", conn.getCapability(com.tradej.broker.api.capability.AdvancedOrderCapable.class).isPresent());
-        capabilities.put("NewsCapable", conn.getCapability(com.tradej.broker.api.capability.NewsCapable.class).isPresent());
+        capabilities.put("OptionsCapable", conn.getCapability(OptionsProvider.class).isPresent());
+        capabilities.put("FuturesCapable", conn.getCapability(FuturesProvider.class).isPresent());
+        capabilities.put("MarginCapable", conn.getCapability(MarginProvider.class).isPresent());
+        capabilities.put("AlertCapable", conn.getCapability(ConditionalAlertProvider.class).isPresent());
+        capabilities.put("AdvancedOrderCapable", conn.getCapability(BracketOrderProvider.class).isPresent()
+                || conn.getCapability(CoverOrderProvider.class).isPresent()
+                || conn.getCapability(GttOrderProvider.class).isPresent()
+                || conn.getCapability(SliceOrderCommand.class).isPresent());
+        capabilities.put("NewsCapable", conn.getCapability(NewsProvider.class).isPresent());
 
         Map<String, String> metadata = new LinkedHashMap<>();
         metadata.put("broker", broker.source().name());

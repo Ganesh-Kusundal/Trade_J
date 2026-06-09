@@ -79,7 +79,12 @@ class DisruptorSignalToExecutionComponentTest {
                 new LiveTradingClock(),
                 new TradingCircuitBreaker(),
                 new OrderIdentityRegistry(),
-                DeadLetterQueue.noop()
+                DeadLetterQueue.noop(),
+                com.tradej.execution.service.ExecutionConfig.DEFAULTS.withDownstream(e -> {
+                    if (eventBus != null) {
+                        eventBus.publish(e);
+                    }
+                })
         );
 
         var bridge = new com.tradej.disruptor.testsupport.TestPipelineGraphBridge(riskHandler, executionHandler);

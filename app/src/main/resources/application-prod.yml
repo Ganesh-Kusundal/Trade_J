@@ -2,7 +2,10 @@ spring:
   config:
     import: optional:file:./config/dhan-local.properties
 
+# ─── Dhan LIVE (default production broker) ────────────────────────────────────
 trade:
+  broker-type: dhan
+
   broker:
     client-id: ${dhan.clientId:${DHAN_CLIENT_ID:}}
     access-token: ${dhan.accessToken:${DHAN_ACCESS_TOKEN:}}
@@ -15,3 +18,88 @@ trade:
     duckdb-path: runtime-prod/trade.duckdb
   instruments:
     cache-directory: runtime-prod/instruments
+
+# ─── Upstox LIVE — activate with: --spring.profiles.active=prod,upstox-prod ──
+# Merged from application-upstox-prod.yml (deleted).
+# To use Upstox in prod, override trade.broker-type=upstox and supply:
+#
+# trade:
+#   broker-type: upstox
+#   upstox:
+#     client-id: ${upstox.live.clientId}
+#     client-secret: ${upstox.live.clientSecret}
+#     redirect-uri: ${upstox.live.redirectUri}
+#     access-token: ${upstox.live.accessToken:}
+#     analytics-token: ${upstox.live.analyticsToken:}
+#     analytics-only: false
+#     sandbox: false
+#     refresh-buffer-ms: 1800000
+#     token-expiry-buffer-ms: 600000
+#   storage:
+#     chronicle-path: runtime-prod/events
+#     duckdb-path: runtime-prod/data.db
+#
+# Credentials file: ./config/upstox-live.properties
+
+# ─── Upstox SANDBOX dev — activate with: --spring.profiles.active=upstox-dev ─
+# Merged from application-upstox-dev.yml (deleted).
+# trade:
+#   broker-type: upstox
+#   upstox:
+#     client-id: ${upstox.sandbox.clientId}
+#     client-secret: ${upstox.sandbox.clientSecret}
+#     redirect-uri: ${upstox.sandbox.redirectUri}
+#     access-token: ${upstox.sandbox.accessToken:}
+#     analytics-only: false
+#     sandbox: true
+#     refresh-buffer-ms: 1800000
+#     token-expiry-buffer-ms: 600000
+#   storage:
+#     chronicle-path: runtime-dev/events
+#     duckdb-path: runtime-dev/data.db
+#
+# Credentials file: ./config/upstox-sandbox.properties
+
+# ─── Upstox Analytics-only — activate with upstox-analytics profile ───────────
+# Merged from application-upstox-analytics.yml (deleted).
+# Same as upstox-prod but analytics-only: true and the analytics-token is required:
+#
+# trade:
+#   broker-type: upstox
+#   upstox:
+#     analytics-only: true
+#     analytics-token: ${upstox.live.analyticsToken}   # required
+#   instruments:
+#     cache-directory: runtime-dev/upstox-instruments
+#     auto-download: true
+#   subscriptions:
+#     - symbol: SBIN
+#       exchange-segment: NSE_EQ
+#       feed-mode: QUOTE
+
+# ─── ICICI LIVE — activate with: --spring.profiles.active=icici-prod ──────────
+# Merged from application-icici-prod.yml (deleted).
+# trade:
+#   broker-type: icici
+#   icici:
+#     appKey: ${ICICI_API_KEY:}
+#     secretKey: ${ICICI_API_SECRET:}
+#     authMode: ${ICICI_AUTH_MODE:BROWSER_AUTOMATED}
+#     totpSecretFile: config/icici-totp-secret.txt
+#     usernameFile: config/icici-username.txt
+#     passwordFile: config/icici-password.txt
+#     apiSessionFile: config/icici-api-session.txt
+#     tokenStateFile: runtime/icici-token-state.json
+#     ordersEnabled: true
+#     refreshBufferMinutes: 10
+#     loginRedirectPort: 9080
+#     loginRedirectPath: /api
+#     browserHeadless: true
+#     browserLoginTimeoutSeconds: 120
+#   instruments:
+#     auto-download: true
+#     cache-directory: runtime/icici-instruments
+#   subscriptions:
+#     - symbol: RELIANCE
+#       exchange-segment: NSE_EQ
+#       feed-mode: LTP

@@ -177,14 +177,7 @@ public final class AsyncDispatchHandler implements EventHandler<MutableDomainEve
             return;
         }
 
-        // Block up to 100ms waiting for queue space before dropping.
-        boolean offered;
-        try {
-            offered = dispatchQueue.offer(event, 100, TimeUnit.MILLISECONDS);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            offered = false;
-        }
+        boolean offered = dispatchQueue.offer(event);
 
         if (!offered) {
             long total = droppedEventCount.incrementAndGet();

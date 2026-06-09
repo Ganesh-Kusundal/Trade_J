@@ -339,14 +339,14 @@ public class HistoricalDownloadController {
     }
 
     private DownloadJobStats jobStats(String jobId, DownloadJobRecord job) throws Exception {
-        if (job.sourceType().name().equals("EQUITY_INTRADAY")) {
+        if (job.sourceType() == DownloadSourceType.EQUITY_INTRADAY) {
             return requireEquityService().stats(jobId);
         }
         return downloadJobService.stats(jobId);
     }
 
     private DownloadJobStats resumeJobInternal(String jobId, DownloadJobRecord job) throws Exception {
-        if (job.sourceType().name().equals("EQUITY_INTRADAY")) {
+        if (job.sourceType() == DownloadSourceType.EQUITY_INTRADAY) {
             return requireEquityService().resumeJob(jobId);
         }
         return downloadJobService.resumeJob(jobId);

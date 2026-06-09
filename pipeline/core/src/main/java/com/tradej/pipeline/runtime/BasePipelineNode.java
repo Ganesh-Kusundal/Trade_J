@@ -3,25 +3,23 @@ package com.tradej.pipeline.runtime;
 import com.tradej.core.domain.event.DomainEvent;
 import com.tradej.pipeline.graph.PipelineNodeDef;
 
-import java.util.concurrent.atomic.AtomicLong;
-
 /**
  * Extensible base class for pipeline nodes.
  * Centralizes state management, thread-safe performance metrics tracking,
  * and high-precision execution latency measurement.
+ *
+ * @deprecated Prefer direct implementation of {@link PipelineNode} with composition
+ *             using {@link NodeMetricsTracker}.
  */
+@Deprecated
 public abstract class BasePipelineNode implements PipelineNode {
 
     protected PipelineNodeDef definition;
     protected PipelineContext context;
     protected volatile NodeState state = NodeState.PENDING;
 
-    // High-performance, thread-safe metrics counters
-    private final AtomicLong processedCount = new AtomicLong();
-    private final AtomicLong errorCount = new AtomicLong();
-    private final AtomicLong lastProcessedTimestampMs = new AtomicLong();
-    private final AtomicLong lastExecutionNs = new AtomicLong();
-    private final AtomicLong totalExecutionNs = new AtomicLong();
+    // Encapsulated thread-safe metrics tracker
+    protected final NodeMetricsTracker metricsTracker = new NodeMetricsTracker();
 
     @Override
     public final void init(PipelineNodeDef definition, PipelineContext context) {
@@ -40,22 +38,24 @@ public abstract class BasePipelineNode implements PipelineNode {
             return;
         }
         long startTime = System.nanoTime();
+        boolean success = false;
         try {
             processEvent(event);
-            lastProcessedTimestampMs.set(System.currentTimeMillis());
-        } catch (Exception e) {
-            errorCount.incrementAndGet();
+            success = true;
+        } catch (Throwable e) {
             onError(event, e);
         } finally {
             long duration = System.nanoTime() - startTime;
-            processedCount.incrementAndGet();
-            lastExecutionNs.set(duration);
-            totalExecutionNs.addAndGet(duration);
+            if (success) {
+                metricsTracker.recordSuccess(duration);
+            } else {
+                metricsTracker.recordFailure(duration);
+            }
         }
     }
 
     /** Core event processing logic to be implemented by subclass nodes. */
-    protected abstract void processEvent(DomainEvent event) throws Exception;
+    protected abstract void processEvent(DomainEvent event);
 
     /** Hook method to handle exceptions thrown during event processing. */
     protected void onError(DomainEvent event, Throwable t) {
@@ -69,15 +69,7 @@ public abstract class BasePipelineNode implements PipelineNode {
 
     @Override
     public NodeMetrics getMetrics() {
-        long count = processedCount.get();
-        double avg = count == 0 ? 0.0 : (double) totalExecutionNs.get() / count;
-        return new NodeMetrics(
-                count,
-                errorCount.get(),
-                lastProcessedTimestampMs.get(),
-                lastExecutionNs.get(),
-                avg
-        );
+        return metricsTracker.getMetrics();
     }
 
     @Override

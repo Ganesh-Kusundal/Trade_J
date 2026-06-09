@@ -17,22 +17,21 @@ import com.tradej.core.domain.model.MarginEstimate;
 import com.tradej.core.domain.model.MarginEstimateRequest;
 import com.tradej.core.domain.value.PriceMath;
 
-public final class DhanMarginProvider extends DhanBaseRestAdapter implements MarginProvider {
+public final class DhanMarginProvider implements MarginProvider {
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
+    private final DhanAdapterContext context;
     private final DhanAuthenticatedHttpClient httpClient;
     private final DhanApiUrlResolver apiUrlResolver;
     private final DhanConnectionSettings settings;
 
     public DhanMarginProvider(
-            DhanClientHolder clientHolder,
-            DhanInstrumentResolver resolver,
-            DhanRetryExecutor resilienceExecutor,
+            DhanAdapterContext context,
             DhanAuthenticatedHttpClient httpClient,
             DhanApiUrlResolver apiUrlResolver,
             DhanConnectionSettings settings
     ) {
-        super(clientHolder, resolver, resilienceExecutor);
+        this.context = context;
         this.httpClient = httpClient;
         this.apiUrlResolver = apiUrlResolver;
         this.settings = settings;
@@ -40,8 +39,8 @@ public final class DhanMarginProvider extends DhanBaseRestAdapter implements Mar
 
     @Override
     public MarginEstimate estimateMargin(MarginEstimateRequest request) {
-        DhanInstrumentDefinition definition = resolveDef(request.symbol(), request.exchangeSegment());
-        return execute(ApiCategory.ORDER, "margin-calculator", () -> {
+        DhanInstrumentDefinition definition = context.resolveDef(request.symbol(), request.exchangeSegment());
+        return context.execute(ApiCategory.ORDER, "margin-calculator", () -> {
             ObjectNode payload = MAPPER.createObjectNode();
             payload.put("dhanClientId", settings.clientId());
             payload.put("exchangeSegment", DhanSegmentMapper.toWireValue(definition.exchangeSegment()));

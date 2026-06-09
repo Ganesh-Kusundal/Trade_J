@@ -60,7 +60,7 @@ class AsyncDispatchHandlerBackpressureTest {
     }
 
     @Test
-    void fullQueueBlocksRatherThanImmediateDrop() throws Exception {
+    void fullQueueDropsImmediatelyWithoutBlocking() throws Exception {
         CapturingDlq dlq = new CapturingDlq();
         // Queue capacity = 1 so it fills fast
         AsyncDispatchHandler h = handler(1, dlq);
@@ -70,14 +70,14 @@ class AsyncDispatchHandlerBackpressureTest {
         assertEquals(1, h.queueDepth());
         assertEquals(0, h.droppedEventCount());
 
-        // Second event must block (up to 100ms) then drop because no consumer drains the queue
+        // Second event must drop immediately because no consumer drains the queue
         long start = System.nanoTime();
         h.onEvent(envelopeFor(StubEvent.create()), 1, false);
         long elapsedMs = (System.nanoTime() - start) / 1_000_000;
 
-        // The blocking offer should have waited close to 100ms (allow generous margin for CI)
-        assertTrue(elapsedMs >= 50,
-                "Expected blocking offer to wait at least 50ms but took " + elapsedMs + "ms");
+        // The offer should have completed immediately (less than 250ms to account for logger initialization/warmup)
+        assertTrue(elapsedMs < 250,
+                "Expected non-blocking offer to complete immediately but took " + elapsedMs + "ms");
         assertEquals(1, h.droppedEventCount());
     }
 

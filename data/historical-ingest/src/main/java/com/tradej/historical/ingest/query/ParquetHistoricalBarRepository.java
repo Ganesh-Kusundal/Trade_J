@@ -112,18 +112,58 @@ public final class ParquetHistoricalBarRepository implements HistoricalBarReposi
     }
 
     private static Candle toCandle(Map<String, Object> row) {
+        long startTime = getLongValue(row, "start_time_ms", "startTimeMs", "bar_time_ms", "barTimeMs");
+        long endTime = getLongValue(row, "end_time_ms", "endTimeMs");
+        if (endTime == 0L && startTime > 0L) {
+            String interval = str(row, "interval", "1m");
+            long durationMs = parseIntervalToMs(interval);
+            endTime = startTime + durationMs;
+        }
         return new Candle(
                 str(row, "symbol"),
                 str(row, "interval", "1m"),
-                toLong(row.get("start_time_ms")),
-                toLong(row.get("end_time_ms")),
-                toLong(row.get("open_paisa")),
-                toLong(row.get("high_paisa")),
-                toLong(row.get("low_paisa")),
-                toLong(row.get("close_paisa")),
-                toLong(row.get("volume")),
+                startTime,
+                endTime,
+                getLongValue(row, "open_paisa", "openPaisa"),
+                getLongValue(row, "high_paisa", "highPaisa"),
+                getLongValue(row, "low_paisa", "lowPaisa"),
+                getLongValue(row, "close_paisa", "closePaisa"),
+                getLongValue(row, "volume"),
                 true
         );
+    }
+
+    private static long getLongValue(Map<String, Object> row, String... keys) {
+        for (String key : keys) {
+            Object val = row.get(key);
+            if (val != null) {
+                return toLong(val);
+            }
+        }
+        return 0L;
+    }
+
+    private static long parseIntervalToMs(String interval) {
+        if (interval == null || interval.isBlank()) {
+            return 60_000L;
+        }
+        try {
+            String clean = interval.toLowerCase().trim();
+            if (clean.endsWith("m") || clean.endsWith("minute") || clean.endsWith("min")) {
+                int val = Integer.parseInt(clean.replaceAll("[a-z]", ""));
+                return val * 60_000L;
+            }
+            if (clean.endsWith("h") || clean.endsWith("hour")) {
+                int val = Integer.parseInt(clean.replaceAll("[a-z]", ""));
+                return val * 3600_000L;
+            }
+            if (clean.endsWith("d") || clean.endsWith("day")) {
+                int val = Integer.parseInt(clean.replaceAll("[a-z]", ""));
+                return val * 86400_000L;
+            }
+        } catch (Exception ignored) {
+        }
+        return 60_000L;
     }
 
     private static String str(Map<String, Object> row, String key) {

@@ -60,11 +60,11 @@ public final class ChronicleEventWal implements EventWriteAheadLog, AutoCloseabl
     @Override
     public void write(DomainEvent event) {
         try {
-            WalEntry entry = new WalEntry(
-                    Instant.now().toEpochMilli(),
-                    event.getClass().getName(),
-                    event.eventId(),
-                    mapper.writeValueAsString(event)
+            var entry = java.util.Map.of(
+                    "timestampMs", Instant.now().toEpochMilli(),
+                    "eventClass", event.getClass().getName(),
+                    "eventId", event.eventId(),
+                    "event", event
             );
             queue.createAppender().writeText(mapper.writeValueAsString(entry));
             writeCount.incrementAndGet();
@@ -92,7 +92,7 @@ public final class ChronicleEventWal implements EventWriteAheadLog, AutoCloseabl
                         entry.timestampMs,
                         entry.eventClass,
                         entry.eventId,
-                        entry.eventJson
+                        entry.event != null ? entry.event.toString() : ""
                 ));
                 count++;
                 replayCount.incrementAndGet();
@@ -111,18 +111,26 @@ public final class ChronicleEventWal implements EventWriteAheadLog, AutoCloseabl
     @Override
     @SuppressWarnings("unchecked")
     public long replay(Consumer<DomainEvent> eventConsumer) {
-        return replayRaw(record -> {
+        ExcerptTailer tailer = queue.createTailer();
+        long count = 0;
+        String text;
+        while ((text = tailer.readText()) != null) {
             try {
+                WalEntry entry = mapper.readValue(text, WalEntry.class);
                 Class<? extends DomainEvent> clazz =
-                        (Class<? extends DomainEvent>) Class.forName(record.eventClass());
-                DomainEvent event = mapper.readValue(record.eventJson(), clazz);
+                        (Class<? extends DomainEvent>) Class.forName(entry.eventClass());
+                DomainEvent event = mapper.treeToValue(entry.event, clazz);
                 eventConsumer.accept(event);
+                count++;
+                replayCount.incrementAndGet();
             } catch (ClassNotFoundException e) {
-                log.warn("Event class not found during replay: {}", record.eventClass());
+                log.warn("Event class not found during replay: {}", e.getMessage());
             } catch (IOException e) {
                 log.warn("Failed to deserialize event during replay: {}", e.getMessage());
             }
-        });
+        }
+        log.info("WAL replay complete: {} events replayed", count);
+        return count;
     }
 
     /**
@@ -155,7 +163,7 @@ public final class ChronicleEventWal implements EventWriteAheadLog, AutoCloseabl
             long timestampMs,
             String eventClass,
             String eventId,
-            String eventJson
+            com.fasterxml.jackson.databind.JsonNode event
     ) {
     }
 

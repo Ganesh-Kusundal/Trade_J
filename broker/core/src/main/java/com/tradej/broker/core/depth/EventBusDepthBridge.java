@@ -31,7 +31,7 @@ public final class EventBusDepthBridge {
         eventBus.unsubscribe(DepthUpdateEvent.class, handler);
     }
 
-    private void onDepthUpdate(DepthUpdateEvent event) throws Exception {
+    private void onDepthUpdate(DepthUpdateEvent event) {
         try {
             engine.onDepthUpdate(event);
         } catch (RuntimeException ex) {

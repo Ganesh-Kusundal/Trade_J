@@ -53,8 +53,9 @@ class DhanPortfolioProviderNonTradingTest {
                     return supplier.get();
                 });
 
+        DhanAdapterContext context = new DhanAdapterContext(clientHolder, instrumentResolver, executor);
         provider = new DhanPortfolioProvider(
-                clientHolder, instrumentResolver, executor, httpClient, apiUrlResolver
+                context, httpClient, apiUrlResolver
         );
     }
 

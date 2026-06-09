@@ -16,25 +16,25 @@ import com.tradej.core.domain.value.PriceMath;
 import java.util.ArrayList;
 import java.util.List;
 
-public final class DhanConditionalAlertProvider extends DhanBaseRestAdapter implements ConditionalAlertProvider {
+public final class DhanConditionalAlertProvider implements ConditionalAlertProvider {
+    private final DhanAdapterContext context;
     private final DhanAuthenticatedHttpClient httpClient;
     private final DhanApiUrlResolver apiUrlResolver;
     private final ObjectMapper mapper = new ObjectMapper();
 
     public DhanConditionalAlertProvider(
-            DhanInstrumentResolver resolver,
+            DhanAdapterContext context,
             DhanAuthenticatedHttpClient httpClient,
-            DhanApiUrlResolver apiUrlResolver,
-            DhanRetryExecutor resilienceExecutor
+            DhanApiUrlResolver apiUrlResolver
     ) {
-        super(resolver, resilienceExecutor);
+        this.context = context;
         this.httpClient = httpClient;
         this.apiUrlResolver = apiUrlResolver;
     }
 
     @Override
     public String placeAlert(ConditionalAlertRequest request) {
-        var definition = resolveDef(request.symbol(), request.exchangeSegment());
+        var definition = context.resolveDef(request.symbol(), request.exchangeSegment());
         ObjectNode payload = mapper.createObjectNode();
         payload.put("securityId", definition.securityId());
             payload.put("exchangeSegment", DhanSegmentMapper.toWireValue(definition.exchangeSegment()));
@@ -70,7 +70,7 @@ public final class DhanConditionalAlertProvider extends DhanBaseRestAdapter impl
         if (request.userNote() != null) {
             payload.put("userNote", request.userNote());
         }
-        return execute(ApiCategory.ORDER, "alerts-place", () -> {
+        return context.execute(ApiCategory.ORDER, "alerts-place", () -> {
             var response = httpClient.postJson(apiUrlResolver.alertOrdersUrl(), payload);
             var data = response.has("data") ? response.path("data") : response;
             String id = data.string("alertId", "id");
@@ -80,7 +80,7 @@ public final class DhanConditionalAlertProvider extends DhanBaseRestAdapter impl
 
     @Override
     public ConditionalAlert getAlert(String alertId) {
-        return execute(ApiCategory.ORDER, "alerts-get", () -> {
+        return context.execute(ApiCategory.ORDER, "alerts-get", () -> {
             var response = httpClient.getJson(apiUrlResolver.alertOrdersUrl() + "/" + alertId);
             var data = response.has("data") ? response.path("data") : response;
             return new ConditionalAlert(
@@ -93,7 +93,7 @@ public final class DhanConditionalAlertProvider extends DhanBaseRestAdapter impl
 
     @Override
     public List<ConditionalAlert> listAlerts() {
-        return execute(ApiCategory.ORDER, "alerts-list", () -> {
+        return context.execute(ApiCategory.ORDER, "alerts-list", () -> {
             var response = httpClient.getJson(apiUrlResolver.alertOrdersUrl());
             var data = response.has("data") ? response.path("data") : response;
             List<ConditionalAlert> out = new ArrayList<>();
@@ -110,7 +110,7 @@ public final class DhanConditionalAlertProvider extends DhanBaseRestAdapter impl
 
     @Override
     public boolean deleteAlert(String alertId) {
-        return execute(ApiCategory.ORDER, "alerts-delete", () -> {
+        return context.execute(ApiCategory.ORDER, "alerts-delete", () -> {
             httpClient.deleteJson(apiUrlResolver.alertOrdersUrl() + "/" + alertId);
             return true;
         });

@@ -24,7 +24,7 @@ public final class StrategyNode extends BasePipelineNode {
     }
 
     @Override
-    protected void processEvent(DomainEvent event) throws Exception {
+    protected void processEvent(DomainEvent event) {
         if (graphSandbox != null) {
             graphSandbox.onDomainEvent(event, context::publish);
         }

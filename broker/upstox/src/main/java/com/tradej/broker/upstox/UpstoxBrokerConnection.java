@@ -1,9 +1,7 @@
 package com.tradej.broker.upstox;
 
 import com.tradej.broker.api.IBrokerConnection;
-import com.tradej.broker.api.capability.MarginCapable;
-import com.tradej.broker.api.capability.NewsCapable;
-import com.tradej.broker.api.capability.OptionsCapable;
+
 import com.tradej.broker.api.port.ConditionalAlertProvider;
 import com.tradej.broker.api.port.CoverOrderProvider;
 import com.tradej.broker.api.port.FuturesProvider;
@@ -16,9 +14,10 @@ import com.tradej.broker.api.port.OptionsProvider;
 import com.tradej.broker.api.port.OrderCommand;
 import com.tradej.broker.api.port.OrderQuery;
 import com.tradej.broker.api.port.PortfolioProvider;
+import com.tradej.broker.api.port.GttOrderProvider;
 import com.tradej.broker.api.port.SliceOrderCommand;
 import com.tradej.broker.api.port.WebSocketMultiplexer;
-import com.tradej.broker.core.capability.CapabilityMap;
+
 import com.tradej.broker.upstox.adapter.UpstoxCoverOrderAdapter;
 import com.tradej.broker.upstox.adapter.UpstoxDataServicesProvider;
 import com.tradej.broker.upstox.adapter.UpstoxMarketStatusProvider;
@@ -56,11 +55,7 @@ public final class UpstoxBrokerConnection implements IBrokerConnection {
     private final MarketStatusProvider marketStatusProvider;
     private final CoverOrderProvider coverOrderProvider;
     
-    // Cached capability markers for consistency
-    private final NewsCapable newsCapable = new NewsCapable() { };
-    private final OptionsCapable optionsCapable = new OptionsCapable() { };
-    private final MarginCapable marginCapable = new MarginCapable() { };
-    private final CapabilityMap capabilityMap;
+
 
     public UpstoxBrokerConnection(
             MarketDataProvider marketDataProvider,
@@ -97,27 +92,7 @@ public final class UpstoxBrokerConnection implements IBrokerConnection {
         this.upstoxInstrumentResolver = Objects.requireNonNull(instrumentResolver);
         this.marketStatusProvider = new UpstoxMarketStatusProvider();
         this.coverOrderProvider = new UpstoxCoverOrderAdapter();
-        this.capabilityMap = CapabilityMap.builder()
-                .register(MarketDataProvider.class, marketDataProvider)
-                .register(OrderCommand.class, orderCommand)
-                .register(OrderQuery.class, orderQuery)
-                .register(PortfolioProvider.class, portfolioProvider)
-                .register(MarginProvider.class, marginProvider)
-                .registerIfNotNull(FuturesProvider.class, futuresProvider)
-                .registerIfNotNull(OptionsProvider.class, optionsProvider)
-                .register(InstrumentResolver.class, instrumentResolver)
-                .register(WebSocketMultiplexer.class, webSocketMultiplexer)
-                .register(NewsProvider.class, newsProvider)
-                .register(ConditionalAlertProvider.class, conditionalAlertProvider)
-                .registerIfNotNull(SliceOrderCommand.class, sliceOrderCommand)
-                .registerIfNotNull(UpstoxDataServicesProvider.class, dataServicesProvider)
-                .registerIfNotNull(UpstoxProfileProvider.class, profileProvider)
-                .register(MarketStatusProvider.class, marketStatusProvider)
-                .register(CoverOrderProvider.class, coverOrderProvider)
-                .register(NewsCapable.class, newsCapable)
-                .registerIfNotNull(OptionsCapable.class, optionsProvider != null ? optionsCapable : null)
-                .registerIfNotNull(MarginCapable.class, marginProvider != null ? marginCapable : null)
-                .build();
+
     }
 
     @Override
@@ -158,7 +133,99 @@ public final class UpstoxBrokerConnection implements IBrokerConnection {
     }
 
     @Override
+    public MarketDataProvider marketData() {
+        return marketDataProvider;
+    }
+
+    @Override
+    public FuturesProvider futures() {
+        return futuresProvider;
+    }
+
+    @Override
+    public OptionsProvider options() {
+        return optionsProvider;
+    }
+
+    @Override
+    public OrderCommand orders() {
+        return orderCommand;
+    }
+
+    @Override
+    public OrderQuery orderQuery() {
+        return orderQuery;
+    }
+
+    @Override
+    public SliceOrderCommand sliceOrders() {
+        return sliceOrderCommand;
+    }
+
+    @Override
+    public PortfolioProvider portfolio() {
+        return portfolioProvider;
+    }
+
+    @Override
+    public MarginProvider margin() {
+        return marginProvider;
+    }
+
+    @Override
+    public ConditionalAlertProvider alerts() {
+        return conditionalAlertProvider;
+    }
+
+    @Override
+    public GttOrderProvider gttOrders() {
+        if (conditionalAlertProvider instanceof GttOrderProvider gtt) {
+            return gtt;
+        }
+        throw new UnsupportedOperationException("GTT orders not supported by Upstox adapter");
+    }
+
+    @Override
+    public InstrumentResolver instruments() {
+        return instrumentResolver;
+    }
+
+    @Override
+    public WebSocketMultiplexer websocket() {
+        return webSocketMultiplexer;
+    }
+
+    @Override
+    public NewsProvider news() {
+        return newsProvider;
+    }
+
+    @Override
     public <T> Optional<T> getCapability(Class<T> capabilityClass) {
-        return capabilityMap.get(capabilityClass);
+        if (capabilityClass == null) {
+            return Optional.empty();
+        }
+        if (capabilityClass.isInstance(this)) {
+            return Optional.of(capabilityClass.cast(this));
+        }
+        if (marketDataProvider != null && capabilityClass.isInstance(marketDataProvider)) return Optional.of(capabilityClass.cast(marketDataProvider));
+        if (orderCommand != null && capabilityClass.isInstance(orderCommand)) return Optional.of(capabilityClass.cast(orderCommand));
+        if (orderQuery != null && capabilityClass.isInstance(orderQuery)) return Optional.of(capabilityClass.cast(orderQuery));
+        if (portfolioProvider != null && capabilityClass.isInstance(portfolioProvider)) return Optional.of(capabilityClass.cast(portfolioProvider));
+        if (marginProvider != null && capabilityClass.isInstance(marginProvider)) return Optional.of(capabilityClass.cast(marginProvider));
+        if (instrumentResolver != null && capabilityClass.isInstance(instrumentResolver)) return Optional.of(capabilityClass.cast(instrumentResolver));
+        if (webSocketMultiplexer != null && capabilityClass.isInstance(webSocketMultiplexer)) return Optional.of(capabilityClass.cast(webSocketMultiplexer));
+        if (marketStatusProvider != null && capabilityClass.isInstance(marketStatusProvider)) return Optional.of(capabilityClass.cast(marketStatusProvider));
+        if (coverOrderProvider != null && capabilityClass.isInstance(coverOrderProvider)) return Optional.of(capabilityClass.cast(coverOrderProvider));
+        if (newsProvider != null && capabilityClass.isInstance(newsProvider)) return Optional.of(capabilityClass.cast(newsProvider));
+        
+        if (futuresProvider != null && capabilityClass.isInstance(futuresProvider)) return Optional.of(capabilityClass.cast(futuresProvider));
+        if (optionsProvider != null && capabilityClass.isInstance(optionsProvider)) return Optional.of(capabilityClass.cast(optionsProvider));
+        if (sliceOrderCommand != null && capabilityClass.isInstance(sliceOrderCommand)) return Optional.of(capabilityClass.cast(sliceOrderCommand));
+        if (dataServicesProvider != null && capabilityClass.isInstance(dataServicesProvider)) return Optional.of(capabilityClass.cast(dataServicesProvider));
+        if (profileProvider != null && capabilityClass.isInstance(profileProvider)) return Optional.of(capabilityClass.cast(profileProvider));
+        if (conditionalAlertProvider != null && capabilityClass.isInstance(conditionalAlertProvider)) return Optional.of(capabilityClass.cast(conditionalAlertProvider));
+        
+        return Optional.empty();
     }
 }

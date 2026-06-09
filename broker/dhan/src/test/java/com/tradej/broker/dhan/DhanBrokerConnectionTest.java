@@ -1,10 +1,6 @@
 package com.tradej.broker.dhan;
 
-import com.tradej.broker.api.capability.AdvancedOrderCapable;
-import com.tradej.broker.api.capability.AlertCapable;
-import com.tradej.broker.api.capability.FuturesCapable;
-import com.tradej.broker.api.capability.MarginCapable;
-import com.tradej.broker.api.capability.OptionsCapable;
+
 import com.tradej.broker.api.port.BracketOrderProvider;
 import com.tradej.broker.api.port.ConditionalAlertProvider;
 import com.tradej.broker.api.port.CoverOrderProvider;
@@ -58,11 +54,11 @@ class DhanBrokerConnectionTest {
     void getCapabilityReturnsAllCapableInterfaces() {
         DhanBrokerConnection conn = createFullyMockedConnection();
 
-        assertTrue(conn.getCapability(OptionsCapable.class).isPresent());
-        assertTrue(conn.getCapability(FuturesCapable.class).isPresent());
-        assertTrue(conn.getCapability(MarginCapable.class).isPresent());
-        assertTrue(conn.getCapability(AlertCapable.class).isPresent());
-        assertTrue(conn.getCapability(AdvancedOrderCapable.class).isPresent());
+        assertTrue(conn.getCapability(OptionsProvider.class).isPresent());
+        assertTrue(conn.getCapability(FuturesProvider.class).isPresent());
+        assertTrue(conn.getCapability(MarginProvider.class).isPresent());
+        assertTrue(conn.getCapability(ConditionalAlertProvider.class).isPresent());
+        assertTrue(conn.getCapability(BracketOrderProvider.class).isPresent());
     }
 
     @Test
