@@ -1,0 +1,1 @@
+Uses Java `ConcurrentHashMap` and `AtomicReference` for lock-free, thread-safe state management in a high-concurrency trading environment.

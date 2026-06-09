@@ -53,6 +53,77 @@ class DhanMarketFeedBinaryParserTest {
         assertTrue(error.get().getMessage().contains("disconnect"));
     }
 
+    @Test
+    void parseOi_validFrame_returnsOiPacket() {
+        byte[] payload = oiPacket(1, 11536, 50_000L);
+        List<DhanMarketFeedPacket> packets = parse(payload);
+
+        assertEquals(1, packets.size());
+        DhanMarketFeedPacket.Oi oi = assertInstanceOf(DhanMarketFeedPacket.Oi.class, packets.getFirst());
+        assertEquals(ExchangeSegment.NSE_EQ, oi.exchangeSegment());
+        assertEquals("11536", oi.securityId());
+        assertEquals(50_000L, oi.openInterest());
+    }
+
+    @Test
+    void parseHeartbeat_noException() {
+        ByteBuffer buffer = ByteBuffer.allocate(2).order(ByteOrder.LITTLE_ENDIAN);
+        buffer.put((byte) DhanProtocolConstants.FEED_RESPONSE_HEARTBEAT);
+        buffer.put((byte) 0);
+        byte[] payload = buffer.array();
+
+        List<DhanMarketFeedPacket> packets = new ArrayList<>();
+        AtomicReference<Throwable> error = new AtomicReference<>();
+        DhanMarketFeedBinaryParser.parse(payload, packets::add, error::set);
+
+        assertTrue(packets.isEmpty());
+        assertEquals(null, error.get());
+    }
+
+    @Test
+    void parseMarketStatus_noException() {
+        ByteBuffer buffer = ByteBuffer.allocate(2).order(ByteOrder.LITTLE_ENDIAN);
+        buffer.put((byte) DhanProtocolConstants.FEED_RESPONSE_MARKET_STATUS);
+        buffer.put((byte) 0);
+        byte[] payload = buffer.array();
+
+        List<DhanMarketFeedPacket> packets = new ArrayList<>();
+        AtomicReference<Throwable> error = new AtomicReference<>();
+        DhanMarketFeedBinaryParser.parse(payload, packets::add, error::set);
+
+        assertTrue(packets.isEmpty());
+        assertEquals(null, error.get());
+    }
+
+    @Test
+    void parsePrevClose_noException() {
+        ByteBuffer buffer = ByteBuffer.allocate(2).order(ByteOrder.LITTLE_ENDIAN);
+        buffer.put((byte) DhanProtocolConstants.FEED_RESPONSE_PREV_CLOSE);
+        buffer.put((byte) 0);
+        byte[] payload = buffer.array();
+
+        List<DhanMarketFeedPacket> packets = new ArrayList<>();
+        AtomicReference<Throwable> error = new AtomicReference<>();
+        DhanMarketFeedBinaryParser.parse(payload, packets::add, error::set);
+
+        assertTrue(packets.isEmpty());
+        assertEquals(null, error.get());
+    }
+
+    @Test
+    void parseUnknownType_callsErrorHandler() {
+        ByteBuffer buffer = ByteBuffer.allocate(2).order(ByteOrder.LITTLE_ENDIAN);
+        buffer.put((byte) 255);
+        buffer.put((byte) 0);
+        byte[] payload = buffer.array();
+
+        AtomicReference<Throwable> error = new AtomicReference<>();
+        DhanMarketFeedBinaryParser.parse(payload, ignored -> {}, error::set);
+
+        assertTrue(error.get() instanceof IllegalStateException);
+        assertTrue(error.get().getMessage().contains("Unknown"));
+    }
+
     private static List<DhanMarketFeedPacket> parse(byte[] payload) {
         List<DhanMarketFeedPacket> packets = new ArrayList<>();
         AtomicReference<Throwable> error = new AtomicReference<>();
@@ -110,6 +181,15 @@ class DhanMarketFeedBinaryParserTest {
         buffer.putInt(0);
         buffer.putShort((short) 806);
         return buffer.array();
+    }
+
+    private static byte[] oiPacket(int segmentCode, int securityId, long openInterest) {
+        return packet(
+                DhanProtocolConstants.FEED_RESPONSE_OI,
+                segmentCode,
+                securityId,
+                buffer -> buffer.putInt((int) openInterest)
+        );
     }
 
     private static byte[] packet(int packetType, int segmentCode, int securityId, java.util.function.Consumer<ByteBuffer> bodyWriter) {

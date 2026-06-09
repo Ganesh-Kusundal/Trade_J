@@ -12,6 +12,8 @@ dependencies {
     implementation project(':broker-api')
     implementation project(':broker-dhan')
     implementation project(':broker-upstox')
+    implementation project(':broker-icici')
+    implementation project(':trading-indicators')
     implementation project(':trading-scanner')
     implementation project(':trading-simulation')
     implementation project(':data-persistence')
@@ -21,6 +23,7 @@ dependencies {
     implementation project(':broker-gateway')
 
     implementation 'info.picocli:picocli:4.7.6'
+    implementation 'info.picocli:picocli-shell-jline3:4.7.6'
     implementation 'org.jline:jline:3.26.3'
     implementation 'com.fasterxml.jackson.core:jackson-databind:2.18.2'
     implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.18.2'
@@ -58,4 +61,44 @@ tasks.register('quietClasspath') {
     doLast {
         println sourceSets.main.runtimeClasspath.asPath
     }
+}
+
+tasks.register('generateDocs', JavaExec) {
+    group = 'documentation'
+    description = 'Generates platform documentation (CLI reference, event catalog, broker capabilities, architecture, flows) to docs/.'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'com.tradej.cli.TradeCli'
+    workingDir = rootProject.projectDir
+    jvmArgs rootProject.ext.chronicleJvmArgs
+    args = ['docs', 'generate', '--format', 'markdown', '--output', 'docs']
+}
+
+tasks.register('platformReport', JavaExec) {
+    group = 'documentation'
+    description = 'Prints platform readinessiness and coverage reports to stdout.'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'com.tradej.cli.TradeCli'
+    workingDir = rootProject.projectDir
+    jvmArgs rootProject.ext.chronicleJvmArgs
+    args = ['readiness']
+}
+
+tasks.register('platformCapabilities', JavaExec) {
+    group = 'documentation'
+    description = 'Prints aggregated platform capabilities.'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'com.tradej.cli.TradeCli'
+    workingDir = rootProject.projectDir
+    jvmArgs rootProject.ext.chronicleJvmArgs
+    args = ['capabilities']
+}
+
+tasks.register('eventCatalog', JavaExec) {
+    group = 'documentation'
+    description = 'Prints the complete domain event catalog.'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'com.tradej.cli.TradeCli'
+    workingDir = rootProject.projectDir
+    jvmArgs rootProject.ext.chronicleJvmArgs
+    args = ['events']
 }

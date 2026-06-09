@@ -133,7 +133,8 @@ public final class CliDownloadSupport {
             com.tradej.broker.api.port.InstrumentResolver instrumentResolver,
             long delayMs,
             int workers,
-            String universeUrl
+            String universeUrl,
+            com.tradej.historical.ingest.canonical.ParquetWriteService parquetWriteService
     ) {
         return new EquityDownloadJobService(
                 rootPath,
@@ -142,8 +143,18 @@ public final class CliDownloadSupport {
                 workers,
                 System::currentTimeMillis,
                 () -> sleep(delayMs),
-                universeUrl
+                universeUrl,
+                parquetWriteService
         );
+    }
+
+    /**
+     * Create a ParquetWriteService for the given equity root path.
+     * Resolves the canonical data root as the parent of the equity root.
+     */
+    public static com.tradej.historical.ingest.canonical.ParquetWriteService createParquetWriter(Path equityRoot) {
+        Path dataRoot = equityRoot.getParent();
+        return new com.tradej.historical.ingest.canonical.CanonicalBarWriter(dataRoot);
     }
 
     public static Map<String, Object> startEquityDownload(

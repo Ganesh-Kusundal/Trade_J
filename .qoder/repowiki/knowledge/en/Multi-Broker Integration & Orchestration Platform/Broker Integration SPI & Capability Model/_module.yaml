@@ -1,0 +1,9 @@
+schema_version: 1
+module_path: backend_broker/broker_api
+title: Broker Integration SPI & Capability Model
+scope:
+    - broker/api/
+source_files: []
+depends_on: []
+related_to:
+    - path: backend_broker/broker_core

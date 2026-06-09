@@ -1,0 +1,9 @@
+schema_version: 1
+module_path: backend_broker/broker_gateway/broker_simulation
+title: Simulation & Backtesting Broker Infrastructure
+scope:
+    - broker-gateway/src/main/java/com/tradej/brokergateway/simulation/
+source_files: []
+depends_on: []
+related_to:
+    - path: backend_trading/trading_simulation

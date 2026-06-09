@@ -1,0 +1,10 @@
+schema_version: 1
+module_path: backend_data_infra/runtime_disruptor
+title: Low-Latency Disruptor Event Bus & Pipeline Runtime
+scope:
+    - runtime/disruptor/
+source_files: []
+depends_on: []
+related_to:
+    - path: backend_data_infra/runtime_hotpath
+    - path: backend_trading/pipeline_core

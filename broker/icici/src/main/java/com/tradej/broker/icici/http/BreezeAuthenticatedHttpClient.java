@@ -74,6 +74,19 @@ public final class BreezeAuthenticatedHttpClient {
      * Used by {@code get_historical_data_v2} for {@code 1second} intervals.
      */
     public BreezeJsonResponse getV2Json(String endpoint, Map<String, String> queryParams) {
+        long gen = tokenProvider.sessionGenerationId();
+        try {
+            return doGetV2Json(endpoint, queryParams);
+        } catch (BreezeHttpException ex) {
+            if (ex.httpStatus() == 401 || ex.httpStatus() == 403) {
+                tokenProvider.invalidate(gen);
+                return doGetV2Json(endpoint, queryParams);
+            }
+            throw ex;
+        }
+    }
+
+    private BreezeJsonResponse doGetV2Json(String endpoint, Map<String, String> queryParams) {
         tokenProvider.ensureValid();
         String query = queryParams.entrySet().stream()
                 .filter(entry -> entry.getValue() != null && !entry.getValue().isBlank())
@@ -115,6 +128,19 @@ public final class BreezeAuthenticatedHttpClient {
     }
 
     private BreezeJsonResponse sendJson(String endpoint, String method, String body) {
+        long gen = tokenProvider.sessionGenerationId();
+        try {
+            return doSendJson(endpoint, method, body);
+        } catch (BreezeHttpException ex) {
+            if (ex.httpStatus() == 401 || ex.httpStatus() == 403) {
+                tokenProvider.invalidate(gen);
+                return doSendJson(endpoint, method, body);
+            }
+            throw ex;
+        }
+    }
+
+    private BreezeJsonResponse doSendJson(String endpoint, String method, String body) {
         tokenProvider.ensureValid();
         String timestamp = BreezeRequestSigner.timestamp(clock.instant());
         String checksumHeader = BreezeRequestSigner.checksumHeaderValue(timestamp, body, tokenProvider.secretKey());

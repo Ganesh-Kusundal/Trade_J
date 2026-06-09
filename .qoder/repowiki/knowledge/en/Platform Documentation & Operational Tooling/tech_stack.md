@@ -1,0 +1,1 @@
+OpenAPI 3.1.0 for API specification; Bash for operational automation; Checkstyle and SpotBugs XML schemas for static analysis configuration.

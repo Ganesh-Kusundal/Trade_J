@@ -20,7 +20,9 @@ public final class BreezeHistoricalIntervals {
             case "5m", "5minute" -> "5minute";
             case "30m", "30minute" -> "30minute";
             case "1d", "1day", "day" -> "1day";
-            default -> interval;
+            default -> throw new IllegalArgumentException(
+                    "ICICI Breeze v2 API does not support '" + interval + "' interval. "
+                            + "Supported intervals: 1second, 1minute, 5minute, 30minute, 1day.");
         };
     }
 
@@ -34,7 +36,10 @@ public final class BreezeHistoricalIntervals {
             case "5m", "5minute" -> "5minute";
             case "30m", "30minute" -> "30minute";
             case "1d", "1day", "day" -> "day";
-            default -> interval;
+            default -> throw new IllegalArgumentException(
+                    "ICICI Breeze API does not support '" + interval + "' interval. "
+                            + "Supported intervals: 1second, 1minute, 5minute, 30minute, 1day. "
+                            + "Use Dhan for 15m/25m/60m candles.");
         };
     }
 

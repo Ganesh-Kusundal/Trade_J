@@ -15,6 +15,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.scheduling.annotation.Scheduled;
 
 /**
@@ -34,8 +35,8 @@ public class ReconciliationSchedulerTasks {
     private final DailyRiskResetScheduler dailyRiskResetScheduler;
 
     public ReconciliationSchedulerTasks(
-            ReconciliationScheduler reconciliationScheduler,
-            DailyRiskResetScheduler dailyRiskResetScheduler
+            @Lazy ReconciliationScheduler reconciliationScheduler,
+            @Lazy DailyRiskResetScheduler dailyRiskResetScheduler
     ) {
         this.reconciliationScheduler = reconciliationScheduler;
         this.dailyRiskResetScheduler = dailyRiskResetScheduler;

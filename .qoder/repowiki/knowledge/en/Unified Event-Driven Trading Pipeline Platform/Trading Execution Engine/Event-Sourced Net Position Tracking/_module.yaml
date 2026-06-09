@@ -1,0 +1,10 @@
+schema_version: 1
+module_path: backend_trading/trading_execution/position_tracking
+title: Event-Sourced Net Position Tracking
+scope:
+    - trading/execution/src/main/java/com/tradej/execution/position/
+    - trading/execution/src/test/java/com/tradej/execution/position/
+source_files: []
+depends_on: []
+related_to:
+    - path: backend_trading/trading_execution/reconciliation

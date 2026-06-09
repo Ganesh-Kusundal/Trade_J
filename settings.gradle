@@ -3,6 +3,9 @@ rootProject.name = 'trade-j'
 include 'core'
 project(':core').projectDir = file('core')
 
+include 'pipeline-core'
+project(':pipeline-core').projectDir = file('pipeline/core')
+
 include 'broker-api'
 project(':broker-api').projectDir = file('broker/api')
 include 'broker-core'

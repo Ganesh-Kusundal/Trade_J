@@ -104,7 +104,7 @@ public final class CliContext {
         if (gateway == null) {
             BrokerSource source = toSource(brokerType);
             broker().ensureCatalogLoaded();
-            gateway = BrokerGateway.of(source, broker().connection());
+            gateway = BrokerGateway.of(source, broker().fullComposition().brokerConnection());
         }
         return gateway;
     }
@@ -121,6 +121,7 @@ public final class CliContext {
         return switch (type) {
             case DHAN -> BrokerSource.DHAN;
             case UPSTOX -> BrokerSource.UPSTOX;
+            case ICICI -> BrokerSource.ICICI;
         };
     }
 

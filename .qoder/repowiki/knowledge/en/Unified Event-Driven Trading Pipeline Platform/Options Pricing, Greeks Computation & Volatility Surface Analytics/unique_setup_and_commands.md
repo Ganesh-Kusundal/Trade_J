@@ -1,0 +1,1 @@
+Module is not wired into the production build. Per README.md, three prerequisites must be met before inclusion: (1) publish `OptionChainUpdated` as a domain event in `:core`, (2) add `trading-options-analytics` to `settings.gradle`, (3) register `GreeksCalcNode` in the DAG template. Until then, use `:data-analytics` and broker APIs for production analytics.

@@ -1,0 +1,5 @@
+- Entry Point: `UpstoxBrokerConnection` implements `IBrokerConnection`, acting as a facade that aggregates capabilities (OrderCommand, MarketDataProvider, etc.) via the `getCapability` pattern.
+- Adapter Layer: The `adapter` package contains implementations of domain interfaces (e.g., `UpstoxOrderCommandAdapter`) that delegate to internal REST clients and mappers.
+- Communication Layer: Split into `rest` (JSON-based HTTP clients like `UpstoxOrderRestClient`) and `websocket` (binary protocol parsing via `UpstoxBinaryParser` and multiplexing via `UpstoxWebSocketMultiplexer`).
+- Auth & Config: `auth` package manages OAuth2/PKCE flows and token lifecycle (`UpstoxTokenManager`), while `config` holds environment settings.
+- Mapping: `mapper` and `instrument` packages handle translation between Upstox-specific JSON/binary formats and internal domain models.

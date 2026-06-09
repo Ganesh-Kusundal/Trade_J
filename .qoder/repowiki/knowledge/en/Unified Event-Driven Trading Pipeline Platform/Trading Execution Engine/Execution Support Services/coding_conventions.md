@@ -1,0 +1,3 @@
+- All service classes are declared as `public final class` with constructor injection of dependencies, preventing subclassing and enforcing immutability of references.
+- Domain event consumption follows a uniform `onDomainEvent(DomainEvent event)` method signature using Java sealed interface / record pattern matching for type-safe event dispatch.
+- In-memory state is stored in `ConcurrentHashMap` or `CopyOnWriteArrayList` collections, with defensive copies returned via `Collections.unmodifiableList` or `List.copyOf` to prevent external mutation.

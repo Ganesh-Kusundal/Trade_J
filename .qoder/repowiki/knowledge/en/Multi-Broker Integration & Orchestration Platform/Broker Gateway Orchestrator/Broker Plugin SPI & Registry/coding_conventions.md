@@ -1,0 +1,3 @@
+- Each broker provider implementation follows a triad pattern: a `*BrokerProvider` implementing `BrokerProvider`, a `*Extras` implementing `BrokerExtras`, and a `*HealthCheck` implementing `BrokerHealthCheck`, all sharing the same broker source prefix.
+- Broker descriptors declare capabilities as immutable `Map<String, Boolean>` entries keyed by port interface names (e.g., "MarketDataProvider", "BracketOrderProvider"), paired with detailed `CapabilityMetadata` records containing description, category, and version fields.
+- The `connect(BrokerProfile)` method in each `BrokerProvider` validates that the broker-specific config segment is non-null, constructs a tailored `BrokerProfile`, and delegates to `BrokerComposition.create()` to obtain the `IBrokerConnection`.

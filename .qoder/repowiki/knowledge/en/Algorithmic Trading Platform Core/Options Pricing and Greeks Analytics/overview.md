@@ -1,1 +1,0 @@
-Computes Black-Scholes option prices, Greeks, implied volatility, and max pain metrics within a pipeline processing node.

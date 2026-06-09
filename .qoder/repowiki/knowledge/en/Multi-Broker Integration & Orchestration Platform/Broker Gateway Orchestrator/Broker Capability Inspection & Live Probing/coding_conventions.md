@@ -1,0 +1,3 @@
+- Use Java records for immutable data carriers (`CapabilityProbe`, `BrokerInspectionReport`) with compact constructors enforcing defensive copies via `Map.copyOf` / `List.copyOf`.
+- Factory methods on value objects (`CapabilityProbe.pass/fail/skip`) encapsulate status creation logic instead of exposing constructors directly.
+- Timed probe pattern wraps each live broker call in a `timedProbe` helper that measures `Duration` between `Instant.now()` calls and catches `UnsupportedOperationException` as SKIP versus general exceptions as FAIL.

@@ -1,0 +1,11 @@
+{
+  "broker" : "DHAN",
+  "checkName" : "ltp",
+  "category" : "market-data",
+  "status" : "PASS",
+  "evidence" : "ltp=127610",
+  "latencyMs" : 208,
+  "certifiedAt" : "2026-06-08T06:25:30.724113Z",
+  "errorMessage" : null,
+  "pass" : true
+}

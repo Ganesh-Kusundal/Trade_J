@@ -78,7 +78,7 @@ class AdminPipelineTest extends AdminTestBase {
     @SuppressWarnings("unchecked")
     @Test
     void strategiesReturnsPluginNames() {
-        when(strategyEngine.pluginNames()).thenReturn(List.of("MACrossover", "RSIReversal"));
+        when(graphStrategySandbox.pluginNames()).thenReturn(List.of("MACrossover", "RSIReversal"));
 
         ResponseEntity<Map> response = rest.getForEntity("/admin/strategies", Map.class);
 
@@ -95,7 +95,7 @@ class AdminPipelineTest extends AdminTestBase {
     @SuppressWarnings("unchecked")
     @Test
     void strategiesReturnsEmptyPluginsWhenNoneRegistered() {
-        when(strategyEngine.pluginNames()).thenReturn(List.of());
+        when(graphStrategySandbox.pluginNames()).thenReturn(List.of());
 
         ResponseEntity<Map> response = rest.getForEntity("/admin/strategies", Map.class);
 
@@ -143,7 +143,7 @@ class AdminPipelineTest extends AdminTestBase {
         when(orderPipeline.orderRate()).thenReturn(20.0);
 
         // Strategies
-        when(strategyEngine.pluginNames()).thenReturn(List.of("MACrossover", "BollingerBand", "RSIReversal"));
+        when(graphStrategySandbox.pluginNames()).thenReturn(List.of("MACrossover", "BollingerBand", "RSIReversal"));
 
         ResponseEntity<Map> response = rest.getForEntity("/admin/summary", Map.class);
 
@@ -220,7 +220,7 @@ class AdminPipelineTest extends AdminTestBase {
         when(orderPipeline.orderRate()).thenReturn(0.0);
 
         // Strategies — empty
-        when(strategyEngine.pluginNames()).thenReturn(List.of());
+        when(graphStrategySandbox.pluginNames()).thenReturn(List.of());
 
         ResponseEntity<Map> response = rest.getForEntity("/admin/summary", Map.class);
 

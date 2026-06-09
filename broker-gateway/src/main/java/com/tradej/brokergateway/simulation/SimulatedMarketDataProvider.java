@@ -88,6 +88,11 @@ public final class SimulatedMarketDataProvider implements MarketDataProvider {
     }
 
     @Override
+    public com.tradej.broker.api.model.HistoricalDataCapabilities capabilities() {
+        return com.tradej.broker.api.model.HistoricalDataCapabilities.dhanDefaults();
+    }
+
+    @Override
     public Map<InstrumentKey, Long> getLtpBatch(Collection<InstrumentKey> keys) {
         Map<InstrumentKey, Long> result = new HashMap<>();
         keys.forEach(k -> result.put(k, getLtpPaisa(k)));

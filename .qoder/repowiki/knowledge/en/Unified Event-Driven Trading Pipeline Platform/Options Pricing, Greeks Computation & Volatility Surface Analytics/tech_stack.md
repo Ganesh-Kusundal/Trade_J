@@ -1,0 +1,1 @@
+Caffeine local caching library for in-memory LRU caches with TTL eviction; Newton-Raphson iterative solver for implied volatility inversion; Abramowitz-Stegun rational approximation for the error function (erf) in normCdf/normPdf computations.

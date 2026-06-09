@@ -1,0 +1,1 @@
+Defines the extensibility contract for trading strategies, supporting both legacy candle-based and modern multi-event graph execution models.

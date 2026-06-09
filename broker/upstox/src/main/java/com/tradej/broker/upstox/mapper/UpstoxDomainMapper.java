@@ -1,6 +1,7 @@
 package com.tradej.broker.upstox.mapper;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.tradej.core.domain.model.Instrument;
 import com.tradej.core.domain.model.ModifyOrderRequest;
 import com.tradej.core.domain.model.Order;
 import com.tradej.core.domain.model.OrderRequest;
@@ -67,12 +68,18 @@ public final class UpstoxDomainMapper {
     }
 
     public Order toOrder(JsonNode response, OrderRequest originalRequest) {
+        return toOrder(response, originalRequest, null);
+    }
+
+    public Order toOrder(JsonNode response, OrderRequest originalRequest, Instrument instrument) {
         JsonNode data = response.get("data");
         if (data == null) data = response;
+        String symbol = instrument != null ? instrument.canonicalSymbol()
+                : (data.has("trading_symbol") ? data.get("trading_symbol").asText() : "");
         return new Order(
                 data.has("order_id") ? data.get("order_id").asText() : "",
                 originalRequest != null ? originalRequest.correlationId() : "",
-                data.has("trading_symbol") ? data.get("trading_symbol").asText() : "",
+                symbol,
                 parseSegment(data),
                 parseSide(data),
                 parseProductType(data),
@@ -101,14 +108,20 @@ public final class UpstoxDomainMapper {
     }
 
     public List<Trade> toTradeList(JsonNode response) {
+        return toTradeList(response, null);
+    }
+
+    public List<Trade> toTradeList(JsonNode response, Instrument instrument) {
         List<Trade> trades = new ArrayList<>();
         JsonNode data = response.get("data");
         if (data != null && data.isArray()) {
             for (JsonNode node : data) {
+                String symbol = instrument != null ? instrument.canonicalSymbol()
+                        : (node.has("trading_symbol") ? node.get("trading_symbol").asText() : "");
                 trades.add(new Trade(
                         node.has("trade_id") ? node.get("trade_id").asText() : "",
                         node.has("order_id") ? node.get("order_id").asText() : "",
-                        node.has("trading_symbol") ? node.get("trading_symbol").asText() : "",
+                        symbol,
                         parseSegment(node),
                         parseSide(node),
                         node.has("quantity") ? node.get("quantity").asLong() : 0L,

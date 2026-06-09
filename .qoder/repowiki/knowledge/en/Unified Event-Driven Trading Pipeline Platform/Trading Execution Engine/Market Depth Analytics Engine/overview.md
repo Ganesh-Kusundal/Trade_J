@@ -1,0 +1,1 @@
+Real-time order book analytics pipeline detecting imbalances, iceberg orders, absorption patterns, resting liquidity clusters, and recording depth heatmaps.

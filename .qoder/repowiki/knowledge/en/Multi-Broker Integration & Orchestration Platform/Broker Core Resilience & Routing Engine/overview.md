@@ -1,0 +1,1 @@
+Provides multi-broker load balancing, failover routing, circuit breaking, rate limiting, and WebSocket reconnection management for resilient broker connectivity.

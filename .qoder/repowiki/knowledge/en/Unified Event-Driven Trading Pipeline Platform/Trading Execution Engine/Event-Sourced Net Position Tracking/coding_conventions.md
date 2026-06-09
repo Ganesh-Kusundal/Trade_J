@@ -1,0 +1,3 @@
+- Use of Java records (`PositionState`, `TradeContribution`, `StateSnapshot`) for immutable data carriers within the module.
+- Defensive copying and unmodifiable views (`Collections.unmodifiableMap`, `Set.copyOf`) when exposing internal state or snapshots.
+- Null-checking and default-value patterns (`computeIfPresent`, `getOrDefault`) to handle missing state during event processing.

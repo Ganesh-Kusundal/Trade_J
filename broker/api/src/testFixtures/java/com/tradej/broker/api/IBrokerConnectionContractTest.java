@@ -97,4 +97,41 @@ public abstract class IBrokerConnectionContractTest {
     void disconnectDoesNotThrow() {
         assertDoesNotThrow(() -> connection.disconnect());
     }
+
+    @Test
+    void marketDataCapabilitiesIsNotNull() {
+        var caps = connection.marketData().capabilities();
+        org.junit.jupiter.api.Assumptions.assumeTrue(caps != null,
+                "Skipping: capabilities() returns null (mocked connection)");
+        assertNotNull(caps);
+    }
+
+    @Test
+    void marketDataCapabilitiesHasNonEmptySupportedIntervals() {
+        var caps = connection.marketData().capabilities();
+        org.junit.jupiter.api.Assumptions.assumeTrue(caps != null,
+                "Skipping: capabilities() returns null (mocked connection)");
+        assertNotNull(caps.supportedIntervals(), "supportedIntervals must not be null");
+        assertFalse(caps.supportedIntervals().isEmpty(), "supportedIntervals must not be empty");
+    }
+
+    @Test
+    void validateIntervalAcceptsSupportedInterval() {
+        var caps = connection.marketData().capabilities();
+        org.junit.jupiter.api.Assumptions.assumeTrue(caps != null,
+                "Skipping: capabilities() returns null (mocked connection)");
+        String firstSupported = caps.supportedIntervals().iterator().next();
+        assertDoesNotThrow(() -> connection.marketData().validateInterval(firstSupported),
+                "validateInterval must accept a supported interval without throwing");
+    }
+
+    @Test
+    void validateIntervalRejectsUnsupportedInterval() {
+        var caps = connection.marketData().capabilities();
+        org.junit.jupiter.api.Assumptions.assumeTrue(caps != null,
+                "Skipping: capabilities() returns null (mocked connection)");
+        assertThrows(Exception.class,
+                () -> connection.marketData().validateInterval("totally_invalid_interval_xyz"),
+                "validateInterval must throw for unsupported intervals");
+    }
 }

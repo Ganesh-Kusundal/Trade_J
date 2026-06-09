@@ -1,0 +1,10 @@
+schema_version: 1
+module_path: backend_data_infra/data_feature_store
+title: Feature Store & Time-Series Persistence
+scope:
+    - data/feature-store/
+source_files: []
+depends_on: []
+related_to:
+    - path: backend_data_infra/data_persistence
+    - path: backend_trading/trading_indicators

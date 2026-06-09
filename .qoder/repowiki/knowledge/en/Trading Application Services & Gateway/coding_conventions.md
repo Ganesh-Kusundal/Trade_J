@@ -1,0 +1,3 @@
+- Domain events are serialized to JSON in the `GatewayEventBridge` and published to specific `GatewayTopic` channels for client subscription.
+- CLI commands delegate business logic to `CliOperations`, which routes requests to either attach-mode HTTP clients or standalone broker/data services.
+- Configuration properties are grouped into nested records within `TradingProperties` (e.g., `DhanProperties`, `RiskProperties`) for type-safe access.

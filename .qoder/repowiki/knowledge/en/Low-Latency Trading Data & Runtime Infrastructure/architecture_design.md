@@ -1,0 +1,4 @@
+- Cross-module wiring relies on a shared Disruptor-based event bus (`runtime_disruptor`) that decouples real-time hot-path orchestrators (`runtime_hotpath`) from downstream persistence and analytics consumers.
+- `data_persistence` and `data_feature_store` act as subscribers to the event bus, ingesting live market data into Chronicle Queue WALs and DuckDB-backed time-series stores respectively.
+- `data_historical_ingest` and `data_analytics` provide offline/analytical counterparts using the same DuckDB/Parquet storage conventions, enabling feature parity between backtesting and live execution environments.
+- Isolation is enforced by separating runtime concerns (low-latency Java services) from data concerns (DuckDB/Parquet file structures), with integration points defined by event schemas and shared domain models.

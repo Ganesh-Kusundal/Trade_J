@@ -1,0 +1,1 @@
+Provides Spring-free composition roots for wiring broker, data, and execution subsystems, plus a node-execution library defining the descriptor/executor contract for pipeline nodes.

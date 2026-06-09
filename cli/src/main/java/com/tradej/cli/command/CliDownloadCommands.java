@@ -110,7 +110,8 @@ public final class CliDownloadCommands extends CliCommandSupport {
                     session().connection().instruments(),
                     delayMs,
                     workers,
-                    com.tradej.historical.ingest.universe.Nifty500UniverseFetcher.DEFAULT_UNIVERSE_URL
+                    com.tradej.historical.ingest.universe.Nifty500UniverseFetcher.DEFAULT_UNIVERSE_URL,
+                    CliDownloadSupport.createParquetWriter(Path.of(warehousePath))
             )) {
                 var stats = service.resumeJob(jobId);
                 out().print(Map.of("jobId", jobId, "stats", stats));
@@ -133,7 +134,8 @@ public final class CliDownloadCommands extends CliCommandSupport {
                 session().connection().instruments(),
                 0L,
                 1,
-                com.tradej.historical.ingest.universe.Nifty500UniverseFetcher.DEFAULT_UNIVERSE_URL
+                com.tradej.historical.ingest.universe.Nifty500UniverseFetcher.DEFAULT_UNIVERSE_URL,
+                CliDownloadSupport.createParquetWriter(Path.of(rootPath))
         )) {
             out().print(service.refreshUniverse());
         }
@@ -247,7 +249,8 @@ public final class CliDownloadCommands extends CliCommandSupport {
                 session().connection().instruments(),
                 delayMs,
                 workers,
-                com.tradej.historical.ingest.universe.Nifty500UniverseFetcher.DEFAULT_UNIVERSE_URL
+                com.tradej.historical.ingest.universe.Nifty500UniverseFetcher.DEFAULT_UNIVERSE_URL,
+                CliDownloadSupport.createParquetWriter(Path.of(config.rootPath()))
         )) {
             out().print(CliDownloadSupport.startEquityDownload(service, config, runImmediately));
         }

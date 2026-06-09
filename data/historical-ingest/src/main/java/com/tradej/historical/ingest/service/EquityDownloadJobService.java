@@ -15,7 +15,7 @@ import com.tradej.historical.ingest.model.DownloadTaskStatus;
 import com.tradej.historical.ingest.model.EquityHistoricalDownloadConfig;
 import com.tradej.historical.ingest.planner.EquityHistoricalDownloadPlanner;
 import com.tradej.historical.ingest.store.DuckDbHistoricalWarehouse;
-import com.tradej.historical.ingest.store.ParquetBarWriter;
+import com.tradej.historical.ingest.canonical.ParquetWriteService;
 import com.tradej.historical.ingest.universe.HistoricalEquityPaths;
 import com.tradej.historical.ingest.universe.Nifty500UniverseFetcher;
 import com.tradej.historical.ingest.universe.UniverseRefreshService;
@@ -40,7 +40,7 @@ public final class EquityDownloadJobService implements AutoCloseable {
     private final DuckDbHistoricalWarehouse metaStore;
     private final MarketDataProvider marketDataProvider;
     private final InstrumentResolver instrumentResolver;
-    private final ParquetBarWriter parquetBarWriter;
+    private final ParquetWriteService parquetWriter;
     private final UniverseRefreshService universeRefreshService;
     private final EquityHistoricalDownloadPlanner planner;
     private final ObjectMapper objectMapper;
@@ -55,13 +55,14 @@ public final class EquityDownloadJobService implements AutoCloseable {
             int workers,
             LongSupplier clock,
             Runnable delayBetweenCalls,
-            String universeUrl
+            String universeUrl,
+            ParquetWriteService parquetWriter
     ) {
         Path resolvedRoot = HistoricalEquityPaths.root(rootPath);
         this.metaStore = new DuckDbHistoricalWarehouse(HistoricalEquityPaths.metaDatabase(resolvedRoot));
         this.marketDataProvider = marketDataProvider;
         this.instrumentResolver = instrumentResolver;
-        this.parquetBarWriter = new ParquetBarWriter(resolvedRoot);
+        this.parquetWriter = parquetWriter;
         this.universeRefreshService = new UniverseRefreshService(
                 new Nifty500UniverseFetcher(java.net.http.HttpClient.newHttpClient(), universeUrl),
                 new UniverseSnapshotWriter(),
@@ -219,11 +220,6 @@ public final class EquityDownloadJobService implements AutoCloseable {
             AtomicLong processed
     ) throws Exception {
         try {
-            if (parquetBarWriter.outputExists(task.underlying(), config.intervalFolder(), task.taskId())) {
-                metaStore.updateTask(task.taskId(), DownloadTaskStatus.COMPLETED, 0L, null, clock.getAsLong());
-                processed.incrementAndGet();
-                return;
-            }
             delayBetweenCalls.run();
             InstrumentKey key = new InstrumentKey(task.underlying(), config.exchangeSegment());
             var candles = marketDataProvider.getCandles(new CandleHistoryRequest(
@@ -232,12 +228,11 @@ public final class EquityDownloadJobService implements AutoCloseable {
                     task.chunkFrom(),
                     task.chunkTo()
             ));
-            parquetBarWriter.write(
+            parquetWriter.writeBars(
+                    config.exchangeSegment().name(),
                     task.underlying(),
-                    config.intervalFolder(),
-                    normalizeStoredInterval(config.interval()),
-                    candles,
-                    task.taskId()
+                    config.interval(),
+                    candles
             );
             metaStore.updateTask(
                     task.taskId(),

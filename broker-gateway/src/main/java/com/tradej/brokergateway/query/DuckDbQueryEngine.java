@@ -36,6 +36,7 @@ public final class DuckDbQueryEngine implements AutoCloseable {
 
     private final Connection connection;
     private final Map<String, MarketDatasource> datasources;
+    private final QueryMetrics metrics;
 
     /**
      * Create an in-memory DuckDB engine.
@@ -55,9 +56,14 @@ public final class DuckDbQueryEngine implements AutoCloseable {
         try {
             this.connection = DriverManager.getConnection("jdbc:duckdb:" + path);
             this.datasources = new LinkedHashMap<>();
+            this.metrics = new QueryMetrics();
         } catch (SQLException e) {
             throw new IllegalStateException("Failed to open DuckDB connection: " + path, e);
         }
+    }
+
+    public QueryMetrics metrics() {
+        return metrics;
     }
 
     /**
@@ -104,9 +110,11 @@ public final class DuckDbQueryEngine implements AutoCloseable {
             }
 
             long elapsed = System.currentTimeMillis() - start;
+            metrics.recordQuery(elapsed, rows.size());
             return new QueryResult(columns, rows, elapsed, sql);
 
         } catch (SQLException e) {
+            metrics.recordFailure();
             throw new IllegalArgumentException("SQL execution failed: " + e.getMessage(), e);
         }
     }

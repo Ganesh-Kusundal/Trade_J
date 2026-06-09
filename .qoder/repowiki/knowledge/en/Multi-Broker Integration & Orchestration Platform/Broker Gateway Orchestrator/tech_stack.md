@@ -1,0 +1,1 @@
+Java ServiceLoader for cross-module plugin discovery (SPI).

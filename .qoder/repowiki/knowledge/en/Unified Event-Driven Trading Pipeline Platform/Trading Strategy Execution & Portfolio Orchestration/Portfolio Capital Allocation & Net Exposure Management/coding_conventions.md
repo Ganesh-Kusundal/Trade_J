@@ -1,0 +1,4 @@
+- Use `ConcurrentHashMap.compute()` for atomic read-modify-write operations on shared mutable state (e.g., capital allocation updates, net position adjustments) instead of explicit locking.
+- Use `ConcurrentHashMap.merge()` with `Long::sum` or negated deltas for incremental counter updates (e.g., applying/reversing signal deltas, trade open/close adjustments).
+- Return `null` on success and a descriptive rejection reason string on failure for portfolio gate checks (e.g., `reserveSignal`, `checkAndReserve`), enabling callers to distinguish approval from specific limit violations.
+- Store snapshot copies via `new ConcurrentHashMap<>(sourceMap)` wrapped in `Collections.unmodifiableMap()` to prevent external mutation of internal state views.

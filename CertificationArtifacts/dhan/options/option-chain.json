@@ -1,0 +1,11 @@
+{
+  "broker" : "DHAN",
+  "checkName" : "option-chain",
+  "category" : "options",
+  "status" : "PASS",
+  "evidence" : "strikes=104",
+  "latencyMs" : 3075,
+  "certifiedAt" : "2026-06-08T06:25:30.735135Z",
+  "errorMessage" : null,
+  "pass" : true
+}

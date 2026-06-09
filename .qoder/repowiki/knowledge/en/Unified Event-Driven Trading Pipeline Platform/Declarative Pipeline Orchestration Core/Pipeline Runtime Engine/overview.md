@@ -1,0 +1,1 @@
+Orchestrates the compilation, deployment, and execution of declarative trading pipeline graphs across live, replay, and backtest modes.

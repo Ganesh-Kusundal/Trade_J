@@ -1,0 +1,11 @@
+{
+  "broker" : "DHAN",
+  "checkName" : "instrument-catalog",
+  "category" : "catalog",
+  "status" : "PASS",
+  "evidence" : "count=170939",
+  "latencyMs" : 0,
+  "certifiedAt" : "2026-06-08T06:25:30.737837Z",
+  "errorMessage" : null,
+  "pass" : true
+}

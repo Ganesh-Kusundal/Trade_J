@@ -1,0 +1,5 @@
+- All analyzer classes are declared as `final` with no public constructors beyond the default, enforcing immutability of the class structure.
+- Per-symbol state is managed using nested `ConcurrentHashMap<String, ConcurrentHashMap<Long, State>>` structures to enable lock-free concurrent updates across symbols and price levels.
+- Internal mutable state objects are modeled as private `record` types scoped within their enclosing analyzer class.
+- Analyzers return `List` of signal records rather than mutating shared state, following a functional output pattern.
+- Threshold constants (erosion rate, refresh count, volume multipliers) are defined as `private static final` at class level for configurability.

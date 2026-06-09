@@ -1,0 +1,3 @@
+- Pure functional analytics: `OptionAnalytics` methods are static and stateless, operating solely on `OptionChainSnapshot` inputs without side effects or external dependencies.
+- Immutable result records: Data transfer objects like `QueryResult` and `OptionAnalytics.PcrResult` use Java records with defensive copying (e.g., `List.copyOf`) to ensure immutability.
+- Functional datasource registration: `MarketDatasource` is defined as a `@FunctionalInterface` to allow lambda-based registration of tables and views into the SQL engine.

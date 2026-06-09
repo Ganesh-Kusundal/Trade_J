@@ -1,0 +1,1 @@
+Uses Java Records for immutable data transfer objects and `java.math.BigDecimal` with custom `MathContext` for financial precision.

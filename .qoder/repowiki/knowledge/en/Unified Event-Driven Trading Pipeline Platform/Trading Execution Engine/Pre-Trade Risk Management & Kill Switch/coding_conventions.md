@@ -1,0 +1,4 @@
+- All `RiskCheck` implementations are final classes, stateless, and return `RiskVerdict.approve(checkName)` or `RiskVerdict.reject(checkName, reason)` — verified across `KillSwitchRiskCheck`, `DailyLossRiskCheck`, and `PositionLimitRiskCheck`.
+- Zero or negative configured limits disable the corresponding check (e.g., `maxDailyLossPaisa <= 0` skips loss check, `maxOpenPositions <= 0` skips position check) — verified in `DailyLossRiskCheck` and `PositionLimitRiskCheck`.
+- Kill-switch activation uses `AtomicBoolean.compareAndSet(false, true)` for idempotent guard against duplicate engagement — verified in `PositionRiskHandler.activateKillSwitch()` and mirrored in `KillSwitchCoordinator` state tracking.
+- Rejection reasons use snake_case string identifiers (e.g., "kill_switch", "daily_loss", "position_limit", "insufficient_margin") consistently across verdict construction and signal suppression.

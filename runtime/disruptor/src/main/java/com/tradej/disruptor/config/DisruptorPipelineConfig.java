@@ -28,7 +28,9 @@ public record DisruptorPipelineConfig(
         FeatureStore hotPathFeatureStore,
         DeadLetterQueue deadLetterQueue,
         PipelineRuntimeBridge pipelineRuntimeBridge,
-        boolean compileGraphOnInit
+        boolean compileGraphOnInit,
+        com.tradej.core.domain.runtime.RuntimeMode runtimeMode,
+        com.tradej.core.domain.port.EventWriteAheadLog writeAheadLog
 ) {
     public DisruptorPipelineConfig {
         if (positionRiskHandler == null) {
@@ -45,5 +47,7 @@ public record DisruptorPipelineConfig(
         }
         if (stageTimings == null) stageTimings = StageTimings.NO_OP;
         if (deadLetterQueue == null) deadLetterQueue = DeadLetterQueue.noop();
+        if (runtimeMode == null) runtimeMode = com.tradej.core.domain.runtime.RuntimeMode.LIVE;
+        if (writeAheadLog == null) writeAheadLog = com.tradej.core.domain.port.EventWriteAheadLog.noop();
     }
 }

@@ -8,6 +8,7 @@ import com.tradej.broker.icici.instrument.BreezeInstrumentDefinition;
 import com.tradej.broker.icici.instrument.BreezeInstrumentResolver;
 import com.tradej.broker.icici.mapper.BreezeDomainMapper;
 import com.tradej.broker.icici.rest.BreezeOrderRestClient;
+import com.tradej.core.domain.model.Instrument;
 import com.tradej.core.domain.model.InstrumentKey;
 import com.tradej.core.domain.model.ModifyOrderRequest;
 import com.tradej.core.domain.model.Order;
@@ -43,20 +44,23 @@ public final class IciciOrderCommandAdapter implements OrderCommand {
         if (request.orderType() == OrderType.MARKET || request.orderType() == OrderType.STOP_LOSS_MARKET) {
             throw new UnsupportedOperationException("ICICI Breeze API does not permit market orders");
         }
-        BreezeInstrumentDefinition definition = instrumentResolver.requireBreezeDefinition(
-                new InstrumentKey(request.symbol(), request.exchangeSegment()));
+        InstrumentKey key = new InstrumentKey(request.symbol(), request.exchangeSegment());
+        BreezeInstrumentDefinition definition = instrumentResolver.requireBreezeDefinition(key);
+        Instrument instrument = definition.toInstrument();
         ObjectNode payload = mapper.toPlaceOrderPayload(request, definition);
         JsonNode response = restClient.placeOrder(payload);
-        return mapper.toOrder(response, request);
+        return mapper.toOrder(response, request, instrument);
     }
 
     @Override
     public Order modifyOrder(ModifyOrderRequest request) {
         ensureOrdersEnabled();
+        InstrumentKey key = new InstrumentKey(request.symbol(), request.exchangeSegment());
+        Instrument instrument = instrumentResolver.resolve(key);
         String exchangeCode = exchangeResolver.resolveExchangeCode(request.orderId());
         ObjectNode payload = mapper.toModifyOrderPayload(request, exchangeCode);
         JsonNode response = restClient.modifyOrder(payload);
-        return mapper.toOrder(response, null);
+        return mapper.toOrder(response, null, instrument);
     }
 
     @Override

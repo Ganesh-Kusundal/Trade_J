@@ -1,1 +1,0 @@
-Defines pipeline lifecycle management, DAG and hot-path runtime execution engines, and trade performance/drawdown analytics for algorithmic trading systems.

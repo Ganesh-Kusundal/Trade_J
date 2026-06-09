@@ -1,0 +1,11 @@
+{
+  "broker" : "DHAN",
+  "checkName" : "margin-estimate",
+  "category" : "margin",
+  "status" : "PASS",
+  "evidence" : "margin=2000 paisa",
+  "latencyMs" : 34,
+  "certifiedAt" : "2026-06-08T06:25:30.736900Z",
+  "errorMessage" : null,
+  "pass" : true
+}

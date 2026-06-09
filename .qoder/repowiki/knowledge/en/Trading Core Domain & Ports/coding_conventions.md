@@ -1,0 +1,4 @@
+- Domain events are implemented as records implementing the `DomainEvent` interface, carrying an `EventMetadata` record for tracing and versioning.
+- Value objects and identifiers (e.g., `CorrelationId`, `OrderId`) are implemented as Java records with compact constructors for validation.
+- State machines use static transition maps keyed by `(currentState, eventType)` records to enforce deterministic lifecycle rules without complex conditional logic.
+- Ports are defined as simple Java interfaces (e.g., `EventBus`, `FeatureStore`) within the `domain.port` package, following Hexagonal Architecture principles.

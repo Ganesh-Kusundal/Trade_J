@@ -1,0 +1,11 @@
+{
+  "broker" : "DHAN",
+  "checkName" : "futures",
+  "category" : "futures",
+  "status" : "PASS",
+  "evidence" : "supported",
+  "latencyMs" : 0,
+  "certifiedAt" : "2026-06-08T06:25:30.737078Z",
+  "errorMessage" : null,
+  "pass" : true
+}

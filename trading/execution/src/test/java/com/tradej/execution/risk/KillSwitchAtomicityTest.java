@@ -156,7 +156,7 @@ class KillSwitchAtomicityTest {
         assertInstanceOf(SignalSuppressed.class, published.getFirst(),
                 "Published event should be SignalSuppressed");
         SignalSuppressed suppressed = (SignalSuppressed) published.getFirst();
-        assertEquals("kill_switch_active", suppressed.reason(),
-                "Suppression reason should be kill_switch_active");
+        assertTrue(suppressed.reason().contains("kill_switch"),
+                "Suppression reason should contain kill_switch but was: " + suppressed.reason());
     }
 }

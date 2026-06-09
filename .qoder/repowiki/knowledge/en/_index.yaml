@@ -1,16 +1,16 @@
 # 知识卡导出索引文件
 schema_version: 1
 locale: en-US
-branch: feature/dhan-first-analytics-foundation
-exported_at: "2026-06-05T18:26:07Z"
+branch: all-broker-support-and-moduler
+exported_at: "2026-06-08T09:04:26Z"
 modules:
     "":
-        dir_name: Trade-J Institutional Trading Platform
-        title: Trade-J Institutional Trading Platform
+        dir_name: Algorithmic Trading Platform Core
+        title: Algorithmic Trading Platform Core
         scope:
             - README.md
-            - config/
-            - docs/
+            - build.gradle
+            - settings.gradle
             - .gitignore
             - ARCHITECTURE.md
             - AUDIT_REPORT.md
@@ -24,215 +24,256 @@ modules:
             - TESTING.md
             - TRADEHULL_PARITY.md
             - TRADEJ_ARCHITECTURE_CLASS_FLOWS_REPORT.md
-            - build.gradle
         source_files: []
         children: []
         depends_on: []
         related_to: []
-    app:
-        dir_name: Trading Application Runtime & API Gateway
-        title: Trading Application Runtime & API Gateway
+    backend_app_services:
+        dir_name: Trading Application Services & Gateway
+        title: Trading Application Services & Gateway
         scope:
             - app/
-        source_files: []
-        children: []
-        depends_on: []
-        related_to:
-            - path: cli
-            - path: composition
-            - path: replay
-            - path: architecture_test
-            - path: gateway
-    architecture_test:
-        dir_name: Architecture Constraint Verification
-        title: Architecture Constraint Verification
-        scope:
-            - architecture-test/
-        source_files: []
-        children: []
-        depends_on: []
-        related_to:
-            - path: core
-            - path: pipeline
-            - path: app
-            - path: composition
-    broker:
-        dir_name: Multi-Broker Connectivity & Abstraction
-        title: Multi-Broker Connectivity & Abstraction
-        scope:
-            - broker/
-        source_files: []
-        children: []
-        depends_on: []
-        related_to:
-            - path: trading/execution
-            - path: cli
-            - path: runtime
-            - path: composition
-    cli:
-        dir_name: Trading CLI & Interactive Shell
-        title: Trading CLI & Interactive Shell
-        scope:
+            - gateway/
             - cli/
         source_files: []
         children: []
         depends_on: []
         related_to:
-            - path: app
-            - path: broker
-            - path: trading/execution
-    composition:
-        dir_name: Dependency Injection & System Composition
-        title: Dependency Injection & System Composition
+            - path: frontend
+    backend_broker:
+        dir_name: Multi-Broker Integration & Orchestration Platform
+        title: Multi-Broker Integration & Orchestration Platform
         scope:
-            - composition/
+            - broker/
+            - broker-gateway/
+        source_files: []
+        children:
+            - backend_broker/broker_dhan
+            - backend_broker/broker_core
+            - backend_broker/broker_api
+            - backend_broker/broker_gateway
+            - backend_broker/broker_icici
+            - backend_broker/broker_upstox
+        depends_on: []
+        related_to: []
+    backend_broker/broker_api:
+        dir_name: Broker Integration SPI & Capability Model
+        title: Broker Integration SPI & Capability Model
+        scope:
+            - broker/api/
         source_files: []
         children: []
         depends_on: []
         related_to:
-            - path: app
-            - path: data/feature_store
-            - path: broker
-            - path: architecture_test
-    core:
-        dir_name: Trading Core Domain & Pipeline Runtime
-        title: Trading Core Domain & Pipeline Runtime
+            - path: backend_broker/broker_core
+    backend_broker/broker_core:
+        dir_name: Broker Core Resilience & Routing Engine
+        title: Broker Core Resilience & Routing Engine
+        scope:
+            - broker/core/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: backend_broker/broker_api
+    backend_broker/broker_dhan:
+        dir_name: Dhan Broker Integration
+        title: Dhan Broker Integration
+        scope:
+            - broker/dhan/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: backend_broker/broker_icici
+            - path: backend_broker/broker_upstox
+    backend_broker/broker_gateway:
+        dir_name: Broker Gateway Orchestrator
+        title: Broker Gateway Orchestrator
+        scope:
+            - broker-gateway/
+        source_files: []
+        children:
+            - backend_broker/broker_gateway/broker_simulation
+            - backend_broker/broker_gateway/broker_explorer
+            - backend_broker/broker_gateway/broker_query
+            - backend_broker/broker_gateway/broker_certification
+            - backend_broker/broker_gateway/broker_spi
+        depends_on: []
+        related_to: []
+    backend_broker/broker_gateway/broker_certification:
+        dir_name: Broker Certification Suite
+        title: Broker Certification Suite
+        scope:
+            - broker-gateway/src/main/java/com/tradej/brokergateway/certification/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: backend_broker/broker_gateway/broker_explorer
+    backend_broker/broker_gateway/broker_explorer:
+        dir_name: Broker Capability Inspection & Live Probing
+        title: Broker Capability Inspection & Live Probing
+        scope:
+            - broker-gateway/src/main/java/com/tradej/brokergateway/explorer/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: backend_broker/broker_gateway/broker_certification
+    backend_broker/broker_gateway/broker_query:
+        dir_name: Market Data Query & Option Analytics
+        title: Market Data Query & Option Analytics
+        scope:
+            - broker-gateway/src/main/java/com/tradej/brokergateway/query/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: backend_trading/trading_options_analytics
+    backend_broker/broker_gateway/broker_simulation:
+        dir_name: Simulation & Backtesting Broker Infrastructure
+        title: Simulation & Backtesting Broker Infrastructure
+        scope:
+            - broker-gateway/src/main/java/com/tradej/brokergateway/simulation/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: backend_trading/trading_simulation
+    backend_broker/broker_gateway/broker_spi:
+        dir_name: Broker Plugin SPI & Registry
+        title: Broker Plugin SPI & Registry
+        scope:
+            - broker-gateway/src/main/java/com/tradej/brokergateway/spi/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    backend_broker/broker_icici:
+        dir_name: ICICI Breeze Broker Adapter
+        title: ICICI Breeze Broker Adapter
+        scope:
+            - broker/icici/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: backend_broker/broker_dhan
+            - path: backend_broker/broker_upstox
+    backend_broker/broker_upstox:
+        dir_name: Upstox Broker Integration
+        title: Upstox Broker Integration
+        scope:
+            - broker/upstox/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: backend_broker/broker_dhan
+            - path: backend_broker/broker_icici
+    backend_core:
+        dir_name: Trading Core Domain & Ports
+        title: Trading Core Domain & Ports
         scope:
             - core/
         source_files: []
         children: []
         depends_on: []
-        related_to:
-            - path: architecture_test
-            - path: trading/execution
-            - path: gateway
-            - path: trade_node_library
-    data:
-        dir_name: Unified Market Data & Analytics Persistence Layer
-        title: Unified Market Data & Analytics Persistence Layer
+        related_to: []
+    backend_data_infra:
+        dir_name: Low-Latency Trading Data & Runtime Infrastructure
+        title: Low-Latency Trading Data & Runtime Infrastructure
         scope:
             - data/
+            - runtime/
         source_files: []
         children:
-            - data/feature_store
-            - data/persistence
-            - data/analytics
-            - data/historical_ingest
+            - backend_data_infra/data_feature_store
+            - backend_data_infra/data_historical_ingest
+            - backend_data_infra/data_persistence
+            - backend_data_infra/data_analytics
+            - backend_data_infra/runtime_disruptor
+            - backend_data_infra/runtime_hotpath
         depends_on: []
         related_to: []
-    data/analytics:
-        dir_name: DuckDB-Powered Historical Analytics Engine
-        title: DuckDB-Powered Historical Analytics Engine
+    backend_data_infra/data_analytics:
+        dir_name: DuckDB-Based Historical Analytics Engine
+        title: DuckDB-Based Historical Analytics Engine
         scope:
             - data/analytics/
         source_files: []
         children: []
         depends_on: []
         related_to:
-            - path: data/feature_store
-            - path: research
-            - path: trading/institutional_scanner
-            - path: data/historical_ingest
-    data/feature_store:
-        dir_name: Feature Store & Ingestion Pipeline
-        title: Feature Store & Ingestion Pipeline
+            - path: backend_trading/trading_options_analytics
+            - path: backend_data_infra/data_historical_ingest
+    backend_data_infra/data_feature_store:
+        dir_name: Feature Store & Time-Series Persistence
+        title: Feature Store & Time-Series Persistence
         scope:
             - data/feature-store/
         source_files: []
         children: []
         depends_on: []
         related_to:
-            - path: data/analytics
-            - path: data/historical_ingest
-            - path: runtime
-            - path: composition
-            - path: data/persistence
-    data/historical_ingest:
-        dir_name: Historical Market Data Ingestion & Storage
-        title: Historical Market Data Ingestion & Storage
+            - path: backend_data_infra/data_persistence
+            - path: backend_trading/trading_indicators
+    backend_data_infra/data_historical_ingest:
+        dir_name: Historical Data Ingestion & Warehouse
+        title: Historical Data Ingestion & Warehouse
         scope:
             - data/historical-ingest/
         source_files: []
         children: []
         depends_on: []
         related_to:
-            - path: data/feature_store
-            - path: trading/institutional_scanner
-            - path: data/analytics
-            - path: replay
-    data/persistence:
-        dir_name: Event Sourcing & Historical Replay Persistence
-        title: Event Sourcing & Historical Replay Persistence
+            - path: backend_data_infra/data_analytics
+    backend_data_infra/data_persistence:
+        dir_name: Event Sourcing & Analytical Persistence
+        title: Event Sourcing & Analytical Persistence
         scope:
             - data/persistence/
         source_files: []
         children: []
         depends_on: []
         related_to:
-            - path: replay
-            - path: trading/execution
-            - path: research
-            - path: data/feature_store
-    frontend:
-        dir_name: Trading Terminal UI
-        title: Trading Terminal UI
+            - path: backend_data_infra/data_feature_store
+    backend_data_infra/runtime_disruptor:
+        dir_name: Low-Latency Disruptor Event Bus & Pipeline Runtime
+        title: Low-Latency Disruptor Event Bus & Pipeline Runtime
         scope:
-            - frontend/
+            - runtime/disruptor/
         source_files: []
         children: []
         depends_on: []
         related_to:
-            - path: gateway
-            - path: trading/options_analytics
-            - path: trading/execution
-            - path: trading/indicators
-    gateway:
-        dir_name: WebSocket Gateway & Event Bridge
-        title: WebSocket Gateway & Event Bridge
+            - path: backend_data_infra/runtime_hotpath
+            - path: backend_trading/pipeline_core
+    backend_data_infra/runtime_hotpath:
+        dir_name: Low-Latency Event Pipeline Orchestration
+        title: Low-Latency Event Pipeline Orchestration
         scope:
-            - gateway/
+            - runtime/hotpath/
         source_files: []
         children: []
         depends_on: []
         related_to:
-            - path: frontend
-            - path: runtime
-            - path: replay
-            - path: core
-            - path: app
-    pipeline:
-        dir_name: Trading Pipeline Platform, Runtime Execution & Performance Analytics
-        title: Trading Pipeline Platform, Runtime Execution & Performance Analytics
+            - path: backend_data_infra/runtime_disruptor
+    backend_platform_support:
+        dir_name: Platform Composition & Node Execution Library
+        title: Platform Composition & Node Execution Library
         scope:
-            - pipeline/
+            - composition/
+            - nodes/
+            - architecture-test/
         source_files: []
         children: []
         depends_on: []
-        related_to:
-            - path: runtime
-            - path: trade_node_library
-            - path: trading/strategy
-            - path: trading/simulation
-            - path: research
-            - path: architecture_test
-            - path: trading/indicators
-    replay:
-        dir_name: Historical Market Replay Engine
-        title: Historical Market Replay Engine
-        scope:
-            - replay/
-        source_files: []
-        children: []
-        depends_on: []
-        related_to:
-            - path: data/persistence
-            - path: app
-            - path: gateway
-            - path: trading/strategy
-            - path: data/historical_ingest
-    research:
-        dir_name: Trading Strategy Research & Backtesting Lab
-        title: Trading Strategy Research & Backtesting Lab
+        related_to: []
+    backend_research:
+        dir_name: Algorithmic Trading Research & Backtesting Lab
+        title: Algorithmic Trading Research & Backtesting Lab
         scope:
             - research/
             - mcp-server/
@@ -240,86 +281,247 @@ modules:
         children: []
         depends_on: []
         related_to:
-            - path: trading/simulation
-            - path: trading/scanner
-            - path: data/analytics
-            - path: trading/institutional_scanner
-            - path: data/persistence
-            - path: trading/strategy
-            - path: pipeline
-    runtime:
-        dir_name: High-Performance Event Bus & Hot Path Pipelines
-        title: High-Performance Event Bus & Hot Path Pipelines
-        scope:
-            - runtime/
-        source_files: []
-        children: []
-        depends_on: []
-        related_to:
-            - path: pipeline
-            - path: gateway
-            - path: data/feature_store
-            - path: broker
-    trade_node_library:
-        dir_name: Pipeline Node Abstraction Library
-        title: Pipeline Node Abstraction Library
-        scope:
-            - nodes/
-        source_files: []
-        children: []
-        depends_on: []
-        related_to:
-            - path: trading/indicators
-            - path: pipeline
-            - path: core
-    trading:
-        dir_name: Algorithmic Trading Platform Core
-        title: Algorithmic Trading Platform Core
+            - path: backend_trading/replay_engine
+            - path: backend_trading/trading_scanner
+    backend_trading:
+        dir_name: Unified Event-Driven Trading Pipeline Platform
+        title: Unified Event-Driven Trading Pipeline Platform
         scope:
             - trading/
+            - pipeline/
+            - replay/
         source_files: []
         children:
-            - trading/execution
-            - trading/indicators
-            - trading/institutional_scanner
-            - trading/scanner
-            - trading/options_analytics
-            - trading/strategy
-            - trading/simulation
+            - backend_trading/trading_strategy
+            - backend_trading/replay_engine
+            - backend_trading/trading_execution
+            - backend_trading/pipeline_core
+            - backend_trading/trading_options_analytics
+            - backend_trading/trading_simulation
+            - backend_trading/trading_scanner
+            - backend_trading/pipeline_runtime_service
+            - backend_trading/pipeline_analytics
+            - backend_trading/trading_institutional_scanner
+            - backend_trading/trading_indicators
+            - backend_trading/pipeline_platform
         depends_on: []
         related_to: []
-    trading/execution:
-        dir_name: Order Execution & Lifecycle Management
-        title: Order Execution & Lifecycle Management
+    backend_trading/pipeline_analytics:
+        dir_name: Trade Performance & Drawdown Analytics
+        title: Trade Performance & Drawdown Analytics
+        scope:
+            - pipeline/analytics/trade-analytics/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: backend_trading/pipeline_core
+    backend_trading/pipeline_core:
+        dir_name: Declarative Pipeline Orchestration Core
+        title: Declarative Pipeline Orchestration Core
+        scope:
+            - pipeline/core/
+        source_files: []
+        children:
+            - backend_trading/pipeline_core/runtime_engine
+            - backend_trading/pipeline_core/graph_model
+            - backend_trading/pipeline_core/state_store
+        depends_on: []
+        related_to:
+            - path: backend_trading/pipeline_runtime_service
+            - path: backend_trading/pipeline_platform
+            - path: backend_trading/pipeline_analytics
+            - path: backend_data_infra/runtime_disruptor
+            - path: backend_trading/trading_strategy/graph_nodes
+    backend_trading/pipeline_core/graph_model:
+        dir_name: Declarative Pipeline Graph Model
+        title: Declarative Pipeline Graph Model
+        scope:
+            - pipeline/core/src/main/java/com/tradej/pipeline/graph/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: backend_trading/pipeline_core/runtime_engine
+    backend_trading/pipeline_core/runtime_engine:
+        dir_name: Pipeline Runtime Engine
+        title: Pipeline Runtime Engine
+        scope:
+            - pipeline/core/src/main/java/com/tradej/pipeline/runtime/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: backend_trading/pipeline_core/graph_model
+            - path: backend_trading/pipeline_core/state_store
+    backend_trading/pipeline_core/state_store:
+        dir_name: Pipeline State Management
+        title: Pipeline State Management
+        scope:
+            - pipeline/core/src/main/java/com/tradej/pipeline/state/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: backend_trading/pipeline_core/runtime_engine
+    backend_trading/pipeline_platform:
+        dir_name: Pipeline Definition & Lifecycle Management
+        title: Pipeline Definition & Lifecycle Management
+        scope:
+            - pipeline/platform/trade-pipeline-platform/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: backend_trading/pipeline_core
+    backend_trading/pipeline_runtime_service:
+        dir_name: Pipeline Runtime Orchestration
+        title: Pipeline Runtime Orchestration
+        scope:
+            - pipeline/runtime/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: backend_trading/pipeline_core
+    backend_trading/replay_engine:
+        dir_name: Historical Market Data Replay & Backtesting Engine
+        title: Historical Market Data Replay & Backtesting Engine
+        scope:
+            - replay/engine/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: backend_trading/trading_simulation
+            - path: backend_research
+    backend_trading/trading_execution:
+        dir_name: Trading Execution Engine
+        title: Trading Execution Engine
         scope:
             - trading/execution/
         source_files: []
+        children:
+            - backend_trading/trading_execution/order_identity
+            - backend_trading/trading_execution/core_execution
+            - backend_trading/trading_execution/risk_management
+            - backend_trading/trading_execution/subscription_management
+            - backend_trading/trading_execution/position_tracking
+            - backend_trading/trading_execution/execution_support
+            - backend_trading/trading_execution/reconciliation
+            - backend_trading/trading_execution/market_depth_analytics
+        depends_on: []
+        related_to:
+            - path: backend_trading/trading_strategy
+            - path: frontend
+    backend_trading/trading_execution/core_execution:
+        dir_name: Order Execution & Lifecycle Management
+        title: Order Execution & Lifecycle Management
+        scope:
+            - trading/execution/src/main/java/com/tradej/execution/service/
+            - trading/execution/src/main/java/com/tradej/execution/command/
+            - trading/execution/src/main/java/com/tradej/execution/node/
+            - trading/execution/src/main/java/com/tradej/execution/bridge/
+            - trading/execution/src/test/java/com/tradej/execution/service/
+            - trading/execution/src/test/java/com/tradej/execution/command/
+        source_files: []
         children: []
         depends_on: []
         related_to:
-            - path: broker
-            - path: trading/simulation
-            - path: trading/strategy
-            - path: data/persistence
-            - path: core
-            - path: frontend
-            - path: cli
-    trading/indicators:
-        dir_name: Technical Indicator Computation Engine
-        title: Technical Indicator Computation Engine
+            - path: backend_trading/trading_execution/execution_support
+            - path: backend_trading/trading_execution/order_identity
+            - path: backend_trading/trading_execution/risk_management
+    backend_trading/trading_execution/execution_support:
+        dir_name: Execution Support Services
+        title: Execution Support Services
+        scope:
+            - trading/execution/src/main/java/com/tradej/execution/journal/
+            - trading/execution/src/main/java/com/tradej/execution/readmodel/
+            - trading/execution/src/main/java/com/tradej/execution/marketdata/
+            - trading/execution/src/main/java/com/tradej/execution/pnl/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: backend_trading/trading_execution/core_execution
+    backend_trading/trading_execution/market_depth_analytics:
+        dir_name: Market Depth Analytics Engine
+        title: Market Depth Analytics Engine
+        scope:
+            - trading/execution/src/main/java/com/tradej/execution/depth/
+            - trading/execution/src/test/java/com/tradej/execution/depth/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: backend_trading/trading_execution/subscription_management
+    backend_trading/trading_execution/order_identity:
+        dir_name: Order Identity Resolution & Lifecycle Tracking
+        title: Order Identity Resolution & Lifecycle Tracking
+        scope:
+            - trading/execution/src/main/java/com/tradej/execution/identity/
+            - trading/execution/src/test/java/com/tradej/execution/identity/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: backend_trading/trading_execution/core_execution
+    backend_trading/trading_execution/position_tracking:
+        dir_name: Event-Sourced Net Position Tracking
+        title: Event-Sourced Net Position Tracking
+        scope:
+            - trading/execution/src/main/java/com/tradej/execution/position/
+            - trading/execution/src/test/java/com/tradej/execution/position/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: backend_trading/trading_execution/reconciliation
+    backend_trading/trading_execution/reconciliation:
+        dir_name: Trade Reconciliation Engine
+        title: Trade Reconciliation Engine
+        scope:
+            - trading/execution/src/main/java/com/tradej/execution/reconcile/
+            - trading/execution/src/test/java/com/tradej/execution/reconcile/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: backend_trading/trading_execution/position_tracking
+    backend_trading/trading_execution/risk_management:
+        dir_name: Pre-Trade Risk Management & Kill Switch
+        title: Pre-Trade Risk Management & Kill Switch
+        scope:
+            - trading/execution/src/main/java/com/tradej/execution/risk/
+            - trading/execution/src/test/java/com/tradej/execution/risk/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: backend_trading/trading_strategy/portfolio
+            - path: backend_trading/trading_execution/core_execution
+    backend_trading/trading_execution/subscription_management:
+        dir_name: WebSocket Subscription Lifecycle Management
+        title: WebSocket Subscription Lifecycle Management
+        scope:
+            - trading/execution/src/main/java/com/tradej/execution/subscription/
+            - trading/execution/src/test/java/com/tradej/execution/subscription/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: backend_trading/trading_execution/market_depth_analytics
+    backend_trading/trading_indicators:
+        dir_name: Technical Indicators & Candle Transformations
+        title: Technical Indicators & Candle Transformations
         scope:
             - trading/indicators/
         source_files: []
         children: []
         depends_on: []
         related_to:
-            - path: trade_node_library
-            - path: trading/strategy
-            - path: trading/scanner
-            - path: trading/options_analytics
-            - path: frontend
-            - path: pipeline
-    trading/institutional_scanner:
+            - path: backend_data_infra/data_feature_store
+    backend_trading/trading_institutional_scanner:
         dir_name: Institutional Scanner Engine
         title: Institutional Scanner Engine
         scope:
@@ -328,37 +530,30 @@ modules:
         children: []
         depends_on: []
         related_to:
-            - path: trading/scanner
-            - path: trading/strategy
-            - path: data/historical_ingest
-            - path: research
-            - path: data/analytics
-    trading/options_analytics:
-        dir_name: Options Pricing and Greeks Analytics
-        title: Options Pricing and Greeks Analytics
+            - path: backend_trading/trading_scanner
+    backend_trading/trading_options_analytics:
+        dir_name: Options Pricing, Greeks Computation & Volatility Surface Analytics
+        title: Options Pricing, Greeks Computation & Volatility Surface Analytics
         scope:
             - trading/options-analytics/
         source_files: []
         children: []
         depends_on: []
         related_to:
-            - path: trading/scanner
-            - path: frontend
-            - path: trading/indicators
-    trading/scanner:
-        dir_name: Market Scanner Engine
-        title: Market Scanner Engine
+            - path: backend_broker/broker_gateway/broker_query
+            - path: backend_data_infra/data_analytics
+    backend_trading/trading_scanner:
+        dir_name: Market Scan Engine & Criterion Framework
+        title: Market Scan Engine & Criterion Framework
         scope:
             - trading/scanner/
         source_files: []
         children: []
         depends_on: []
         related_to:
-            - path: trading/institutional_scanner
-            - path: trading/options_analytics
-            - path: research
-            - path: trading/indicators
-    trading/simulation:
+            - path: backend_research
+            - path: backend_trading/trading_institutional_scanner
+    backend_trading/trading_simulation:
         dir_name: Trading Simulation & Backtesting Engine
         title: Trading Simulation & Backtesting Engine
         scope:
@@ -367,23 +562,103 @@ modules:
         children: []
         depends_on: []
         related_to:
-            - path: research
-            - path: trading/execution
-            - path: pipeline
-            - path: trading/strategy
-    trading/strategy:
-        dir_name: Strategy Execution & Portfolio Risk Management
-        title: Strategy Execution & Portfolio Risk Management
+            - path: backend_trading/replay_engine
+            - path: backend_broker/broker_gateway/broker_simulation
+    backend_trading/trading_strategy:
+        dir_name: Trading Strategy Execution & Portfolio Orchestration
+        title: Trading Strategy Execution & Portfolio Orchestration
         scope:
             - trading/strategy/
+        source_files: []
+        children:
+            - backend_trading/trading_strategy/graph_nodes
+            - backend_trading/trading_strategy/engine_services
+            - backend_trading/trading_strategy/plugin_api
+            - backend_trading/trading_strategy/portfolio
+            - backend_trading/trading_strategy/ml_integration
+        depends_on: []
+        related_to:
+            - path: backend_trading/trading_execution
+    backend_trading/trading_strategy/engine_services:
+        dir_name: Strategy Execution Engine & Market Data Aggregation
+        title: Strategy Execution Engine & Market Data Aggregation
+        scope:
+            - trading/strategy/src/main/java/com/tradej/strategy/service/
+            - trading/strategy/src/main/java/com/tradej/strategy/studio/
+            - trading/strategy/src/main/java/com/tradej/strategy/example/
+            - trading/strategy/src/test/java/com/tradej/strategy/service/
+            - trading/strategy/src/test/java/com/tradej/pipeline/runtime/
         source_files: []
         children: []
         depends_on: []
         related_to:
-            - path: trading/execution
-            - path: trading/institutional_scanner
-            - path: trading/indicators
-            - path: pipeline
-            - path: research
-            - path: replay
-            - path: trading/simulation
+            - path: backend_trading/trading_strategy/plugin_api
+            - path: backend_trading/trading_strategy/ml_integration
+    backend_trading/trading_strategy/graph_nodes:
+        dir_name: Strategy Pipeline Node Adapters
+        title: Strategy Pipeline Node Adapters
+        scope:
+            - trading/strategy/src/main/java/com/tradej/strategy/node/
+            - trading/strategy/src/test/java/com/tradej/strategy/node/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: backend_trading/pipeline_core
+    backend_trading/trading_strategy/ml_integration:
+        dir_name: ML Strategy Integration & Inference
+        title: ML Strategy Integration & Inference
+        scope:
+            - trading/strategy/src/main/java/com/tradej/strategy/ml/
+            - trading/strategy/src/test/java/com/tradej/strategy/ml/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: backend_trading/trading_strategy/engine_services
+    backend_trading/trading_strategy/plugin_api:
+        dir_name: Strategy Plugin API & Lifecycle
+        title: Strategy Plugin API & Lifecycle
+        scope:
+            - trading/strategy/src/main/java/com/tradej/strategy/api/
+            - trading/strategy/src/main/java/com/tradej/strategy/plugin/
+            - trading/strategy/src/test/java/com/tradej/strategy/plugin/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: backend_trading/trading_strategy/engine_services
+    backend_trading/trading_strategy/portfolio:
+        dir_name: Portfolio Capital Allocation & Net Exposure Management
+        title: Portfolio Capital Allocation & Net Exposure Management
+        scope:
+            - trading/strategy/src/main/java/com/tradej/strategy/portfolio/
+            - trading/strategy/src/main/java/com/tradej/strategy/position/
+            - trading/strategy/src/test/java/com/tradej/strategy/portfolio/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: backend_trading/trading_execution/risk_management
+    docs_and_tooling:
+        dir_name: Platform Documentation & Operational Tooling
+        title: Platform Documentation & Operational Tooling
+        scope:
+            - docs/
+            - scripts/
+            - config/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    frontend:
+        dir_name: Real-time Trading Terminal UI
+        title: Real-time Trading Terminal UI
+        scope:
+            - frontend/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: backend_app_services
+            - path: backend_trading/trading_execution

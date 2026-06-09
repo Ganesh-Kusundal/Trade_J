@@ -1,0 +1,1 @@
+Provides a sandbox for historical strategy backtesting, scanner evaluation, and market regime analysis using DuckDB persistence.

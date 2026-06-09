@@ -1,0 +1,1 @@
+Java ServiceLoader-based plugin discovery via `META-INF/services/com.tradej.brokergateway.spi.BrokerProvider`; concurrency via `ConcurrentHashMap` and `CopyOnWriteArrayList` in `BrokerPluginRegistry`.

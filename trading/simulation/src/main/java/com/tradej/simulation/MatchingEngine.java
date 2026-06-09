@@ -4,6 +4,8 @@ import com.tradej.core.domain.instrument.ExchangeTickSizeRegistry;
 import com.tradej.core.domain.model.Order;
 import com.tradej.core.domain.model.OrderRequest;
 import com.tradej.core.domain.model.Trade;
+import com.tradej.core.domain.time.LiveTradingClock;
+import com.tradej.core.domain.time.TradingClock;
 import com.tradej.core.domain.value.OrderStatus;
 import com.tradej.core.domain.value.OrderType;
 import com.tradej.core.domain.value.Side;
@@ -34,13 +36,29 @@ public final class MatchingEngine {
     private final Map<String, Long> lastPricePaisaBySymbol = new ConcurrentHashMap<>();
     private final Map<String, AtomicReference<Long>> lastPriceVarianceBySymbol = new ConcurrentHashMap<>();
     private final SlippageConfig slippageConfig;
+    private final TradingClock clock;
+    private final SimulationMetrics metrics;
 
     public MatchingEngine() {
         this(SlippageConfig.DEFAULT);
     }
 
     public MatchingEngine(SlippageConfig slippageConfig) {
+        this(slippageConfig, new LiveTradingClock());
+    }
+
+    public MatchingEngine(SlippageConfig slippageConfig, TradingClock clock) {
         this.slippageConfig = Objects.requireNonNullElse(slippageConfig, SlippageConfig.DEFAULT);
+        this.clock = Objects.requireNonNullElse(clock, new LiveTradingClock());
+        this.metrics = new SimulationMetrics();
+    }
+
+    public TradingClock clock() {
+        return clock;
+    }
+
+    public SimulationMetrics metrics() {
+        return metrics;
     }
 
     /**
@@ -125,7 +143,8 @@ public final class MatchingEngine {
     public MatchResult match(OrderRequest request, String orderId) {
         long fillPrice = resolveFillPrice(request);
         if (fillPrice <= 0L) {
-            return MatchResult.rejected(orderId, request, "No fill price available for " + request.symbol());
+            metrics.recordRejection();
+            return MatchResult.rejected(orderId, request, "No fill price available for " + request.symbol(), clock.millis());
         }
 
         long baseQty = request.quantity();
@@ -136,6 +155,7 @@ public final class MatchingEngine {
             fillQty = Math.max(1, fillQty);
         }
 
+        long nowMs = clock.millis();
         Order order = new Order(
                 orderId,
                 request.correlationId(),
@@ -149,7 +169,7 @@ public final class MatchingEngine {
                 fillQty,
                 fillPrice,
                 request.triggerPricePaisa(),
-                System.currentTimeMillis(),
+                nowMs,
                 null
         );
 
@@ -162,10 +182,18 @@ public final class MatchingEngine {
                 request.side(),
                 fillQty,
                 fillPrice,
-                System.currentTimeMillis()
+                nowMs
         ));
 
         boolean partialFill = slippageConfig.partialFillEnabled() && fillQty < baseQty;
+        metrics.recordOrderMatched();
+        for (int i = 0; i < fills.size(); i++) {
+            metrics.recordFill();
+        }
+        if (request.pricePaisa() > 0 && fillPrice != request.pricePaisa()) {
+            long slippageBps = Math.abs(fillPrice - request.pricePaisa()) * 10000 / request.pricePaisa();
+            metrics.recordSlippage(slippageBps);
+        }
         return new MatchResult(order, fills, false, null, partialFill ? "partial fill: " + fillQty + "/" + baseQty : null);
     }
 
@@ -246,7 +274,7 @@ public final class MatchingEngine {
             String reason,
             String partialFillInfo
     ) {
-        static MatchResult rejected(String orderId, OrderRequest request, String reason) {
+        static MatchResult rejected(String orderId, OrderRequest request, String reason, long timestampMs) {
             Order rejectedOrder = new Order(
                     orderId,
                     request.correlationId(),
@@ -260,7 +288,7 @@ public final class MatchingEngine {
                     0L,
                     request.pricePaisa(),
                     request.triggerPricePaisa(),
-                    System.currentTimeMillis(),
+                    timestampMs,
                     reason
             );
             return new MatchResult(rejectedOrder, List.of(), true, reason, null);

@@ -67,6 +67,11 @@ public final class ObservableMarketDataProvider implements MarketDataProvider {
     }
 
     @Override
+    public com.tradej.broker.api.model.HistoricalDataCapabilities capabilities() {
+        return delegate.capabilities();
+    }
+
+    @Override
     public Map<InstrumentKey, Long> getLtpBatch(Collection<InstrumentKey> instrumentKeys) {
         return recordCall("getLtpBatch", () -> delegate.getLtpBatch(instrumentKeys));
     }

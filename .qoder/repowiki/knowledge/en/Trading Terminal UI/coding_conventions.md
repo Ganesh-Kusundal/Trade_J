@@ -1,4 +1,0 @@
-- Components use functional syntax with explicit TypeScript return types or inferred returns from JSX.
-- State updates in the Zustand store use immutable patterns via spread operators ({...state, key: value}).
-- UI components rely exclusively on Tailwind utility classes for styling, avoiding external CSS files for component-specific styles.
-- Domain DTOs are defined as pure TypeScript types in a dedicated `domain/dto` directory, imported by both state and UI layers.

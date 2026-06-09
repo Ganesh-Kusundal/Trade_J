@@ -1,0 +1,5 @@
+- **Entry point**: `PortfolioEngine` orchestrates domain event processing (SignalGenerated, TradeOpened, TradeClosed, etc.) through a dedicated single-threaded executor with async queue-based dispatch (`start()`/`stop()` lifecycle).
+- **Delegation pattern**: `PortfolioEngine` delegates capital management to `CapitalReservationService` interface (implemented by `DefaultCapitalReservationService`) and exposure tracking to `ExposureTracker` interface (implemented by `DefaultExposureTracker`).
+- **State isolation for replay**: `PortfolioEngine.snapshot()` / `restore()` provide deep-copy state snapshots using package-private accessors on both service implementations, enabling deterministic replay scenarios.
+- **Dependency direction**: `position.DefaultPositionSizer` depends on `portfolio.PortfolioEngine` constants (e.g., `DEFAULT_CAPITAL_PER_STRATEGY_PAISA`), establishing a unidirectional dependency from position sizing toward portfolio engine.
+- **Interface boundaries**: `CapitalReservationService` and `ExposureTracker` are package-private interfaces — only their default implementations are exposed, with no external implementors expected.

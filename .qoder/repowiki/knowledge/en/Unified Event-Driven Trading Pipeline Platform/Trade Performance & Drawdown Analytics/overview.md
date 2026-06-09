@@ -1,0 +1,1 @@
+Computes performance statistics (Sharpe, Sortino, Calmar) and drawdown metrics from trade records or equity curves.

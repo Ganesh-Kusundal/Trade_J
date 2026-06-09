@@ -1,0 +1,1 @@
+Uses DuckDB (via `duckdb_jdbc`) for both relational job metadata and high-performance Parquet querying; Jackson for JSON config serialization; Java `HttpClient` for universe fetching.

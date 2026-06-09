@@ -18,7 +18,7 @@ class RuntimeConfigurationTest {
                 null, null, null, null, null, null, null, null,
                 runtime,
                 null, null, null, null, null, null,
-                null, null
+                null, null, null
         );
     }
 

@@ -1,0 +1,3 @@
+- Financial values are stored as `long` integers in 'paisa' (cents) to avoid floating-point precision issues.
+- DuckDB SQL queries use parameterized statements or explicit escaping utilities (`escapeSql`, `escapePath`) to prevent injection and path errors.
+- Data ingestion tasks are tracked using a job/task model with statuses (PENDING, RUNNING, COMPLETED, FAILED) stored in DuckDB tables.

@@ -1,0 +1,1 @@
+Uses Chronicle Queue for low-latency persistent messaging and DuckDB (via JDBC) for embedded analytical SQL processing. Jackson is used for custom JSON serialization of domain events.

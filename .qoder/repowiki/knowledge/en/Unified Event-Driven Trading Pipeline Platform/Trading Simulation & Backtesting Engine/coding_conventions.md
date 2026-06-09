@@ -1,0 +1,3 @@
+- Prices are consistently represented in 'paisa' (integer cents) to avoid floating-point precision issues in financial calculations.
+- Thread-safety is achieved using `ConcurrentHashMap` for state storage and `AtomicLong`/`AtomicReference` for metric and variance tracking.
+- Configuration objects like `SlippageConfig` use the Builder pattern with predefined presets (DEFAULT, CONSERVATIVE) for common scenarios.

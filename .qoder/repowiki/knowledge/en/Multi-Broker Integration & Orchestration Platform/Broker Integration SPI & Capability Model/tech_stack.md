@@ -1,0 +1,1 @@
+Java SPI with Gradle `java-test-fixtures` plugin for contract testing; depends on `:core` domain models.

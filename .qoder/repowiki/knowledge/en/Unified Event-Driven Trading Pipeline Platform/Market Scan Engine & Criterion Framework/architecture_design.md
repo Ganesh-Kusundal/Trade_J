@@ -1,0 +1,6 @@
+- Entry point is `ScanEngine`, which orchestrates universe building (`UniverseBuilder`), data fetching (`SnapshotFetcher`, `OptionChainFetcher`), criterion composition (`CriterionGroup`), and result ranking (`ScanResultRanker`).
+- Criteria follow a Strategy pattern via the `ScanCriterion` interface (type/matches/score/reason), with `StreamingScanCriterion` extending it for event-driven incremental evaluation.
+- `CriterionGroup` implements Composite pattern, enabling AND-composition of nested criteria and recursive `requiresOptionChain()` detection to gate optional fine-pass option-chain fetching.
+- Pipeline integration is provided by `ScanNode` (batch candle-triggered) and `StreamingScanCriterionNode` (real-time event routing), both consuming `ScanEngine`.
+- Option liquidity scanning is a separate path via `OptionLiquidityScanner`, invoked when `ScanProfile.optionScan` is present, producing `OptionContractHit` ranked by `LiquidityScorer`.
+- Dependency direction: engine → fetch/universe → criterion; criterion implementations are leaf nodes with no cross-dependencies. Build manifest (`build.gradle`) declares dependencies on `:core`, `:pipeline-core`, and `:broker-api`.

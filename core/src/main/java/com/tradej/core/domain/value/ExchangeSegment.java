@@ -9,6 +9,10 @@ public enum ExchangeSegment {
     MCX_COMM(Exchange.MCX),
     NSE_CURRENCY(Exchange.CDS),
     BSE_CURRENCY(Exchange.CDS),
+    CRYPTO_SPOT(Exchange.CRYPTO),
+    CRYPTO_FUTURES(Exchange.CRYPTO),
+    FX_SPOT(Exchange.FX),
+    US_EQUITY(Exchange.US_EQUITY),
     UNKNOWN(Exchange.UNKNOWN);
 
     private final Exchange exchange;

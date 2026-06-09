@@ -1,0 +1,1 @@
+Provides paper-trading and backtest broker connections with simulated market data, portfolio tracking, and virtual time control for strategy development without real broker dependencies.

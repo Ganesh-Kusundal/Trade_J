@@ -1,0 +1,5 @@
+- Panel components act as thin wrappers that import and render their corresponding widget components (e.g., `WatchlistPanel` renders `Watchlist`).
+- Domain DTOs are strictly defined in `domain/dto/types.ts` and imported by both the state store and UI components to ensure consistent data shapes.
+- WebSocket message handling uses a switch-case on the `topic` field to route payloads to specific store setters, ignoring malformed messages silently.
+- UI components use Tailwind CSS utility classes for styling, with a consistent dark theme palette defined by specific hex codes (e.g., `#070709`, `#1c1c1e`).
+- State updates for symbol-specific data use normalized records (e.g., `quoteBySymbol[symbol]`) in the Zustand store to allow O(1) access by key.

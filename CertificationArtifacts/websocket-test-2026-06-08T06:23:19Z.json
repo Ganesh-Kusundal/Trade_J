@@ -1,0 +1,29 @@
+[
+  {"broker":"Dhan","websocket":"token-refresh","status":"PASS","detail":"Token already valid — no refresh needed","timestamp":"2026-06-08T06:23:19Z"}
+,
+  {"broker":"Upstox","websocket":"token-refresh","status":"FAIL","detail":"Token expired — requires interactive OAuth (browser redirect)","timestamp":"2026-06-08T06:23:19Z"}
+,
+  {"broker":"ICICI","websocket":"token-refresh","status":"PASS","detail":"Session state file exists","timestamp":"2026-06-08T06:23:19Z"}
+,
+  {"broker":"Dhan","websocket":"credentials","status":"PASS","detail":"Token valid (exp: Tue Jun  9 11:07:41 IST 2026), clientId=1106251237","timestamp":"2026-06-08T06:23:19Z"}
+,
+  {"broker":"Dhan","websocket":"market-feed","status":"PASS","detail":"Quote received (291ms)","timestamp":"2026-06-08T06:23:19Z"}
+,
+  {"broker":"Dhan","websocket":"depth-20","status":"PASS","detail":"Depth received (Bids: 5, Asks: 5, 302ms) — note: REST returns 5-level","timestamp":"2026-06-08T06:23:19Z"}
+,
+  {"broker":"Dhan","websocket":"order-stream","status":"PASS","detail":"Order book accessible (REST endpoint verified)","timestamp":"2026-06-08T06:23:19Z"}
+,
+  {"broker":"Upstox","websocket":"credentials","status":"FAIL","detail":"Token expired (exp=1780178400, now=1780899790)","timestamp":"2026-06-08T06:23:19Z"}
+,
+  {"broker":"Upstox","websocket":"market-feed","status":"FAIL","detail":"Connected but no data (market may be closed — weekend)","timestamp":"2026-06-08T06:23:19Z"}
+,
+  {"broker":"Upstox","websocket":"portfolio-stream","status":"FAIL","detail":"com.tradej.broker.upstox.http.UpstoxApiException: Upstox HTTP 400: {"status":"error","errors":[{"errorCode":"UDAPI100012","message":"Invalid Endpoint","propertyPath":null,"invalidValue":null,"error_code":"UDAPI100012","property_path":null,"invalid_value":null}]}","timestamp":"2026-06-08T06:23:19Z"}
+,
+  {"broker":"ICICI","websocket":"credentials","status":"PASS","detail":"App key present, authMode=BROWSER_AUTOMATED (requires browser login)","timestamp":"2026-06-08T06:23:19Z"}
+,
+  {"broker":"ICICI","websocket":"session","status":"PASS","detail":"API session file exists and non-empty","timestamp":"2026-06-08T06:23:19Z"}
+,
+  {"broker":"ICICI","websocket":"quote-ws","status":"SKIP","detail":"Requires browser auth session — cannot test from CLI","timestamp":"2026-06-08T06:23:19Z"}
+,
+  {"broker":"ICICI","websocket":"order-ws","status":"SKIP","detail":"Requires browser auth session — cannot test from CLI","timestamp":"2026-06-08T06:23:19Z"}
+]

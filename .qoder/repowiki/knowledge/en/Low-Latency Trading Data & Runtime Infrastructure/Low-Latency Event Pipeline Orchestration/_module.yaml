@@ -1,0 +1,9 @@
+schema_version: 1
+module_path: backend_data_infra/runtime_hotpath
+title: Low-Latency Event Pipeline Orchestration
+scope:
+    - runtime/hotpath/
+source_files: []
+depends_on: []
+related_to:
+    - path: backend_data_infra/runtime_disruptor

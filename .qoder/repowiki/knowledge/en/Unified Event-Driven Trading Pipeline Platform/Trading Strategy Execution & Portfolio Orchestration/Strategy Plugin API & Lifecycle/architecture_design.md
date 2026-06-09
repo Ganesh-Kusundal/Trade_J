@@ -1,0 +1,6 @@
+- The module is split into two packages: `com.tradej.strategy.api` for public contracts and `com.tradej.strategy.plugin` for concrete implementations.
+- `GraphStrategyPlugin` serves as the primary interface for the reactive graph runtime, supporting arbitrary `DomainEvent` types via `subscribedEventTypes()`.
+- `StrategyPlugin` is a deprecated legacy interface restricted to `CandleClosed` events, maintained for backward compatibility.
+- `StrategyPluginAdapter` implements the Adapter pattern to wrap legacy `StrategyPlugin` instances as `GraphStrategyPlugin`, enabling seamless migration.
+- `StrategyPluginProvider` acts as a Service Provider Interface (SPI) for discovering strategy factories via `java.util.ServiceLoader`.
+- Concrete plugins like `OptionsContextStrategyPlugin` implement `GraphStrategyPlugin` and depend on external feature stores for context-aware signal generation.

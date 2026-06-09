@@ -1,0 +1,4 @@
+- Entry point `BrokerExplorer` provides static capability detection via `IBrokerConnection.getCapability()` across 18 port interfaces and 6 marker interfaces, plus descriptor-based inspection without a live connection.
+- `BrokerInspector` interface defines the contract for live probing; `DefaultBrokerInspector` implements it by executing real broker calls (market data, options, portfolio, orders, margin, futures) and measuring latency via `timedProbe`.
+- `CapabilityProbe` record captures per-probe results with status (`PASS/FAIL/SKIP/TIMEOUT`), latency, and evidence; `BrokerInspectionReport` aggregates static capabilities, live probes, and metadata into an immutable report.
+- Dependency direction: all classes depend on `BrokerHandle`, `BrokerSource`, and the `com.tradej.broker.api.port.*` provider interfaces — no reverse dependencies exist within the module.

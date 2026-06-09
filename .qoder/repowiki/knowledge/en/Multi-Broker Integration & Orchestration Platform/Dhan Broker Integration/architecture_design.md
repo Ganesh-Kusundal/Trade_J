@@ -1,0 +1,4 @@
+- Entry point: `DhanBrokerConnection` implements `IBrokerConnection`, acting as a facade that aggregates capability-specific adapters (e.g., `DhanOrderCommandAdapter`, `DhanMarketDataProvider`).
+- Authentication: `DhanTokenManager` handles static or TOTP-based token generation and rotation, persisting state via `DhanTokenStateStore` to support seamless reconnection.
+- Resilience: `DhanRetryExecutor` wraps all REST calls with category-specific rate limiting, retries, and circuit breaking, while `DhanWebSocketMultiplexer` manages WebSocket lifecycle, health monitoring, and automatic resubscription.
+- Data Mapping: Dedicated mappers (`DhanFieldMapper`, `DhanPayloadNormalizer`) and binary parsers (`DhanMarketFeedBinaryParser`) translate Dhan-specific wire formats into domain models.

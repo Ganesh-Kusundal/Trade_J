@@ -37,6 +37,8 @@ public final class DisruptorPipelineBuilder {
     private DeadLetterQueue deadLetterQueue = DeadLetterQueue.noop();
     private PipelineRuntimeBridge pipelineRuntimeBridge;
     private boolean compileGraphOnInit = true;
+    private com.tradej.core.domain.runtime.RuntimeMode runtimeMode = com.tradej.core.domain.runtime.RuntimeMode.LIVE;
+    private com.tradej.core.domain.port.EventWriteAheadLog writeAheadLog = com.tradej.core.domain.port.EventWriteAheadLog.noop();
 
     public DisruptorPipelineBuilder positionRiskHandler(PositionRiskHandler positionRiskHandler) {
         this.positionRiskHandler = positionRiskHandler;
@@ -93,6 +95,16 @@ public final class DisruptorPipelineBuilder {
         return this;
     }
 
+    public DisruptorPipelineBuilder runtimeMode(com.tradej.core.domain.runtime.RuntimeMode runtimeMode) {
+        this.runtimeMode = runtimeMode;
+        return this;
+    }
+
+    public DisruptorPipelineBuilder writeAheadLog(com.tradej.core.domain.port.EventWriteAheadLog writeAheadLog) {
+        this.writeAheadLog = writeAheadLog;
+        return this;
+    }
+
     public DisruptorPipelineConfig build() {
         return new DisruptorPipelineConfig(
                 positionRiskHandler,
@@ -105,7 +117,9 @@ public final class DisruptorPipelineBuilder {
                 hotPathFeatureStore,
                 deadLetterQueue,
                 pipelineRuntimeBridge,
-                compileGraphOnInit
+                compileGraphOnInit,
+                runtimeMode,
+                writeAheadLog
         );
     }
 

@@ -1,0 +1,4 @@
+- Adapter classes in the `adapter` package implement core broker interfaces (e.g., `OrderCommand`, `MarketDataProvider`) and delegate to REST clients while handling domain-specific mapping and validation.
+- REST clients in the `rest` package are thin wrappers around `BreezeAuthenticatedHttpClient`, focusing solely on endpoint routing and payload construction without business logic.
+- Authentication secrets (TOTP, API sessions) are loaded from external files or properties via `BreezeTokenManager`, avoiding hard-coded credentials and supporting multiple acquisition strategies.
+- Instrument definitions are resolved via `BreezeInstrumentResolver` using a cached map of `BreezeInstrumentDefinition`, ensuring consistent mapping between internal keys and broker-specific identifiers.

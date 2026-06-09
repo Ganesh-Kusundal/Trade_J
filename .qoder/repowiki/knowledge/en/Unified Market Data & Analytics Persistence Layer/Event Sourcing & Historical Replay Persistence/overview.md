@@ -1,1 +1,0 @@
-Provides event-sourced storage for order state using Chronicle Queue and analytical persistence for market data using DuckDB, supporting historical replay and backtesting.

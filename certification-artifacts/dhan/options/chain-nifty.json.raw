@@ -1,0 +1,20 @@
+Unknown option: '--json'
+Usage: tradej broker dhan chain [--expiry=<expiry>] <underlying> <segment>
+Get option chain from Dhan
+      <underlying>
+      <segment>
+      --expiry=<expiry>
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':cli:run' (registered by plugin 'org.gradle.application').
+> Process 'command '/opt/homebrew/Cellar/openjdk@21/21.0.11/libexec/openjdk.jdk/Contents/Home/bin/java'' finished with non-zero exit value 2
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights from a Build Scan (powered by Develocity).
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 2s

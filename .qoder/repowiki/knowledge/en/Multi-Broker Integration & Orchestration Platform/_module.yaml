@@ -1,0 +1,9 @@
+schema_version: 1
+module_path: backend_broker
+title: Multi-Broker Integration & Orchestration Platform
+scope:
+    - broker/
+    - broker-gateway/
+source_files: []
+depends_on: []
+related_to: []

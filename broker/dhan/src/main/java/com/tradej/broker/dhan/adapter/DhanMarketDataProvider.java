@@ -94,6 +94,7 @@ public final class DhanMarketDataProvider extends DhanBaseRestAdapter implements
 
     @Override
     public List<Candle> getCandles(CandleHistoryRequest request) {
+        validateInterval(request.interval());
         DhanInstrumentDefinition definition = resolveDef(request.instrument());
         Instrument instrument = definition.toInstrument();
         List<Candle> merged = new ArrayList<>();
@@ -101,6 +102,11 @@ public final class DhanMarketDataProvider extends DhanBaseRestAdapter implements
             merged.addAll(historicalDataMapper.toCandles(payload, instrument, request.interval()));
         }
         return mergeCandles(merged);
+    }
+
+    @Override
+    public com.tradej.broker.api.model.HistoricalDataCapabilities capabilities() {
+        return com.tradej.broker.api.model.HistoricalDataCapabilities.dhanDefaults();
     }
 
     static List<Candle> mergeCandles(List<Candle> candles) {

@@ -1,4 +1,0 @@
-- Domain events implement the Visitor pattern via an `accept(DomainEventVisitor)` method to enable type-safe, non-branching event processing.
-- Hexagonal architecture ports are defined as interfaces in the `domain.port` package, decoupling domain logic from infrastructure implementations.
-- Pipeline components use Java Records (e.g., `PipelineGraph`, `OrderProjection`) to define immutable data structures and execution plans.
-- State machines and critical domain logic (e.g., `OrderStateMachine`) are implemented as deterministic, table-driven transition systems.

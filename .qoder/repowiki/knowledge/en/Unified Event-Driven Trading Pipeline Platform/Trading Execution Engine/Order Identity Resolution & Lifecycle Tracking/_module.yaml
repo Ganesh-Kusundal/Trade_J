@@ -1,0 +1,10 @@
+schema_version: 1
+module_path: backend_trading/trading_execution/order_identity
+title: Order Identity Resolution & Lifecycle Tracking
+scope:
+    - trading/execution/src/main/java/com/tradej/execution/identity/
+    - trading/execution/src/test/java/com/tradej/execution/identity/
+source_files: []
+depends_on: []
+related_to:
+    - path: backend_trading/trading_execution/core_execution

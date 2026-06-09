@@ -1,0 +1,1 @@
+Uses DuckDB via `DuckDbPipelineGraphStore` for persistent storage of pipeline graph definitions and versions.

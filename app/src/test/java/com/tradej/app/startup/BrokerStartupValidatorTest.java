@@ -27,7 +27,8 @@ class BrokerStartupValidatorTest {
                 new TradingProperties.InstrumentProperties(null, null, false),
                 null,
                 new TradingProperties.RuntimeProperties(RuntimeMode.LIVE),
-                null, null, null, null, null, null, null, Map.of()
+                null, null, null, null, null, null, null, Map.of(),
+                null
         );
     }
 
@@ -35,7 +36,8 @@ class BrokerStartupValidatorTest {
         return new TradingProperties(
                 null, null, null, null, null, null, null, null,
                 new TradingProperties.RuntimeProperties(mode),
-                null, null, null, null, null, null, null, Map.of()
+                null, null, null, null, null, null, null, Map.of(),
+                null
         );
     }
 
@@ -87,7 +89,8 @@ class BrokerStartupValidatorTest {
         var props = new TradingProperties(
                 null, null, null, null, null, null, null, null,
                 new TradingProperties.RuntimeProperties(RuntimeMode.BACKTEST),
-                null, null, null, null, null, null, null, Map.of()
+                null, null, null, null, null, null, null, Map.of(),
+                null
         );
         var validator = new BrokerStartupValidatorAdapter(props);
         assertDoesNotThrow(() -> validator.run(null));

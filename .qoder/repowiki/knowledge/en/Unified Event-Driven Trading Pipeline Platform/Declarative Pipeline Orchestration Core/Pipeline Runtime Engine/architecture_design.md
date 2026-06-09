@@ -1,0 +1,4 @@
+- **Compilation Layer**: `GraphCompiler` transforms declarative `PipelineGraph` definitions into a topologically sorted `ExecutionPlan` using Kahn's algorithm for cycle detection and routing table generation.
+- **Execution Layer**: `GraphRuntime` manages event propagation through ingress nodes or sequential topological processing, while `PipelineRuntime` acts as the unified orchestrator handling mode switching (LIVE/REPLAY/BACKTEST) and atomic hot-swap deployments via `AtomicReference<GraphRuntime>`.
+- **Node Abstraction**: `PipelineNode` defines the core contract, with `BasePipelineNode` providing thread-safe metrics and lifecycle hooks. `PartitionedNode` implements a decorator pattern for symbol-level sharding, and `IngressNode` serves as the DAG entry point.
+- **Context & Routing**: `PipelineContext` is injected per-node to handle event publishing, supporting both graph-edge routing (DAG mode) and centralized hot-path publishing (Disruptor integration).

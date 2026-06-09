@@ -1,0 +1,9 @@
+schema_version: 1
+module_path: backend_trading/pipeline_core/state_store
+title: Pipeline State Management
+scope:
+    - pipeline/core/src/main/java/com/tradej/pipeline/state/
+source_files: []
+depends_on: []
+related_to:
+    - path: backend_trading/pipeline_core/runtime_engine

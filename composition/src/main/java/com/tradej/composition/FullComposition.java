@@ -5,6 +5,10 @@ import com.tradej.broker.core.startup.BrokerLifecycleManager;
 import com.tradej.composition.config.BrokerProfile;
 import com.tradej.composition.config.RiskProfile;
 import com.tradej.composition.config.StorageProfile;
+import com.tradej.core.domain.runtime.RuntimeModeHolder;
+import com.tradej.core.domain.time.LiveTradingClock;
+import com.tradej.execution.service.OrderManagementService;
+import com.tradej.strategy.portfolio.PortfolioEngine;
 
 /**
  * Aggregates all composition roots into a single entry point.
@@ -42,6 +46,50 @@ public final class FullComposition {
         DataComposition data = DataComposition.create(storageProfile);
 
         return new FullComposition(broker, data, null);
+    }
+
+    /**
+     * Creates a fully wired system including ExecutionComposition.
+     * Use this for live trading and backtesting where risk enforcement,
+     * position tracking, and order management are required.
+     *
+     * @param brokerProfile broker configuration
+     * @param storageProfile storage configuration
+     * @param riskProfile risk limits and enforcement settings
+     * @param portfolioEngine portfolio engine (null to create a default)
+     * @param oms order management service (null to create a default)
+     */
+    public static FullComposition createFull(
+            BrokerProfile brokerProfile,
+            StorageProfile storageProfile,
+            RiskProfile riskProfile,
+            PortfolioEngine portfolioEngine,
+            OrderManagementService oms
+    ) {
+        BrokerComposition broker = BrokerComposition.create(brokerProfile);
+        DataComposition data = DataComposition.create(storageProfile);
+        IBrokerConnection connection = broker.brokerConnection();
+
+        PortfolioEngine effectivePortfolio = portfolioEngine != null
+                ? portfolioEngine : new PortfolioEngine();
+        OrderManagementService effectiveOms = oms != null
+                ? oms : new OrderManagementService(connection, new RuntimeModeHolder(), new LiveTradingClock(), null);
+
+        ExecutionComposition execution = ExecutionComposition.create(
+                riskProfile, effectivePortfolio, connection, effectiveOms);
+
+        return new FullComposition(broker, data, execution);
+    }
+
+    /**
+     * Creates a fully wired system with default portfolio engine and OMS.
+     */
+    public static FullComposition createFull(
+            BrokerProfile brokerProfile,
+            StorageProfile storageProfile,
+            RiskProfile riskProfile
+    ) {
+        return createFull(brokerProfile, storageProfile, riskProfile, null, null);
     }
 
     public static FullComposition brokerOnly(BrokerProfile brokerProfile) {

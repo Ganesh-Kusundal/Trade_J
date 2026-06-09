@@ -4,6 +4,7 @@ import com.tradej.broker.icici.adapter.IciciPortfolioProvider;
 import com.tradej.broker.icici.auth.BreezeTokenManager;
 import com.tradej.broker.icici.config.BreezeConnectionSettings;
 import com.tradej.broker.icici.http.BreezeAuthenticatedHttpClient;
+import com.tradej.broker.icici.instrument.BreezeInstrumentResolver;
 import com.tradej.broker.icici.rest.BreezePortfolioRestClient;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Tag;
@@ -23,7 +24,7 @@ class IciciPortfolioIntegrationTest {
         LiveIciciTestSupport.preflightSessionOrSkip(settings);
         BreezeTokenManager tokenManager = new BreezeTokenManager(settings);
         BreezeAuthenticatedHttpClient httpClient = new BreezeAuthenticatedHttpClient(tokenManager);
-        portfolioProvider = new IciciPortfolioProvider(new BreezePortfolioRestClient(httpClient));
+        portfolioProvider = new IciciPortfolioProvider(new BreezePortfolioRestClient(httpClient), new BreezeInstrumentResolver());
     }
 
     @Test

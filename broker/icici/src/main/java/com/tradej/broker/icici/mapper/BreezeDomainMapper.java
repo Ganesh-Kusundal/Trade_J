@@ -6,6 +6,7 @@ import com.tradej.broker.icici.instrument.BreezeInstrumentDefinition;
 import com.tradej.core.domain.model.DepthLevel;
 import com.tradej.core.domain.model.InstrumentKey;
 import com.tradej.core.domain.model.MarketDepth;
+import com.tradej.core.domain.model.Instrument;
 import com.tradej.core.domain.model.ModifyOrderRequest;
 import com.tradej.core.domain.model.Order;
 import com.tradej.core.domain.model.OrderRequest;
@@ -145,7 +146,13 @@ public final class BreezeDomainMapper {
     public ObjectNode toOptionChainPayload(BreezeInstrumentDefinition definition, LocalDate expiry) {
         ObjectNode payload = emptyPayloadInternal();
         payload.put("stock_code", definition.breezeStockCode());
-        payload.put("exchange_code", definition.exchangeCode());
+        // ICICI option chain API requires exchange_code 'nfo' or 'bfo' (lowercase)
+        String optionExchangeCode = switch (definition.exchangeSegment()) {
+            case NSE_FNO -> "nfo";
+            case BSE_FNO -> "bfo";
+            default -> definition.exchangeCode() != null ? definition.exchangeCode().toLowerCase() : "nfo";
+        };
+        payload.put("exchange_code", optionExchangeCode);
         payload.put("expiry_date", BREEZE_EXPIRY.format(expiry.atStartOfDay(INDIA)));
         payload.put("product_type", "options");
         payload.put("right", "");
@@ -153,7 +160,7 @@ public final class BreezeDomainMapper {
         return payload;
     }
 
-    public Quote toQuote(JsonNode node, com.tradej.core.domain.model.Instrument instrument) {
+    public Quote toQuote(JsonNode node, Instrument instrument) {
         long ltp = pricePaisa(node, "ltp", "last", "LTP");
         long open = pricePaisa(node, "open", "Open");
         long high = pricePaisa(node, "high", "High");
@@ -163,7 +170,8 @@ public final class BreezeDomainMapper {
                 node.path("ttq").asLong(node.path("volume").asLong(0L)));
         long totalBuy = node.path("total_buy_quantity").asLong(node.path("totalBuyQt").asLong(0L));
         long totalSell = node.path("total_sell_quantity").asLong(node.path("totalSellQt").asLong(0L));
-        return new Quote(instrument, ltp, open, high, low, close, volume, totalBuy, totalSell, 0L, Instant.now().toEpochMilli());
+        long oi = node.path("oi").asLong(node.path("open_interest").asLong(0L));
+        return new Quote(instrument, ltp, open, high, low, close, volume, totalBuy, totalSell, oi, Instant.now().toEpochMilli());
     }
 
     /**
@@ -270,10 +278,16 @@ public final class BreezeDomainMapper {
     }
 
     public Order toOrder(JsonNode node, OrderRequest originalRequest) {
+        return toOrder(node, originalRequest, null);
+    }
+
+    public Order toOrder(JsonNode node, OrderRequest originalRequest, Instrument instrument) {
+        String symbol = instrument != null ? instrument.canonicalSymbol()
+                : node.path("stock_code").asText(originalRequest != null ? originalRequest.symbol() : "");
         return new Order(
                 node.path("order_id").asText(""),
                 originalRequest != null ? originalRequest.correlationId() : "",
-                node.path("stock_code").asText(originalRequest != null ? originalRequest.symbol() : ""),
+                symbol,
                 originalRequest != null ? originalRequest.exchangeSegment() : null,
                 parseSide(node.path("action").asText("")),
                 originalRequest != null ? originalRequest.productType() : ProductType.CNC,
@@ -342,7 +356,8 @@ public final class BreezeDomainMapper {
             case "cancelled", "canceled" -> OrderStatus.CANCELLED;
             case "rejected" -> OrderStatus.REJECTED;
             case "partially executed" -> OrderStatus.PART_TRADED;
-            case "ordered", "open", "pending" -> OrderStatus.OPEN;
+            case "pending" -> OrderStatus.PENDING;
+            case "ordered", "open" -> OrderStatus.OPEN;
             default -> OrderStatus.UNKNOWN;
         };
     }

@@ -5,7 +5,7 @@ import com.tradej.brokergateway.result.BrokerSource;
 import com.tradej.brokergateway.spi.BrokerDescriptor;
 import com.tradej.brokergateway.spi.BrokerProvider;
 import com.tradej.brokergateway.spi.CapabilityMetadata;
-import com.tradej.composition.BrokerComposition;
+import com.tradej.composition.IciciBrokerFactory;
 import com.tradej.composition.config.BrokerProfile;
 
 import java.util.List;
@@ -77,7 +77,6 @@ public final class IciciBrokerProvider implements BrokerProvider {
         if (profile.icici() == null) {
             throw new IllegalArgumentException("ICICI configuration is required");
         }
-        BrokerProfile iciciProfile = new BrokerProfile(BrokerProfile.BrokerType.ICICI, null, null, profile.icici());
-        return BrokerComposition.create(iciciProfile).brokerConnection();
+        return IciciBrokerFactory.create(profile.icici());
     }
 }

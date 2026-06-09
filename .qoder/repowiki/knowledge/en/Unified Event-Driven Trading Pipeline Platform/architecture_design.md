@@ -1,0 +1,5 @@
+- **Unified Node Contract**: All functional modules (Strategy, Execution, Scanner) implement the `PipelineNode` interface or extend `BasePipelineNode`, allowing the `pipeline_core` to execute them as generic graph vertices.
+- **Declarative Graph Orchestration**: The `PipelineRuntime` compiles and executes directed acyclic graphs (DAGs) of nodes, managing event routing, state, and metrics centrally.
+- **Mode-Agnostic Execution**: A shared `VirtualClock` and `RuntimeMode` switch enable the same pipeline definitions to run deterministically in LIVE, REPLAY, and BACKTEST modes without code changes.
+- **Hot-Swap Deployment**: The runtime supports atomic swapping of active pipeline graphs via `AtomicReference<GraphRuntime>`, enabling zero-downtime strategy updates.
+- **SPI-Based Extensibility**: Technical indicators and transformations are plugged into the pipeline via Java's `ServiceLoader` mechanism, decoupling algorithmic logic from the core engine.

@@ -1,0 +1,4 @@
+- All capability providers (OrderCommand, OrderQuery, MarketDataProvider, etc.) are implemented as private final fields using anonymous class or lambda expressions inside the connection classes.
+- Simulated prices use a base-price map with a ±0.5% jitter function applied via ThreadLocalRandom to produce realistic but deterministic-looking values.
+- Order IDs are generated with an AtomicLong sequence counter prefixed by a mode-specific tag ("SIM-" for paper trading, "BT-" for backtesting).
+- In-memory collections for orders, positions, and subscriptions use ConcurrentHashMap or CopyOnWriteArrayList to ensure thread safety without explicit locking.

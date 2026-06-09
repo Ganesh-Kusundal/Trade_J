@@ -1,3 +1,0 @@
-- All cross-module communication uses immutable Java records implementing the `DomainEvent` interface with explicit `schemaVersion()` for forward/backward compatibility.
-- Broker adapters implement unsupported capabilities via explicit 'Unsupported Port' sentinel classes that throw `UnsupportedOperationException` rather than returning null or silent failures.
-- Core domain modules (`:core`, `:runtime-hotpath`) are strictly free of Spring Framework annotations or dependencies to ensure testability and low-latency isolation.

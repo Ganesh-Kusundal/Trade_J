@@ -1,0 +1,4 @@
+- **Ingestion Layer**: `DownloadJobService` orchestrates parallel download tasks for rolling options, while `HiveCacheEquityImporter` handles bulk equity imports from Hive-partitioned sources.
+- **Storage Layer**: `DuckDbHistoricalWarehouse` manages a local DuckDB instance for job/task tracking and options bar storage; equity data is stored in Hive-partitioned Parquet files on disk.
+- **Query Layer**: `ParquetHistoricalBarRepository` implements the `HistoricalBarRepository` port, using `EquityHistoricalQuery` to read Parquet files via DuckDB's `read_parquet` with hive partitioning.
+- **Maintenance**: `EquityParquetCompactor` merges granular task files into monthly partitions, and `UniverseRefreshService` updates the tradable instrument universe from NSE sources.

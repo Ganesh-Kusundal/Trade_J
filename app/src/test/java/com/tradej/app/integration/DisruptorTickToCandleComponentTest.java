@@ -86,10 +86,15 @@ class DisruptorTickToCandleComponentTest {
                 def -> new com.tradej.strategy.node.CandleNode(candleService)
         );
 
-        eventBus = new DisruptorEventBus(
-                riskHandler, candleService, strategyEngine, executionHandler,
-                null, com.tradej.disruptor.config.StageTimings.NO_OP, null,
-                com.tradej.core.domain.port.DeadLetterQueue.noop(), bridge);
+        eventBus = new com.tradej.disruptor.config.DisruptorPipelineBuilder()
+                .positionRiskHandler(riskHandler)
+                .candleAggregationService(candleService)
+                .strategyEngine(strategyEngine)
+                .executionHandler(executionHandler)
+                .stageTimings(com.tradej.disruptor.config.StageTimings.NO_OP)
+                .deadLetterQueue(com.tradej.core.domain.port.DeadLetterQueue.noop())
+                .pipelineRuntimeBridge(bridge)
+                .buildBus();
         AtomicInteger developingCount = new AtomicInteger();
         CountDownLatch closedLatch = new CountDownLatch(1);
         eventBus.subscribe(CandleDeveloping.class, event -> developingCount.incrementAndGet());

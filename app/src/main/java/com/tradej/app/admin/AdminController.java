@@ -1,6 +1,6 @@
 package com.tradej.app.admin;
 
-import com.tradej.broker.api.IBrokerConnection;
+import com.tradej.app.service.AdminApplicationService;
 import com.tradej.core.domain.port.EventBus;
 import com.tradej.core.domain.runtime.RuntimeMode;
 import com.tradej.core.domain.runtime.RuntimeModeHolder;
@@ -8,12 +8,11 @@ import com.tradej.disruptor.DisruptorBusMetrics;
 import com.tradej.replay.engine.ReplayOrchestrator;
 import com.tradej.execution.reconcile.OrderReconciler;
 import com.tradej.execution.service.ExecutionHandler;
-import com.tradej.execution.service.TradingCircuitBreaker;
 import com.tradej.hotpath.MarketDataPipeline;
 import com.tradej.hotpath.OrderPipeline;
 import com.tradej.persistence.replay.HistoricalRangeService;
 import com.tradej.app.config.RateLimitFilter;
-import com.tradej.strategy.service.StrategyEngine;
+import com.tradej.strategy.service.GraphStrategySandbox;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -31,8 +30,7 @@ import java.util.Optional;
 @RestController
 @RequestMapping("/admin")
 public class AdminController {
-    private final IBrokerConnection brokerConnection;
-    private final TradingCircuitBreaker tradingCircuitBreaker;
+    private final AdminApplicationService adminService;
     private final OrderReconciler orderReconciler;
     private final EventBus eventBus;
     private final DisruptorBusMetrics disruptorBusMetrics;
@@ -41,14 +39,13 @@ public class AdminController {
     private final ExecutionHandler executionHandler;
     private final MarketDataPipeline marketDataPipeline;
     private final OrderPipeline orderPipeline;
-    private final StrategyEngine strategyEngine;
+    private final GraphStrategySandbox graphStrategySandbox;
     private final HistoricalRangeService historicalRangeService;
     private final RuntimeModeHolder runtimeModeHolder;
     private final ReplayOrchestrator replayOrchestrator;
 
     public AdminController(
-            IBrokerConnection brokerConnection,
-            TradingCircuitBreaker tradingCircuitBreaker,
+            AdminApplicationService adminService,
             OrderReconciler orderReconciler,
             EventBus eventBus,
             DisruptorBusMetrics disruptorBusMetrics,
@@ -57,13 +54,12 @@ public class AdminController {
             ExecutionHandler executionHandler,
             MarketDataPipeline marketDataPipeline,
             OrderPipeline orderPipeline,
-            StrategyEngine strategyEngine,
+            GraphStrategySandbox graphStrategySandbox,
             @Qualifier("localHistoricalRangeService") HistoricalRangeService historicalRangeService,
             RuntimeModeHolder runtimeModeHolder,
             ReplayOrchestrator replayOrchestrator
     ) {
-        this.brokerConnection = brokerConnection;
-        this.tradingCircuitBreaker = tradingCircuitBreaker;
+        this.adminService = adminService;
         this.orderReconciler = orderReconciler;
         this.eventBus = eventBus;
         this.disruptorBusMetrics = disruptorBusMetrics;
@@ -72,7 +68,7 @@ public class AdminController {
         this.executionHandler = executionHandler;
         this.marketDataPipeline = marketDataPipeline;
         this.orderPipeline = orderPipeline;
-        this.strategyEngine = strategyEngine;
+        this.graphStrategySandbox = graphStrategySandbox;
         this.historicalRangeService = historicalRangeService;
         this.runtimeModeHolder = runtimeModeHolder;
         this.replayOrchestrator = replayOrchestrator;
@@ -90,21 +86,17 @@ public class AdminController {
 
     @GetMapping("/runtime")
     ResponseEntity<Map<String, Object>> runtime() {
-        return ResponseEntity.ok(Map.of(
-                "websocketConnected", brokerConnection.websocket().isConnected(),
-                "circuitBreakerOpen", tradingCircuitBreaker.isOpen(),
-                "subscriptions", brokerConnection.websocket().subscriptions().size(),
-                "catalogLoaded", runtimeHealthState.catalogLoaded(),
-                "catalogSize", runtimeHealthState.catalogSize(),
-                "brokerPreflightPassed", runtimeHealthState.brokerPreflightPassed(),
-                "startupCompleted", runtimeHealthState.startupCompleted()
+        return ResponseEntity.ok(adminService.getRuntimeStatus(
+                runtimeHealthState.catalogLoaded(),
+                runtimeHealthState.catalogSize(),
+                runtimeHealthState.brokerPreflightPassed(),
+                runtimeHealthState.startupCompleted()
         ));
     }
 
     @PostMapping("/risk/kill-switch/{enabled}")
     ResponseEntity<Map<String, Object>> setKillSwitch(@PathVariable boolean enabled) {
-        boolean acknowledged = brokerConnection.orders().setKillSwitch(enabled);
-        return ResponseEntity.ok(Map.of("enabled", enabled, "acknowledged", acknowledged));
+        return ResponseEntity.ok(adminService.setKillSwitch(enabled));
     }
 
     @GetMapping("/pipeline")
@@ -140,7 +132,7 @@ public class AdminController {
 
     @GetMapping("/strategies")
     ResponseEntity<Map<String, Object>> strategies() {
-        List<String> plugins = strategyEngine.pluginNames();
+        List<String> plugins = graphStrategySandbox.pluginNames();
         return ResponseEntity.ok(Map.of(
                 "plugins", plugins,
                 "pluginCount", plugins.size()
@@ -158,9 +150,10 @@ public class AdminController {
         result.put("catalogSize", runtimeHealthState.catalogSize());
 
         // Broker
-        result.put("websocketConnected", brokerConnection.websocket().isConnected());
-        result.put("subscriptions", brokerConnection.websocket().subscriptions().size());
-        result.put("circuitBreakerOpen", tradingCircuitBreaker.isOpen());
+        Map<String, Object> brokerStatus = adminService.getRuntimeStatus(false, 0, false, false);
+        result.put("websocketConnected", brokerStatus.get("websocketConnected"));
+        result.put("subscriptions", brokerStatus.get("subscriptions"));
+        result.put("circuitBreakerOpen", brokerStatus.get("circuitBreakerOpen"));
 
         // Pipeline
         var dis = disruptorBusMetrics;
@@ -180,7 +173,7 @@ public class AdminController {
         result.put("orderRate", Math.round(orderPipeline.orderRate() * 100.0) / 100.0);
 
         // Strategies
-        result.put("strategyPlugins", strategyEngine.pluginNames());
+        result.put("strategyPlugins", graphStrategySandbox.pluginNames());
 
         return ResponseEntity.ok(result);
     }

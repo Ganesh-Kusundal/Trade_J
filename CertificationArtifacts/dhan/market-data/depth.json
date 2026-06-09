@@ -1,0 +1,11 @@
+{
+  "broker" : "DHAN",
+  "checkName" : "depth",
+  "category" : "market-data",
+  "status" : "PASS",
+  "evidence" : "bids=5 asks=5",
+  "latencyMs" : 2050,
+  "certifiedAt" : "2026-06-08T06:25:30.734021Z",
+  "errorMessage" : null,
+  "pass" : true
+}

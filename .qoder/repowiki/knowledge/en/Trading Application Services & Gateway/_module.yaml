@@ -1,0 +1,11 @@
+schema_version: 1
+module_path: backend_app_services
+title: Trading Application Services & Gateway
+scope:
+    - app/
+    - gateway/
+    - cli/
+source_files: []
+depends_on: []
+related_to:
+    - path: frontend

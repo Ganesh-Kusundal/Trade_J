@@ -1,0 +1,1 @@
+Java Service Provider Interface (SPI) for dynamic broker plugin discovery across all vendor modules.

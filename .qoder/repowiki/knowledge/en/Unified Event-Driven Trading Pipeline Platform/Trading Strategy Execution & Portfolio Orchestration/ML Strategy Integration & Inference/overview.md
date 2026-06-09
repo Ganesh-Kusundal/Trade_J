@@ -1,0 +1,1 @@
+Integrates machine learning inference into the trading strategy pipeline by converting feature vectors into actionable trading signals.

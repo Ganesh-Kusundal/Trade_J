@@ -1,0 +1,3 @@
+- Domain entities are defined as immutable Java records with explicit null-checks and defensive map copying in compact constructors.
+- Service methods enforce state-based preconditions, throwing `IllegalStateException` for invalid lifecycle transitions (e.g., publishing non-draft definitions).
+- Lifecycle transitions create new immutable instances rather than mutating existing state, ensuring auditability and thread safety.

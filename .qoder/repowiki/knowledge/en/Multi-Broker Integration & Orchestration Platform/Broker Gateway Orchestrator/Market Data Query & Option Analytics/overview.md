@@ -1,0 +1,1 @@
+Provides a DuckDB-based SQL query engine for ad-hoc market data analysis and pure-functional option chain analytics including PCR, max pain, and support/resistance.

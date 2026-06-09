@@ -1,0 +1,4 @@
+- Core data model: `PipelineGraph` (Java record) aggregates `PipelineNodeDef` and `PipelineEdgeDef` records to represent the graph topology.
+- Execution semantics: `PipelineExecutionMode` enum distinguishes between `HOT_PATH` (linear Disruptor sequence) and `DAG` (event-driven routing).
+- Validation layer: `PipelineGraphValidator` enforces structural integrity (unique IDs, valid edges) and mode-specific constraints (e.g., required Risk/OMS nodes for hot-path, ingress entry points for DAG).
+- Configuration parsing: `IngressNodeConfig` provides a specialized parser for ingress node filters, translating raw config maps into type-safe event filtering rules for `CandleClosed` and `MarketTickEvent`.

@@ -1,0 +1,1 @@
+Maintains thread-safe bidirectional mappings between internal order IDs, broker-assigned IDs, and signal correlation IDs to enable fill-event resolution and post-restart state recovery.

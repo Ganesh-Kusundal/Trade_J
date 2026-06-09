@@ -26,58 +26,70 @@ public final class DuckDbHistoricalWarehouse implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(DuckDbHistoricalWarehouse.class);
 
+    private final com.tradej.persistence.duckdb.DuckDbConnectionPool pool;
+    private final boolean ownsPool;
     private final Path databasePath;
-    private Connection connection;
+    private Connection rawConnection;
 
     public DuckDbHistoricalWarehouse(Path databasePath) {
         this.databasePath = databasePath;
-        initConnection();
-    }
-
-    private void initConnection() {
         try {
             Path parent = databasePath.getParent();
             if (parent != null) {
                 Files.createDirectories(parent);
             }
-            this.connection = DriverManager.getConnection("jdbc:duckdb:" + databasePath.toAbsolutePath());
-            bootstrap();
         } catch (Exception e) {
-            throw new IllegalStateException("Unable to initialize historical warehouse at " + databasePath, e);
+            throw new IllegalStateException("Unable to create directories for " + databasePath, e);
+        }
+        this.pool = com.tradej.persistence.duckdb.DuckDbConnectionPool.create(databasePath);
+        this.ownsPool = true;
+        this.rawConnection = pool.rawConnection();
+        try {
+            bootstrap(rawConnection);
+        } catch (SQLException e) {
+            throw new IllegalStateException("Unable to bootstrap historical warehouse at " + databasePath, e);
         }
     }
 
-    private synchronized void ensureConnection() throws SQLException {
-        if (connection == null || connection.isClosed() || !connection.isValid(2)) {
-            log.warn("Historical warehouse connection lost — reconnecting");
-            initConnection();
+    public DuckDbHistoricalWarehouse(com.tradej.persistence.duckdb.DuckDbConnectionPool pool) {
+        this.pool = pool;
+        this.ownsPool = false;
+        this.databasePath = null;
+        this.rawConnection = pool.rawConnection();
+        try {
+            bootstrap(rawConnection);
+        } catch (SQLException e) {
+            throw new IllegalStateException("Unable to bootstrap historical warehouse", e);
         }
     }
 
-    public synchronized void bootstrap() throws SQLException {
-        if (hasLegacySchema()) {
+    private Connection connection() {
+        return pool != null ? pool.rawConnection() : rawConnection;
+    }
+
+    public synchronized void bootstrap(Connection conn) throws SQLException {
+        if (hasLegacySchema(conn)) {
             throw new IllegalStateException(
-                    "Legacy warehouse schema detected at " + databasePath
-                            + " — run `download reset` before reusing this warehouse");
+                    "Legacy warehouse schema detected — run `download reset` before reusing this warehouse");
         }
-        createCanonicalTables();
+        createCanonicalTables(conn);
     }
 
-    private boolean hasLegacySchema() throws SQLException {
-        try (ResultSet rs = connection.getMetaData().getColumns(null, null, "rolling_option_bars", "expiry_flag")) {
+    private boolean hasLegacySchema(Connection conn) throws SQLException {
+        try (ResultSet rs = conn.getMetaData().getColumns(null, null, "rolling_option_bars", "expiry_flag")) {
             return rs.next();
         }
     }
 
-    private void dropLegacyTables() throws SQLException {
-        connection.createStatement().execute("drop view if exists rolling_option_bars_15m");
-        connection.createStatement().execute("drop table if exists download_tasks");
-        connection.createStatement().execute("drop table if exists download_jobs");
-        connection.createStatement().execute("drop table if exists rolling_option_bars");
+    private void dropLegacyTables(Connection conn) throws SQLException {
+        conn.createStatement().execute("drop view if exists rolling_option_bars_15m");
+        conn.createStatement().execute("drop table if exists download_tasks");
+        conn.createStatement().execute("drop table if exists download_jobs");
+        conn.createStatement().execute("drop table if exists rolling_option_bars");
     }
 
-    private void createCanonicalTables() throws SQLException {
-        connection.createStatement().execute("""
+    private void createCanonicalTables(Connection conn) throws SQLException {
+        conn.createStatement().execute("""
                 create table if not exists rolling_option_bars (
                     underlying varchar not null,
                     expiry_kind varchar not null,
@@ -99,7 +111,7 @@ public final class DuckDbHistoricalWarehouse implements AutoCloseable {
                     primary key (underlying, expiry_kind, expiry_code, strike_offset, option_type, interval_min, bar_time_ms)
                 )
                 """);
-        connection.createStatement().execute("""
+        conn.createStatement().execute("""
                 create table if not exists download_jobs (
                     job_id varchar primary key,
                     source_type varchar not null,
@@ -111,7 +123,7 @@ public final class DuckDbHistoricalWarehouse implements AutoCloseable {
                     stats_json varchar
                 )
                 """);
-        connection.createStatement().execute("""
+        conn.createStatement().execute("""
                 create table if not exists download_tasks (
                     task_id varchar primary key,
                     job_id varchar not null,
@@ -131,7 +143,7 @@ public final class DuckDbHistoricalWarehouse implements AutoCloseable {
                     unique (job_id, fingerprint)
                 )
                 """);
-        connection.createStatement().execute("""
+        conn.createStatement().execute("""
                 create or replace view rolling_option_bars_15m as
                 select
                     underlying,
@@ -158,8 +170,7 @@ public final class DuckDbHistoricalWarehouse implements AutoCloseable {
     }
 
     public synchronized void insertJob(DownloadJobRecord job) throws SQLException {
-        ensureConnection();
-        try (PreparedStatement ps = connection.prepareStatement("""
+        try (PreparedStatement ps = connection().prepareStatement("""
                 insert into download_jobs values (?, ?, ?, ?, ?, ?, ?, ?)
                 """)) {
             ps.setString(1, job.jobId());
@@ -189,8 +200,7 @@ public final class DuckDbHistoricalWarehouse implements AutoCloseable {
             Long finishedAtMs,
             String statsJson
     ) throws SQLException {
-        ensureConnection();
-        try (PreparedStatement ps = connection.prepareStatement("""
+        try (PreparedStatement ps = connection().prepareStatement("""
                 update download_jobs
                 set status = ?, started_at_ms = coalesce(?, started_at_ms),
                     finished_at_ms = ?, stats_json = ?
@@ -214,8 +224,7 @@ public final class DuckDbHistoricalWarehouse implements AutoCloseable {
     }
 
     public synchronized Optional<DownloadJobRecord> findJob(String jobId) throws SQLException {
-        ensureConnection();
-        try (PreparedStatement ps = connection.prepareStatement("""
+        try (PreparedStatement ps = connection().prepareStatement("""
                 select job_id, source_type, status, config_json, created_at_ms,
                        started_at_ms, finished_at_ms, stats_json
                 from download_jobs where job_id = ?
@@ -231,9 +240,8 @@ public final class DuckDbHistoricalWarehouse implements AutoCloseable {
     }
 
     public synchronized List<DownloadJobRecord> listRecentJobs(int limit) throws SQLException {
-        ensureConnection();
         int effectiveLimit = Math.max(1, Math.min(limit, 500));
-        try (PreparedStatement ps = connection.prepareStatement("""
+        try (PreparedStatement ps = connection().prepareStatement("""
                 select job_id, source_type, status, config_json, created_at_ms,
                        started_at_ms, finished_at_ms, stats_json
                 from download_jobs
@@ -252,8 +260,7 @@ public final class DuckDbHistoricalWarehouse implements AutoCloseable {
     }
 
     public synchronized void insertTasks(List<DownloadTaskRecord> tasks) throws SQLException {
-        ensureConnection();
-        try (PreparedStatement ps = connection.prepareStatement("""
+        try (PreparedStatement ps = connection().prepareStatement("""
                 insert into download_tasks (
                     task_id, job_id, fingerprint, underlying, expiry_kind, expiry_code,
                     strike_offset, option_type, interval_min, chunk_from, chunk_to,
@@ -270,8 +277,7 @@ public final class DuckDbHistoricalWarehouse implements AutoCloseable {
     }
 
     public synchronized List<DownloadTaskRecord> listPendingTasks(String jobId) throws SQLException {
-        ensureConnection();
-        try (PreparedStatement ps = connection.prepareStatement("""
+        try (PreparedStatement ps = connection().prepareStatement("""
                 select task_id, job_id, fingerprint, underlying, expiry_kind, expiry_code,
                        strike_offset, option_type, interval_min, chunk_from, chunk_to,
                        status, rows_written, error, completed_at_ms
@@ -289,13 +295,12 @@ public final class DuckDbHistoricalWarehouse implements AutoCloseable {
      * Atomically claims the next pending/failed task for a job (single-JVM exclusive via synchronized).
      */
     public synchronized Optional<DownloadTaskRecord> claimNextTask(String jobId) throws SQLException {
-        ensureConnection();
         Optional<DownloadTaskRecord> next = findNextClaimableTask(jobId);
         if (next.isEmpty()) {
             return Optional.empty();
         }
         DownloadTaskRecord task = next.get();
-        try (PreparedStatement ps = connection.prepareStatement("""
+        try (PreparedStatement ps = connection().prepareStatement("""
                 update download_tasks
                 set status = ?, rows_written = 0, error = null, completed_at_ms = null
                 where task_id = ? and status in ('PENDING', 'FAILED')
@@ -329,8 +334,7 @@ public final class DuckDbHistoricalWarehouse implements AutoCloseable {
      * Resets orphaned RUNNING tasks back to PENDING (e.g. after crash mid-task).
      */
     public synchronized int resetStaleRunningTasks(String jobId) throws SQLException {
-        ensureConnection();
-        try (PreparedStatement ps = connection.prepareStatement("""
+        try (PreparedStatement ps = connection().prepareStatement("""
                 update download_tasks
                 set status = 'PENDING', rows_written = 0, error = null, completed_at_ms = null
                 where job_id = ? and status = 'RUNNING'
@@ -341,14 +345,13 @@ public final class DuckDbHistoricalWarehouse implements AutoCloseable {
     }
 
     public synchronized void truncateDownloadData() throws SQLException {
-        ensureConnection();
-        connection.createStatement().execute("truncate table rolling_option_bars");
-        connection.createStatement().execute("truncate table download_tasks");
-        connection.createStatement().execute("truncate table download_jobs");
+        connection().createStatement().execute("truncate table rolling_option_bars");
+        connection().createStatement().execute("truncate table download_tasks");
+        connection().createStatement().execute("truncate table download_jobs");
     }
 
     private Optional<DownloadTaskRecord> findNextClaimableTask(String jobId) throws SQLException {
-        try (PreparedStatement ps = connection.prepareStatement("""
+        try (PreparedStatement ps = connection().prepareStatement("""
                 select task_id, job_id, fingerprint, underlying, expiry_kind, expiry_code,
                        strike_offset, option_type, interval_min, chunk_from, chunk_to,
                        status, rows_written, error, completed_at_ms
@@ -371,8 +374,7 @@ public final class DuckDbHistoricalWarehouse implements AutoCloseable {
             String error,
             Long completedAtMs
     ) throws SQLException {
-        ensureConnection();
-        try (PreparedStatement ps = connection.prepareStatement("""
+        try (PreparedStatement ps = connection().prepareStatement("""
                 update download_tasks
                 set status = ?, rows_written = ?, error = ?, completed_at_ms = ?
                 where task_id = ?
@@ -391,8 +393,7 @@ public final class DuckDbHistoricalWarehouse implements AutoCloseable {
     }
 
     public synchronized DownloadJobStats jobStats(String jobId) throws SQLException {
-        ensureConnection();
-        try (PreparedStatement ps = connection.prepareStatement("""
+        try (PreparedStatement ps = connection().prepareStatement("""
                 select
                     count(*) as total,
                     count(*) filter (where status = 'PENDING') as pending,
@@ -429,10 +430,9 @@ public final class DuckDbHistoricalWarehouse implements AutoCloseable {
         if (bars.isEmpty()) {
             return 0L;
         }
-        ensureConnection();
         long ingestedAt = System.currentTimeMillis();
         long written = 0L;
-        try (PreparedStatement ps = connection.prepareStatement("""
+        try (PreparedStatement ps = connection().prepareStatement("""
                 insert into rolling_option_bars values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 on conflict (underlying, expiry_kind, expiry_code, strike_offset, option_type, interval_min, bar_time_ms)
                 do update set
@@ -484,8 +484,7 @@ public final class DuckDbHistoricalWarehouse implements AutoCloseable {
             long toMs,
             int limit
     ) throws SQLException {
-        ensureConnection();
-        try (PreparedStatement ps = connection.prepareStatement("""
+        try (PreparedStatement ps = connection().prepareStatement("""
                 select bar_time_ms, open_paisa, high_paisa, low_paisa, close_paisa,
                        volume, iv, oi, spot_paisa, strike_paisa
                 from rolling_option_bars
@@ -526,8 +525,7 @@ public final class DuckDbHistoricalWarehouse implements AutoCloseable {
     }
 
     public synchronized long countRollingOptionBars() throws SQLException {
-        ensureConnection();
-        try (ResultSet rs = connection.createStatement().executeQuery("select count(*) from rolling_option_bars")) {
+        try (ResultSet rs = connection().createStatement().executeQuery("select count(*) from rolling_option_bars")) {
             rs.next();
             return rs.getLong(1);
         }
@@ -600,8 +598,10 @@ public final class DuckDbHistoricalWarehouse implements AutoCloseable {
 
     @Override
     public synchronized void close() throws Exception {
-        if (connection != null) {
-            connection.close();
+        if (ownsPool && pool != null) {
+            pool.close();
+        } else if (pool == null && rawConnection != null) {
+            rawConnection.close();
         }
     }
 }

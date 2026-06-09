@@ -1,0 +1,6 @@
+- Two pipeline orchestrators (MarketDataPipeline, OrderPipeline) accept broker events and forward them into a Disruptor-backed EventBus via a Consumer<DomainEvent> downstream callback.
+- PipelineConfig is a static factory that wires all components together without Spring annotations, supporting both single-ring DisruptorEventBus and sharded ShardedDisruptorEventBus based on shardCount.
+- TokenBucket provides non-blocking rate limiting with configurable maxRatePerSecond and burstCapacity; excess ticks are silently shed.
+- DepthUpdateFactory extracts standalone depth events from MarketTickEvent when depth data is present.
+- PipelineDataIntegrityValidator tracks per-symbol ingress/processed/egress/dropped counts for end-to-end data loss detection.
+- All public classes are declared final; pipelines are intentionally free of Spring proxies so they can be benchmarked and tested in isolation.

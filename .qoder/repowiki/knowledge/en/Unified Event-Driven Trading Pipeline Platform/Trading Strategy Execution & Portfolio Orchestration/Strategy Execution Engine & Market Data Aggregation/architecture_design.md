@@ -1,0 +1,4 @@
+- **Service Layer**: `GraphStrategySandbox` (current) and `StrategySandbox` (deprecated) execute strategy plugins in isolated Java 21 virtual threads with bounded timeouts to prevent blocking. `CandleAggregationService` transforms raw `MarketTickEvent`s into `CandleDeveloping` and `CandleClosed` events using configurable time buckets.
+- **Studio Integration**: `StudioChartService` acts as a read-model assembler, querying historical repositories and enriching data with technical indicators for charting UIs.
+- **Example Implementations**: The `example` package provides reference `GraphStrategyPlugin` implementations (e.g., `DepthImbalanceStrategy`) demonstrating event subscription and stateful signal generation.
+- **Replay Support**: `CandleAggregationService` supports deterministic replay via `StateSnapshot` and injectable `TradingClock`, verified by `GraphPipelineReplayParityTest`.

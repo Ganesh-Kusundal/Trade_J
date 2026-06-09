@@ -26,6 +26,13 @@ public final class DhanMarketFeedBinaryParser {
                 case DhanProtocolConstants.FEED_RESPONSE_TICKER -> consumer.accept(parseTicker(buffer));
                 case DhanProtocolConstants.FEED_RESPONSE_QUOTE -> consumer.accept(parseQuote(buffer));
                 case DhanProtocolConstants.FEED_RESPONSE_FULL -> consumer.accept(parseFull(buffer));
+                case DhanProtocolConstants.FEED_RESPONSE_OI -> consumer.accept(parseOi(buffer));
+                case DhanProtocolConstants.FEED_RESPONSE_HEARTBEAT -> {
+                }
+                case DhanProtocolConstants.FEED_RESPONSE_PREV_CLOSE -> {
+                }
+                case DhanProtocolConstants.FEED_RESPONSE_MARKET_STATUS -> {
+                }
                 case DhanProtocolConstants.FEED_RESPONSE_DISCONNECT -> errorHandler.accept(
                         new IllegalStateException("Server requested market feed disconnect (code "
                                 + readDisconnectReason(buffer) + ")"));
@@ -132,6 +139,12 @@ public final class DhanMarketFeedBinaryParser {
                 totalBuy, totalSell, openInterest, oiDayHigh, oiDayLow,
                 open, close, high, low, List.copyOf(bids), List.copyOf(asks)
         );
+    }
+
+    private static DhanMarketFeedPacket.Oi parseOi(ByteBuffer buffer) {
+        Header header = parseHeader(buffer);
+        long oi = buffer.getInt() & 0xFFFFFFFFL;
+        return new DhanMarketFeedPacket.Oi(header.segment(), header.securityId(), oi);
     }
 
     private static String formatPrice(float value) {

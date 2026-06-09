@@ -81,8 +81,10 @@ public final class UpstoxOptionsProvider implements OptionsProvider {
         if (strikesNode != null && strikesNode.isArray()) {
             for (JsonNode s : strikesNode) {
                 long strikePaisa = s.has("strike_price") ? (long) (s.get("strike_price").asDouble() * 100) : 0L;
-                OptionQuote call = s.has("call") ? parseOptionQuote(s.get("call")) : null;
-                OptionQuote put = s.has("put") ? parseOptionQuote(s.get("put")) : null;
+                Instrument callInst = resolveOptionContract(underlying, segment, expiry, strikePaisa, OptionType.CALL);
+                Instrument putInst = resolveOptionContract(underlying, segment, expiry, strikePaisa, OptionType.PUT);
+                OptionQuote call = s.has("call") ? parseOptionQuote(s.get("call"), callInst) : null;
+                OptionQuote put = s.has("put") ? parseOptionQuote(s.get("put"), putInst) : null;
                 strikes.add(new OptionChainEntry(strikePaisa, call, put));
             }
         }
@@ -96,7 +98,8 @@ public final class UpstoxOptionsProvider implements OptionsProvider {
         if (data == null) {
             return null;
         }
-        return parseOptionQuote(data);
+        Instrument resolved = instrumentResolver.resolve(instrumentKey);
+        return parseOptionQuote(data, resolved);
     }
 
     @Override
@@ -122,7 +125,20 @@ public final class UpstoxOptionsProvider implements OptionsProvider {
         return new Instrument(underlying, underlying, null, segment, "EQ", underlying, null, null, null, 1L, 5L);
     }
 
-    private OptionQuote parseOptionQuote(JsonNode node) {
+    private Instrument resolveOptionContract(String underlying, ExchangeSegment segment,
+                                              LocalDate expiry, long strikePaisa, OptionType optionType) {
+        return instrumentResolver.allInstruments().stream()
+                .filter(Instrument::isOption)
+                .filter(i -> underlying.equalsIgnoreCase(i.underlying()))
+                .filter(i -> i.exchangeSegment() == segment)
+                .filter(i -> expiry.equals(i.expiry()))
+                .filter(i -> strikePaisa == (i.strikePricePaisa() != null ? i.strikePricePaisa() : 0L))
+                .filter(i -> optionType == i.optionType())
+                .findFirst()
+                .orElse(null);
+    }
+
+    private OptionQuote parseOptionQuote(JsonNode node, Instrument instrument) {
         OptionGreeks greeks = null;
         if (node.has("delta") || node.has("iv") || node.has("gamma") || node.has("theta") || node.has("vega")) {
             greeks = new OptionGreeks(
@@ -134,7 +150,7 @@ public final class UpstoxOptionsProvider implements OptionsProvider {
             );
         }
         return new OptionQuote(
-                null,
+                instrument,
                 node.has("last_price") ? (long) (node.get("last_price").asDouble() * 100) : 0L,
                 node.has("open_interest") ? node.get("open_interest").asLong() : 0L,
                 node.has("volume") ? node.get("volume").asLong() : 0L,

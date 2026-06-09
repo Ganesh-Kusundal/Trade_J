@@ -1,1 +1,0 @@
-Spring WebSocket (spring-websocket) for HTTP upgrade handling; Jackson databind for JSON serialization of domain event payloads; SLF4J/Logback for logging.

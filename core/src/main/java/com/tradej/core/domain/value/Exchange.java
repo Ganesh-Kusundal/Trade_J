@@ -9,5 +9,8 @@ public enum Exchange {
     CDS,
     INDEX,
     IDX,
+    CRYPTO,
+    FX,
+    US_EQUITY,
     UNKNOWN
 }

@@ -48,7 +48,8 @@ public class HistoricalDownloadConfiguration {
             MarketDataProvider marketDataProvider,
             InstrumentResolver instrumentResolver,
             TradingProperties properties,
-            WorkspacePaths workspacePaths
+            WorkspacePaths workspacePaths,
+            com.tradej.historical.ingest.canonical.ParquetWriteService parquetWriteService
     ) {
         TradingProperties.HistoricalEquityProperties equity = properties.historicalEquity();
         return new EquityDownloadJobService(
@@ -58,7 +59,8 @@ public class HistoricalDownloadConfiguration {
                 equity.workers(),
                 System::currentTimeMillis,
                 () -> sleep(equity.delayMs()),
-                equity.universeUrl()
+                equity.universeUrl(),
+                parquetWriteService
         );
     }
 
@@ -82,6 +84,99 @@ public class HistoricalDownloadConfiguration {
             thread.setDaemon(true);
             return thread;
         });
+    }
+
+    @Bean
+    com.tradej.historical.ingest.calendar.TradingCalendarStore tradingCalendarStore() {
+        return new com.tradej.historical.ingest.calendar.TradingCalendarStore();
+    }
+
+    @Bean
+    com.tradej.historical.ingest.calendar.CompositeHolidayCalendar compositeHolidayCalendar(
+            com.tradej.historical.ingest.calendar.TradingCalendarStore tradingCalendarStore,
+            @org.springframework.beans.factory.annotation.Qualifier("canonicalDataRoot") Path dataRoot) {
+        var calendar = new com.tradej.historical.ingest.calendar.CompositeHolidayCalendar(tradingCalendarStore);
+        calendar.refreshFromData(dataRoot);
+        return calendar;
+    }
+
+    @Bean
+    com.tradej.historical.ingest.sync.DataGapScanService dataGapScanService(
+            com.tradej.historical.ingest.calendar.CompositeHolidayCalendar calendar,
+            @org.springframework.beans.factory.annotation.Qualifier("canonicalDataRoot") Path dataRoot) {
+        return new com.tradej.historical.ingest.sync.DataGapScanService(calendar, dataRoot);
+    }
+
+    @Bean
+    @org.springframework.beans.factory.annotation.Qualifier("canonicalDataRoot")
+    Path canonicalDataRoot(TradingProperties properties, WorkspacePaths workspacePaths) {
+        return workspacePaths.historicalEquityRoot(
+                properties.historicalEquity().rootPath()).getParent();
+    }
+
+    @Bean
+    com.tradej.historical.ingest.sync.GapDetector gapDetector(
+            com.tradej.historical.ingest.calendar.TradingCalendarStore calendar) {
+        return new com.tradej.historical.ingest.sync.GapDetector(calendar);
+    }
+
+    @Bean
+    com.tradej.historical.ingest.canonical.ParquetWriteService parquetWriteService(
+            @org.springframework.beans.factory.annotation.Qualifier("canonicalDataRoot") Path dataRoot) {
+        return new com.tradej.historical.ingest.canonical.CanonicalBarWriter(dataRoot);
+    }
+
+    @Bean
+    com.tradej.historical.ingest.canonical.CanonicalBarQuery canonicalBarQuery(
+            @org.springframework.beans.factory.annotation.Qualifier("canonicalDataRoot") Path dataRoot) {
+        return new com.tradej.historical.ingest.canonical.CanonicalBarQuery(
+                com.tradej.historical.ingest.canonical.CanonicalPaths.barsRoot(dataRoot));
+    }
+
+    @Bean
+    com.tradej.historical.ingest.canonical.MultiIntervalGenerator multiIntervalGenerator(
+            com.tradej.historical.ingest.canonical.HistoricalDataStore dataStore,
+            com.tradej.historical.ingest.canonical.ParquetWriteService writer) {
+        return new com.tradej.historical.ingest.canonical.MultiIntervalGenerator(
+                (com.tradej.historical.ingest.canonical.ParquetHistoricalDataStore) dataStore, writer);
+    }
+
+    @Bean
+    com.tradej.historical.ingest.canonical.HistoricalDataStore historicalDataStore(
+            TradingProperties properties,
+            WorkspacePaths workspacePaths,
+            com.tradej.historical.ingest.calendar.TradingCalendarStore calendar) {
+        Path dataRoot = workspacePaths.historicalEquityRoot(
+                properties.historicalEquity().rootPath()).getParent();
+        return new com.tradej.historical.ingest.canonical.ParquetHistoricalDataStore(
+                dataRoot, calendar);
+    }
+
+    @Bean
+    com.tradej.historical.ingest.replay.ParquetReplayAdapter parquetReplayAdapter(
+            com.tradej.historical.ingest.canonical.HistoricalDataStore dataStore) {
+        return new com.tradej.historical.ingest.replay.ParquetReplayAdapter(dataStore);
+    }
+
+    @Bean
+    @ConditionalOnBean(MarketDataProvider.class)
+    com.tradej.historical.ingest.sync.IncrementalSyncService incrementalSyncService(
+            MarketDataProvider marketDataProvider,
+            InstrumentResolver instrumentResolver,
+            com.tradej.historical.ingest.calendar.TradingCalendarStore calendar,
+            com.tradej.historical.ingest.canonical.ParquetWriteService parquetWriteService) {
+        return new com.tradej.historical.ingest.sync.IncrementalSyncService(
+                marketDataProvider, instrumentResolver, calendar, parquetWriteService);
+    }
+
+    @Bean
+    @ConditionalOnBean(MarketDataProvider.class)
+    com.tradej.historical.ingest.sync.BackfillService backfillService(
+            com.tradej.historical.ingest.sync.GapDetector gapDetector,
+            MarketDataProvider marketDataProvider,
+            com.tradej.historical.ingest.canonical.ParquetWriteService parquetWriteService) {
+        return new com.tradej.historical.ingest.sync.BackfillService(
+                gapDetector, marketDataProvider, parquetWriteService);
     }
 
     private static void sleep(long delayMs) {

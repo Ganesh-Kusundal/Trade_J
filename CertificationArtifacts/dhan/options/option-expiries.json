@@ -1,0 +1,11 @@
+{
+  "broker" : "DHAN",
+  "checkName" : "option-expiries",
+  "category" : "options",
+  "status" : "PASS",
+  "evidence" : "count=3",
+  "latencyMs" : 28,
+  "certifiedAt" : "2026-06-08T06:25:30.734946Z",
+  "errorMessage" : null,
+  "pass" : true
+}

@@ -1,1 +1,0 @@
-Java records for immutable domain models; Gradle multi-project build with inter-module dependencies (core, trading-execution, trading-strategy, data-feature-store, data-persistence); ArchUnit for architecture constraint testing in platform module.

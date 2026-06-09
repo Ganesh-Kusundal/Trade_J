@@ -1,0 +1,10 @@
+schema_version: 1
+module_path: backend_trading/trading_execution/reconciliation
+title: Trade Reconciliation Engine
+scope:
+    - trading/execution/src/main/java/com/tradej/execution/reconcile/
+    - trading/execution/src/test/java/com/tradej/execution/reconcile/
+source_files: []
+depends_on: []
+related_to:
+    - path: backend_trading/trading_execution/position_tracking

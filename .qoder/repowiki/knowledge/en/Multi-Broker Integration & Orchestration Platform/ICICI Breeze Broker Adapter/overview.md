@@ -1,0 +1,1 @@
+Integrates the ICICI Breeze trading API to provide market data, order management, portfolio access, and real-time streaming for algorithmic trading.

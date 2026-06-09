@@ -12,7 +12,6 @@ import com.tradej.research.core.StrategyConfig;
 import com.tradej.strategy.api.GraphStrategyPlugin;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Service;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -26,7 +25,6 @@ import java.util.stream.Collectors;
  * Executes a high-fidelity strategy backtest sandbox using historical data,
  * logging performance results dynamically to DuckDB.
  */
-@Service
 public class StrategyLabService {
     private static final Logger log = LoggerFactory.getLogger(StrategyLabService.class);
 

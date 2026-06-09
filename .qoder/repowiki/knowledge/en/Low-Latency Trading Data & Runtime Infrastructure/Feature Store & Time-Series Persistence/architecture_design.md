@@ -1,0 +1,5 @@
+- Implements the `com.tradej.core.domain.port.FeatureStore` interface via three primary strategies: `InMemoryFeatureStore` for low-latency hot-path access, `DuckDbFeatureStore` for persistent time-series storage, and `OptionsAwareFeatureStore` as a decorator enriching context with options analytics.
+- `AsyncDuckDbWriter` acts as an asynchronous adapter, decoupling event ingestion from blocking JDBC writes using a bounded `BlockingQueue` and a dedicated daemon thread to prevent hot-path stalls.
+- `FeatureNode` integrates the store into the pipeline runtime by extending `BasePipelineNode`, ensuring lifecycle management (init/destroy) and event processing alignment.
+- `DataIntegrityValidator` provides static utility methods for enforcing OHLC and tick sanity checks before or during ingestion.
+- Dependencies flow from the core domain ports (`:core`) and pipeline runtime (`:pipeline-core`), with persistence handled via `:data-persistence` and the `duckdb_jdbc` driver.

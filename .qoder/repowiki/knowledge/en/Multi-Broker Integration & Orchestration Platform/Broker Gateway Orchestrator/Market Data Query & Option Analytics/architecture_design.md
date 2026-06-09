@@ -1,0 +1,4 @@
+- The module is structured around two primary capabilities: ad-hoc SQL querying via `DuckDbQueryEngine` and pre-computed option analytics via `OptionAnalytics`.
+- `DuckDbQueryEngine` implements `AutoCloseable` to manage the JDBC lifecycle, using `MarketDatasource` as a functional interface strategy to register external data sources (CSV, Parquet, broker APIs) into the DuckDB context.
+- `QueryEngine` acts as a high-level facade that bridges the `MarketGateway` with `OptionAnalytics`, simplifying the fetch-and-compute workflow for common indicators like PCR and Top OI.
+- `QueryResult` and `QueryMetrics` provide standardized output structures and thread-safe performance tracking for the SQL engine, ensuring observability of query latency and row counts.

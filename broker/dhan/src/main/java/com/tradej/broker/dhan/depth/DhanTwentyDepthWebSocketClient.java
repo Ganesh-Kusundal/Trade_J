@@ -48,9 +48,30 @@ public final class DhanTwentyDepthWebSocketClient implements AutoCloseable {
     private final CopyOnWriteArrayList<Consumer<DepthUpdateEvent>> listeners = new CopyOnWriteArrayList<>();
     private final Map<DepthBookKey, PendingDepthBook> pendingBooks = new ConcurrentHashMap<>();
     private final Map<MarketSubscriptionRequest, Boolean> subscriptions = new ConcurrentHashMap<>();
+    private final java.util.concurrent.ScheduledExecutorService reconnectScheduler =
+            java.util.concurrent.Executors.newSingleThreadScheduledExecutor(r -> {
+                Thread t = new Thread(r, "dhan-depth-reconnect");
+                t.setDaemon(true);
+                return t;
+            });
+
+    private static final int MAX_RECONNECT_ATTEMPTS = 5;
+    private static final long RECONNECT_BASE_DELAY_MS = 1_000L;
+    private static final long RECONNECT_MAX_DELAY_MS = 30_000L;
 
     private volatile java.net.http.WebSocket webSocket;
     private volatile boolean connected;
+    private volatile int reconnectAttempts;
+    private volatile boolean manuallyDisconnected;
+    private volatile long lastDepthMessageTimestamp = 0L;
+    private static final long STALE_THRESHOLD_MS = 30_000L;
+    private static final long HEALTH_CHECK_INTERVAL_MS = 5_000L;
+    private final java.util.concurrent.ScheduledExecutorService healthExecutor =
+            java.util.concurrent.Executors.newSingleThreadScheduledExecutor(r -> {
+                Thread t = new Thread(r, "dhan-depth-health");
+                t.setDaemon(true);
+                return t;
+            });
 
     public DhanTwentyDepthWebSocketClient(
             DhanConnectionSettings settings,
@@ -73,6 +94,7 @@ public final class DhanTwentyDepthWebSocketClient implements AutoCloseable {
     }
 
     public void connect() {
+        manuallyDisconnected = false;
         if (settings.isSandbox() && !settings.killSwitchTestEnabled()) {
             throw new IllegalStateException("Dhan 20-level depth feed is unavailable in sandbox mode");
         }
@@ -85,9 +107,13 @@ public final class DhanTwentyDepthWebSocketClient implements AutoCloseable {
                 .header("Origin", "https://dhanhq.co")
                 .buildAsync(URI.create(url), new DepthFeedHandler());
         webSocket = future.join();
+        lastDepthMessageTimestamp = System.currentTimeMillis();
+        healthExecutor.scheduleAtFixedRate(this::checkStaleness,
+                HEALTH_CHECK_INTERVAL_MS, HEALTH_CHECK_INTERVAL_MS, java.util.concurrent.TimeUnit.MILLISECONDS);
     }
 
     public void disconnect() {
+        manuallyDisconnected = true;
         connected = false;
         java.net.http.WebSocket socket = webSocket;
         webSocket = null;
@@ -100,6 +126,28 @@ public final class DhanTwentyDepthWebSocketClient implements AutoCloseable {
             socket.sendClose(java.net.http.WebSocket.NORMAL_CLOSURE, "shutdown");
         }
         pendingBooks.clear();
+        healthExecutor.shutdown();
+        reconnectScheduler.shutdown();
+    }
+
+    private void scheduleReconnect() {
+        if (manuallyDisconnected || reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+            log.warn("Dhan depth reconnect exhausted after {} attempts", reconnectAttempts);
+            return;
+        }
+        reconnectAttempts++;
+        long delay = Math.min(RECONNECT_BASE_DELAY_MS * (1L << (reconnectAttempts - 1)), RECONNECT_MAX_DELAY_MS);
+        log.info("Scheduling Dhan depth reconnect attempt {} in {}ms", reconnectAttempts, delay);
+        reconnectScheduler.schedule(() -> {
+            try {
+                connect();
+                reconnectAttempts = 0;
+                log.info("Dhan depth reconnected successfully");
+            } catch (Exception ex) {
+                log.warn("Dhan depth reconnect attempt {} failed: {}", reconnectAttempts, ex.getMessage());
+                scheduleReconnect();
+            }
+        }, delay, java.util.concurrent.TimeUnit.MILLISECONDS);
     }
 
     public void subscribe(List<MarketSubscriptionRequest> instruments) {
@@ -238,12 +286,20 @@ public final class DhanTwentyDepthWebSocketClient implements AutoCloseable {
                 String reason
         ) {
             connected = false;
+            if (!manuallyDisconnected) {
+                log.warn("Dhan depth WebSocket closed unexpectedly (code={}, reason={}), scheduling reconnect", statusCode, reason);
+                scheduleReconnect();
+            }
             return CompletableFuture.completedFuture(null);
         }
 
         @Override
         public void onError(java.net.http.WebSocket webSocket, Throwable error) {
             connected = false;
+            if (!manuallyDisconnected) {
+                log.warn("Dhan depth WebSocket error: {}, scheduling reconnect", error.getMessage());
+                scheduleReconnect();
+            }
         }
 
         private void appendFragment(ByteBuffer data, boolean last) {
@@ -256,11 +312,25 @@ public final class DhanTwentyDepthWebSocketClient implements AutoCloseable {
             }
             fragmentBuffer.put(data);
             if (last) {
+                lastDepthMessageTimestamp = System.currentTimeMillis();
                 fragmentBuffer.flip();
                 byte[] payload = new byte[fragmentBuffer.remaining()];
                 fragmentBuffer.get(payload);
                 fragmentBuffer.clear();
                 handleBinary(payload);
+            }
+        }
+    }
+
+    private void checkStaleness() {
+        if (connected && lastDepthMessageTimestamp > 0) {
+            long idle = System.currentTimeMillis() - lastDepthMessageTimestamp;
+            if (idle > STALE_THRESHOLD_MS) {
+                log.warn("Dhan depth feed stale ({}ms idle), forcing reconnect", idle);
+                java.net.http.WebSocket socket = webSocket;
+                if (socket != null) {
+                    socket.sendClose(java.net.http.WebSocket.NORMAL_CLOSURE, "stale");
+                }
             }
         }
     }

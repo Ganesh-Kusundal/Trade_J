@@ -1,0 +1,5 @@
+- **Core Facade**: `IBrokerConnection` serves as the primary entry point, using a capability-based pattern (`getCapability`) to expose optional features like `MarketDataProvider` or `OrderCommand`.
+- **Port-Based Contracts**: The `port` package contains fine-grained interfaces (e.g., `FuturesProvider`, `WebSocketMultiplexer`) that decouple the core system from specific broker implementations.
+- **Capability Discovery**: Marker interfaces in `capability` (e.g., `AdvancedOrderCapable`) and model records like `BrokerCapabilities` allow the system to query feature support per venue dynamically.
+- **Auth Abstraction**: `TokenLifecycleService` in `auth` encapsulates diverse authentication flows (OAuth, TOTP, Static) behind a uniform lifecycle interface.
+- **Internal Boundaries**: The `@BrokerInternal` annotation marks SPI elements intended only for adapter implementations, preventing leakage into the stable public API.

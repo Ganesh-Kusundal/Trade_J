@@ -5,6 +5,7 @@ import com.tradej.broker.upstox.instrument.UpstoxInstrumentResolver;
 import com.tradej.broker.upstox.mapper.UpstoxDomainMapper;
 import com.tradej.broker.upstox.rest.UpstoxOrderRestClient;
 import com.tradej.broker.upstox.rest.UpstoxPortfolioRestClient;
+import com.tradej.core.domain.model.Instrument;
 import com.tradej.core.domain.model.InstrumentKey;
 import com.tradej.core.domain.model.ModifyOrderRequest;
 import com.tradej.core.domain.model.Order;
@@ -50,18 +51,22 @@ public final class UpstoxOrderCommandAdapter implements OrderCommand {
 
     @Override
     public Order placeOrder(OrderRequest request) {
+        Instrument instrument = instrumentResolver.resolve(
+                new InstrumentKey(request.symbol(), request.exchangeSegment()));
         String instrumentKey = instrumentResolver.requireInstrumentKey(
-                new com.tradej.core.domain.model.InstrumentKey(request.symbol(), request.exchangeSegment()));
+                new InstrumentKey(request.symbol(), request.exchangeSegment()));
         Map<String, Object> payload = mapper.toPlaceOrderPayload(request, instrumentKey);
         var response = restClient.placeOrder(payload);
-        return mapper.toOrder(response, request);
+        return mapper.toOrder(response, request, instrument);
     }
 
     @Override
     public Order modifyOrder(ModifyOrderRequest request) {
+        Instrument instrument = instrumentResolver.resolve(
+                new InstrumentKey(request.symbol(), request.exchangeSegment()));
         Map<String, Object> payload = mapper.toModifyOrderPayload(request);
         var response = restClient.modifyOrder(payload);
-        return mapper.toOrder(response, null);
+        return mapper.toOrder(response, null, instrument);
     }
 
     @Override

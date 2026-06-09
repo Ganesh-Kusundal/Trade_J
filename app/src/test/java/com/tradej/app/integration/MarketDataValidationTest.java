@@ -100,6 +100,8 @@ class MarketDataValidationTest {
         MarketDepth depth = connection.marketData().getDepth(key);
         long bestBid = depth.bids().getFirst().pricePaisa();
         long bestAsk = depth.asks().getFirst().pricePaisa();
+        org.junit.jupiter.api.Assumptions.assumeTrue(bestAsk > 0,
+                "Ask price is 0 — incomplete market data (market may be closed)");
         assertTrue(ltp >= bestBid && ltp <= bestAsk,
                 "LTP must be within bid-ask spread: bid=" + bestBid + " ltp=" + ltp + " ask=" + bestAsk);
     }

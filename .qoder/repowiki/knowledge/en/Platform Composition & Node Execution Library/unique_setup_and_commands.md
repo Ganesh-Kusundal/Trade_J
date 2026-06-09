@@ -1,0 +1,1 @@
+Architecture tests are executed via `gradle :architecture-test:architectureTest` which depends on `classes` tasks of all scanned modules and filters tests by the `architecture` JUnit tag. The test classpath is augmented with compiled outputs of every module listed in `coreModules` (and optionally `researchModules` when `-Presearch` is set).

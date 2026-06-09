@@ -1,0 +1,1 @@
+Orchestrates a modular, declarative pipeline runtime that unifies strategy execution, risk management, and market analytics across live, replay, and backtest modes.

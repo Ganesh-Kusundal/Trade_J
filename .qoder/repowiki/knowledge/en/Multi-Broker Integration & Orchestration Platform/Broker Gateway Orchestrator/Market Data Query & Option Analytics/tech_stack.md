@@ -1,0 +1,1 @@
+Uses DuckDB via JDBC for in-process analytical SQL queries on market data.

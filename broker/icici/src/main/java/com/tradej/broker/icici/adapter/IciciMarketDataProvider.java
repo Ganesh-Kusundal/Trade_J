@@ -63,8 +63,14 @@ public final class IciciMarketDataProvider implements MarketDataProvider {
 
     @Override
     public List<Candle> getCandles(CandleHistoryRequest request) {
+        validateInterval(request.interval());
         BreezeInstrumentDefinition definition = instrumentResolver.requireBreezeDefinition(request.instrument());
         return historicalDataService.fetchCandles(request, definition);
+    }
+
+    @Override
+    public com.tradej.broker.api.model.HistoricalDataCapabilities capabilities() {
+        return com.tradej.broker.api.model.HistoricalDataCapabilities.iciciDefaults();
     }
 
     @Override

@@ -41,7 +41,6 @@ class IciciHistoricalDataIntegrationTest {
     @BeforeAll
     static void setUp() throws Exception {
         BreezeConnectionSettings settings = LiveIciciTestSupport.connectionSettingsOrSkip();
-        Files.deleteIfExists(settings.tokenStateFile());
 
         BreezeTokenManager tokenManager = new BreezeTokenManager(settings);
         tokenManager.ensureValid();

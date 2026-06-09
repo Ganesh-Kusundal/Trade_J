@@ -69,8 +69,7 @@ class DuckDbHistoricalWarehouseLegacyMigrationTest {
         }
         IllegalStateException ex = assertThrows(IllegalStateException.class,
                 () -> new DuckDbHistoricalWarehouse(dbPath));
-        assertInstanceOf(IllegalStateException.class, ex.getCause());
-        assertTrue(ex.getCause().getMessage().contains("download reset"),
-                "Cause should instruct user to run download reset, got: " + ex.getCause().getMessage());
+        assertTrue(ex.getMessage().contains("download reset"),
+                "Exception should instruct user to run download reset, got: " + ex.getMessage());
     }
 }

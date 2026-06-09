@@ -1,1 +1,0 @@
-Uses Java Records for immutable configuration profiles and a custom `ConfigLoader` for multi-source property resolution (file/env/sys) instead of a standard framework like Spring Context.

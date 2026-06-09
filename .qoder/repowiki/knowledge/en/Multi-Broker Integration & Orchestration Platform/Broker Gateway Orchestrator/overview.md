@@ -1,0 +1,1 @@
+Unifies multi-broker plugin discovery, simulation, and analytics into a single fluent API for trading operations.

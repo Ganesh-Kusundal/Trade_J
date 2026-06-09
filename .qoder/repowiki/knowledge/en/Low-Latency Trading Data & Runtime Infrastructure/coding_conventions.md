@@ -1,0 +1,3 @@
+- Uniform use of Gradle build scripts with `gradle.lockfile` for dependency locking across all data and runtime sub-modules.
+- Consistent package naming convention `com.tradej.<domain>` (e.g., `com.tradej.disruptor`, `com.tradej.hotpath`, `com.tradej.analytics`) across all Java sources.
+- Shared reliance on DuckDB as the primary engine for both OLAP-style historical queries and OLTP-style feature store updates.

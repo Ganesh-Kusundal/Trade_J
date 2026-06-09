@@ -259,9 +259,13 @@ public final class BrokerCertification {
     private static CertificationCheck runCheck(String name, CheckRunner runner) {
         Instant start = Instant.now();
         try {
+            Thread.sleep(200);
             String evidence = runner.run();
             Duration latency = Duration.between(start, Instant.now());
             return CertificationCheck.pass(name, evidence, latency);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            return CertificationCheck.fail(name, "interrupted", Duration.ZERO);
         } catch (Exception e) {
             Duration latency = Duration.between(start, Instant.now());
             return CertificationCheck.fail(name, e.getMessage(), latency);

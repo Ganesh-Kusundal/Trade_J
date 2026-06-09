@@ -54,12 +54,12 @@ import java.net.http.HttpClient;
 import java.nio.file.Path;
 import java.util.Map;
 
-final class UpstoxBrokerFactory {
+public final class UpstoxBrokerFactory {
 
     private UpstoxBrokerFactory() {
     }
 
-    static UpstoxBrokerConnection create(UpstoxConnectionSettings settings, Path tokenStatePath) {
+    public static UpstoxBrokerConnection create(UpstoxConnectionSettings settings, Path tokenStatePath) {
         HttpClient httpClient = HttpClient.newHttpClient();
         String baseUrl = settings.isSandbox()
                 ? UpstoxApiEnvironment.SANDBOX.baseUrl()
@@ -110,8 +110,8 @@ final class UpstoxBrokerFactory {
             UpstoxOrderRestClient orderRestClient = new UpstoxOrderRestClient(jsonClient);
             UpstoxPortfolioRestClient portfolioRestClient = new UpstoxPortfolioRestClient(jsonClient);
             orderCommand = new UpstoxOrderCommandAdapter(orderRestClient, portfolioRestClient, mapper, instrumentResolver);
-            orderQuery = new UpstoxOrderQueryAdapter(orderRestClient, mapper);
-            portfolioProvider = new UpstoxPortfolioProvider(portfolioRestClient);
+            orderQuery = new UpstoxOrderQueryAdapter(orderRestClient, mapper, instrumentResolver);
+            portfolioProvider = new UpstoxPortfolioProvider(portfolioRestClient, instrumentResolver);
             marginProvider = new UpstoxMarginProvider(jsonClient);
             sliceOrderCommand = new com.tradej.broker.upstox.adapter.UpstoxSliceOrderAdapter(orderRestClient, mapper, instrumentResolver);
         }

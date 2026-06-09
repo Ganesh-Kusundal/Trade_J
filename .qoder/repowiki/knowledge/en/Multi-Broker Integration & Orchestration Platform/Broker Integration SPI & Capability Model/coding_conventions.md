@@ -1,0 +1,3 @@
+- Use of default methods in `IBrokerConnection` to delegate port accessors to `requireCapability`, simplifying client code while maintaining optional feature support.
+- Marker interfaces in the `capability` package (e.g., `OptionsCapable`) are used to tag broker implementations that support specific advanced features without adding method overhead.
+- Contract tests in `testFixtures` (e.g., `IBrokerConnectionContractTest`) enforce behavioral consistency across different broker adapter implementations.

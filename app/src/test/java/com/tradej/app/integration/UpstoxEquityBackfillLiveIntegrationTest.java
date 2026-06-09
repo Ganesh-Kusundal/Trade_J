@@ -10,6 +10,7 @@ import com.tradej.broker.upstox.instrument.UpstoxInstrumentResolver;
 import com.tradej.broker.upstox.rest.UpstoxHistoricalDataRestClient;
 import com.tradej.broker.upstox.rest.UpstoxMarketDataRestClient;
 import com.tradej.core.domain.value.ExchangeSegment;
+import com.tradej.historical.ingest.canonical.CanonicalBarWriter;
 import com.tradej.historical.ingest.model.EquityHistoricalDownloadConfig;
 import com.tradej.historical.ingest.query.EquityHistoricalQuery;
 import com.tradej.historical.ingest.service.EquityDownloadJobService;
@@ -27,7 +28,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
-@Tag("integration")
 @Tag("integration")
 @Tag("upstox-preflight")
 class UpstoxEquityBackfillLiveIntegrationTest {
@@ -69,7 +69,8 @@ class UpstoxEquityBackfillLiveIntegrationTest {
                 1,
                 System::currentTimeMillis,
                 () -> { },
-                Nifty500UniverseFetcher.DEFAULT_UNIVERSE_URL
+                Nifty500UniverseFetcher.DEFAULT_UNIVERSE_URL,
+                new CanonicalBarWriter(root)
         )) {
             LocalDate to = LocalDate.now();
             LocalDate from = to.minusDays(4);

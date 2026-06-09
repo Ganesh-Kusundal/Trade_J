@@ -1,0 +1,1 @@
+Orchestrates the end-to-end trade lifecycle by wiring strategy signals through pre-trade risk, order management, and market analytics via a partitioned event-driven pipeline.

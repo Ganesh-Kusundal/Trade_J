@@ -1,0 +1,4 @@
+- Composition roots use private constructors with public static factory methods named `create` or `createFull` to control instantiation and hide internal wiring complexity.
+- Configuration profiles are modeled as Java records (e.g., `BrokerProfile`, `StorageProfile`, `RiskProfile`) with nested record types for per-broker settings.
+- Node library data carriers (`NodeDescriptor`, `NodeContext`, `NodeResult`, `PortDescriptor`) are immutable Java records with defensive copying in compact constructors.
+- Every `NodeExecutor` implementation returns a `NodeDescriptor` describing its type, category, input/output ports, and metadata, enabling runtime discovery and UI rendering.

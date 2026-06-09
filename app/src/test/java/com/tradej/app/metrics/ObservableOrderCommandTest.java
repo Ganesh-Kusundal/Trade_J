@@ -60,7 +60,7 @@ class ObservableOrderCommandTest {
 
     @Test
     void delegatesModifyOrder() {
-        ModifyOrderRequest request = new ModifyOrderRequest("ORD-1", 200L, 751_00L, 0L, OrderType.LIMIT, Validity.DAY);
+        ModifyOrderRequest request = new ModifyOrderRequest("ORD-1", null, null, 200L, 751_00L, 0L, OrderType.LIMIT, Validity.DAY);
         Order expected = new Order("ORD-1", "corr-1", "SBIN", ExchangeSegment.NSE_EQ,
                 Side.BUY, ProductType.INTRADAY, OrderType.LIMIT, OrderStatus.PENDING,
                 200, 0, 751_00L, 0, 0, null);

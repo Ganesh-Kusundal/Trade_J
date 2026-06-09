@@ -1,0 +1,5 @@
+- Entry point: `SimulationBrokerProvider` implements the `BrokerProvider` SPI (registered in `META-INF/services/com.tradej.brokergateway.spi.BrokerProvider`) and returns a `PaperBrokerConnection` on connect.
+- Two connection modes: `PaperBrokerConnection` for live paper trading (wall-clock time, jittered prices) and `BacktestBrokerConnection` for deterministic replay (driven by `BrokerClock`, records trade/P&L history).
+- Shared simulation components: `SimulatedMarketDataProvider` generates synthetic LTP/quotes/candles with configurable base prices; `SimulationPortfolioProvider` tracks in-memory cash, positions, and holdings; `SimulatedWebSocketMultiplexer` manages subscription state without emitting events.
+- Replay support: `ReplayInstrumentCatalog` filters instruments by expiry date relative to a moving replay clock.
+- Dependency direction: all classes implement interfaces from `com.tradej.broker.api.*` ports; no external network or broker SDK calls are made within this package.

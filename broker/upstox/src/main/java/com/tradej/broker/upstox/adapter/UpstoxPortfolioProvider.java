@@ -2,8 +2,11 @@ package com.tradej.broker.upstox.adapter;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.tradej.broker.api.port.PortfolioProvider;
+import com.tradej.broker.upstox.instrument.UpstoxInstrumentResolver;
 import com.tradej.core.domain.model.Balance;
 import com.tradej.core.domain.model.Holding;
+import com.tradej.core.domain.model.Instrument;
+import com.tradej.core.domain.model.InstrumentKey;
 import com.tradej.core.domain.model.Position;
 import com.tradej.core.domain.value.ExchangeSegment;
 import com.tradej.core.domain.value.Side;
@@ -15,9 +18,12 @@ import java.util.List;
 public final class UpstoxPortfolioProvider implements PortfolioProvider {
 
     private final UpstoxPortfolioRestClient restClient;
+    private final UpstoxInstrumentResolver instrumentResolver;
 
-    public UpstoxPortfolioProvider(UpstoxPortfolioRestClient restClient) {
+    public UpstoxPortfolioProvider(UpstoxPortfolioRestClient restClient,
+                                   UpstoxInstrumentResolver instrumentResolver) {
         this.restClient = restClient;
+        this.instrumentResolver = instrumentResolver;
     }
 
     /**
@@ -45,7 +51,7 @@ public final class UpstoxPortfolioProvider implements PortfolioProvider {
         if (data != null && data.isArray()) {
             for (JsonNode pos : data) {
                 long quantity = pos.has("quantity") ? pos.get("quantity").asLong() : 0L;
-                positions.add(new Position(
+                Position raw = new Position(
                         pos.has("trading_symbol") ? pos.get("trading_symbol").asText() : "",
                         parseSegment(pos),
                         quantity >= 0 ? Side.BUY : Side.SELL,
@@ -53,7 +59,8 @@ public final class UpstoxPortfolioProvider implements PortfolioProvider {
                         pos.has("average_price") ? (long) (pos.get("average_price").asDouble() * 100) : 0L,
                         pos.has("last_price") ? (long) (pos.get("last_price").asDouble() * 100) : 0L,
                         pos.has("unrealised_pnl") ? (long) (pos.get("unrealised_pnl").asDouble() * 100) : 0L
-                ));
+                );
+                positions.add(resolvePosition(raw));
             }
         }
         return positions;
@@ -66,14 +73,15 @@ public final class UpstoxPortfolioProvider implements PortfolioProvider {
         JsonNode data = root.get("data");
         if (data != null && data.isArray()) {
             for (JsonNode h : data) {
-                holdings.add(new Holding(
+                Holding raw = new Holding(
                         h.has("trading_symbol") ? h.get("trading_symbol").asText() : "",
                         parseSegment(h),
                         h.has("total_quantity") ? h.get("total_quantity").asLong() : 0L,
                         h.has("quantity") ? h.get("quantity").asLong() : 0L,
                         h.has("collateral_quantity") ? h.get("collateral_quantity").asLong() : 0L,
                         h.has("average_price") ? (long) (h.get("average_price").asDouble() * 100) : 0L
-                ));
+                );
+                holdings.add(resolveHolding(raw));
             }
         }
         return holdings;
@@ -109,5 +117,35 @@ public final class UpstoxPortfolioProvider implements PortfolioProvider {
             case "MCX" -> ExchangeSegment.MCX_COMM;
             default -> ExchangeSegment.NSE_EQ;
         };
+    }
+
+    private Position resolvePosition(Position pos) {
+        try {
+            Instrument instrument = instrumentResolver.resolve(
+                    new InstrumentKey(pos.symbol(), pos.exchangeSegment()));
+            if (instrument != null) {
+                return new Position(
+                        instrument.canonicalSymbol(), instrument.exchangeSegment(),
+                        pos.side(), pos.quantity(),
+                        pos.averagePricePaisa(), pos.lastPricePaisa(), pos.unrealizedPnlPaisa());
+            }
+        } catch (IllegalArgumentException ignored) {
+        }
+        return pos;
+    }
+
+    private Holding resolveHolding(Holding h) {
+        try {
+            Instrument instrument = instrumentResolver.resolve(
+                    new InstrumentKey(h.symbol(), h.exchangeSegment()));
+            if (instrument != null) {
+                return new Holding(
+                        instrument.canonicalSymbol(), instrument.exchangeSegment(),
+                        h.totalQuantity(), h.availableQuantity(),
+                        h.collateralQuantity(), h.averagePricePaisa());
+            }
+        } catch (IllegalArgumentException ignored) {
+        }
+        return h;
     }
 }

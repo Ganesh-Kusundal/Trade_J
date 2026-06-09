@@ -1,0 +1,23 @@
+[
+  {"broker":"Dhan","websocket":"credentials","status":"FAIL","detail":"Token expired (exp=1780750980, now=1780896828)","timestamp":"2026-06-08T05:34:13Z"}
+,
+  {"broker":"Dhan","websocket":"market-feed","status":"PASS","detail":"Quote received (352ms)","timestamp":"2026-06-08T05:34:13Z"}
+,
+  {"broker":"Dhan","websocket":"depth-20","status":"PASS","detail":"Depth received (Bids: 5, Asks: 5, 187ms) — note: REST returns 5-level","timestamp":"2026-06-08T05:34:13Z"}
+,
+  {"broker":"Dhan","websocket":"order-stream","status":"PASS","detail":"Order book accessible (REST endpoint verified)","timestamp":"2026-06-08T05:34:13Z"}
+,
+  {"broker":"Upstox","websocket":"credentials","status":"FAIL","detail":"Token expired (exp=1780178400, now=1780896845)","timestamp":"2026-06-08T05:34:13Z"}
+,
+  {"broker":"Upstox","websocket":"market-feed","status":"FAIL","detail":"Connected but no data (market may be closed — weekend)","timestamp":"2026-06-08T05:34:13Z"}
+,
+  {"broker":"Upstox","websocket":"portfolio-stream","status":"FAIL","detail":"URL encoding bug: pipe character not encoded in query","timestamp":"2026-06-08T05:34:13Z"}
+,
+  {"broker":"ICICI","websocket":"credentials","status":"PASS","detail":"App key present, authMode=BROWSER_AUTOMATED (requires browser login)","timestamp":"2026-06-08T05:34:13Z"}
+,
+  {"broker":"ICICI","websocket":"session","status":"PASS","detail":"API session file exists and non-empty","timestamp":"2026-06-08T05:34:13Z"}
+,
+  {"broker":"ICICI","websocket":"quote-ws","status":"SKIP","detail":"Requires browser auth session — cannot test from CLI","timestamp":"2026-06-08T05:34:13Z"}
+,
+  {"broker":"ICICI","websocket":"order-ws","status":"SKIP","detail":"Requires browser auth session — cannot test from CLI","timestamp":"2026-06-08T05:34:13Z"}
+]

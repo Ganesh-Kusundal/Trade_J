@@ -1,0 +1,1 @@
+Computes Black-Scholes option prices, Greeks, implied volatility, max pain, and volatility surfaces for European options within a pipeline-driven event processing architecture.

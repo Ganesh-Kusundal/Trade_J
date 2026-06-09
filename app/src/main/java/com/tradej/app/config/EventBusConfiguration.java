@@ -1,108 +1,74 @@
 package com.tradej.app.config;
 
-import com.tradej.core.domain.port.DeadLetterQueue;
+import com.tradej.core.domain.event.DomainEvent;
+import com.tradej.core.domain.event.SimpleEventBus;
 import com.tradej.core.domain.port.EventBus;
 import com.tradej.disruptor.DisruptorBusMetrics;
-import com.tradej.disruptor.config.StageTimings;
-import com.tradej.execution.risk.PositionRiskHandler;
-import com.tradej.execution.service.ExecutionHandler;
-import com.tradej.pipeline.service.PipelineRuntimeService;
+import com.tradej.disruptor.config.BrokerScopedEventBus;
 import com.tradej.app.health.MarketDataHealthIndicator;
 import com.tradej.hotpath.MarketDataPipeline;
 import com.tradej.hotpath.OrderPipeline;
-import com.tradej.hotpath.PipelineConfig;
-import com.tradej.strategy.portfolio.PortfolioEngine;
-import com.tradej.strategy.service.CandleAggregationService;
-import com.tradej.strategy.service.GraphStrategySandbox;
-import com.tradej.strategy.service.StrategyEngine;
-import com.tradej.feature.store.OptionsAwareFeatureStore;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.context.annotation.Primary;
+import java.util.function.Consumer;
 
-import java.util.List;
-
-/**
- * Configures the hot-path pipeline via the pure-Java {@link PipelineConfig}
- * factory and exposes the resulting components as Spring beans.
- *
- * <p>The actual pipeline wiring (DisruptorEventBus construction, pipeline
- * orchestration) lives in {@code trade-hotpath} module which has zero
- * Spring dependencies. This configuration class is the Spring-aware adapter
- * that resolves beans and delegates to the pure-Java factory.
- */
 @Configuration
 public class EventBusConfiguration {
 
-    private static final Logger log = LoggerFactory.getLogger(EventBusConfiguration.class);
-
-    @Bean
-    CandleAggregationService candleAggregationService(TradingProperties properties) {
-        List<String> intervals = properties.candles().intervals();
-        log.info("Configuring candle aggregation with intervals={}", intervals);
-        return new CandleAggregationService(intervals);
-    }
-
-    @Bean
-    PipelineConfig.PipelineComponents pipelineComponents(
-            TradingProperties properties,
-            PositionRiskHandler positionRiskHandler,
-            CandleAggregationService candleAggregationService,
-            StrategyEngine strategyEngine,
-            GraphStrategySandbox graphStrategySandbox,
-            ExecutionHandler executionHandler,
-            PortfolioEngine portfolioEngine,
-            StageTimings stageTimings,
-            OptionsAwareFeatureStore hotPathFeatureStore,
-            DeadLetterQueue deadLetterQueue,
-            PipelineRuntimeService pipelineRuntimeService
-    ) {
-        int shardCount = properties.hotPath().effectiveShardCount();
-        log.info("Assembling hot-path pipeline via PipelineConfig shardCount={} graphRuntime=true graphStrategySandbox={}",
-                shardCount, graphStrategySandbox != null);
-        return PipelineConfig.create(
-                shardCount,
-                positionRiskHandler,
-                candleAggregationService,
-                strategyEngine,
-                graphStrategySandbox,
-                executionHandler,
-                portfolioEngine,
-                stageTimings,
-                hotPathFeatureStore,
-                deadLetterQueue,
-                pipelineRuntimeService
-        );
-    }
-
+    @Lazy
     @Bean
     @Primary
-    EventBus eventBus(PipelineConfig.PipelineComponents components) {
-        return components.eventBus();
+    EventBus eventBus() {
+        return new SimpleEventBus();
     }
 
-    @Bean
-    DisruptorBusMetrics disruptorBusMetrics(PipelineConfig.PipelineComponents components) {
-        return components.busMetrics();
+    @Lazy
+    @Bean("dhanEventBus")
+    BrokerScopedEventBus dhanEventBus(EventBus eventBus) {
+        return new BrokerScopedEventBus(eventBus, "dhan");
     }
 
-    @Bean
-    MarketDataPipeline marketDataPipeline(PipelineConfig.PipelineComponents components) {
-        return components.marketDataPipeline();
+    @Lazy
+    @Bean("upstoxEventBus")
+    BrokerScopedEventBus upstoxEventBus(EventBus eventBus) {
+        return new BrokerScopedEventBus(eventBus, "upstox");
     }
 
+    @Lazy
+    @Bean("iciciEventBus")
+    BrokerScopedEventBus iciciEventBus(EventBus eventBus) {
+        return new BrokerScopedEventBus(eventBus, "icici");
+    }
+
+    @Lazy
     @Bean
-    OrderPipeline orderPipeline(PipelineConfig.PipelineComponents components) {
-        return components.orderPipeline();
+    DisruptorBusMetrics disruptorBusMetrics(EventBus eventBus) {
+        if (eventBus instanceof SimpleEventBus simple) {
+            return new SimpleBusMetrics(simple);
+        }
+        return new NoOpBusMetrics();
+    }
+
+    @Lazy
+    @Bean
+    MarketDataPipeline marketDataPipeline(EventBus eventBus) {
+        return new MarketDataPipeline((Consumer<DomainEvent>) eventBus::publish);
+    }
+
+    @Lazy
+    @Bean
+    OrderPipeline orderPipeline(EventBus eventBus) {
+        return new OrderPipeline((Consumer<DomainEvent>) eventBus::publish);
     }
 
     @Bean
     MarketDataHealthIndicator marketDataHealthIndicator(
-            MarketDataPipeline marketDataPipeline,
-            org.springframework.beans.factory.ObjectProvider<com.tradej.broker.api.model.BrokerTransportCapabilities> transportCapabilitiesProvider
+            @Lazy MarketDataPipeline marketDataPipeline,
+            org.springframework.beans.factory.ObjectProvider<com.tradej.broker.api.model.BrokerTransportCapabilities> transportCapabilitiesProvider,
+            com.tradej.app.health.AlertManager alertManager
     ) {
-        return new MarketDataHealthIndicator(marketDataPipeline, transportCapabilitiesProvider);
+        return new MarketDataHealthIndicator(marketDataPipeline, transportCapabilitiesProvider, alertManager);
     }
 }

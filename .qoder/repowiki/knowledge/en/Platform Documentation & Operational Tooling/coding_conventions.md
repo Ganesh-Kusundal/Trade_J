@@ -1,0 +1,3 @@
+- Property files use a `.example` suffix for version-controlled templates, while active credentials are stored in untracked files (e.g., `dhan-local.properties.example` vs `dhan-local.properties`).
+- Shell scripts enforce strict error handling using `set -euo pipefail` and resolve project roots dynamically via `BASH_SOURCE` to ensure portability.
+- Architecture documentation maintains a 'living' status by cross-referencing specific backlog IDs (e.g., RP-099) and linking directly to visual HTML diagrams and leaf file indexes.

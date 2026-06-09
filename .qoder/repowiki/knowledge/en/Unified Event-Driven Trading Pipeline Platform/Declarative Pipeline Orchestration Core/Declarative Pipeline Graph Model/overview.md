@@ -1,0 +1,1 @@
+Defines the immutable data structures and validation logic for declarative trading pipeline graphs, supporting both linear hot-path and DAG execution modes.

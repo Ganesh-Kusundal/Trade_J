@@ -21,7 +21,6 @@ import com.tradej.broker.icici.IciciBrokerConnection;
 import com.tradej.broker.icici.auth.BreezeTokenProvider;
 import com.tradej.broker.icici.config.BreezeConnectionSettings;
 import com.tradej.broker.icici.config.IciciAuthMode;
-import com.tradej.composition.BrokerComposition;
 import com.tradej.composition.config.BrokerProfile;
 import com.tradej.core.domain.value.ExchangeSegment;
 import com.tradej.core.domain.value.FeedMode;
@@ -29,7 +28,6 @@ import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Primary;
 
 import java.nio.file.Path;
 import java.time.LocalTime;
@@ -78,7 +76,7 @@ public class IciciConfiguration {
     }
 
     @Bean
-    BrokerComposition iciciBrokerComposition(TradingProperties properties) {
+    IciciBrokerConnection iciciBrokerConnection(TradingProperties properties) {
         TradingProperties.IciciProperties cfg = properties.icici();
         BrokerProfile.IciciConfig iciciConfig = new BrokerProfile.IciciConfig(
                 cfg.appKey(),
@@ -97,29 +95,21 @@ public class IciciConfiguration {
                 cfg.browserHeadless(),
                 cfg.browserLoginTimeoutSeconds()
         );
-        BrokerProfile profile = new BrokerProfile(BrokerProfile.BrokerType.ICICI, null, null, iciciConfig);
-        return BrokerComposition.create(profile);
+        return (IciciBrokerConnection) com.tradej.composition.IciciBrokerFactory.create(iciciConfig);
     }
 
-    @Bean
-    IciciBrokerConnection iciciBrokerConnection(BrokerComposition iciciBrokerComposition) {
-        return (IciciBrokerConnection) iciciBrokerComposition.brokerConnection();
-    }
-
-    @Bean(name = {"brokerConnection", "iciciBrokerConnection"})
+    @Bean(name = "iciciBrokerConnectionBean")
     IBrokerConnection brokerConnectionBean(IciciBrokerConnection conn) {
         return conn;
     }
 
     @Bean
-    @Primary
-    MarketDataProvider marketDataProvider(IciciBrokerConnection conn, MeterRegistry meterRegistry) {
+    MarketDataProvider iciciMarketDataProvider(IciciBrokerConnection conn, MeterRegistry meterRegistry) {
         return new ObservableMarketDataProvider("icici", conn.marketData(), meterRegistry);
     }
 
     @Bean
-    @Primary
-    OrderCommand orderCommand(IciciBrokerConnection conn, MeterRegistry meterRegistry) {
+    OrderCommand iciciOrderCommand(IciciBrokerConnection conn, MeterRegistry meterRegistry) {
         return new ObservableOrderCommand("icici", conn.orders(), meterRegistry);
     }
 

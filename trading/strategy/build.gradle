@@ -1,5 +1,6 @@
 dependencies {
     implementation project(':core')
+    implementation project(':pipeline-core')
     implementation project(':data-feature-store')
     implementation project(':trading-indicators')
     implementation project(':trading-institutional-scanner')

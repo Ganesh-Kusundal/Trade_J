@@ -1,0 +1,6 @@
+- Entry point: `IciciBrokerConnection` implements `IBrokerConnection`, exposing capability interfaces (e.g., `OrderCommand`, `MarketDataProvider`) via adapter classes in the `adapter` package.
+- HTTP Layer: `BreezeAuthenticatedHttpClient` handles request signing (SHA-256 checksums) and session token injection, used by specialized REST clients in the `rest` package (e.g., `BreezeOrderRestClient`, `BreezeHistoricalRestClient`).
+- Authentication: `BreezeTokenManager` supports multiple auth modes (Static, TOTP, Browser Automation, API Session) defined in `IciciAuthMode`, managing token lifecycle and persistence via `BreezeTokenStateStore`.
+- Streaming: `BreezeWebSocketMultiplexer` uses `socket.io-client` to manage separate sockets for market quotes and order updates, handling reconnection and subscription state.
+- Instrument Resolution: `BreezeInstrumentResolver` loads and caches instrument definitions from local CSV or remote APIs, mapping internal symbols to Breeze-specific script codes.
+- Historical Data: `BreezeHistoricalDataService` implements pagination and windowing logic to fetch candle data, including a specific v2 endpoint for second-level granularity.

@@ -1,0 +1,1 @@
+Uses `com.eatthepath:java-otp` for TOTP generation in `TOTP_GENERATED` auth mode; relies on Jackson for JSON mapping and SLF4J for logging without Spring framework coupling.

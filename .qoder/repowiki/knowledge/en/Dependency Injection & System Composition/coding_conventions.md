@@ -1,3 +1,0 @@
-- Composition classes use private constructors and public static `create` factory methods to control instantiation and enforce immutability.
-- Configuration data is encapsulated in nested Java records within profile classes (e.g., `BrokerProfile.DhanConfig`) to group related settings strongly.
-- Subsystem compositions expose their internal components via public getter methods rather than exposing the entire internal state or allowing direct mutation.

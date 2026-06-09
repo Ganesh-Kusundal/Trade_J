@@ -34,12 +34,12 @@ import com.tradej.core.domain.time.LiveTradingClock;
 import java.net.http.HttpClient;
 import java.util.Map;
 
-final class IciciBrokerFactory {
+public final class IciciBrokerFactory {
 
     private IciciBrokerFactory() {
     }
 
-    static IBrokerConnection create(BrokerProfile.IciciConfig cfg) {
+    public static IBrokerConnection create(BrokerProfile.IciciConfig cfg) {
         BreezeConnectionSettings settings = BreezeConnectionSettings.withDefaults(
                 cfg.appKey(),
                 cfg.secretKey(),
@@ -84,9 +84,9 @@ final class IciciBrokerFactory {
 
         var marketDataProvider = new IciciMarketDataProvider(
                 marketDataRestClient, historicalDataService, instrumentResolver, domainMapper);
-        var portfolioProvider = new IciciPortfolioProvider(portfolioRestClient);
+        var portfolioProvider = new IciciPortfolioProvider(portfolioRestClient, instrumentResolver);
         var orderCommand = new IciciOrderCommandAdapter(orderRestClient, domainMapper, instrumentResolver, settings);
-        var orderQuery = new IciciOrderQueryAdapter(orderRestClient, domainMapper);
+        var orderQuery = new IciciOrderQueryAdapter(orderRestClient, domainMapper, instrumentResolver);
         var optionsProvider = new IciciOptionsProvider(optionChainRestClient, instrumentResolver, domainMapper);
         var futuresProvider = new IciciFuturesProvider(instrumentResolver);
         var marginProvider = new IciciMarginProvider(authenticatedHttpClient, instrumentResolver, domainMapper);

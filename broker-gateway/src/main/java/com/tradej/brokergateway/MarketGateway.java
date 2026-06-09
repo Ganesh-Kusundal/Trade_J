@@ -1,6 +1,8 @@
 package com.tradej.brokergateway;
 
+import com.tradej.broker.api.port.MarketDataProvider;
 import com.tradej.brokergateway.result.GatewayResult;
+import com.tradej.brokergateway.result.ResultMetadata;
 import com.tradej.core.domain.model.Balance;
 import com.tradej.core.domain.model.Candle;
 import com.tradej.core.domain.model.Holding;
@@ -107,5 +109,38 @@ public final class MarketGateway {
 
     public BrokerHandle activeBroker() {
         return router.active();
+    }
+
+    // ── Pragmatic bridge ─────────────────────────────────────────────
+
+    /**
+     * Returns the active broker's {@link MarketDataProvider} for consumers
+     * that need the full interface (e.g. {@code getCandles()}, {@code getLtpBatch()}).
+     *
+     * <p>Prefer the typed facade methods ({@link #ltp}, {@link #quote}, etc.)
+     * when possible. This escape hatch exists for services like
+     * {@code IncrementalSyncService} that require batch or candle operations
+     * not yet exposed on the gateway.
+     *
+     * @deprecated Prefer typed facade methods or {@link #capabilities()} for discovery.
+     *             Will be removed in a future release.
+     */
+    @Deprecated
+    public MarketDataProvider marketData() {
+        return router.active().connection().marketData();
+    }
+
+    // ── Capability discovery ──────────────────────────────────────────
+
+    /**
+     * Returns the capabilities of the active broker.
+     */
+    public GatewayResult<com.tradej.broker.api.model.BrokerCapabilities> capabilities() {
+        BrokerHandle active = router.active();
+        var caps = active.connection().getCapability(com.tradej.broker.api.model.BrokerCapabilities.class);
+        var metadata = new ResultMetadata(
+                java.time.Duration.ZERO, java.time.Instant.now(), "capabilities", java.util.Map.of());
+        return caps.map(c -> GatewayResult.success(c, active.source(), metadata))
+                .orElse(null);
     }
 }

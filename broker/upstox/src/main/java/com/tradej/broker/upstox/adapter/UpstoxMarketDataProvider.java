@@ -80,13 +80,41 @@ public final class UpstoxMarketDataProvider implements MarketDataProvider {
 
     @Override
     public Quote getOhlcSnapshot(InstrumentKey instrumentKey) {
-        JsonNode root = restClient.getOhlc(upstoxKey(instrumentKey));
-        return parseQuote(root, instrumentKey);
+        try {
+            JsonNode root = restClient.getOhlc(upstoxKey(instrumentKey));
+            return parseQuote(root, instrumentKey);
+        } catch (Exception ex) {
+            java.time.LocalDate today = java.time.LocalDate.now();
+            CandleHistoryRequest fallbackReq = new CandleHistoryRequest(
+                    instrumentKey, "day", today.minusDays(5), today);
+            List<Candle> candles = historicalDataService.fetchCandles(fallbackReq);
+            if (!candles.isEmpty()) {
+                Candle latest = candles.get(0);
+                return new Quote(
+                        instrument(instrumentKey),
+                        latest.closePaisa(),
+                        latest.openPaisa(),
+                        latest.highPaisa(),
+                        latest.lowPaisa(),
+                        latest.closePaisa(),
+                        latest.volume(),
+                        0L, 0L, 0L,
+                        System.currentTimeMillis()
+                );
+            }
+            throw new IllegalStateException("Upstox OHLC unavailable for " + instrumentKey + ": " + ex.getMessage());
+        }
     }
 
     @Override
     public List<Candle> getCandles(CandleHistoryRequest request) {
+        validateInterval(request.interval());
         return historicalDataService.fetchCandles(request);
+    }
+
+    @Override
+    public com.tradej.broker.api.model.HistoricalDataCapabilities capabilities() {
+        return com.tradej.broker.api.model.HistoricalDataCapabilities.upstoxDefaults();
     }
 
     @Override
@@ -148,6 +176,9 @@ public final class UpstoxMarketDataProvider implements MarketDataProvider {
         if (data != null) {
             String uk = upstoxKey(key);
             JsonNode entry = data.get(uk);
+            if (entry == null) {
+                entry = data.get(key.exchangeSegment().name() + ":" + key.symbol());
+            }
             if (entry != null) {
                 return parseQuoteFromNode(entry, key);
             }
@@ -164,9 +195,16 @@ public final class UpstoxMarketDataProvider implements MarketDataProvider {
         if (data == null) {
             return null;
         }
+        JsonNode entry = data.get(upstoxKey(key));
+        if (entry == null) {
+            entry = data.get(key.exchangeSegment().name() + ":" + key.symbol());
+        }
+        if (entry == null) {
+            return null;
+        }
         List<DepthLevel> bids = new ArrayList<>();
         List<DepthLevel> asks = new ArrayList<>();
-        JsonNode depth = data.get("depth");
+        JsonNode depth = entry.get("depth");
         if (depth != null) {
             JsonNode bidLevels = depth.get("bid");
             if (bidLevels != null) {

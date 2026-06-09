@@ -1,0 +1,1 @@
+ArchUnit 1.4.0 for architecture boundary enforcement; DuckDB embedded database for event/pipeline/scan persistence; Chronicle Queue for dead-letter and audit-log storage.

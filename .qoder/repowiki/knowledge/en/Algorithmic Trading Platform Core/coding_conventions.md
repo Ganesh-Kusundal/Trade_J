@@ -1,3 +1,3 @@
-- Pipeline Node Pattern: Functional modules expose their capabilities via classes extending `BasePipelineNode` to integrate into the event-driven runtime.
-- Event-Centric Communication: Inter-module data flow is strictly mediated by immutable `DomainEvent` records (e.g., `SignalGenerated`, `OrderFilled`) rather than direct method calls.
-- Dependency Injection via Constructors: Services and engines (e.g., `ScanEngine`, `PortfolioEngine`) use explicit constructor injection for testability and clear dependency boundaries.
+- Domain events are implemented as Java records in `:core` to ensure immutability and pattern-matching compatibility across all pipeline stages.
+- Broker-specific logic is isolated behind port interfaces in `:broker-api`, with adapters in child modules throwing `UnsupportedOperationException` for unavailable features rather than leaking nulls.
+- Pipeline nodes implement the `PipelineNode` interface from `:core`, allowing them to be swapped between the Disruptor ring and the DAG runtime without code changes.

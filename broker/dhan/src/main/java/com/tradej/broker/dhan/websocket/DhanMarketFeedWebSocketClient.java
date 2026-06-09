@@ -152,6 +152,8 @@ public final class DhanMarketFeedWebSocketClient implements AutoCloseable {
         listeners.clear();
     }
 
+    private static final long BATCH_DELAY_MS = 50;
+
     private void sendBatched(List<SubscriptionKey> instruments, int requestCode) {
         for (int i = 0; i < instruments.size(); i += DhanProtocolConstants.FEED_MAX_INSTRUMENTS_PER_SUBSCRIPTION) {
             List<SubscriptionKey> batch = instruments.subList(
@@ -159,6 +161,14 @@ public final class DhanMarketFeedWebSocketClient implements AutoCloseable {
                     Math.min(i + DhanProtocolConstants.FEED_MAX_INSTRUMENTS_PER_SUBSCRIPTION, instruments.size())
             );
             sendText(buildSubscriptionJson(requestCode, batch));
+            if (i + DhanProtocolConstants.FEED_MAX_INSTRUMENTS_PER_SUBSCRIPTION < instruments.size()) {
+                try {
+                    Thread.sleep(BATCH_DELAY_MS);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    return;
+                }
+            }
         }
     }
 

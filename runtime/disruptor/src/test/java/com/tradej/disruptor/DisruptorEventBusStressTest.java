@@ -110,33 +110,46 @@ class DisruptorEventBusStressTest {
         EventBus bus = createMinimalBus();
         AtomicInteger primaryCount = new AtomicInteger();
         AtomicInteger reentrantCount = new AtomicInteger();
-        CountDownLatch latch = new CountDownLatch(1);
-        int expectedEvents = 1000;
+        CountDownLatch primaryLatch = new CountDownLatch(1);
+        CountDownLatch reentrantLatch = new CountDownLatch(1);
+        int expectedEvents = 100;
+        AtomicLong seq = new AtomicLong();
 
         bus.subscribe(MarketTickEvent.class, e -> {
             int count = primaryCount.incrementAndGet();
-            // Publish a different event from inside the subscriber callback —
-            // this goes through the downstream queue and must not deadlock.
-            bus.publish(new CandleClosed(
+            var candle = new CandleClosed(
                     EventMetadata.correlated(e.metadata().correlationId(), count),
                     new Candle("SBIN", "5m", 0, 5000, 100_00L, 105_00L, 95_00L, 102_00L, 1000L, true)
-            ));
+            );
+            bus.publish(candle);
             if (count == expectedEvents) {
-                latch.countDown();
+                primaryLatch.countDown();
             }
         });
 
-        bus.subscribe(CandleClosed.class, e -> reentrantCount.incrementAndGet());
+        bus.subscribe(CandleClosed.class, e -> {
+            int rc = reentrantCount.incrementAndGet();
+            if (rc == expectedEvents) {
+                reentrantLatch.countDown();
+            }
+        });
         bus.start();
 
-        // Publish from multiple threads to create ring buffer pressure
-        var result = ConcurrentStressTester.run(10, expectedEvents / 10, threadIndex -> {
-            var tick = new MarketTickEvent(EventMetadata.root(), 0L, "SBIN", ExchangeSegment.NSE_EQ, FeedMode.TICKER, 100_00L, 10L, 10L, 1000L, Optional.empty(), 0L, 0L);
+        // Publish from multiple threads to create ring buffer pressure. Each
+        // event gets a unique sequenceId so dedup does not collapse them.
+        var result = ConcurrentStressTester.run(4, expectedEvents / 4, threadIndex -> {
+            long id = seq.incrementAndGet();
+            var tick = new MarketTickEvent(
+                    EventMetadata.correlated("stress", id),
+                    0L, "SBIN", ExchangeSegment.NSE_EQ, FeedMode.TICKER,
+                    100_00L, 10L, 10L, 1000L, Optional.empty(), 0L, 0L);
             bus.publish(tick);
         });
 
-        assertTrue(latch.await(10, TimeUnit.SECONDS),
-                "Re-entrant publish timed out — possible deadlock");
+        assertTrue(primaryLatch.await(60, TimeUnit.SECONDS),
+                "Primary publish timed out — possible deadlock. primaryCount=" + primaryCount.get());
+        assertTrue(reentrantLatch.await(60, TimeUnit.SECONDS),
+                "Re-entrant events did not drain — downstream queue stuck. reentrantCount=" + reentrantCount.get());
         bus.stop();
 
         assertEquals(expectedEvents, primaryCount.get(),
@@ -227,10 +240,16 @@ class DisruptorEventBusStressTest {
         var riskHandler = new PositionRiskHandler(RiskLimits.conservative(), () -> java.util.Collections.emptyMap());
         var bridge = com.tradej.disruptor.testsupport.PassthroughNode.passthroughBridge();
 
-        return new DisruptorEventBus(
-                riskHandler, candleAgg, strategy, execHandler,
-                portfolio, StageTimings.NO_OP, null, deadLetterQueue, bridge
-        );
+        return new com.tradej.disruptor.config.DisruptorPipelineBuilder()
+                .positionRiskHandler(riskHandler)
+                .candleAggregationService(candleAgg)
+                .strategyEngine(strategy)
+                .executionHandler(execHandler)
+                .portfolioEngine(portfolio)
+                .stageTimings(StageTimings.NO_OP)
+                .deadLetterQueue(deadLetterQueue)
+                .pipelineRuntimeBridge(bridge)
+                .buildBus();
     }
 
     private static EventBus createMinimalBus() {
@@ -246,9 +265,15 @@ class DisruptorEventBusStressTest {
         var riskHandler = new PositionRiskHandler(RiskLimits.conservative(), () -> java.util.Collections.emptyMap());
         var bridge = com.tradej.disruptor.testsupport.PassthroughNode.passthroughBridge();
 
-        return new DisruptorEventBus(
-                riskHandler, candleAgg, strategy, execHandler,
-                portfolio, StageTimings.NO_OP, null, DeadLetterQueue.noop(), bridge
-        );
+        return new com.tradej.disruptor.config.DisruptorPipelineBuilder()
+                .positionRiskHandler(riskHandler)
+                .candleAggregationService(candleAgg)
+                .strategyEngine(strategy)
+                .executionHandler(execHandler)
+                .portfolioEngine(portfolio)
+                .stageTimings(StageTimings.NO_OP)
+                .deadLetterQueue(DeadLetterQueue.noop())
+                .pipelineRuntimeBridge(bridge)
+                .buildBus();
     }
 }

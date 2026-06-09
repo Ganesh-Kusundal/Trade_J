@@ -1,0 +1,1 @@
+Provides the core Spring Boot trading runtime, a high-throughput WebSocket gateway for market data distribution, and a comprehensive CLI for operational control.

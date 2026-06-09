@@ -1,1 +1,0 @@
-DuckDB embedded JDBC (`org.duckdb:duckdb_jdbc`) for persistent analytical storage of backtest results, trade logs, and scanner hits; Spring Boot REST + SSE for dual HTTP/JSON-RPC exposure.

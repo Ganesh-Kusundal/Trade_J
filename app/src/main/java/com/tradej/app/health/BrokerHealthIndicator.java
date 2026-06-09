@@ -14,17 +14,20 @@ public class BrokerHealthIndicator implements HealthIndicator {
     private final IBrokerConnection brokerConnection;
     private final TradingCircuitBreaker tradingCircuitBreaker;
     private final BrokerErrorTracker errorTracker;
+    private final AlertManager alertManager;
     private final String brokerType;
 
     public BrokerHealthIndicator(
             IBrokerConnection brokerConnection,
             TradingCircuitBreaker tradingCircuitBreaker,
             BrokerErrorTracker errorTracker,
+            AlertManager alertManager,
             Environment environment
     ) {
         this.brokerConnection = brokerConnection;
         this.tradingCircuitBreaker = tradingCircuitBreaker;
         this.errorTracker = errorTracker;
+        this.alertManager = alertManager;
         this.brokerType = environment.getProperty("trade.broker-type", "dhan");
     }
 
@@ -46,6 +49,13 @@ public class BrokerHealthIndicator implements HealthIndicator {
             builder.withDetail("lastErrorAt", Instant.ofEpochMilli(errorTracker.lastErrorTimestampMs()).toString());
             builder.withDetail("lastErrorSource", errorTracker.lastErrorSource());
             builder.withDetail("lastErrorDetail", errorTracker.lastErrorDetail());
+        }
+
+        if (!isUp) {
+            String reason = !brokerConnection.websocket().isConnected()
+                    ? "WebSocket disconnected"
+                    : "Circuit breaker open";
+            alertManager.critical("broker-" + brokerType, reason);
         }
 
         return builder.build();

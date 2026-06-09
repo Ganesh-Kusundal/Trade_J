@@ -1,0 +1,1 @@
+Executes configurable market scans across equity and option universes using composable criteria, supporting both batch snapshot and real-time streaming evaluation modes.

@@ -23,16 +23,18 @@ public class MarketDataHealthIndicator implements HealthIndicator {
     private final Duration staleThreshold;
     private final BrokerTransportCapabilities transportCapabilities;
     private final Clock clock;
+    private final AlertManager alertManager;
 
     public MarketDataHealthIndicator(
             MarketDataPipeline pipeline,
-            ObjectProvider<BrokerTransportCapabilities> transportCapabilitiesProvider
+            ObjectProvider<BrokerTransportCapabilities> transportCapabilitiesProvider,
+            AlertManager alertManager
     ) {
-        this(pipeline, DEFAULT_STALE_THRESHOLD, transportCapabilitiesProvider.getIfUnique(), Clock.systemUTC());
+        this(pipeline, DEFAULT_STALE_THRESHOLD, transportCapabilitiesProvider.getIfUnique(), Clock.systemUTC(), alertManager);
     }
 
     MarketDataHealthIndicator(MarketDataPipeline pipeline, Duration staleThreshold) {
-        this(pipeline, staleThreshold, null, Clock.systemUTC());
+        this(pipeline, staleThreshold, null, Clock.systemUTC(), null);
     }
 
     MarketDataHealthIndicator(
@@ -40,7 +42,7 @@ public class MarketDataHealthIndicator implements HealthIndicator {
             Duration staleThreshold,
             BrokerTransportCapabilities transportCapabilities
     ) {
-        this(pipeline, staleThreshold, transportCapabilities, Clock.systemUTC());
+        this(pipeline, staleThreshold, transportCapabilities, Clock.systemUTC(), null);
     }
 
     MarketDataHealthIndicator(
@@ -49,10 +51,21 @@ public class MarketDataHealthIndicator implements HealthIndicator {
             BrokerTransportCapabilities transportCapabilities,
             Clock clock
     ) {
+        this(pipeline, staleThreshold, transportCapabilities, clock, null);
+    }
+
+    MarketDataHealthIndicator(
+            MarketDataPipeline pipeline,
+            Duration staleThreshold,
+            BrokerTransportCapabilities transportCapabilities,
+            Clock clock,
+            AlertManager alertManager
+    ) {
         this.pipeline = pipeline;
         this.staleThreshold = staleThreshold;
         this.transportCapabilities = transportCapabilities;
         this.clock = clock;
+        this.alertManager = alertManager;
     }
 
     @Override
@@ -84,6 +97,10 @@ public class MarketDataHealthIndicator implements HealthIndicator {
         }
 
         boolean isUp = receivedTicks && !stale;
+
+        if (!isUp && alertManager != null) {
+            alertManager.warning("market-data", "Market data " + status + " (ticks=" + totalTicks + ")");
+        }
 
         Health.Builder builder = isUp ? Health.up() : Health.down();
         builder.withDetails(Map.of(

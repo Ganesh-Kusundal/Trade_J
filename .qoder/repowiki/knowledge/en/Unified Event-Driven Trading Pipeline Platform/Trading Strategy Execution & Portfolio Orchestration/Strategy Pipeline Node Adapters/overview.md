@@ -1,0 +1,1 @@
+Provides pipeline node adapters that integrate candle aggregation, portfolio management, and strategy execution engines into the trading event processing graph.

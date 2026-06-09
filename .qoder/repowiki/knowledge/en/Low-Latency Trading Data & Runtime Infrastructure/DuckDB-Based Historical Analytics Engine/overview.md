@@ -1,0 +1,1 @@
+Provides historical market data analytics for equities and options using an embedded DuckDB engine with Hive-partitioned Parquet storage.

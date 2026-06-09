@@ -1,0 +1,8 @@
+schema_version: 1
+module_path: backend_broker/broker_gateway/broker_spi
+title: Broker Plugin SPI & Registry
+scope:
+    - broker-gateway/src/main/java/com/tradej/brokergateway/spi/
+source_files: []
+depends_on: []
+related_to: []

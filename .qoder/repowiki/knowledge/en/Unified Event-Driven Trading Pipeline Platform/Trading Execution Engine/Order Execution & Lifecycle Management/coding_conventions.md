@@ -1,0 +1,3 @@
+- Sealed interfaces with record implementations for command/result hierarchies (TradingCommand, CommandResult, ExecutionCommand) enabling exhaustive pattern matching.
+- Immutable record types carry all required data for commands and results — no ambient context or mutable state in command objects.
+- Partitioned execution queues keyed by symbol hash to ensure per-symbol ordering while enabling parallel processing across symbols.

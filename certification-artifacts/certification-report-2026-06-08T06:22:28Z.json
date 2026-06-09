@@ -1,0 +1,14 @@
+{
+  "timestamp": "2026-06-08T06:22:28Z",
+  "brokers": {
+    "dhan": {"status": "PASS", "detail": "REST: 24/24 passed"},
+    "upstox": {"status": "FAIL", "detail": "REST certification failed"},
+    "icici": {"status": "PENDING", "detail": ""}
+  },
+  "websocket": {"pass": 8, "fail": 4, "skip": 2},
+  "unit_tests": {
+    "subscription_certification": "PASS",
+    "reconnect_certification": "PASS",
+    "upstox_url_encoding": "PASS"
+  }
+}

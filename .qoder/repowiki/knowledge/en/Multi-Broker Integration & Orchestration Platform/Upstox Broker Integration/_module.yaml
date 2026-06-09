@@ -1,0 +1,10 @@
+schema_version: 1
+module_path: backend_broker/broker_upstox
+title: Upstox Broker Integration
+scope:
+    - broker/upstox/
+source_files: []
+depends_on: []
+related_to:
+    - path: backend_broker/broker_dhan
+    - path: backend_broker/broker_icici

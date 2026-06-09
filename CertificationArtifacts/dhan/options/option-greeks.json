@@ -1,0 +1,11 @@
+{
+  "broker" : "DHAN",
+  "checkName" : "option-greeks",
+  "category" : "options",
+  "status" : "PASS",
+  "evidence" : "delta=0.0",
+  "latencyMs" : 5780,
+  "certifiedAt" : "2026-06-08T06:25:30.735349Z",
+  "errorMessage" : null,
+  "pass" : true
+}

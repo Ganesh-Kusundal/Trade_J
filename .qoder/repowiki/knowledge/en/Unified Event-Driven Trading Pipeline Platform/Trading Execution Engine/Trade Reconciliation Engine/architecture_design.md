@@ -1,0 +1,5 @@
+- Two reconciler classes handle distinct domains: `OrderReconciler` compares expected net positions and OSM-tracked filled orders against broker portfolio positions; `TickReconciler` validates broker-reported ticks against system-processed `MarketTickEvent`s for missing, duplicate, or out-of-order detection.
+- `ReconciliationScheduler` orchestrates periodic reconciliation passes (expected-vs-broker and OSM-vs-broker) and publishes `PositionMismatch` events to the `EventBus`.
+- `ReconciliationAlertLogger` consumes `PositionMismatch` events, logs warnings, and optionally triggers a `ReconciliationHaltRequired` event when mismatches exceed a configurable tolerance threshold.
+- All reconcilers are pure logic with no scheduling responsibility — they accept downstream consumers (`Consumer<DomainEvent>`) for event emission, enabling testability and decoupling from the scheduler.
+- Venue-qualified symbol matching (`exchangeSegment::symbol`) is used in `OrderReconciler.reconcileAll()` to avoid false mismatches when the same symbol trades across multiple exchanges.

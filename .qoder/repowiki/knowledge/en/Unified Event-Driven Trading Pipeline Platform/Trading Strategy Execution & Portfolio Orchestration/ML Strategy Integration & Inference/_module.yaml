@@ -1,0 +1,10 @@
+schema_version: 1
+module_path: backend_trading/trading_strategy/ml_integration
+title: ML Strategy Integration & Inference
+scope:
+    - trading/strategy/src/main/java/com/tradej/strategy/ml/
+    - trading/strategy/src/test/java/com/tradej/strategy/ml/
+source_files: []
+depends_on: []
+related_to:
+    - path: backend_trading/trading_strategy/engine_services

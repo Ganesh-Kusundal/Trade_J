@@ -1,0 +1,1 @@
+Pure-Java orchestrators for market data and order lifecycle hot paths using Disruptor event bus with rate limiting, metrics, and integrity validation.

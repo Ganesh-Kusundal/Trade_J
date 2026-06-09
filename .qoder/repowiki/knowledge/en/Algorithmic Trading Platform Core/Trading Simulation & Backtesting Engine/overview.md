@@ -1,1 +1,0 @@
-Provides in-process order matching with configurable slippage modeling and P&L tracking for simulated trading environments.

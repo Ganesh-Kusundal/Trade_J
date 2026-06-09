@@ -1,0 +1,1 @@
+Derives and maintains real-time net trading positions by processing trade lifecycle events using an event-sourcing pattern.

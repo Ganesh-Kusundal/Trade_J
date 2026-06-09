@@ -1,0 +1,1 @@
+Caffeine cache for idempotency tracking (50K entries, 5-min expiry); lock-free AtomicReference/AtomicInteger CAS operations for circuit breaker state transitions; CompletableFuture with bounded timeout for broker order placement.

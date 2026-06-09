@@ -1,0 +1,11 @@
+schema_version: 1
+module_path: backend_trading/trading_strategy/portfolio
+title: Portfolio Capital Allocation & Net Exposure Management
+scope:
+    - trading/strategy/src/main/java/com/tradej/strategy/portfolio/
+    - trading/strategy/src/main/java/com/tradej/strategy/position/
+    - trading/strategy/src/test/java/com/tradej/strategy/portfolio/
+source_files: []
+depends_on: []
+related_to:
+    - path: backend_trading/trading_execution/risk_management

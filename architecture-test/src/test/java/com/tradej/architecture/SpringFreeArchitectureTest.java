@@ -55,7 +55,11 @@ class SpringFreeArchitectureTest {
                         "com.tradej.pipeline.clock..",
                         "com.tradej.pipeline.reactor..",
                         "com.tradej.pipeline.registry..",
-                        "com.tradej.replay.engine.."
+                        "com.tradej.pipeline.compiler..",
+                        "com.tradej.pipeline.state..",
+                        "com.tradej.replay.engine..",
+                        "com.tradej.research.core..",
+                        "com.tradej.research.lab.."
                 )
                 .should().dependOnClassesThat().resideInAnyPackage(
                         "org.springframework..",
@@ -95,8 +99,12 @@ class SpringFreeArchitectureTest {
                         "com.tradej.pipeline.clock..",
                         "com.tradej.pipeline.reactor..",
                         "com.tradej.pipeline.registry..",
+                        "com.tradej.pipeline.compiler..",
+                        "com.tradej.pipeline.state..",
                         "com.tradej.replay.engine..",
-                        "com.tradej.composition.."
+                        "com.tradej.composition..",
+                        "com.tradej.research.core..",
+                        "com.tradej.research.lab.."
                 )
                 .should().beAnnotatedWith("org.springframework.stereotype.Service")
                 .orShould().beAnnotatedWith("org.springframework.stereotype.Component")

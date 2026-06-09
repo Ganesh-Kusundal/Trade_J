@@ -1,1 +1,0 @@
-Provides a low-latency, LMAX Disruptor-backed event bus and container-free market data and order lifecycle pipelines for high-frequency trading.

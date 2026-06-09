@@ -1,0 +1,3 @@
+- Strategy plugins implement either `GraphStrategyPlugin` (multi-event) or the deprecated `StrategyPlugin` (candle-only) interface.
+- Core engines (Strategy, Portfolio, Candle) are wrapped in `BasePipelineNode` subclasses for integration into the event processing graph.
+- Portfolio management is migrating from a monolithic `PortfolioEngine` to DDD-aligned services (`CapitalReservationService`, `ExposureTracker`) with value objects.

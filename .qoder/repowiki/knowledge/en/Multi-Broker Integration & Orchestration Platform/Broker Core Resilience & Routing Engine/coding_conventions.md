@@ -1,0 +1,4 @@
+- All concrete implementation classes are declared `final` to enforce immutability and prevent unintended subclassing.
+- Thread-safety is achieved via `ConcurrentHashMap`, `CopyOnWriteArrayList`, `AtomicInteger`, and `ReentrantLock` rather than synchronized methods on shared mutable state.
+- Resilience primitives (circuit breaker, rate limiter, retry executor) are composed into execution pipelines — `RetryExecutor` orchestrates rate limiting, retry with backoff, and circuit breaking in a single call path.
+- Failover routing uses round-robin primary selection with automatic rotation on failure — `FailoverOrderCommand` iterates through available connections and rotates the primary index on each exception.

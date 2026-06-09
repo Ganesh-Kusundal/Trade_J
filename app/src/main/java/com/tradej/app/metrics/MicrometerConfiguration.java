@@ -164,8 +164,6 @@ public class MicrometerConfiguration {
 
         gatewayEventBridge.ifAvailable(bridge -> Gauge.builder("gateway.events.sent", bridge, GatewayEventBridge::eventCount)
                 .register(meterRegistry));
-        gatewayEventBridge.ifAvailable(bridge -> Gauge.builder("gateway.events.deduplicated", bridge, GatewayEventBridge::dedupHitCount)
-                .register(meterRegistry));
         gatewayTopicRouter.ifAvailable(router -> Gauge.builder("gateway.events.dropped", router, GatewayTopicRouter::droppedEventCount)
                 .register(meterRegistry));
         asyncDuckDbEventStore.ifAvailable(store -> Gauge.builder("duckdb.events.dropped", store, AsyncDuckDbEventStore::droppedEventCount)

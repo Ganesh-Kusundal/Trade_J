@@ -1,0 +1,3 @@
+- Strategy plugins implement `GraphStrategyPlugin` and declare subscribed event types via `subscribedEventTypes()` to filter dispatch in the sandbox.
+- Services expose a uniform `onDomainEvent(DomainEvent, Consumer<DomainEvent>)` method for reactive event processing and downstream emission.
+- Stateful services like `CandleAggregationService` use `ConcurrentHashMap.compute` for atomic read-modify-write operations during concurrent tick aggregation.

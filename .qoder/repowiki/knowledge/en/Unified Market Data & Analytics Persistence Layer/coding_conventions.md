@@ -1,4 +1,0 @@
-- Use of `paisa` (integer) for all monetary values to avoid floating-point precision issues.
-- Standardized domain event handling via `DomainEvent` sealed interfaces and switch expressions.
-- Embedded DuckDB connections are managed with `AutoCloseable` and lazy initialization/bootstrap patterns.
-- Consistent use of `slf4j` for logging across all data modules.

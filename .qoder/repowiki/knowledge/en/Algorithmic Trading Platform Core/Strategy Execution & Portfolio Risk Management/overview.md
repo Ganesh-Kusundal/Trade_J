@@ -1,1 +1,0 @@
-Executes trading strategies via isolated sandboxes and enforces portfolio-level capital and exposure limits.

@@ -1,1 +1,0 @@
-A React-based trading terminal interface featuring real-time market data visualization, option chain analysis, and portfolio management panels.

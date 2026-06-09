@@ -1,0 +1,9 @@
+- Core abstraction is the `RiskCheck` functional interface (single method `check(RiskContext)`) implemented by stateless, thread-safe check classes (`KillSwitchRiskCheck`, `DailyLossRiskCheck`, `PositionLimitRiskCheck`).
+- `RiskCheckChain` composes an ordered list of `RiskCheck` instances and short-circuits on the first rejection, returning `Optional<RiskVerdict>`.
+- `RiskContext` (immutable record) carries all decision state (loss counters, open trade count, kill-switch flags, configured limits) decoupling checks from external data sources.
+- `RiskVerdict` (record) encapsulates approval/rejection outcomes with a named check identifier and human-readable reason.
+- `PositionRiskHandler` is the central orchestrator: it maintains mutable atomic state (realized/unrealized losses, consecutive losses, open trades), builds `RiskContext` snapshots, runs the `RiskCheckChain`, and delegates to `MarginEnforcementHandler` for broker-side margin estimation before emitting `SignalPendingExecution` or `SignalSuppressed` events.
+- `KillSwitchCoordinator` synchronizes platform kill-switch state with broker-side APIs via `IBrokerConnection` or `OrderManagementService`, using a fallback strategy (OMS preferred, direct broker capability as fallback).
+- `MarkToMarketRiskMonitor` consumes market ticks, computes unrealized P&L per position, updates `PositionRiskHandler` with MTM loss values, and optionally triggers combined loss limit enforcement.
+- `DailyRiskResetScheduler` provides a scheduled entry point to reset daily counters and disengage the kill switch at market open.
+- Dependency direction flows inward: concrete checks depend only on `RiskContext`/`RiskVerdict`; `PositionRiskHandler` depends on the chain, coordinator, and margin handler; monitors and schedulers depend on the handler.

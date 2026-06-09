@@ -37,7 +37,8 @@ public record TradingProperties(
         HistoricalEquityProperties historicalEquity,
         AnalyticsProperties analytics,
         List<SubscriptionProperties> subscriptions,
-        Map<String, VenueProperties> venues
+        Map<String, VenueProperties> venues,
+        SyncProperties sync
 ) {
     public TradingProperties {
         if (runtime == null) {
@@ -54,6 +55,9 @@ public record TradingProperties(
         }
         if (download == null) {
             download = new DownloadProperties(0L, 2);
+        }
+        if (sync == null) {
+            sync = new SyncProperties(true, "0 0 16 * * MON-FRI", 3, "NSE_EQ", 50, 500L, false, true);
         }
         if (historicalEquity == null) {
             historicalEquity = new HistoricalEquityProperties(
@@ -277,6 +281,18 @@ public record TradingProperties(
             LocalTime sessionOpen,
             LocalTime sessionClose,
             boolean supportsLateSession
+    ) {
+    }
+
+    public record SyncProperties(
+            @DefaultValue("true") boolean enabled,
+            @DefaultValue("0 0 16 * * MON-FRI") String cron,
+            @DefaultValue("3") int lookbackMonths,
+            @DefaultValue("NSE_EQ") String segment,
+            @DefaultValue("50") int batchSize,
+            @DefaultValue("500") long delayMs,
+            @DefaultValue("false") boolean autoResample,
+            @DefaultValue("true") boolean refreshHolidays
     ) {
     }
 }

@@ -1,0 +1,11 @@
+{
+  "broker" : "DHAN",
+  "checkName" : "trade-book",
+  "category" : "orders",
+  "status" : "PASS",
+  "evidence" : "count=0",
+  "latencyMs" : 24,
+  "certifiedAt" : "2026-06-08T06:25:30.736153Z",
+  "errorMessage" : null,
+  "pass" : true
+}

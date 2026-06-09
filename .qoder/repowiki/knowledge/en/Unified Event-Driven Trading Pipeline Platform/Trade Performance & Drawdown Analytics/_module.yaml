@@ -1,0 +1,9 @@
+schema_version: 1
+module_path: backend_trading/pipeline_analytics
+title: Trade Performance & Drawdown Analytics
+scope:
+    - pipeline/analytics/trade-analytics/
+source_files: []
+depends_on: []
+related_to:
+    - path: backend_trading/pipeline_core

@@ -1,0 +1,1 @@
+Jackson Databind for JSON serialization/deserialization of certification artifacts (configured with `findAndRegisterModules()`, `INDENT_OUTPUT`, no timestamps, lenient deserialization).

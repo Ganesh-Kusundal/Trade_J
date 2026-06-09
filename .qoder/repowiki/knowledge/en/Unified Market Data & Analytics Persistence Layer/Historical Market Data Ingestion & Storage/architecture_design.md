@@ -1,5 +1,0 @@
-- **Ingestion Layer**: `DownloadJobService` orchestrates multi-threaded downloading of rolling option data via `OptionsProvider`, tracking progress in a DuckDB-backed job/task registry (`DuckDbHistoricalWarehouse`).
-- **Import & Maintenance**: `HiveCacheEquityImporter` transforms external Hive-partitioned Parquet files into a canonical local structure, while `EquityParquetCompactor` merges incremental download chunks into monthly partitions.
-- **Storage Engine**: Uses DuckDB for both metadata management (job/task tracking) and high-performance querying of Parquet-based historical bars (`EquityHistoricalQuery`, `ParquetHistoricalBarRepository`).
-- **Universe Management**: `UniverseRefreshService` maintains the active instrument universe (e.g., Nifty 500) by resolving symbols against broker catalogs and persisting snapshots.
-- **Query Interface**: Implements `HistoricalBarRepository` to provide candle data with on-the-fly resampling (`CandleResampler`) and hive-partition-aware filtering.

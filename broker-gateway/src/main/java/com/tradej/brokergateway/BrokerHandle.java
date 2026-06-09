@@ -78,20 +78,17 @@ import java.util.UUID;
  *   System.out.println("LTP=" + result.data().ltpPaisa() + " latency=" + result.latencyMs() + "ms");
  * </pre>
  */
-public final class BrokerHandle {
+public final class BrokerHandle extends BaseBrokerHandle {
 
-    private final BrokerSource source;
-    private final IBrokerConnection connection;
-    private final InstrumentResolver instruments;
-    private final ObjectMapper objectMapper;
     private volatile boolean rawCaptureEnabled = false;
     private volatile BrokerExtras cachedExtras;
+    private volatile MarketDataHandle marketDataHandle;
+    private volatile OrderHandle orderHandle;
+    private volatile PortfolioHandle portfolioHandle;
+    private volatile OptionsHandle optionsHandle;
 
     public BrokerHandle(BrokerSource source, IBrokerConnection connection) {
-        this.source = source;
-        this.connection = connection;
-        this.instruments = connection.instruments();
-        this.objectMapper = new ObjectMapper();
+        super(source, connection);
     }
 
     public void enableRawCapture() {
@@ -104,6 +101,25 @@ public final class BrokerHandle {
 
     public boolean isRawCaptureEnabled() {
         return rawCaptureEnabled;
+    }
+
+    @Override
+    protected <T> GatewayResult<T> timed(TimedCall<T> call) {
+        java.time.Instant start = java.time.Instant.now();
+        T data = call.call();
+        java.time.Duration latency = java.time.Duration.between(start, java.time.Instant.now());
+        String rawBody = rawCaptureEnabled ? serializeRaw(data) : null;
+        com.tradej.brokergateway.result.ResultMetadata metadata =
+                new com.tradej.brokergateway.result.ResultMetadata(latency, java.time.Instant.now(), java.util.UUID.randomUUID().toString(), java.util.Map.of(), rawBody);
+        return com.tradej.brokergateway.result.GatewayResult.success(data, source, metadata);
+    }
+
+    private String serializeRaw(Object data) {
+        try {
+            return objectMapper.writeValueAsString(data);
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     // ── Market Data (MarketDataProvider) ─────────────────────────────
@@ -478,6 +494,28 @@ public final class BrokerHandle {
         return BrokerExplorer.inspect(this).capabilities();
     }
 
+    // ── Per-Port Handle Accessors ─────────────────────────────────
+
+    public MarketDataHandle marketDataHandle() {
+        if (marketDataHandle == null) marketDataHandle = new MarketDataHandle(source, connection);
+        return marketDataHandle;
+    }
+
+    public OrderHandle orderHandle() {
+        if (orderHandle == null) orderHandle = new OrderHandle(source, connection);
+        return orderHandle;
+    }
+
+    public PortfolioHandle portfolioHandle() {
+        if (portfolioHandle == null) portfolioHandle = new PortfolioHandle(source, connection);
+        return portfolioHandle;
+    }
+
+    public OptionsHandle optionsHandle() {
+        if (optionsHandle == null) optionsHandle = new OptionsHandle(source, connection);
+        return optionsHandle;
+    }
+
     // ── Types ────────────────────────────────────────────────────────
 
     /**
@@ -503,28 +541,6 @@ public final class BrokerHandle {
 
     // ── Internal ────────────────────────────────────────────────────
 
-    private <T> T requireCapability(Class<T> capabilityClass, String featureName) {
-        return connection.getCapability(capabilityClass)
-                .orElseThrow(() -> new UnsupportedOperationException(
-                        source + " does not support " + featureName));
-    }
-
-    private InstrumentKey resolveKey(String symbol, ExchangeSegment segment) {
-        Instrument instrument = instruments.resolveNormalized(symbol, segment);
-        return instrument.key();
-    }
-
-    private ExchangeSegment defaultSegment(String symbol) {
-        return IndexSymbols.defaultSegment(symbol);
-    }
-
-    private static ExchangeSegment parseSegment(Map<String, Object> params, String key) {
-        Object val = params.get(key);
-        if (val instanceof ExchangeSegment seg) return seg;
-        if (val instanceof String s) return ExchangeSegment.valueOf(s.toUpperCase());
-        return ExchangeSegment.NSE_EQ;
-    }
-
     private InstrumentKey parseInstrumentKey(Map<String, Object> params) {
         Object rawKey = params.get("instrumentKey");
         if (rawKey instanceof InstrumentKey ik) return ik;
@@ -533,41 +549,5 @@ public final class BrokerHandle {
             throw new IllegalArgumentException("invoke requires 'symbol' or 'instrumentKey' in params");
         }
         return resolveKey(symbol, parseSegment(params, "segment"));
-    }
-
-    private static int parseLevels(Map<String, Object> params) {
-        Object raw = params.get("levels");
-        if (raw instanceof Number n) return Math.max(1, n.intValue());
-        if (raw instanceof String s) {
-            try { return Math.max(1, Integer.parseInt(s.trim())); }
-            catch (NumberFormatException ex) { return 20; }
-        }
-        return 20;
-    }
-
-    @FunctionalInterface
-    private interface TimedCall<T> {
-        T call();
-    }
-
-    private <T> GatewayResult<T> timed(TimedCall<T> call) {
-        Instant start = Instant.now();
-        T data = call.call();
-        Duration latency = Duration.between(start, Instant.now());
-        String rawBody = rawCaptureEnabled ? serializeRaw(data) : null;
-        ResultMetadata metadata = new ResultMetadata(latency, Instant.now(), UUID.randomUUID().toString(), Map.of(), rawBody);
-        return GatewayResult.success(data, source, metadata);
-    }
-
-    private String serializeRaw(Object data) {
-        try {
-            return objectMapper.writeValueAsString(data);
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
-    private <T> GatewayResult<T> result(T data) {
-        return GatewayResult.success(data, source, new ResultMetadata(Duration.ZERO, Instant.now(), UUID.randomUUID().toString(), Map.of()));
     }
 }

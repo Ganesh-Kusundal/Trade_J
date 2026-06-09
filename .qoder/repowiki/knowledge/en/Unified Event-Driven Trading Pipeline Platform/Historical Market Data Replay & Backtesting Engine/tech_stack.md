@@ -1,0 +1,1 @@
+Java with Gradle build system; uses `ScheduledExecutorService` for time-based replay simulation; Jackson for gateway payload serialization.

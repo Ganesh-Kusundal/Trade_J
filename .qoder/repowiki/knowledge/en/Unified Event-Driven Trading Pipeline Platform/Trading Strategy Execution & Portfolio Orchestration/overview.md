@@ -1,0 +1,1 @@
+Orchestrates isolated strategy execution, portfolio-level risk enforcement, and ML inference within a unified event-driven pipeline.

@@ -1,4 +1,0 @@
-- Entry points: `ReplayController` handles interactive playback (play/pause/step/speed) via a scheduled executor, while `ReplayOrchestrator` manages bulk historical data replay (ticks, candles, trade lifecycle) through `ReplayRunner` and `HistoricalRangeService`.
-- State isolation: `IsolatedReplayStateManager` implements snapshot/restore logic across portfolio, position, risk, and order services to ensure replay runs in a sandboxed environment without affecting live state.
-- Timeframe synchronization: `MultiTimeframeContext` aggregates 1m candles into 5m, 15m, and Daily bars in-memory, emitting closed higher-timeframe candles only when boundaries are crossed to prevent look-ahead bias.
-- Dependency direction: The module depends on `core` for domain models/events, `persistence` for historical data access, and `execution`/`strategy` modules for state snapshotting interfaces.

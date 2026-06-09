@@ -5,7 +5,6 @@ import com.tradej.brokergateway.result.BrokerSource;
 import com.tradej.brokergateway.spi.BrokerDescriptor;
 import com.tradej.brokergateway.spi.BrokerProvider;
 import com.tradej.brokergateway.spi.CapabilityMetadata;
-import com.tradej.composition.BrokerComposition;
 import com.tradej.composition.config.BrokerProfile;
 
 import java.util.List;
@@ -76,7 +75,23 @@ public final class UpstoxBrokerProvider implements BrokerProvider {
         if (profile.upstox() == null) {
             throw new IllegalArgumentException("Upstox configuration is required");
         }
-        BrokerProfile upstoxProfile = new BrokerProfile(BrokerProfile.BrokerType.UPSTOX, null, profile.upstox(), null);
-        return BrokerComposition.create(upstoxProfile).brokerConnection();
+        BrokerProfile.UpstoxConfig upstox = profile.upstox();
+        com.tradej.broker.upstox.config.UpstoxConnectionSettings settings =
+                new com.tradej.broker.upstox.config.UpstoxConnectionSettings(
+                        upstox.clientId(),
+                        upstox.clientSecret(),
+                        upstox.redirectUri(),
+                        upstox.accessToken(),
+                        upstox.refreshToken(),
+                        upstox.analyticsToken(),
+                        upstox.extendedToken(),
+                        upstox.analyticsOnly(),
+                        upstox.isSandbox(),
+                        upstox.redirectServerPort(),
+                        upstox.refreshBufferMs(),
+                        upstox.tokenExpiryBufferMs()
+                );
+        return com.tradej.composition.UpstoxBrokerFactory.create(
+                settings, java.nio.file.Path.of("runtime/upstox-token-state.json"));
     }
 }

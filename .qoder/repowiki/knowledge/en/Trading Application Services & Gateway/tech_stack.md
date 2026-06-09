@@ -1,0 +1,5 @@
+- **Spring Boot** for the main application context and REST controllers.
+- **Picocli** for the structured CLI framework.
+- **DuckDB** for embedded analytical storage (historical data, read models).
+- **Chronicle Queue** for low-latency event persistence.
+- **Jackson** for JSON serialization in the gateway bridge.

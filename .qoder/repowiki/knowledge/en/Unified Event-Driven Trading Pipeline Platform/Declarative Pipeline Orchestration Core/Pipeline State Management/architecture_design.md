@@ -1,0 +1,4 @@
+- Defines a generic `StateStore<K, V>` interface as the module's entry point, offering CRUD operations plus snapshot retrieval (`getLatest`) and existence checks.
+- Provides `InMemoryStateStore` as the default thread-safe implementation backed by `ConcurrentHashMap`, suitable for ephemeral, recomputable state (e.g., indicators).
+- Uses `StateScope` enum (`PER_SYMBOL`, `PER_GRAPH`, `GLOBAL`) to guide the graph compiler on partitioning strategy and store injection, decoupling state ownership from storage mechanics.
+- The interface javadoc signals extensibility for DuckDB-backed snapshots and ChronicleQueue event sourcing, though only the in-memory variant is present in this scope.

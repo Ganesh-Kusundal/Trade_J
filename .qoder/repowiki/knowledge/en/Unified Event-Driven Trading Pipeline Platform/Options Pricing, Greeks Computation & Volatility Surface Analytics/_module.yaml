@@ -1,0 +1,10 @@
+schema_version: 1
+module_path: backend_trading/trading_options_analytics
+title: Options Pricing, Greeks Computation & Volatility Surface Analytics
+scope:
+    - trading/options-analytics/
+source_files: []
+depends_on: []
+related_to:
+    - path: backend_broker/broker_gateway/broker_query
+    - path: backend_data_infra/data_analytics

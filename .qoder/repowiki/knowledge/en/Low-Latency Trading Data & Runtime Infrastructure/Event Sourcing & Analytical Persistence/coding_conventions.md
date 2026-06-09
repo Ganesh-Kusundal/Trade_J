@@ -1,0 +1,3 @@
+- Persistence components implement `AutoCloseable` to ensure proper resource release for Chronicle Queue instances and database connections.
+- DuckDB write operations are serialized using a `ReentrantLock` within `DuckDbConnectionPool` to prevent concurrent write contention on the single shared connection.
+- Event deserialization in Chronicle-based stores uses custom Jackson serializers/deserializers or envelope-based type discrimination to handle polymorphic domain events.

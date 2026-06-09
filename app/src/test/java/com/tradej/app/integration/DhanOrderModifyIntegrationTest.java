@@ -73,6 +73,8 @@ class DhanOrderModifyIntegrationTest {
         long modifiedQty = qty + 1L;
         Order modified = brokerConnection.orders().modifyOrder(new ModifyOrderRequest(
                 placed.orderId(),
+                null,
+                null,
                 modifiedQty,
                 2_00L,
                 0L,

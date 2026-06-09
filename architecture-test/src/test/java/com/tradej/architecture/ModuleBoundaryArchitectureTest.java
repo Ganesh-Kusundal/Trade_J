@@ -39,6 +39,7 @@ class ModuleBoundaryArchitectureTest {
                         "com.tradej.indicators..",
                         "com.tradej.historical..",
                         "com.tradej.composition..",
+                        "com.tradej.pipeline..",
                         "com.tradej.app.."
                 )
                 .allowEmptyShould(false)
@@ -100,6 +101,34 @@ class ModuleBoundaryArchitectureTest {
         noClasses()
                 .that().resideInAPackage("com.tradej.pipeline.service..")
                 .should().dependOnClassesThat().resideInAnyPackage("com.tradej.app..")
+                .allowEmptyShould(true)
+                .check(allClasses);
+    }
+
+    @Test
+    void pipelineCoreMustNotDependOnOuterModules() {
+        noClasses()
+                .that().resideInAnyPackage(
+                        "com.tradej.pipeline.graph..",
+                        "com.tradej.pipeline.clock..",
+                        "com.tradej.pipeline.compiler..",
+                        "com.tradej.pipeline.state..",
+                        "com.tradej.pipeline.registry..",
+                        "com.tradej.pipeline.reactor.."
+                )
+                .should().dependOnClassesThat().resideInAnyPackage(
+                        "com.tradej.broker..",
+                        "com.tradej.execution..",
+                        "com.tradej.strategy..",
+                        "com.tradej.disruptor..",
+                        "com.tradej.persistence..",
+                        "com.tradej.hotpath..",
+                        "com.tradej.scanner..",
+                        "com.tradej.institutional..",
+                        "com.tradej.indicators..",
+                        "com.tradej.composition..",
+                        "com.tradej.app.."
+                )
                 .allowEmptyShould(true)
                 .check(allClasses);
     }

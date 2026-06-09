@@ -1,1 +1,1 @@
-Orchestrates a modular, event-driven trading lifecycle by wiring specialized child modules into a unified pipeline for signal generation, risk enforcement, and order execution.
+Orchestrates a multi-mode execution engine that unifies live, replay, and backtest workflows through a shared event-driven pipeline and broker-agnostic abstraction layer.

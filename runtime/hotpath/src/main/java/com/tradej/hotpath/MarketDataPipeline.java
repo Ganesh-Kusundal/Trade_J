@@ -45,7 +45,7 @@ import java.util.function.Consumer;
  *   <li>Pass {@code null} (or use the single-arg constructor) for unlimited throughput.</li>
  * </ul>
  */
-public final class MarketDataPipeline {
+public class MarketDataPipeline {
 
     private static final Logger log = LoggerFactory.getLogger(MarketDataPipeline.class);
 
@@ -85,17 +85,6 @@ public final class MarketDataPipeline {
         this.lastTickTimestampMs = 0L;
         this.rateState = new AtomicReference<>(new RateState(0.0, 0L));
     }
-
-    /**
-     * Process an incoming tick received from the broker's market data feed.
-     *
-     * <p>The tick is forwarded into the Disruptor pipeline for candle aggregation,
-     * feature computation, and strategy evaluation.
-     *
-     * @param tick the incoming market data tick
-     * @deprecated Use {@link #onMarketTickEvent(MarketTickEvent)} instead.
-     */
-    @Deprecated(since = "2.0", forRemoval = true)
 
     /**
      * Process a canonical market tick event from the broker's market data feed.

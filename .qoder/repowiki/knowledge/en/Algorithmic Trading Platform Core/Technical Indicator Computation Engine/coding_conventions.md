@@ -1,4 +1,0 @@
-- All indicator classes are declared as `public final` to prevent inheritance and signal immutability of behavior.
-- Every indicator exposes a `calculate(List<Candle>)` method that returns a `List` of a nested record type representing per-candle or per-event results.
-- Indicators use nested Java records (e.g., `Point`, `Marker`, `Zone`) to model structured output, keeping result types scoped within their defining class.
-- Configurable indicators provide both a parameterized constructor and a no-arg constructor supplying default parameter values.

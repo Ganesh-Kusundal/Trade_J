@@ -1,0 +1,14 @@
+schema_version: 1
+module_path: backend_trading/trading_strategy/engine_services
+title: Strategy Execution Engine & Market Data Aggregation
+scope:
+    - trading/strategy/src/main/java/com/tradej/strategy/service/
+    - trading/strategy/src/main/java/com/tradej/strategy/studio/
+    - trading/strategy/src/main/java/com/tradej/strategy/example/
+    - trading/strategy/src/test/java/com/tradej/strategy/service/
+    - trading/strategy/src/test/java/com/tradej/pipeline/runtime/
+source_files: []
+depends_on: []
+related_to:
+    - path: backend_trading/trading_strategy/plugin_api
+    - path: backend_trading/trading_strategy/ml_integration

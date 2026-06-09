@@ -22,18 +22,6 @@ public final class DepthUpdateFactory {
     }
 
     /**
-     * Converts the embedded market depth from a tick into a standalone
-     * {@link DepthUpdateEvent}.
-     *
-     * @param tick the incoming market data tick that may carry depth data
-     * @return a {@link DepthUpdateEvent} if depth is present and non-empty,
-     *         or {@code null} if the tick has no depth book or the book is
-     *         empty on both sides
-     * @deprecated Use {@link #fromMarketTickEvent(MarketTickEvent)} instead.
-     */
-    @Deprecated(since = "2.0", forRemoval = true)
-
-    /**
      * Converts the embedded market depth from a canonical market tick into
      * a standalone {@link DepthUpdateEvent}.
      *

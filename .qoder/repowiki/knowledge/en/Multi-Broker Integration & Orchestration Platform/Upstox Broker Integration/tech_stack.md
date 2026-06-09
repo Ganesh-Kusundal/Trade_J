@@ -1,0 +1,1 @@
+Uses Java 11+ `java.net.http.HttpClient` for non-blocking I/O; Jackson for JSON processing; custom binary parser for Upstox V3 Market Feed Protocol.

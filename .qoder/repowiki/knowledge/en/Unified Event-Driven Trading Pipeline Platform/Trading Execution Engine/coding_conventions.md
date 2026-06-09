@@ -1,0 +1,3 @@
+- Domain events are routed using the Visitor pattern (e.g., `DomainEventVisitor`) to decouple event sources from processing logic.
+- Stateful services like `PositionRiskHandler` and `ExecutionHandler` accept downstream consumers via constructor injection to enable immutable pipeline wiring.
+- Risk checks are composed using a Chain of Responsibility pattern (`RiskCheckChain`) to allow modular addition of pre-trade constraints.

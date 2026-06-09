@@ -13,7 +13,11 @@ public sealed interface DhanMarketFeedPacket permits
         DhanMarketFeedPacket.Ticker,
         DhanMarketFeedPacket.Quote,
         DhanMarketFeedPacket.Full,
-        DhanMarketFeedPacket.Index {
+        DhanMarketFeedPacket.Index,
+        DhanMarketFeedPacket.Oi,
+        DhanMarketFeedPacket.Heartbeat,
+        DhanMarketFeedPacket.MarketStatus,
+        DhanMarketFeedPacket.PrevClose {
 
     ExchangeSegment exchangeSegment();
 
@@ -78,6 +82,33 @@ public sealed interface DhanMarketFeedPacket permits
             String lowValue,
             String closeValue,
             String changePercent
+    ) implements DhanMarketFeedPacket {
+    }
+
+    record Oi(
+            ExchangeSegment exchangeSegment,
+            String securityId,
+            long openInterest
+    ) implements DhanMarketFeedPacket {
+    }
+
+    record Heartbeat() implements DhanMarketFeedPacket {
+        @Override public ExchangeSegment exchangeSegment() { return null; }
+        @Override public String securityId() { return ""; }
+    }
+
+    record MarketStatus(
+            ExchangeSegment exchangeSegment,
+            String securityId,
+            int status
+    ) implements DhanMarketFeedPacket {
+    }
+
+    record PrevClose(
+            ExchangeSegment exchangeSegment,
+            String securityId,
+            String prevClose,
+            String prevOpenInterest
     ) implements DhanMarketFeedPacket {
     }
 }

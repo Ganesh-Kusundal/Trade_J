@@ -1,0 +1,1 @@
+Manages the lifecycle, compilation, and execution of Hot-Path and DAG pipeline graphs within the trading engine.

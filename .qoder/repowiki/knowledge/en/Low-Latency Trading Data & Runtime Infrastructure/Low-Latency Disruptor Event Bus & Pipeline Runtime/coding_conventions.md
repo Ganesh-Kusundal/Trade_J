@@ -1,0 +1,4 @@
+- Use of a 'Poison Pill' sentinel object in `AsyncDispatchHandler` to gracefully terminate the background dispatch thread without relying on interrupts.
+- Implementation of a `ThreadLocal` re-entrancy guard (`IN_DISPATCH`) in `DisruptorEventBus` to route subscriber-generated events to a downstream queue, preventing ring buffer deadlocks.
+- Adoption of a fluent builder pattern (`DisruptorPipelineBuilder`) to construct complex `DisruptorPipelineConfig` records with validated required fields and sensible defaults.
+- Retention of deprecated constructors in `DisruptorEventBus` that delegate to `DisruptorEventBusLegacySupport` for backward compatibility during migration to the new config-based initialization.

@@ -4,12 +4,9 @@ import com.tradej.app.api.dto.ModifyOrderApiRequest;
 import com.tradej.app.api.dto.OrderProjectionResponse;
 import com.tradej.app.api.dto.OrderResponse;
 import com.tradej.app.api.dto.PlaceOrderRequest;
+import com.tradej.app.service.OrderApplicationService;
 import com.tradej.core.domain.model.ModifyOrderRequest;
-import com.tradej.core.domain.model.Order;
 import com.tradej.core.domain.model.OrderRequest;
-import com.tradej.core.domain.runtime.RuntimeMode;
-import com.tradej.core.domain.runtime.RuntimeModeHolder;
-import com.tradej.execution.risk.PositionRiskHandler;
 import com.tradej.execution.service.OrderManagementService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -31,17 +28,14 @@ import java.util.UUID;
 public class OrderController {
 
     private final OrderManagementService orderManagementService;
-    private final RuntimeModeHolder runtimeModeHolder;
-    private final PositionRiskHandler positionRiskHandler;
+    private final OrderApplicationService orderApplicationService;
 
     public OrderController(
             OrderManagementService orderManagementService,
-            RuntimeModeHolder runtimeModeHolder,
-            PositionRiskHandler positionRiskHandler
+            OrderApplicationService orderApplicationService
     ) {
         this.orderManagementService = orderManagementService;
-        this.runtimeModeHolder = runtimeModeHolder;
-        this.positionRiskHandler = positionRiskHandler;
+        this.orderApplicationService = orderApplicationService;
     }
 
     @GetMapping
@@ -75,14 +69,6 @@ public class OrderController {
 
     @PostMapping("/place")
     public ResponseEntity<?> place(@RequestBody PlaceOrderRequest request) {
-        if (runtimeModeHolder.mode() != RuntimeMode.LIVE) {
-            return ResponseEntity.status(HttpStatus.CONFLICT)
-                    .body(Map.of("error", "Order placement only allowed in LIVE mode", "mode", runtimeModeHolder.mode()));
-        }
-        if (positionRiskHandler.isKillSwitchActive()) {
-            return ResponseEntity.status(HttpStatus.CONFLICT)
-                    .body(Map.of("error", "Kill switch active"));
-        }
         String correlationId = request.correlationId() != null && !request.correlationId().isBlank()
                 ? request.correlationId()
                 : UUID.randomUUID().toString();
@@ -97,8 +83,7 @@ public class OrderController {
                 request.productType(),
                 request.validity(),
                 correlationId);
-        Order order = orderManagementService.placeOrder(orderRequest);
-        return ResponseEntity.ok(OrderResponse.from(order));
+        return mapResult(orderApplicationService.placeOrder(orderRequest));
     }
 
     @PutMapping("/{orderId}")
@@ -106,28 +91,37 @@ public class OrderController {
             @PathVariable String orderId,
             @RequestBody ModifyOrderApiRequest request
     ) {
-        if (runtimeModeHolder.mode() != RuntimeMode.LIVE) {
-            return ResponseEntity.status(HttpStatus.CONFLICT)
-                    .body(Map.of("error", "Order modify only allowed in LIVE mode"));
-        }
         ModifyOrderRequest modify = new ModifyOrderRequest(
                 orderId,
+                null,
+                null,
                 request.quantity(),
                 request.pricePaisa(),
                 request.triggerPricePaisa(),
                 request.orderType(),
                 request.validity());
-        Order order = orderManagementService.modifyOrder(modify);
-        return ResponseEntity.ok(OrderResponse.from(order));
+        return mapResult(orderApplicationService.modifyOrder(modify));
     }
 
     @PostMapping("/{orderId}/cancel")
     public ResponseEntity<Map<String, Object>> cancel(@PathVariable String orderId) {
-        if (runtimeModeHolder.mode() != RuntimeMode.LIVE) {
-            return ResponseEntity.status(HttpStatus.CONFLICT)
-                    .body(Map.of("error", "Order cancel only allowed in LIVE mode"));
-        }
-        boolean cancelled = orderManagementService.cancelOrder(orderId);
+        var result = orderApplicationService.cancelOrder(orderId);
+        boolean cancelled = result.isSuccess();
         return ResponseEntity.ok(Map.of("orderId", orderId, "cancelled", cancelled));
+    }
+
+    private ResponseEntity<?> mapResult(com.tradej.execution.command.CommandResult result) {
+        return switch (result) {
+            case com.tradej.execution.command.CommandResult.Success s ->
+                    ResponseEntity.ok(OrderResponse.from(s.order()));
+            case com.tradej.execution.command.CommandResult.Rejected r ->
+                    ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
+                            .body(Map.of("error", "Order rejected", "reason", r.reason()));
+            case com.tradej.execution.command.CommandResult.Error e ->
+                    ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                            .body(Map.of("error", e.message()));
+            default -> ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Unexpected result"));
+        };
     }
 }

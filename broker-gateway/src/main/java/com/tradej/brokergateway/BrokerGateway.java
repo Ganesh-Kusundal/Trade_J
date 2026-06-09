@@ -69,6 +69,16 @@ public interface BrokerGateway {
     }
 
     /**
+     * Create a gateway from multiple named broker connections.
+     * Used by Spring DI to wire available broker beans.
+     */
+    static BrokerGateway fromConnections(java.util.Map<BrokerSource, IBrokerConnection> connections) {
+        java.util.Map<BrokerSource, BrokerHandle> handles = new java.util.LinkedHashMap<>();
+        connections.forEach((source, conn) -> handles.put(source, new BrokerHandle(source, conn)));
+        return new DefaultBrokerGateway(handles);
+    }
+
+    /**
      * Convenience: create a Dhan-only gateway from config.
      */
     static BrokerGateway dhan(BrokerProfile.DhanConfig config) {

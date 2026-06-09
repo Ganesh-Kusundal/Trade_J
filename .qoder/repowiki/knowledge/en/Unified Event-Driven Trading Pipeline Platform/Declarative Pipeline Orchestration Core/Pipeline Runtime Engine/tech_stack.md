@@ -1,0 +1,1 @@
+Uses Project Reactor (`reactor.core.publisher.Flux`) for optional reactive node streams via `ReactivePipelineNode`.

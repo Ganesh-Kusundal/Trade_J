@@ -1,3 +1,7 @@
+import groovy.xml.XmlSlurper
+import org.gradle.testing.jacoco.plugins.JacocoTaskExtension
+import org.gradle.testing.jacoco.tasks.JacocoReport
+
 plugins {
     id 'org.springframework.boot' version '3.4.13' apply false
     id 'io.spring.dependency-management' version '1.1.7' apply false
@@ -36,6 +40,7 @@ allprojects {
 
 subprojects {
     apply plugin: 'java-library'
+    apply plugin: 'jacoco'
     apply plugin: 'io.spring.dependency-management'
     apply plugin: 'com.github.spotbugs'
     apply plugin: 'checkstyle'
@@ -278,6 +283,47 @@ subprojects {
         dependsOn tasks.named('runtimeE2eTest')
     }
 
+    tasks.withType(Test).configureEach {
+        finalizedBy tasks.named('jacocoTestReport')
+    }
+
+    tasks.named('jacocoTestReport') {
+        dependsOn tasks.named('test')
+        reports {
+            xml.required = true
+            html.required = true
+            csv.required = true
+        }
+    }
+
+    tasks.register('coverageReport') {
+        description = 'Runs unit tests and generates Jacoco XML/HTML/CSV coverage reports.'
+        group = 'verification'
+        dependsOn tasks.named('test'), tasks.named('jacocoTestReport')
+    }
+
+    tasks.register('coverageAudit') {
+        description = 'Fails when executable coverage reports are missing.'
+        group = 'verification'
+        dependsOn tasks.named('coverageReport')
+        doLast {
+            def reportDir = layout.buildDirectory.dir('reports/jacoco')
+            def xmlReport = reportDir.get().file('test/jacocoTestReport.xml').asFile
+            def htmlIndex = reportDir.get().file('test/index.html').asFile
+            def csvReport = reportDir.get().file('test/jacocoTestReport.csv').asFile
+            def execData = layout.buildDirectory.file('jacoco/test.exec').get().asFile
+            def missing = []
+            [xmlReport, htmlIndex, csvReport, execData].each { file ->
+                if (!file.isFile() || file.length() == 0L) {
+                    missing << file.path
+                }
+            }
+            if (!missing.isEmpty()) {
+                throw new GradleException("Coverage audit failed; missing or empty executable reports: ${missing.join(', ')}")
+            }
+        }
+    }
+
     dependencies {
         testImplementation platform("org.junit:junit-bom:${versions.junitBom}")
         testImplementation 'org.junit.jupiter:junit-jupiter'
@@ -297,4 +343,122 @@ tasks.register('fullRegressionTest') {
     dependsOn ':app:brokerOrderTest'
     dependsOn ':app:runtimeE2eTest'
     dependsOn ':app:crossLayerRegressionTest'
+}
+
+def jacocoProjects = subprojects.findAll { it.plugins.hasPlugin('jacoco') }
+
+tasks.register('coverageReportAll') {
+    description = 'Runs unit tests and generates Jacoco coverage reports for every subproject.'
+    group = 'verification'
+    dependsOn jacocoProjects.collect { project -> project.tasks.named('coverageReport') }
+}
+
+tasks.register('coverageAuditAll') {
+    description = 'Runs executable coverage reports and fails if any subproject report is missing or empty.'
+    group = 'verification'
+    dependsOn jacocoProjects.collect { project -> project.tasks.named('coverageAudit') }
+}
+
+tasks.register('coverageAuditSummary') {
+    description = 'Builds a root-level coverage audit summary from executable Jacoco XML reports.'
+    group = 'verification'
+    dependsOn tasks.named('coverageReportAll')
+    doLast {
+        def outDir = layout.buildDirectory.dir('reports/coverage-audit').get().asFile
+        outDir.mkdirs()
+        def uncoveredClasses = []
+        def uncoveredMethods = []
+        def uncoveredLines = []
+        def zeroInstructionClasses = []
+        def zeroBranchClasses = []
+        jacocoProjects.each { project ->
+            def report = project.layout.buildDirectory.file('reports/jacoco/test/jacocoTestReport.xml').get().asFile
+            if (!report.isFile()) {
+                return
+            }
+            def xml = new XmlSlurper(false, false).parse(report)
+            def projectName = project.path
+            xml.packagefile.each { pkg ->
+                def pkgName = pkg.@name.toString()
+                pkg.classfile.each { cls ->
+                    def className = cls.@name.toString()
+                    def fqn = "${projectName}:${pkgName}.${className}".replace('/', '.')
+                    def counters = [:]
+                    cls.counter.each { counter ->
+                        counters[counter.@type.toString()] = counter
+                    }
+                    def instr = counters['INSTRUCTION']
+                    def line = counters['LINE']
+                    def branch = counters['BRANCH']
+                    def lineCovered = line ? line.@covered.toInteger() : 0
+                    def instrCovered = instr ? instr.@covered.toInteger() : 0
+                    def branchCovered = branch ? branch.@covered.toInteger() : 0
+                    def instrMissed = instr ? instr.@missed.toInteger() : 0
+                    def lineMissed = line ? line.@missed.toInteger() : 0
+                    def branchMissed = branch ? branch.@missed.toInteger() : 0
+                    if (instrCovered == 0 && lineCovered == 0 && instrMissed > 0) {
+                        uncoveredClasses << [projectName, fqn, instrMissed, lineMissed, branchMissed]
+                    }
+                    if (instr && instr.@missed.toInteger() > 0 && instr.@covered.toInteger() == 0) {
+                        zeroInstructionClasses << [projectName, fqn, instrMissed]
+                    }
+                    if (branch && branch.@missed.toInteger() > 0 && branch.@covered.toInteger() == 0) {
+                        zeroBranchClasses << [projectName, fqn, branchMissed]
+                    }
+                    cls.method.each { method ->
+                        def methodName = method.@name.toString()
+                        def methodDesc = method.@desc.toString()
+                        def methodCounters = [:]
+                        method.counter.each { counter ->
+                            methodCounters[counter.@type.toString()] = counter
+                        }
+                        def methodLine = methodCounters['LINE']
+                        def methodInstr = methodCounters['INSTRUCTION']
+                        def methodBranch = methodCounters['BRANCH']
+                        def methodLineCovered = methodLine ? methodLine.@covered.toInteger() : 0
+                        def methodInstrCovered = methodInstr ? methodInstr.@covered.toInteger() : 0
+                        def methodInstrMissed = methodInstr ? methodInstr.@missed.toInteger() : 0
+                        if (methodLineCovered == 0 && methodInstrCovered == 0 && methodInstrMissed > 0) {
+                            uncoveredMethods << [projectName, fqn, methodName, methodDesc, methodInstrMissed]
+                        }
+                    }
+                    cls.method.each { method ->
+                        def methodName = method.@name.toString()
+                        def methodDesc = method.@desc.toString()
+                        def methodLines = []
+                        method.line.each { lineNode ->
+                            def nr = lineNode.@nr.toInteger()
+                            def mi = lineNode.@mi.toInteger()
+                            def mb = lineNode.@mb.toInteger()
+                            if (mi > 0 || mb > 0) {
+                                methodLines << "${nr}(mi=${mi},mb=${mb})"
+                            }
+                        }
+                        if (!methodLines.isEmpty()) {
+                            uncoveredLines << [projectName, fqn, methodName, methodDesc, methodLines.join(';')]
+                        }
+                    }
+                }
+            }
+        }
+        def csv = { rows ->
+            rows.collect { row -> row.collect { it.toString().replace('"', '""') }.collect { "\"${it}\"" }.join(',') }.join('\n')
+        }
+        new File(outDir, 'uncovered-classes.csv').text = "project,class,instruction_missed,line_missed,branch_missed\n" + csv(uncoveredClasses)
+        new File(outDir, 'uncovered-methods.csv').text = "project,class,method,descriptor,instruction_missed\n" + csv(uncoveredMethods)
+        new File(outDir, 'uncovered-lines.csv').text = "project,class,method,descriptor,lines\n" + csv(uncoveredLines)
+        new File(outDir, 'zero-instruction-classes.csv').text = "project,class,instruction_missed\n" + csv(zeroInstructionClasses)
+        new File(outDir, 'zero-branch-classes.csv').text = "project,class,branch_missed\n" + csv(zeroBranchClasses)
+        def summary = """coverage audit summary
+projects: ${jacocoProjects.size()}
+uncovered classes: ${uncoveredClasses.size()}
+uncovered methods: ${uncoveredMethods.size()}
+classes with uncovered lines: ${uncoveredLines.size()}
+zero-instruction classes: ${zeroInstructionClasses.size()}
+zero-branch classes: ${zeroBranchClasses.size()}
+reports: ${outDir.absolutePath}
+"""
+        new File(outDir, 'summary.txt').text = summary
+        println summary
+    }
 }

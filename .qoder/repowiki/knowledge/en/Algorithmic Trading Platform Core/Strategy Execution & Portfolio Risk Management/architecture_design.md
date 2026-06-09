@@ -1,5 +1,0 @@
-- **Plugin Architecture**: Defines `GraphStrategyPlugin` for multi-event (tick/depth/candle) strategies and a deprecated `StrategyPlugin` for candle-only logic, enabling reactive streaming evaluation.
-- **Isolated Sandboxing**: `GraphStrategySandbox` and `StrategyEngine` run plugins in virtual threads with bounded timeouts to prevent hot-path blocking, acting as facades for the pipeline.
-- **Portfolio Risk Engine**: `PortfolioEngine` orchestrates capital reservation and net exposure tracking by delegating to `CapitalReservationService` and `ExposureTracker`, supporting state snapshots for replay isolation.
-- **DDD Migration**: The portfolio layer is undergoing a Domain-Driven Design refactoring, introducing value objects like `CapitalPaisa` and entities like `SignalAttribution` to replace monolithic state maps.
-- **ML Integration**: `MLStrategyPlugin` bridges the ML inference engine and feature store into the strategy pipeline, implementing both legacy and graph plugin interfaces for unified signal generation.

@@ -1,1 +1,0 @@
-Uses DuckDB via `org.duckdb:duckdb_jdbc` for embedded analytical SQL storage and SLF4J/Logback for logging.

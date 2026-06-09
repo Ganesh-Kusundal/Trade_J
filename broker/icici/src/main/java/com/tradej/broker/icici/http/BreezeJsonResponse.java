@@ -2,6 +2,7 @@ package com.tradej.broker.icici.http;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 public record BreezeJsonResponse(JsonNode root, int httpStatus) {
     public boolean isSuccess() {
@@ -20,7 +21,11 @@ public record BreezeJsonResponse(JsonNode root, int httpStatus) {
         try {
             return new BreezeJsonResponse(mapper.readTree(body), httpStatus);
         } catch (Exception ex) {
-            throw new IllegalStateException("Invalid ICICI JSON response: " + body, ex);
+            String truncated = body != null && body.length() > 200 ? body.substring(0, 200) + "..." : body;
+            ObjectNode errorNode = mapper.createObjectNode();
+            errorNode.put("Status", httpStatus);
+            errorNode.put("Error", "Non-JSON response (HTTP " + httpStatus + "): " + truncated);
+            return new BreezeJsonResponse(errorNode, httpStatus);
         }
     }
 }

@@ -243,6 +243,21 @@ final class LiveDhanTestSupport {
             }
             current = current.getParent();
         }
-        return Path.of(relativePath).toAbsolutePath();
+        Path projectRoot = findProjectRoot();
+        return projectRoot != null
+                ? projectRoot.resolve(relativePath)
+                : Path.of(relativePath).toAbsolutePath();
+    }
+
+    private static Path findProjectRoot() {
+        Path current = Path.of("").toAbsolutePath();
+        while (current != null) {
+            if (Files.exists(current.resolve("settings.gradle"))
+                    || Files.exists(current.resolve("settings.gradle.kts"))) {
+                return current;
+            }
+            current = current.getParent();
+        }
+        return null;
     }
 }

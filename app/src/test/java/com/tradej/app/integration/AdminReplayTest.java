@@ -29,7 +29,7 @@ class AdminReplayTest extends AdminTestBase {
     void replayTicksReturnsResult() {
         when(runtimeModeHolder.mode()).thenReturn(RuntimeMode.REPLAY);
         when(replayOrchestrator.replayTicks(
-                eq("SBIN"), eq(1700000000000L), eq(1700003600000L), any(EventBus.class))
+                eq("SBIN"), eq(1700000000000L), eq(1700003600000L), any(EventBus.class), eq(0), eq(50000))
         ).thenReturn(new ReplayResult(100, 100, 0));
 
         ResponseEntity<Map> response = rest.postForEntity(

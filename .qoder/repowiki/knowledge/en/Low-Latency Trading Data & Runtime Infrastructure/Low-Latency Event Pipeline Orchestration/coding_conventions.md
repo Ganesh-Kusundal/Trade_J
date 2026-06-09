@@ -1,0 +1,5 @@
+- All public classes are declared final to prevent inheritance and signal immutability intent.
+- MDC enrichment via MdcHelper.enrich(event, stage) in try blocks paired with MdcHelper.clear() in finally blocks ensures context cleanup even on exceptions.
+- Lock-free EMA rate computation uses AtomicReference<RateState> with CAS loops and System.nanoTime() for wall-clock interval measurement.
+- Null input guards at method entry return early or log warnings rather than throwing exceptions on the hot path.
+- Private immutable records (e.g., RateState) encapsulate state for lock-free CAS updates within pipeline classes.

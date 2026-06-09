@@ -1,0 +1,3 @@
+- Replay sessions use a `ReplayState` enum (STOPPED, PLAYING, PAUSED) to manage lifecycle transitions and guard against invalid operations.
+- Interactive replay components employ `ScheduledExecutorService` with recursive scheduling to simulate real-time or accelerated market data flow.
+- State isolation is achieved through explicit `snapshot()` and `restore()` calls on dependent services before and after replay execution.

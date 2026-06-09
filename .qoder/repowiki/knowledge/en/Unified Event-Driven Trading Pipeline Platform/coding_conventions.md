@@ -1,0 +1,3 @@
+- All pipeline-integrated components wrap their business logic in a `*Node` class extending `BasePipelineNode`.
+- Nodes interact with the pipeline exclusively through the `PipelineContext` for event publishing and clock access.
+- Functional modules expose their core logic via service interfaces (e.g., `ScanEngine`, `ExecutionHandler`) injected into their respective Node wrappers.

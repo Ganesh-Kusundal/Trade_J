@@ -1,0 +1,7 @@
+- Entry point: `main.tsx` renders `App`, which delegates to `TerminalApp`.
+- Core Logic: `TerminalApp` initializes the `useGatewaySocket` hook for WebSocket connectivity and renders `TerminalLayout`.
+- State Management: A centralized `zustand` store (`terminalStore.ts`) manages UI state (active panels, selected symbols) and domain data (quotes, candles, depth, alerts).
+- Data Flow: `useGatewaySocket` parses WebSocket messages by topic (e.g., `MARKET_DEPTH`, `ICEBERG_ALERT`) and dispatches updates to the store.
+- UI Structure: `TerminalLayout` defines a grid-based layout composing various panels (`Watchlist`, `Chart`, `OptionChain`, etc.), which in turn render specialized widgets.
+- Domain Layer: `domain/dto/types.ts` defines strict TypeScript interfaces for all market data structures, ensuring type safety across the socket-store-UI boundary.
+- Build & Dev: Vite is used for bundling with path aliases (`@/src`) and proxy configuration for WebSocket (`/ws/gateway`) and API (`/api`) traffic to a local backend.

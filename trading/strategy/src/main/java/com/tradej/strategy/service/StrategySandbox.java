@@ -41,7 +41,7 @@ import java.util.function.Consumer;
  * (tick, depth, candle, ML) through the {@link com.tradej.strategy.api.GraphStrategyPlugin} interface.
  * Scheduled for removal after all plugins are migrated to GraphStrategyPlugin.
  */
-@Deprecated(since = "2.0", forRemoval = true)
+@Deprecated(since = "2.0")
 public final class StrategySandbox {
     private static final Logger log = LoggerFactory.getLogger(StrategySandbox.class);
     private static final long DEFAULT_TIMEOUT_MS = 5_000L;

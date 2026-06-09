@@ -126,6 +126,35 @@ class DisruptorEventBusDedupTest {
         assertTrue(dedup.isDuplicate(d2));
     }
 
+    @Test
+    void sameTickSameTimestampDifferentSequence_notDeduplicated() {
+        EventMetadata meta1 = EventMetadata.correlated("corr-1", 100L);
+        EventMetadata meta2 = EventMetadata.correlated("corr-1", 200L);
+        MarketTickEvent tick1 = new MarketTickEvent(
+                meta1, 1L, "RELIANCE", ExchangeSegment.NSE_EQ, FeedMode.FULL,
+                100L, 10L, 1000L, 1700000000000L, Optional.empty(), 0L, 0L);
+        MarketTickEvent tick2 = new MarketTickEvent(
+                meta2, 1L, "RELIANCE", ExchangeSegment.NSE_EQ, FeedMode.FULL,
+                100L, 10L, 1000L, 1700000000000L, Optional.empty(), 0L, 0L);
+
+        assertFalse(dedup.isDuplicate(tick1), "First tick should not be duplicate");
+        assertFalse(dedup.isDuplicate(tick2), "Same timestamp but different sequenceId must NOT be deduplicated");
+    }
+
+    @Test
+    void sameTickSameTimestampSameSequence_isDeduplicated() {
+        EventMetadata meta = EventMetadata.correlated("corr-1", 42L);
+        MarketTickEvent tick1 = new MarketTickEvent(
+                meta, 1L, "TCS", ExchangeSegment.NSE_EQ, FeedMode.FULL,
+                200L, 20L, 2000L, 1700000000000L, Optional.empty(), 0L, 0L);
+        MarketTickEvent tick2 = new MarketTickEvent(
+                meta, 1L, "TCS", ExchangeSegment.NSE_EQ, FeedMode.FULL,
+                200L, 20L, 2000L, 1700000000000L, Optional.empty(), 0L, 0L);
+
+        assertFalse(dedup.isDuplicate(tick1), "First occurrence should not be duplicate");
+        assertTrue(dedup.isDuplicate(tick2), "Same symbol+segment+timestamp+sequence must be deduplicated");
+    }
+
     /**
      * Lightweight test harness that replicates the dedup logic from
      * {@link DisruptorEventBus} without requiring the full Disruptor setup.
@@ -144,9 +173,9 @@ class DisruptorEventBusDedupTest {
         private String dedupKey(DomainEvent event) {
             return switch (event) {
                 case MarketTickEvent tick ->
-                        "TICK:" + tick.symbol() + ":" + tick.segment() + ":" + tick.exchangeTimestampEpochMs();
+                        "TICK:" + tick.symbol() + ":" + tick.segment() + ":" + tick.exchangeTimestampEpochMs() + ":" + tick.metadata().sequenceId();
                 case DepthUpdateEvent depth ->
-                        "DEPTH:" + depth.symbol() + ":" + depth.segment() + ":" + depth.exchangeTimestampMs();
+                        "DEPTH:" + depth.symbol() + ":" + depth.segment() + ":" + depth.exchangeTimestampMs() + ":" + depth.metadata().sequenceId();
                 case OrderAccepted accepted ->
                         "ORDER:" + accepted.order().orderId() + ":OrderAccepted";
                 case OrderFilled filled ->

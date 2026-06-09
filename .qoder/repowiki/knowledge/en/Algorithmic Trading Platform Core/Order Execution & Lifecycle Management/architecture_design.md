@@ -1,6 +1,0 @@
-- **Core Engine**: `ExecutionHandler` acts as the central event-driven processor, consuming `SignalPendingExecution` and `OrderFilled` events via a single-threaded executor to ensure ordering.
-- **State Management**: `OrderManagementService` maintains in-memory `OrderStateMachine` instances for each order, validating transitions (e.g., SUBMITTED → FILLED) and persisting events to an `EventSourcedOrderRepository`.
-- **Identity Resolution**: `OrderIdentityRegistry` bridges internal aggregate IDs (`ORD-*`) with external broker/order IDs and signal correlation IDs, enabling asynchronous fill reconciliation.
-- **Risk & Safety**: `KillSwitchCoordinator` synchronizes platform-wide kill switches with broker APIs, while `TradingCircuitBreaker` and `MarkToMarketRiskMonitor` enforce real-time trading limits and loss thresholds.
-- **Reconciliation**: `OrderReconciler` periodically compares internal OSM projections against broker-reported positions to detect drifts, emitting `PositionMismatch` events.
-- **Pipeline Integration**: `OmsNode` wraps the execution logic as a pipeline node, delegating event processing to the `ExecutionHandler`.

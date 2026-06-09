@@ -1,0 +1,4 @@
+- Orchestrates child modules by wrapping the `broker_spi` plugin registry to instantiate `BrokerHandle` instances via `DefaultBrokerGateway`.
+- Integrates `broker_simulation` providers as first-class `BrokerSource` entries, allowing seamless switching between live and paper-trading contexts.
+- Exposes `broker_query` and `broker_explorer` capabilities through the `BrokerHandle` interface, enabling ad-hoc analytics and capability inspection on any active connection.
+- Uses `BrokerRouter` to manage active broker selection, providing a unified `MarketGateway` facade that abstracts the underlying multi-broker complexity.

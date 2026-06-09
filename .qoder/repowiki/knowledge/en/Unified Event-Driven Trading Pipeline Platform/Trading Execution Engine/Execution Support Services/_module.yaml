@@ -1,0 +1,12 @@
+schema_version: 1
+module_path: backend_trading/trading_execution/execution_support
+title: Execution Support Services
+scope:
+    - trading/execution/src/main/java/com/tradej/execution/journal/
+    - trading/execution/src/main/java/com/tradej/execution/readmodel/
+    - trading/execution/src/main/java/com/tradej/execution/marketdata/
+    - trading/execution/src/main/java/com/tradej/execution/pnl/
+source_files: []
+depends_on: []
+related_to:
+    - path: backend_trading/trading_execution/core_execution

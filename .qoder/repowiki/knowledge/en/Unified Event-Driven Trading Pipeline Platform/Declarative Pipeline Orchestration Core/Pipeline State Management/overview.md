@@ -1,0 +1,1 @@
+Provides a generic key-value state store abstraction with configurable ownership scopes for pipeline node state persistence and retrieval.

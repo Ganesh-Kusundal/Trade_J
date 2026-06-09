@@ -1,0 +1,3 @@
+- **Broker Certification**: Run `./scripts/broker-certify-all.sh` to execute a 6-phase validation pipeline (token refresh, REST/WS certification, unit tests, payload capture).
+- **Production Smoke Test**: Execute `BASE_URL=http://localhost:8080 ./scripts/production-smoke-test.sh` to verify risk flags and broker health before live deployment.
+- **CLI Entry Point**: Use `./scripts/tradej interactive` for operator console access or standalone broker queries (e.g., `./scripts/tradej quote NIFTY IDX_I`).

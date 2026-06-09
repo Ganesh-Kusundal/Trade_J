@@ -93,7 +93,7 @@ public final class CliTradingCommands extends CliCommandSupport {
             confirmOrAbort("Modify order " + orderId);
         }
         Order modified = orderCommand().modifyOrder(new ModifyOrderRequest(
-                orderId, quantity, pricePaisa, 0L, null, null));
+                orderId, null, null, quantity, pricePaisa, 0L, null, null));
         out().print(modified);
     }
 

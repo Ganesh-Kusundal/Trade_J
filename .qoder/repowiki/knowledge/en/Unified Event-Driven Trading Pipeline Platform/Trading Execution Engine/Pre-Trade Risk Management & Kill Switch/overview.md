@@ -1,0 +1,1 @@
+Enforces pre-trade risk checks via a chain-of-responsibility pattern, manages kill-switch state synchronized with broker APIs, and tracks daily loss limits with MTM monitoring.

@@ -1,0 +1,10 @@
+schema_version: 1
+module_path: backend_trading/replay_engine
+title: Historical Market Data Replay & Backtesting Engine
+scope:
+    - replay/engine/
+source_files: []
+depends_on: []
+related_to:
+    - path: backend_trading/trading_simulation
+    - path: backend_research

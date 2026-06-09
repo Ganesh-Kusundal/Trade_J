@@ -1,0 +1,1 @@
+Provides a standalone Java client for DhanHQ broker integration, handling REST API interactions, WebSocket market data feeds, and automated token management.

@@ -6,6 +6,7 @@ import com.tradej.broker.dhan.config.DhanAuthMode;
 import com.tradej.broker.dhan.config.DhanConfigPaths;
 import com.tradej.broker.dhan.config.DhanConnectionSettings;
 import com.tradej.broker.upstox.config.UpstoxConnectionSettings;
+import com.tradej.composition.config.BrokerProfile;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -21,7 +22,8 @@ public final class CliConfig {
 
     public enum BrokerType {
         DHAN,
-        UPSTOX;
+        UPSTOX,
+        ICICI;
 
         public static BrokerType parse(String value) {
             if (value == null || value.isBlank()) {
@@ -197,12 +199,16 @@ public final class CliConfig {
                 System.getenv("UPSTOX_ACCESS_TOKEN"),
                 properties.getProperty("upstox.live.accessToken")
         );
+        String refreshToken = firstNonBlank(
+                System.getenv("UPSTOX_REFRESH_TOKEN"),
+                properties.getProperty("upstox.live.refreshToken")
+        );
         if (accessToken == null || accessToken.isBlank()) {
             throw new IllegalStateException(
                     "Missing Upstox live token. Set upstox.live.analyticsToken or upstox.live.accessToken.");
         }
         return new UpstoxConnectionSettings(
-                clientId, clientSecret, redirectUri, accessToken, null, null, null,
+                clientId, clientSecret, redirectUri, accessToken, refreshToken, null, null,
                 false, false, 18080, 1_800_000L, 600_000L
         );
     }
@@ -211,6 +217,37 @@ public final class CliConfig {
     @Deprecated
     public static DhanConnectionSettings connectionSettings(Profile profile) {
         return dhanConnectionSettings(profile);
+    }
+
+    public static BrokerProfile.IciciConfig iciciConfig() {
+        Path propsPath = DhanConfigPaths.resolve("config/icici-local.properties");
+        Properties props = new Properties();
+        if (Files.exists(propsPath)) {
+            try (InputStream in = Files.newInputStream(propsPath)) {
+                props.load(in);
+            } catch (IOException ex) {
+                throw new IllegalStateException("Failed to read " + propsPath, ex);
+            }
+        }
+        String appKey = firstNonBlank(System.getenv("ICICI_APP_KEY"), props.getProperty("icici.appKey"));
+        String secretKey = firstNonBlank(System.getenv("ICICI_SECRET_KEY"), props.getProperty("icici.secretKey"));
+        String authModeStr = firstNonBlank(System.getenv("ICICI_AUTH_MODE"), props.getProperty("icici.authMode", "BROWSER_AUTOMATED"));
+        com.tradej.broker.icici.config.IciciAuthMode authMode =
+                com.tradej.broker.icici.config.IciciAuthMode.valueOf(authModeStr.toUpperCase());
+        return new BrokerProfile.IciciConfig(
+                appKey, secretKey, null, authMode,
+                DhanConfigPaths.resolve(props.getProperty("icici.totpSecretFile", "config/icici-totp-secret.txt")),
+                DhanConfigPaths.resolve("config/icici-username.txt"),
+                DhanConfigPaths.resolve("config/icici-password.txt"),
+                DhanConfigPaths.resolve(props.getProperty("icici.apiSessionFile", "config/icici-api-session.txt")),
+                DhanConfigPaths.resolve(props.getProperty("icici.tokenStateFile", "runtime/icici-token-state.json")),
+                Boolean.parseBoolean(props.getProperty("icici.ordersEnabled", "false")),
+                Long.parseLong(props.getProperty("icici.refreshBufferMinutes", "10")),
+                Integer.parseInt(props.getProperty("icici.loginRedirectPort", "9080")),
+                props.getProperty("icici.loginRedirectPath", "/api"),
+                Boolean.parseBoolean(props.getProperty("icici.browserHeadless", "false")),
+                Long.parseLong(props.getProperty("icici.browserLoginTimeoutSeconds", "180"))
+        );
     }
 
     private static Properties loadUpstoxProperties(Profile profile) {

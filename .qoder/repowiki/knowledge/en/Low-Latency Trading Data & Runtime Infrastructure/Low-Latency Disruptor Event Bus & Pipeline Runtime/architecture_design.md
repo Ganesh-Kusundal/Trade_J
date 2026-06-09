@@ -1,0 +1,5 @@
+- **Core Engine**: `DisruptorEventBus` manages a single-producer/multi-consumer ring buffer (`MutableDomainEventEnvelope`) with configurable wait strategies (BusySpin/Yielding) based on runtime mode.
+- **Pipeline Stages**: Events flow through a directed graph of handlers: `GraphPipelineDisruptorHandler` (compiled risk/feature graph), optional `GraphStrategyDisruptorHandler` (tick-level strategy sandbox), and `AsyncDispatchHandler` (non-blocking subscriber dispatch).
+- **Async Dispatch**: `AsyncDispatchHandler` offloads blocking I/O (e.g., persistence) from the Disruptor thread to a dedicated background thread via a bounded queue, preventing hot-path stalls.
+- **Sharding**: `ShardedDisruptorEventBus` provides horizontal scaling by partitioning events across multiple Disruptor instances using symbol-based hashing.
+- **Configuration**: `DisruptorPipelineConfig` and `DisruptorPipelineBuilder` enforce required dependencies (Risk, Strategy, Execution, PipelineBridge) while providing defaults for optional components like DLQ and WAL.

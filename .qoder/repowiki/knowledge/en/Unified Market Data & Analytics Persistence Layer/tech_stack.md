@@ -1,1 +1,0 @@
-DuckDB (shared embedded analytical engine across all children), Parquet (columnar storage for historical data), Chronicle Queue (event sourcing in persistence).

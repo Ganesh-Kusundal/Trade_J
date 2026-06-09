@@ -55,7 +55,7 @@ class IciciMarketDataIntegrationTest {
                 instrumentResolver,
                 mapper
         );
-        portfolioProvider = new IciciPortfolioProvider(new BreezePortfolioRestClient(httpClient));
+        portfolioProvider = new IciciPortfolioProvider(new BreezePortfolioRestClient(httpClient), new BreezeInstrumentResolver());
     }
 
     @Test

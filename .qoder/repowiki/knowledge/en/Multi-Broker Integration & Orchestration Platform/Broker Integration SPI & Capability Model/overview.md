@@ -1,0 +1,1 @@
+Defines the Service Provider Interface (SPI) for integrating external stock brokers, standardizing authentication, market data, and order execution across diverse vendor APIs.

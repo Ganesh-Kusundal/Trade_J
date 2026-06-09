@@ -1,0 +1,3 @@
+- Configure credentials in `config/dhan-local.properties` with `dhan.authMode` set to `STATIC` or `TOTP_GENERATED`.
+- Run unit tests via `./gradlew :broker:dhan:test`.
+- Execute live smoke tests against the sandbox or live environment using `bash scripts/dhan-smoke.sh`.

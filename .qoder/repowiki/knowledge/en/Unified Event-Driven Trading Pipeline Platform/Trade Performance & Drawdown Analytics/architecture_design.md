@@ -1,0 +1,4 @@
+- Interface-driven design with `PerformanceAnalytics` and `DrawdownAnalytics` defining analysis contracts.
+- Default implementations (`DefaultPerformanceAnalytics`, `DefaultDrawdownAnalytics`) provide in-memory calculation logic using `BigDecimal` for precision.
+- Immutable data carriers (`TradeRecord`, `EquityPoint`, `PerformanceReport`, `DrawdownReport`) model inputs and outputs.
+- Depends on `:core`, `:pipeline-core`, and `:trade-pipeline-platform` for domain models like `PipelineExecution`.

@@ -1,0 +1,5 @@
+- **Hexagonal Architecture**: The module strictly separates `domain` (entities, value objects, events) from `port` (interfaces like `EventBus`, `MarketDataIngressPort`) to ensure infrastructure independence.
+- **Event-Driven Core**: Uses a `DomainEvent` interface with metadata (correlation IDs, schema versions) and a visitor pattern for type-safe processing across ~40 specific event types (e.g., `OrderFilled`, `CandleClosed`).
+- **Deterministic OMS**: Implements a table-driven `OrderStateMachine` that enforces valid lifecycle transitions (NEW -> SUBMITTED -> FILLED/CANCELLED) and calculates VWAP internally.
+- **Reactive Foundation**: Depends on `reactor-core` for non-blocking event propagation, though the core domain logic remains synchronous and deterministic.
+- **Testing Support**: Provides `java-test-fixtures` including a `CollectingEventBus` and `TestClock` to facilitate deterministic testing of downstream modules.

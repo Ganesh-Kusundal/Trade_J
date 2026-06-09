@@ -1,5 +1,0 @@
-- Core matching logic resides in `MatchingEngine`, which maintains last-traded-price state and applies spread, volatility, and volume-based slippage.
-- `PnLLedger` tracks per-symbol position state (net quantity, average price) and computes realized/unrealized P&L.
-- `SimulatedOrderService` acts as the facade, orchestrating symbol normalization, order matching via `MatchingEngine`, and ledger updates via `PnLLedger`.
-- `BacktestServiceImpl` implements the `BacktestService` interface from `:core`, providing stubbed strategy execution (SMA crossover, buy-hold) that leverages `MatchingEngine` for fill simulation.
-- The module depends on `:core` for domain models (`Order`, `Trade`, `OrderRequest`) and value objects, ensuring separation between simulation mechanics and core trading definitions.

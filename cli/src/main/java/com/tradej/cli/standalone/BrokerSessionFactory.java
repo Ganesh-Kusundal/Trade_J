@@ -10,6 +10,7 @@ public final class BrokerSessionFactory {
         return switch (brokerType) {
             case DHAN -> new DhanBrokerSession(profile);
             case UPSTOX -> new UpstoxBrokerSession(profile);
+            case ICICI -> new IciciBrokerSession(profile);
         };
     }
 }

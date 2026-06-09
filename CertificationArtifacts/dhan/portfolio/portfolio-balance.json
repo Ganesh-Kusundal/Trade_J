@@ -1,0 +1,11 @@
+{
+  "broker" : "DHAN",
+  "checkName" : "portfolio-balance",
+  "category" : "portfolio",
+  "status" : "PASS",
+  "evidence" : "cash=34",
+  "latencyMs" : 25,
+  "certifiedAt" : "2026-06-08T06:25:30.735535Z",
+  "errorMessage" : null,
+  "pass" : true
+}

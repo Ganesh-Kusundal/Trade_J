@@ -40,7 +40,7 @@ public final class DhanPayloadNormalizer {
                     definition.canonicalSymbol(),
                     definition.exchangeSegment(),
                     feedMode,
-                    PriceMath.toPaisa(ticker.ltp()),
+                    safeToPaisa(ticker.ltp()),
                     0L,
                     0L,
                     toEpochMs(ticker.ltt()),
@@ -54,7 +54,7 @@ public final class DhanPayloadNormalizer {
                     definition.canonicalSymbol(),
                     definition.exchangeSegment(),
                     feedMode,
-                    PriceMath.toPaisa(index.indexValue()),
+                    safeToPaisa(index.indexValue()),
                     0L,
                     0L,
                     System.currentTimeMillis(),
@@ -68,7 +68,7 @@ public final class DhanPayloadNormalizer {
                     definition.canonicalSymbol(),
                     definition.exchangeSegment(),
                     feedMode,
-                    PriceMath.toPaisa(quote.ltp()),
+                    safeToPaisa(quote.ltp()),
                     quote.ltq(),
                     quote.volume(),
                     toEpochMs(quote.ltt()),
@@ -82,7 +82,7 @@ public final class DhanPayloadNormalizer {
                     definition.canonicalSymbol(),
                     definition.exchangeSegment(),
                     feedMode,
-                    PriceMath.toPaisa(full.ltp()),
+                    safeToPaisa(full.ltp()),
                     full.ltq(),
                     full.volume(),
                     toEpochMs(full.ltt()),
@@ -90,6 +90,23 @@ public final class DhanPayloadNormalizer {
                     full.openInterest(),
                     full.openInterest()
             );
+            case DhanMarketFeedPacket.Oi oi -> new MarketTickEvent(
+                    metadataFactory.root(),
+                    sequenceCounter.incrementAndGet(),
+                    definition.canonicalSymbol(),
+                    definition.exchangeSegment(),
+                    feedMode,
+                    0L,
+                    0L,
+                    0L,
+                    System.currentTimeMillis(),
+                    Optional.empty(),
+                    oi.openInterest(),
+                    oi.openInterest()
+            );
+            case DhanMarketFeedPacket.Heartbeat ignored -> null;
+            case DhanMarketFeedPacket.MarketStatus ignored -> null;
+            case DhanMarketFeedPacket.PrevClose ignored -> null;
         };
     }
 
@@ -103,12 +120,16 @@ public final class DhanPayloadNormalizer {
 
     private MarketDepth normalizeFeedDepth(DhanMarketFeedPacket.Full full, DhanInstrumentDefinition definition) {
         List<DepthLevel> bids = full.bids().stream()
-                .map(level -> new DepthLevel(PriceMath.toPaisa(level.price()), level.quantity(), level.orders()))
+                .map(level -> new DepthLevel(safeToPaisa(level.price()), level.quantity(), level.orders()))
                 .toList();
         List<DepthLevel> asks = full.asks().stream()
-                .map(level -> new DepthLevel(PriceMath.toPaisa(level.price()), level.quantity(), level.orders()))
+                .map(level -> new DepthLevel(safeToPaisa(level.price()), level.quantity(), level.orders()))
                 .toList();
         return new MarketDepth(definition.toInstrument(), bids, asks, Math.max(bids.size(), asks.size()), toEpochMs(full.ltt()));
+    }
+
+    private static long safeToPaisa(String value) {
+        return (value == null || value.isBlank()) ? 0L : PriceMath.toPaisa(value);
     }
 
     /**

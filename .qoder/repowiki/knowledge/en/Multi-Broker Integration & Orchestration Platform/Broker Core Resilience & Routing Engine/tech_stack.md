@@ -1,0 +1,1 @@
+Uses Jackson for JSON token serialization (`JsonTokenStateStore`), Micrometer for observability instrumentation (`ObservableMarketDataProvider`, `ObservableOrderCommand`), and SLF4J for structured logging across startup and lifecycle components.

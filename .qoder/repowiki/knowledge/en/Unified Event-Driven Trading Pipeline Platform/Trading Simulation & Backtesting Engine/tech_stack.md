@@ -1,0 +1,1 @@
+Uses Java records for immutable configuration (`SlippageConfig`) and data transfer (`MatchResult`, `Position`).

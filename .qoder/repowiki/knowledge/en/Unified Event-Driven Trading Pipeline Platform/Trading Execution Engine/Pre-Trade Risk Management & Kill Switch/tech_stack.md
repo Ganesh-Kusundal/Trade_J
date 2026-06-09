@@ -1,0 +1,1 @@
+Caffeine cache for margin estimate caching in `MarginEnforcementHandler` (configurable TTL, max 10,000 entries).

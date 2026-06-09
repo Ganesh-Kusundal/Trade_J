@@ -1,0 +1,4 @@
+- Utility classes with only static methods use private no-arg constructors to prevent instantiation (seen in `FeaturePipeline`, `SectorRankingEngine`).
+- All data transfer objects and value objects are modeled as Java records rather than traditional POJOs (seen in `InstitutionalScanConfig`, `InstitutionalScanResult`, `ScoredBar`, `BarFeatures`, `SelectionResult`).
+- Configuration records provide static factory methods for default/baseline instances (e.g., `InstitutionalScanConfig.baseline()`).
+- Master score computation uses a weighted linear combination of normalized feature scores with weights defined in configuration.

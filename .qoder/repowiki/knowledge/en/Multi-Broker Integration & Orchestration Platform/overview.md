@@ -1,0 +1,1 @@
+Orchestrates heterogeneous broker integrations through a unified capability-based SPI, resilient core routing, and a plugin-driven gateway for seamless multi-vendor trading operations.

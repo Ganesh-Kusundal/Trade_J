@@ -1,0 +1,10 @@
+schema_version: 1
+module_path: backend_trading/trading_execution/market_depth_analytics
+title: Market Depth Analytics Engine
+scope:
+    - trading/execution/src/main/java/com/tradej/execution/depth/
+    - trading/execution/src/test/java/com/tradej/execution/depth/
+source_files: []
+depends_on: []
+related_to:
+    - path: backend_trading/trading_execution/subscription_management

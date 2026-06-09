@@ -9,6 +9,7 @@ import com.tradej.broker.upstox.instrument.UpstoxInstrumentResolver;
 import com.tradej.broker.upstox.rest.UpstoxGttRestClient;
 import com.tradej.core.domain.model.ConditionalAlert;
 import com.tradej.core.domain.model.ConditionalAlertRequest;
+import com.tradej.core.domain.model.Instrument;
 import com.tradej.core.domain.model.InstrumentKey;
 import com.tradej.core.domain.model.Order;
 import com.tradej.core.domain.model.OrderRequest;
@@ -260,19 +261,14 @@ public final class UpstoxGttOrderAdapter implements ConditionalAlertProvider, Gt
 
     // ─── GTT → Order mapping ───────────────────────────────────────────
 
-    private static Order toGttOrder(String gttOrderId, OrderRequest request, List<UpstoxGttRule> rules) {
-        // Extract trigger price from entry rule
-        double entryPrice = 0.0;
-        for (UpstoxGttRule rule : rules) {
-            if ("ENTRY".equals(rule.strategy())) {
-                entryPrice = rule.triggerPrice();
-                break;
-            }
-        }
+    private Order toGttOrder(String gttOrderId, OrderRequest request, List<UpstoxGttRule> rules) {
+        Instrument resolved = instrumentResolver.resolve(
+                new InstrumentKey(request.symbol(), request.exchangeSegment()));
+        String symbol = resolved != null ? resolved.canonicalSymbol() : request.symbol();
         return new Order(
                 gttOrderId,
                 request.correlationId(),
-                request.symbol(),
+                symbol,
                 request.exchangeSegment(),
                 request.side(),
                 request.productType(),
@@ -287,8 +283,7 @@ public final class UpstoxGttOrderAdapter implements ConditionalAlertProvider, Gt
         );
     }
 
-    private static Order toOrder(UpstoxGttOrder gtt) {
-        // Map rules to determine price and trigger
+    private Order toOrder(UpstoxGttOrder gtt) {
         double price = 0.0;
         double triggerPrice = 0.0;
         OrderStatus status = OrderStatus.UNKNOWN;
@@ -308,12 +303,13 @@ public final class UpstoxGttOrderAdapter implements ConditionalAlertProvider, Gt
             }
         }
 
-        // Determine side from transaction type (not directly available in GTT order,
-        // but we can infer from the entry rule)
+        Instrument resolved = instrumentResolver.resolve(
+                new InstrumentKey(gtt.tradingSymbol(), gtt.exchangeSegment()));
+        String symbol = resolved != null ? resolved.canonicalSymbol() : gtt.tradingSymbol();
         return new Order(
                 gtt.gttOrderId(),
                 "",
-                gtt.tradingSymbol(),
+                symbol,
                 gtt.exchangeSegment(),
                 side,
                 mapProductToDomain(gtt.product()),

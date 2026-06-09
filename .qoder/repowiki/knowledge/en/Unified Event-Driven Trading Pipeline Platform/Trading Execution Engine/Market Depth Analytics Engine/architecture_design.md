@@ -1,0 +1,6 @@
+- Entry point is `DepthAnalyticsPipeline`, which orchestrates five specialized analyzers (`OrderBookImbalanceService`, `HeatmapRecorder`, `RestingOrderAnalyzer`, `IcebergDetector`, `AbsorptionAnalyzer`) via dependency injection.
+- All analyzers are stateless or maintain internal per-symbol state using `ConcurrentHashMap` for thread-safe concurrent access.
+- Output events are defined as Java records in `DepthAnalyticsEvents`, providing a unified event schema (imbalance snapshots, heatmap chunks, iceberg/absorption signals, support/resistance levels).
+- The pipeline uses a publish-subscribe pattern with `Consumer<Object>` listeners; each consumer invocation is wrapped in try-catch to isolate failures.
+- Some analyses run on every update (imbalance, heatmap, iceberg, absorption), while resting-order analysis runs every 5th update to reduce computation.
+- Internal state tracking relies on private record types (`AbsorptionState`, `LevelHistory`, `RingBuffer`, `LevelTracker`) encapsulated within their respective analyzer classes.

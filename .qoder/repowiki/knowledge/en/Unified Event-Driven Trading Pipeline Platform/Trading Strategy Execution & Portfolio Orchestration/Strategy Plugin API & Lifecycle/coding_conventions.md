@@ -1,0 +1,3 @@
+- Strategy plugins return `Optional<SignalGenerated>` from evaluation methods to represent conditional signal emission without nulls.
+- Plugins declare their event subscriptions explicitly via `subscribedEventTypes()` to allow the runtime to filter and route events efficiently.
+- Legacy interfaces are marked with `@Deprecated(since = "2.0", forRemoval = true)` and accompanied by adapter classes to ensure gradual migration.

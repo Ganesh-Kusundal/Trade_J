@@ -7,29 +7,12 @@ public final class TablePrinter {
     private TablePrinter() {
     }
 
+    /**
+     * Print a table using the rich renderer (Unicode box drawing + ANSI colors).
+     * Delegates to {@link RichTable#print(String[], java.util.List)}.
+     */
     public static void print(String[] headers, List<String[]> rows) {
-        if (rows.isEmpty()) {
-            System.out.println("(no rows)");
-            return;
-        }
-        int columns = headers.length;
-        int[] widths = new int[columns];
-        for (int i = 0; i < columns; i++) {
-            widths[i] = headers[i].length();
-        }
-        for (String[] row : rows) {
-            for (int i = 0; i < columns; i++) {
-                String cell = i < row.length ? nullToEmpty(row[i]) : "";
-                widths[i] = Math.max(widths[i], cell.length());
-            }
-        }
-        printLine(widths);
-        printRow(headers, widths);
-        printLine(widths);
-        for (String[] row : rows) {
-            printRow(padRow(row, columns), widths);
-        }
-        printLine(widths);
+        RichTable.print(headers, rows);
     }
 
     private static String[] padRow(String[] row, int columns) {

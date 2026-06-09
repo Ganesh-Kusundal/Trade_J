@@ -1,0 +1,11 @@
+{
+  "broker" : "DHAN",
+  "checkName" : "candles-1d",
+  "category" : "market-data",
+  "status" : "PASS",
+  "evidence" : "count=19",
+  "latencyMs" : 31,
+  "certifiedAt" : "2026-06-08T06:25:30.734760Z",
+  "errorMessage" : null,
+  "pass" : true
+}

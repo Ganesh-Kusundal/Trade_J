@@ -1,0 +1,3 @@
+- Defensive copying of collections: Methods like `desiredSnapshot` and `snapshot` return immutable copies (`Map.copyOf`, `Set.copyOf`) to prevent external mutation of internal subscription state.
+- Null-safety via Objects.requireNonNull: All public constructors and key methods validate dependencies and critical parameters using `Objects.requireNonNull` to fail fast on invalid inputs.
+- EnumMap for feed-mode segregation: Subscription state is tracked using `EnumMap<FeedMode, Set<MarketSubscriptionRequest>>` to efficiently partition subscriptions by their feed type (e.g., TICKER, QUOTE).

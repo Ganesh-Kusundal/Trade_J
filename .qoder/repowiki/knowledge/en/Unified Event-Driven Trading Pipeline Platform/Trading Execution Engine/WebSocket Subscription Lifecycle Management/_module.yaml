@@ -1,0 +1,10 @@
+schema_version: 1
+module_path: backend_trading/trading_execution/subscription_management
+title: WebSocket Subscription Lifecycle Management
+scope:
+    - trading/execution/src/main/java/com/tradej/execution/subscription/
+    - trading/execution/src/test/java/com/tradej/execution/subscription/
+source_files: []
+depends_on: []
+related_to:
+    - path: backend_trading/trading_execution/market_depth_analytics

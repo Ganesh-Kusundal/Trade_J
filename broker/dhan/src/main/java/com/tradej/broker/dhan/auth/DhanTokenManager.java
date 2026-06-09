@@ -25,6 +25,7 @@ public class DhanTokenManager implements DhanTokenProvider {
     private final Clock clock;
     private final ReentrantLock refreshLock = new ReentrantLock();
     private final AtomicLong lastAcquisitionAttemptMs = new AtomicLong(0L);
+    private final AtomicLong tokenGeneration = new AtomicLong(0);
 
     private volatile DhanTokenState currentState;
 
@@ -100,9 +101,49 @@ public class DhanTokenManager implements DhanTokenProvider {
             if (currentState == null) {
                 throw new IllegalStateException("Unable to resolve a valid Dhan access token");
             }
+            tokenGeneration.incrementAndGet();
         } finally {
             refreshLock.unlock();
         }
+    }
+
+    @Override
+    public long tokenGenerationId() {
+        return tokenGeneration.get();
+    }
+
+    @Override
+    public void invalidate() {
+        refreshLock.lock();
+        try {
+            currentState = null;
+            stateStore.save(null);
+            log.info("Dhan token invalidated — next ensureValid() will generate a fresh token");
+        } finally {
+            refreshLock.unlock();
+        }
+    }
+
+    @Override
+    public boolean invalidate(long failedGenerationId) {
+        if (!tokenGeneration.compareAndSet(failedGenerationId, failedGenerationId + 1)) {
+            log.debug("Dhan invalidate({}) skipped — another thread already regenerated (current gen={})",
+                    failedGenerationId, tokenGeneration.get());
+            return false;
+        }
+        refreshLock.lock();
+        try {
+            if (tokenGeneration.get() != failedGenerationId + 1) {
+                return false;
+            }
+            currentState = null;
+            stateStore.save(null);
+            log.info("Dhan token invalidated via CAS (gen={}) — next ensureValid() will generate a fresh token",
+                    failedGenerationId);
+        } finally {
+            refreshLock.unlock();
+        }
+        return true;
     }
 
     private DhanTokenState resolveValidState(long now) {

@@ -1,0 +1,6 @@
+- Entry point: `InstitutionalScanEngine` orchestrates the scan pipeline by querying historical bars via `HistoricalBarRepository`, computing features, applying sector adjustments, selecting candidates, and returning `InstitutionalScanResult`.
+- Feature computation layer: `FeaturePipeline` computes per-bar features (RS score, volume expansion, trend efficiency, opening drive, liquidity) with cross-sectional z-score normalization grouped by bar timestamp.
+- Sector adjustment layer: `SectorRankingEngine` computes sector-level momentum from opening drive scores and applies penalties to underperforming sectors before candidate selection.
+- Ranking and selection layer: `RankingEngine` performs dense ranking by master score with optional sector diversification filtering; `CandidateSelection` resolves time-based scan cutoffs with fallback logic (exact match → latest before cutoff → first after cutoff).
+- Data models: Immutable Java records (`InstitutionalScanConfig`, `InstitutionalScanResult`, `ScoredBar`, `FeaturePipeline.BarFeatures`) carry configuration and results through the pipeline.
+- Dependencies: Relies on `:core` for domain types (`Candle`, `UniverseEntry`) and repository ports, and `:data-historical-ingest` for parquet-backed historical data access.

@@ -8,6 +8,8 @@ dependencies {
     implementation 'org.slf4j:slf4j-api'
 
     testImplementation 'org.junit.jupiter:junit-jupiter'
+    testImplementation 'org.mockito:mockito-core'
     testImplementation 'org.mockito:mockito-junit-jupiter'
     testImplementation 'ch.qos.logback:logback-classic'
+    testImplementation testFixtures(project(':core'))
 }

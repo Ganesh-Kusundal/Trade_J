@@ -223,11 +223,17 @@ public final class AsyncDispatchHandler implements EventHandler<MutableDomainEve
     private void dispatch(DomainEvent event) {
         long start = System.nanoTime();
         MdcHelper.enrich(event, "async-dispatch");
+        com.tradej.disruptor.DisruptorEventBus.markDispatchBegin();
         try {
             for (Map.Entry<Class<? extends DomainEvent>, List<DomainEventHandler<? extends DomainEvent>>> entry : subscribers.entrySet()) {
                 if (entry.getKey().isAssignableFrom(event.getClass())) {
                     for (DomainEventHandler handler : entry.getValue()) {
-                        handler.onEvent(event);
+                        try {
+                            handler.onEvent(event);
+                        } catch (Exception subscriberError) {
+                            log.error("Subscriber error for event type={} eventId={}",
+                                    event.getClass().getSimpleName(), event.eventId(), subscriberError);
+                        }
                     }
                 }
             }
@@ -235,6 +241,7 @@ public final class AsyncDispatchHandler implements EventHandler<MutableDomainEve
             log.error("Async dispatch error processing event type={} eventId={}",
                     event.getClass().getSimpleName(), event.eventId(), e);
         } finally {
+            com.tradej.disruptor.DisruptorEventBus.markDispatchEnd();
             timing.record(System.nanoTime() - start);
             MdcHelper.clear();
         }

@@ -1,0 +1,1 @@
+Provides event-sourced repositories and analytical storage using Chronicle Queue for WAL and DuckDB for time-series data.

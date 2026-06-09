@@ -1,0 +1,4 @@
+- Dual-service architecture: `PipelineRuntimeService` handles single-instance Hot-Path pipelines implementing `PipelineRuntimeBridge`, while `DagPipelineRuntimeService` manages multi-instance DAG pipelines via `DagPipelineInstance`.
+- Factory-based node instantiation: `PipelineNodeFactory` resolves node definitions into concrete runtime nodes (e.g., Strategy, OMS, Scanner) using a registry pattern.
+- Persistence integration: Both services utilize `DuckDbPipelineGraphStore` for saving and loading graph versions during API-driven reloads.
+- Reactive bridging: `DagPipelineIngressBridge` provides an asynchronous entry point for domain events into active DAG instances, while `PipelineRuntimeService` wires reactive sources directly to the `ReactorBridge`.

@@ -1,0 +1,5 @@
+- Uses a shared `pipeline-core` framework where `RiskNode` and `OmsNode` act as sequential processing stages for domain events.
+- `SignalExecutionBridge` serves as the canonical adapter, transforming strategy-generated `SignalGenerated` events into executable `SignalPendingExecution` commands.
+- `ExecutionHandler` implements symbol-based partitioning across multiple worker threads to ensure thread-safe, ordered processing of fills and order updates.
+- Cross-cutting concerns like identity resolution (`OrderIdentityRegistry`) and circuit breaking (`TradingCircuitBreaker`) are injected into the execution handler to enforce state consistency and fault tolerance.
+- Reconciliation and market depth orchestration operate as parallel support services, consuming from the same broker connections and event streams to maintain system-wide state accuracy.

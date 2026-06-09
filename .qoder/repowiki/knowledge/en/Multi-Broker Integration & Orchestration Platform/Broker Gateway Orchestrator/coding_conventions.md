@@ -1,0 +1,2 @@
+- All public API methods return `GatewayResult<T>` to enforce consistent latency tracking and source metadata across all broker interactions.
+- Broker-specific extensions are accessed via a typed `extras()` method on `BrokerHandle`, preventing SPI leakage in the core interface.

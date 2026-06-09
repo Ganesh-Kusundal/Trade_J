@@ -1,0 +1,1 @@
+Provides deterministic replay of historical market data (ticks, candles) and trade events for strategy backtesting and system state reconstruction.

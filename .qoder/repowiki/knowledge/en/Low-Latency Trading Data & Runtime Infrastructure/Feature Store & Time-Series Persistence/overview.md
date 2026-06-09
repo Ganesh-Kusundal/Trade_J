@@ -1,0 +1,1 @@
+Implements the FeatureStore port with in-memory, DuckDB-backed, and options-aware decorators for ingesting market events and computing technical indicators.

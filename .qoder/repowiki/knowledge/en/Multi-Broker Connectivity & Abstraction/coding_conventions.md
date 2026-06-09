@@ -1,3 +1,0 @@
-- Vendor adapters implement a two-tier constructor strategy: a primary multi-adapter constructor for Dependency Injection environments and a deprecated legacy constructor that internally assembles all dependencies.
-- Port implementations delegate to vendor-specific REST clients wrapped by a resilience layer (e.g., `DhanRetryExecutor`) that integrates rate limiting and circuit breaking.
-- WebSocket multiplexers encapsulate connection lifecycle, health monitoring, and event normalization, exposing a clean `WebSocketMultiplexer` port to the core system.

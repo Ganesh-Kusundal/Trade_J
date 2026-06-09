@@ -4,6 +4,7 @@ import com.tradej.broker.api.port.SliceOrderCommand;
 import com.tradej.broker.upstox.instrument.UpstoxInstrumentResolver;
 import com.tradej.broker.upstox.mapper.UpstoxDomainMapper;
 import com.tradej.broker.upstox.rest.UpstoxOrderRestClient;
+import com.tradej.core.domain.model.Instrument;
 import com.tradej.core.domain.model.InstrumentKey;
 import com.tradej.core.domain.model.Order;
 import com.tradej.core.domain.model.OrderRequest;
@@ -124,8 +125,10 @@ public final class UpstoxSliceOrderAdapter implements SliceOrderCommand {
                     request.correlationId() != null ? request.correlationId() + "-slice-" + i : null
             );
             Map<String, Object> payload = mapper.toPlaceOrderPayload(chunkRequest, instrumentKey);
+            Instrument instrument = instrumentResolver.resolve(
+                    new InstrumentKey(chunkRequest.symbol(), chunkRequest.exchangeSegment()));
             var response = restClient.placeOrder(payload);
-            orders.add(mapper.toOrder(response, chunkRequest));
+            orders.add(mapper.toOrder(response, chunkRequest, instrument));
             remaining -= chunkQty;
         }
 

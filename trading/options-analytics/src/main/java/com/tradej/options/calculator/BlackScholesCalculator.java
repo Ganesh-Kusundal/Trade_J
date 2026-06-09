@@ -48,7 +48,9 @@ public final class BlackScholesCalculator {
             OptionType optionType
     ) {
         if (timeToExpiryYears <= 0 || volatility <= 0) {
-            return Math.max(0, spot - strike);
+            return optionType == OptionType.CALL
+                    ? Math.max(0, spot - strike)
+                    : Math.max(0, strike - spot);
         }
         double sqrtT = Math.sqrt(timeToExpiryYears);
         double d1 = (Math.log(spot / strike) + (riskFreeRate + 0.5 * volatility * volatility) * timeToExpiryYears)

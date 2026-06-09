@@ -178,7 +178,7 @@ public final class DhanJsonMapper {
     public static Balance toBalance(DhanJsonResponse data) {
         return new Balance(
                 data.string("dhanClientId"),
-                data.decimalPrice("availabelBalance", "availableBalance"),
+                data.decimalPrice("availableBalance", "availabelBalance"),
                 data.decimalPrice("collateralAmount"),
                 data.decimalPrice("receiveableAmount", "receivableAmount"),
                 data.decimalPrice("utilizedAmount"),

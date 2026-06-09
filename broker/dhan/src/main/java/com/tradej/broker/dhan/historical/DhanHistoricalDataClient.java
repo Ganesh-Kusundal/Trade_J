@@ -103,7 +103,7 @@ public final class DhanHistoricalDataClient {
         payload.put("securityId", definition.securityId());
         payload.put("exchangeSegment", DhanSegmentMapper.toWireValue(definition.exchangeSegment()));
         payload.put("instrument", instrumentType);
-        payload.put("interval", toDhanInterval(request.interval()));
+        payload.put("interval", Integer.parseInt(toDhanInterval(request.interval())));
         payload.put("oi", carriesOi(instrumentType));
         payload.put("fromDate", request.fromDate() + " " + SessionSchedule.sessionOpen(definition.exchangeSegment()).format(TIME_FORMATTER));
         payload.put("toDate", request.toDate() + " " + SessionSchedule.sessionClose(definition.exchangeSegment()).format(TIME_FORMATTER));

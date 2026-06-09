@@ -1,1 +1,0 @@
-Provides a framework-agnostic composition root for wiring broker connections, data persistence, and execution risk modules into a cohesive trading system.

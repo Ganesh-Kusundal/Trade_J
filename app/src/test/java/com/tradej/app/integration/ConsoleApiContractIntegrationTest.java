@@ -64,7 +64,7 @@ class ConsoleApiContractIntegrationTest extends AdminTestBase {
     @SuppressWarnings("unchecked")
     @Test
     void strategiesReturnsPluginsObjectNotArray() {
-        when(strategyEngine.pluginNames()).thenReturn(List.of("plugin-a", "plugin-b"));
+        when(graphStrategySandbox.pluginNames()).thenReturn(List.of("plugin-a", "plugin-b"));
 
         ResponseEntity<Map> response = rest.getForEntity("/admin/strategies", Map.class);
 

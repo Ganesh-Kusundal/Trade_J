@@ -25,18 +25,21 @@ public class UpstoxHealthIndicator implements HealthIndicator {
     private final BrokerTransportCapabilities transportCapabilities;
     private final MarketDataProvider marketDataProvider;
     private final Clock clock;
+    private final AlertManager alertManager;
 
     public UpstoxHealthIndicator(
             IBrokerConnection brokerConnection,
             UpstoxBearerTokenSource tokenSource,
             ObjectProvider<BrokerTransportCapabilities> transportCapabilitiesProvider,
-            MarketDataProvider marketDataProvider
+            MarketDataProvider marketDataProvider,
+            AlertManager alertManager
     ) {
         this.brokerConnection = brokerConnection;
         this.tokenSource = tokenSource;
         this.transportCapabilities = transportCapabilitiesProvider.getIfUnique();
         this.marketDataProvider = marketDataProvider;
         this.clock = Clock.systemUTC();
+        this.alertManager = alertManager;
     }
 
     @Override
@@ -47,6 +50,10 @@ public class UpstoxHealthIndicator implements HealthIndicator {
         boolean restOk = probeRestMarketData();
         boolean analyticsOnly = transportCapabilities != null && transportCapabilities.analyticsOnly();
         boolean healthy = analyticsOnly ? (tokenValid && restOk) : wsConnected;
+
+        if (!healthy && alertManager != null) {
+            alertManager.critical("broker-upstox", "Upstox unhealthy: ws=" + wsConnected + " token=" + tokenValid + " rest=" + restOk);
+        }
 
         Health.Builder builder = healthy ? Health.up() : Health.down();
         builder

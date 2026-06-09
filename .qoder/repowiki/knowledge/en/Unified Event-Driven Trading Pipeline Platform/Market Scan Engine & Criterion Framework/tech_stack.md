@@ -1,0 +1,1 @@
+Java records for immutable DTOs (`ScanContext`, `ScanProfile`, `ScanAsset`); SLF4J for logging; JUnit 5 for tests.

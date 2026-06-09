@@ -1,0 +1,1 @@
+Provides a pluggable engine for calculating technical indicators and transforming candle data using a Service Provider Interface.

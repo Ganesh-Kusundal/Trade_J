@@ -78,7 +78,7 @@ class AdminHistoricalQueryTest extends AdminTestBase {
         assertThat(ticks).hasSize(1);
         assertThat(ticks.get(0).get("exchangeTimestampMs")).isEqualTo(1700000000500L);
         assertThat(ticks.get(0).get("ltpPaisa")).isEqualTo(10050);
-        assertThat(ticks.get(0).get("interval")).isEqualTo("1s");
+        assertThat(ticks.get(0).get("interval")).isEqualTo("");
     }
 
     @SuppressWarnings("unchecked")

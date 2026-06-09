@@ -1,0 +1,4 @@
+- **Plugin-Based Extensibility**: Strategies are implemented as `GraphStrategyPlugin` or legacy `StrategyPlugin` instances, loaded via `ServiceLoader` and executed in isolated virtual-thread sandboxes (`GraphStrategySandbox`) to prevent cross-strategy interference.
+- **Pipeline Integration**: Strategy execution, portfolio management, and candle aggregation are integrated into the trading event graph via specialized nodes (`StrategyNode`, `PortfolioNode`, `CandleNode`) that wrap core engines.
+- **Portfolio Risk Enforcement**: A dedicated `PortfolioEngine` (migrating to DDD structure) acts as a central gatekeeper, enforcing capital reservation and net exposure limits across all strategies before signals are emitted.
+- **ML & Data Aggregation**: Machine learning inference (`MLStrategyPlugin`) and market data resampling (`CandleAggregationService`) are treated as first-class strategy inputs, routed through the same sandboxed execution model.

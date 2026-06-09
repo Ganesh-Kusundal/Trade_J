@@ -86,18 +86,16 @@ class DisruptorSignalToExecutionComponentTest {
 
         var bridge = new com.tradej.disruptor.testsupport.TestPipelineGraphBridge(riskHandler, executionHandler);
 
-        eventBus = new DisruptorEventBus(
-                riskHandler,
-                candleService,
-                strategyEngine,
-                null,
-                executionHandler,
-                portfolioEngine,
-                com.tradej.disruptor.config.StageTimings.NO_OP,
-                null,
-                DeadLetterQueue.noop(),
-                bridge
-        );
+        eventBus = new com.tradej.disruptor.config.DisruptorPipelineBuilder()
+                .positionRiskHandler(riskHandler)
+                .candleAggregationService(candleService)
+                .strategyEngine(strategyEngine)
+                .executionHandler(executionHandler)
+                .portfolioEngine(portfolioEngine)
+                .stageTimings(com.tradej.disruptor.config.StageTimings.NO_OP)
+                .deadLetterQueue(DeadLetterQueue.noop())
+                .pipelineRuntimeBridge(bridge)
+                .buildBus();
 
         List<DomainEvent> captured = new ArrayList<>();
         CountDownLatch acceptedLatch = new CountDownLatch(1);

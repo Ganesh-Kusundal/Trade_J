@@ -130,6 +130,7 @@ public final class DhanProtocolConstants {
     public static final int FEED_RESPONSE_MARKET_STATUS = 7;
     public static final int FEED_RESPONSE_FULL = 8;
     public static final int FEED_RESPONSE_DISCONNECT = 50;
+    public static final int FEED_RESPONSE_HEARTBEAT = 100;
 
     public static final int ORDER_UPDATE_MSG_CODE = 42;
     public static final int FEED_MAX_INSTRUMENTS_PER_SUBSCRIPTION = 100;

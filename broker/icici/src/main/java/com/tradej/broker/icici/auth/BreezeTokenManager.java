@@ -3,13 +3,19 @@ package com.tradej.broker.icici.auth;
 import com.tradej.broker.icici.config.BreezeConnectionSettings;
 import com.tradej.broker.icici.config.IciciAuthMode;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantLock;
 
 public final class BreezeTokenManager implements BreezeTokenProvider {
+    private static final Logger log = LoggerFactory.getLogger(BreezeTokenManager.class);
+    private static final long SESSION_ACQUISITION_COOLDOWN_MS = 30_000L;
     private final BreezeConnectionSettings settings;
     private final BreezeSessionExchange sessionExchange;
     private final BreezeTotpGenerator totpGenerator;
@@ -17,6 +23,8 @@ public final class BreezeTokenManager implements BreezeTokenProvider {
     private final BreezeTokenStateStore stateStore;
     private final Clock clock;
     private final ReentrantLock refreshLock = new ReentrantLock();
+    private final AtomicLong sessionGeneration = new AtomicLong(0);
+    private final AtomicLong lastAcquisitionAttemptMs = new AtomicLong(0L);
 
     private volatile BreezeSession currentSession;
 
@@ -63,6 +71,7 @@ public final class BreezeTokenManager implements BreezeTokenProvider {
                         now,
                         BreezeSessionExchange.nextMidnightEpochMs(now)
                 );
+                sessionGeneration.incrementAndGet();
             }
             return;
         }
@@ -76,6 +85,7 @@ public final class BreezeTokenManager implements BreezeTokenProvider {
                 return;
             }
             currentSession = resolveSession(lockedNow);
+            sessionGeneration.incrementAndGet();
             stateStore.save(currentSession);
         } finally {
             refreshLock.unlock();
@@ -101,7 +111,53 @@ public final class BreezeTokenManager implements BreezeTokenProvider {
         return settings.secretKey();
     }
 
+    @Override
+    public long sessionGenerationId() {
+        return sessionGeneration.get();
+    }
+
+    @Override
+    public void invalidate() {
+        refreshLock.lock();
+        try {
+            currentSession = null;
+            stateStore.save(null);
+            log.info("ICICI session invalidated — next ensureValid() will generate a fresh session");
+        } finally {
+            refreshLock.unlock();
+        }
+    }
+
+    @Override
+    public boolean invalidate(long failedGenerationId) {
+        if (!sessionGeneration.compareAndSet(failedGenerationId, failedGenerationId + 1)) {
+            log.debug("ICICI invalidate({}) skipped — another thread already regenerated (current gen={})",
+                    failedGenerationId, sessionGeneration.get());
+            return false;
+        }
+        refreshLock.lock();
+        try {
+            if (sessionGeneration.get() != failedGenerationId + 1) {
+                return false;
+            }
+            currentSession = null;
+            stateStore.save(null);
+            log.info("ICICI session invalidated via CAS (gen={}) — next ensureValid() will generate a fresh session",
+                    failedGenerationId);
+        } finally {
+            refreshLock.unlock();
+        }
+        return true;
+    }
+
     private BreezeSession resolveSession(long now) {
+        long lastAttempt = lastAcquisitionAttemptMs.get();
+        if (lastAttempt > 0 && now - lastAttempt < SESSION_ACQUISITION_COOLDOWN_MS) {
+            long retryInSec = (SESSION_ACQUISITION_COOLDOWN_MS - (now - lastAttempt)) / 1000;
+            throw new IllegalStateException(
+                    "ICICI session acquisition cooldown active; retry after " + retryInSec + "s");
+        }
+        lastAcquisitionAttemptMs.set(now);
         String sessionInput = resolveSessionInput();
         BreezeSession session = sessionExchange.exchange(settings.appKey(), sessionInput);
         if (session.expiresAtEpochMs() <= now) {

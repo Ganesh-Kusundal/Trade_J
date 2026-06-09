@@ -8,7 +8,6 @@ import com.tradej.scanner.model.ScanAsset;
 import com.tradej.scanner.model.ScanContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Service;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -21,7 +20,6 @@ import java.util.stream.Collectors;
  * Service to backtest scanner configurations by rolling through historical candle data
  * and evaluating custom criteria pipelines.
  */
-@Service
 public class ScannerLabService {
     private static final Logger log = LoggerFactory.getLogger(ScannerLabService.class);
 

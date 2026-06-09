@@ -13,6 +13,7 @@ import java.util.concurrent.atomic.AtomicReference;
 public final class SpanFactory {
 
  private static final AtomicReference<Supplier> SUPPLIER = new AtomicReference<>(noop());
+ private static final AtomicReference<NamedSupplier> NAMED_SUPPLIER = new AtomicReference<>(null);
 
  public static Supplier supplier() {
   return SUPPLIER.get();
@@ -20,6 +21,28 @@ public final class SpanFactory {
 
  public static void register(Supplier supplier) {
   SUPPLIER.compareAndSet(noop(), supplier);
+ }
+
+ /**
+  * Register a named span supplier that creates spans with a specific operation name.
+  * Used for tracing broker calls, event processing, and other named operations.
+  */
+ public static void registerNamed(NamedSupplier supplier) {
+  NAMED_SUPPLIER.set(supplier);
+ }
+
+ /**
+  * Start a named span. Falls back to the default supplier if no named supplier is registered.
+  *
+  * @param name the operation name (e.g. "broker.quote", "event.publish")
+  * @return a Span that should be closed when the operation completes
+  */
+ public static Span startSpan(String name) {
+  NamedSupplier ns = NAMED_SUPPLIER.get();
+  if (ns != null) {
+   return ns.start(name);
+  }
+  return SUPPLIER.get().start();
  }
 
  private static Supplier noop() {
@@ -32,6 +55,14 @@ public final class SpanFactory {
  public interface Supplier {
 
   Span start();
+ }
+
+ /**
+  * Named span supplier for creating spans with operation names.
+  */
+ @FunctionalInterface
+ public interface NamedSupplier {
+  Span start(String name);
  }
 
  public interface Span extends AutoCloseable {

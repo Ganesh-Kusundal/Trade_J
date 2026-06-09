@@ -1,0 +1,1 @@
+Executes trading strategies in isolated sandboxes and aggregates market ticks into multi-interval candles for real-time and replay analysis.

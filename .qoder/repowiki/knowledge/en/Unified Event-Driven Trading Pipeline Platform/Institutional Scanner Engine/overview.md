@@ -1,0 +1,1 @@
+Scans equities for institutional-grade trading signals using multi-factor scoring, sector momentum analysis, and candidate ranking with time-based cutoff selection.

@@ -1,0 +1,4 @@
+- All scan criterion implementations return a string-literal type identifier from `type()` that doubles as the reason prefix (e.g., "volume-spike", "pcr-range").
+- Criterion `matches()` guards always check `context.hasValidQuote()` before accessing quote fields, returning false early when data is absent.
+- Criterion `score()` returns a numeric value even when `matches()` is false, enabling ranking across partial matches rather than binary filtering alone.
+- Configuration-driven criterion instantiation uses `ScanCriterionFactory.fromConfig(Map)` with a switch on the `type` field, supporting nested `group-and` compositions recursively.

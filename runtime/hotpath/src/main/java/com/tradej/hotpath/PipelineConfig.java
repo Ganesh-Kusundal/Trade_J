@@ -7,6 +7,7 @@ import com.tradej.core.domain.port.FeatureStore;
 import com.tradej.disruptor.DisruptorBusMetrics;
 import com.tradej.disruptor.DisruptorEventBus;
 import com.tradej.disruptor.ShardedDisruptorEventBus;
+import com.tradej.disruptor.config.DisruptorPipelineBuilder;
 import com.tradej.disruptor.config.StageTimings;
 import com.tradej.execution.risk.PositionRiskHandler;
 import com.tradej.execution.service.ExecutionHandler;
@@ -196,34 +197,23 @@ public final class PipelineConfig {
         Objects.requireNonNull(strategyEngine, "strategyEngine must not be null");
         Objects.requireNonNull(executionHandler, "executionHandler must not be null");
 
+        DisruptorPipelineBuilder builder = new DisruptorPipelineBuilder()
+                .positionRiskHandler(positionRiskHandler)
+                .candleAggregationService(candleAggregationService)
+                .strategyEngine(strategyEngine)
+                .graphStrategySandbox(graphStrategySandbox)
+                .executionHandler(executionHandler)
+                .portfolioEngine(portfolioEngine)
+                .stageTimings(stageTimings != null ? stageTimings : StageTimings.NO_OP)
+                .hotPathFeatureStore(hotPathFeatureStore)
+                .deadLetterQueue(deadLetterQueue != null ? deadLetterQueue : DeadLetterQueue.noop())
+                .pipelineRuntimeBridge(pipelineRuntimeBridge);
+
         EventBus eventBus;
         if (shardCount > 1) {
-            eventBus = new ShardedDisruptorEventBus(
-                    shardCount,
-                    positionRiskHandler,
-                    candleAggregationService,
-                    strategyEngine,
-                    graphStrategySandbox,
-                    executionHandler,
-                    portfolioEngine,
-                    stageTimings,
-                    hotPathFeatureStore,
-                    deadLetterQueue,
-                    pipelineRuntimeBridge
-            );
+            eventBus = new ShardedDisruptorEventBus(shardCount, builder.build());
         } else {
-            eventBus = new DisruptorEventBus(
-                    positionRiskHandler,
-                    candleAggregationService,
-                    strategyEngine,
-                    graphStrategySandbox,
-                    executionHandler,
-                    portfolioEngine,
-                    stageTimings,
-                    hotPathFeatureStore,
-                    deadLetterQueue,
-                    pipelineRuntimeBridge
-            );
+            eventBus = builder.buildBus();
         }
 
         DisruptorBusMetrics busMetrics = (DisruptorBusMetrics) eventBus;

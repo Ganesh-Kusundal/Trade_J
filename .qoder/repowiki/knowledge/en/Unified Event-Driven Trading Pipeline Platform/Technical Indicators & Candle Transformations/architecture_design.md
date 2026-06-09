@@ -1,0 +1,5 @@
+- The module uses a SPI-based architecture where `IndicatorProvider` and `TransformationProvider` interfaces define contracts for pluggable components.
+- `IndicatorRegistry` and `TransformationRegistry` use `java.util.ServiceLoader` to discover implementations registered in `META-INF/services`.
+- Concrete indicator logic (e.g., `RSI`, `EMA`) is encapsulated in stateless or stateful classes, while `*Provider` classes act as adapters implementing the SPI.
+- `IndicatorEngine` serves as a high-level facade that aggregates specific complex indicators (like `HalfTrend` and `CVD`) into a single `EnrichedChart` record.
+- Dependencies flow from the core domain (`com.tradej.core.domain.model.Candle`) into the indicator implementations.

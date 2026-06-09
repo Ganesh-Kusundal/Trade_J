@@ -1,1 +1,0 @@
-Computes multiple technical indicators from candle data and aggregates results into a unified enriched chart structure.

@@ -1,0 +1,1 @@
+Centralizes architectural specifications, API contracts, broker certification scripts, and operational configuration for the Trade-J algorithmic trading platform.

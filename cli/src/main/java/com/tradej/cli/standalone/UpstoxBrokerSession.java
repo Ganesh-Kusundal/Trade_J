@@ -3,7 +3,7 @@ package com.tradej.cli.standalone;
 import com.tradej.broker.api.IBrokerConnection;
 import com.tradej.broker.dhan.config.DhanConfigPaths;
 import com.tradej.broker.upstox.config.UpstoxConnectionSettings;
-import com.tradej.composition.BrokerComposition;
+import com.tradej.composition.FullComposition;
 import com.tradej.composition.config.BrokerProfile;
 import com.tradej.cli.config.CliConfig;
 
@@ -15,7 +15,7 @@ public final class UpstoxBrokerSession implements BrokerSession {
 
     private final CliConfig.Profile profile;
     private final UpstoxConnectionSettings settings;
-    private BrokerComposition composition;
+    private FullComposition composition;
     private boolean catalogLoaded;
     private Path lastCatalogPath;
 
@@ -39,7 +39,7 @@ public final class UpstoxBrokerSession implements BrokerSession {
     }
 
     @Override
-    public IBrokerConnection connection() {
+    public FullComposition fullComposition() {
         if (composition == null) {
             BrokerProfile.UpstoxConfig upstoxConfig = new BrokerProfile.UpstoxConfig(
                     settings.clientId(),
@@ -57,9 +57,9 @@ public final class UpstoxBrokerSession implements BrokerSession {
             );
             BrokerProfile brokerProfile = new BrokerProfile(
                     BrokerProfile.BrokerType.UPSTOX, null, upstoxConfig, null);
-            composition = BrokerComposition.create(brokerProfile);
+            composition = FullComposition.brokerOnly(brokerProfile);
         }
-        return composition.brokerConnection();
+        return composition;
     }
 
     @Override

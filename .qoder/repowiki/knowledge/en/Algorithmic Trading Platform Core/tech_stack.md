@@ -1,1 +1,1 @@
-Java 21+ Virtual Threads (used in `GraphStrategySandbox` for isolated plugin execution), Gradle Multi-project Build (managing 7+ sub-modules with shared `:core` dependency)
+Java 21, Spring Boot 3.4, LMAX Disruptor, DuckDB, Chronicle Queue, Gradle Multi-project

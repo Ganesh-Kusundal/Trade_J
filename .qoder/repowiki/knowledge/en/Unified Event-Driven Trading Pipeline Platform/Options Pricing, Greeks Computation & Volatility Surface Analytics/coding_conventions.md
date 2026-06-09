@@ -1,0 +1,4 @@
+- All calculator classes are final utility classes with private constructors and exclusively static methods, enforcing stateless pure-function semantics.
+- Prices and strikes are internally normalized from paisa (integer cents) to rupees (double) by dividing by 100.0 at module boundaries, maintaining integer precision in domain models.
+- Guard clauses return sentinel values (OptionGreeks.UNKNOWN, Double.NaN, or null) for invalid inputs such as non-positive time-to-expiry, zero/negative volatility, or missing quotes, avoiding exceptions in hot-path calculations.
+- Caffeine caches are configured with explicit maximumSize and expireAfterWrite(30, TimeUnit.SECONDS) defaults, using record-type keys (GreeksKey, AggregateKey) for composite lookups.

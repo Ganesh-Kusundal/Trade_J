@@ -1,0 +1,5 @@
+- Entry points: `ReplayController` and session classes (`CandleReplaySession`, `TickReplaySession`) manage interactive playback (play/pause/step/speed) using scheduled executors.
+- Orchestration: `ReplayOrchestrator` coordinates bulk historical replays via `ReplayRunner` and `HistoricalRangeService`, enforcing virtual clock synchronization.
+- State Isolation: `IsolatedReplayStateManager` implements snapshot/restore patterns across portfolio, position, and risk engines to ensure replay isolation (AD-02).
+- Aggregation: `MultiTimeframeContext` performs real-time aggregation of 1m candles into higher timeframes (5m, 15m, Daily) during replay to prevent look-ahead bias.
+- Dependencies: Integrates with `core` (events/clock), `persistence` (historical data), and `pipeline-runtime` (backtest execution).

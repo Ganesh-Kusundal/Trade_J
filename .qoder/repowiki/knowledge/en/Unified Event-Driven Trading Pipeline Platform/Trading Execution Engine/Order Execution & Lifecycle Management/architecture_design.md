@@ -1,0 +1,6 @@
+- **Command layer** (`command/`): Sealed `TradingCommand` hierarchy (PlaceOrder, CancelOrder, ModifyOrder, CancelAllOpenOrders, SetKillSwitch) decouples callers from OMS; `CommandHandler` dispatches commands via pattern matching to `OrderManagementService`.
+- **Execution engine** (`service/ExecutionHandler`): Partitioned multi-threaded executor (default 4 partitions by symbol hash) processes `SignalPendingExecution` and `OrderFilled` events through bounded `ArrayBlockingQueue`s; uses Caffeine cache for idempotency tracking of TradeOpened emissions.
+- **Order state management** (`service/OrderManagementService`): Event-sourced order repository with in-memory `OrderStateMachine` cache; validates lifecycle transitions before broker calls; supports both live broker and simulated execution modes.
+- **Resilience** (`service/TradingCircuitBreaker`): Lock-free CAS-based circuit breaker (CLOSED → OPEN → HALF_OPEN) with configurable failure threshold, open duration, and half-open probe limits.
+- **Pipeline integration** (`node/`): `OmsNode` wraps `ExecutionHandler` as a pipeline node delegating to `context::publish`; `RiskNode` integrates pre-trade risk checks.
+- **Bridge layer** (`bridge/SignalExecutionBridge`): Converts strategy `SignalGenerated` events into executable `SignalPendingExecution` with normalized `OrderRequest`.

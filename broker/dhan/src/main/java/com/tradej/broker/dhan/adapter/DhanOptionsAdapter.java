@@ -105,6 +105,20 @@ public final class DhanOptionsAdapter extends DhanBaseRestAdapter implements Opt
     }
 
     @Override
+    public Map<LocalDate, OptionChainSnapshot> getOptionChainBatch(
+            String underlying, ExchangeSegment exchangeSegment, List<LocalDate> expiries) {
+        if (expiries.size() <= 1) {
+            return Map.of(expiries.getFirst(), getOptionChain(underlying, exchangeSegment, expiries.getFirst()));
+        }
+        // Fetch expiries in parallel for better throughput
+        return expiries.parallelStream()
+                .collect(java.util.stream.Collectors.toMap(
+                        expiry -> expiry,
+                        expiry -> getOptionChain(underlying, exchangeSegment, expiry)
+                ));
+    }
+
+    @Override
     public OptionQuote getGreeks(InstrumentKey instrumentKey) {
         DhanInstrumentDefinition contract = resolveDef(instrumentKey);
         if (!contract.isOption() || contract.expiry() == null || contract.strikePricePaisa() == null || contract.underlying().isBlank()) {

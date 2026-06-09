@@ -1,0 +1,1 @@
+Orchestrates real-time event processing and historical data persistence for a high-frequency trading platform, bridging low-latency runtime pipelines with analytical storage.

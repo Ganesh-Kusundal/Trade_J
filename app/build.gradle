@@ -5,11 +5,13 @@ plugins {
 
 dependencies {
     implementation project(':core')
+    implementation project(':pipeline-core')
     implementation project(':broker-api')
     implementation project(':broker-core')
     implementation project(':broker-dhan')
     implementation project(':broker-upstox')
     implementation project(':broker-icici')
+    implementation project(':broker-gateway')
     implementation project(':trading-strategy')
     implementation project(':trading-execution')
     implementation project(':runtime-disruptor')
@@ -39,6 +41,7 @@ dependencies {
     implementation 'net.logstash.logback:logstash-logback-encoder:8.0'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation testFixtures(project(':core'))
     testImplementation testFixtures(project(':runtime-disruptor'))
     testImplementation project(':broker-gateway')
 }

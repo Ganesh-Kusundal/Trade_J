@@ -1,0 +1,3 @@
+- Two-phase identity registration: `register()` accepts a nullable brokerOrderId for pre-acknowledgement mapping, with `acknowledge()` completing the broker linkage — verified in both production code and unit tests.
+- Defensive duplicate detection: `putIfAbsent` guards all map insertions with warning logs when a conflicting mapping already exists, preventing silent overwrites of identity associations.
+- O(1) cleanup via reverse maps: `remove()` uses `internalToBroker` and `internalToSignal` to locate and delete forward-map entries in constant time, avoiding full-map scans.

@@ -1,0 +1,3 @@
+- Repositories wrap checked `SQLException`s from the DuckDB engine into unchecked `IllegalStateException`s to align with the core domain's port interface contracts.
+- Time-range queries utilize `HivePartitionResolver` to generate specific Parquet file paths, enabling partition pruning and reducing I/O for large historical datasets.
+- Ad-hoc SQL execution is strictly guarded by `AnalyticsSqlGuard`, which validates that queries are read-only (SELECT/WITH) and automatically appends a `LIMIT` clause to prevent resource exhaustion.

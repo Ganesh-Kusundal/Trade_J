@@ -1,0 +1,1 @@
+Manages per-strategy capital reservation and per-symbol net exposure tracking across all trading strategies, enforcing portfolio-level risk limits.

@@ -1,0 +1,3 @@
+- All data carriers are implemented as Java records to ensure immutability and concise syntax.
+- Financial calculations strictly use `BigDecimal` with explicit `MathContext` and `RoundingMode.HALF_UP` to avoid floating-point errors.
+- Analytics interfaces return specific report records (`PerformanceReport`, `DrawdownReport`) rather than generic maps or primitives.

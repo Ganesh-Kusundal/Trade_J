@@ -1,0 +1,2 @@
+- Vendor-specific modules implement the `IBrokerConnection` SPI defined in `broker/api` to ensure uniform capability exposure.
+- All broker plugins register themselves via `META-INF/services/com.tradej.brokergateway.spi.BrokerProvider` for automatic discovery by the gateway.

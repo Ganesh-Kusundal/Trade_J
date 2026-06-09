@@ -1,0 +1,1 @@
+LMAX Disruptor for lock-free concurrent ring buffer; Java `ThreadLocal` for re-entrancy guards; `ScheduledExecutorService` for deduplication cache pruning.

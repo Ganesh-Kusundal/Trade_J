@@ -1,0 +1,16 @@
+schema_version: 1
+module_path: backend_trading/trading_execution/core_execution
+title: Order Execution & Lifecycle Management
+scope:
+    - trading/execution/src/main/java/com/tradej/execution/service/
+    - trading/execution/src/main/java/com/tradej/execution/command/
+    - trading/execution/src/main/java/com/tradej/execution/node/
+    - trading/execution/src/main/java/com/tradej/execution/bridge/
+    - trading/execution/src/test/java/com/tradej/execution/service/
+    - trading/execution/src/test/java/com/tradej/execution/command/
+source_files: []
+depends_on: []
+related_to:
+    - path: backend_trading/trading_execution/execution_support
+    - path: backend_trading/trading_execution/order_identity
+    - path: backend_trading/trading_execution/risk_management

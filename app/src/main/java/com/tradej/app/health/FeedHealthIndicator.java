@@ -14,11 +14,13 @@ import java.util.concurrent.ConcurrentHashMap;
 public class FeedHealthIndicator implements HealthIndicator {
 
     private final EventBus eventBus;
+    private final AlertManager alertManager;
     private final ConcurrentHashMap<String, String> brokerStatus = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Long> lastEventMs = new ConcurrentHashMap<>();
 
-    public FeedHealthIndicator(EventBus eventBus) {
+    public FeedHealthIndicator(EventBus eventBus, AlertManager alertManager) {
         this.eventBus = eventBus;
+        this.alertManager = alertManager;
     }
 
     @PostConstruct
@@ -38,6 +40,11 @@ public class FeedHealthIndicator implements HealthIndicator {
         boolean allConnected = !brokerStatus.isEmpty() && brokerStatus.values().stream()
                 .allMatch(s -> "CONNECTED".equals(s) || "RECONNECTED".equals(s));
         Health.Builder builder = anyError ? Health.down() : (allConnected || brokerStatus.isEmpty() ? Health.up() : Health.down());
+
+        if (anyError) {
+            alertManager.warning("feed", "Feed error detected: " + brokerStatus);
+        }
+
         return builder
                 .withDetail("brokers", Map.copyOf(brokerStatus))
                 .withDetail("lastEventMs", Map.copyOf(lastEventMs))

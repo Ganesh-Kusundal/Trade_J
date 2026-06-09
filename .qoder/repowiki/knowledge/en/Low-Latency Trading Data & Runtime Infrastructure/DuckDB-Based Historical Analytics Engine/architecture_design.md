@@ -1,0 +1,4 @@
+- **Core Engine**: `DuckDbAnalyticsEngine` manages an in-memory DuckDB connection, bootstrapping SQL views over Hive-partitioned Parquet files for equity bars (`equity_bars_1m`) and attaching external warehouses for options (`rolling_option_bars`) and runtime data.
+- **Repository Layer**: `FederatedHistoricalBarRepository` and `DuckDbRollingOptionHistoricalRepository` implement core domain ports, translating high-level requests into optimized DuckDB queries with partition pruning.
+- **Service Facade**: `DefaultHistoricalAnalyticsService` orchestrates repositories, the data catalog, and the engine, exposing a unified API for candle history, universe metadata, and guarded ad-hoc SQL execution.
+- **Security & Guardrails**: `AnalyticsSqlGuard` enforces read-only access for ad-hoc queries by validating SQL syntax and injecting row limits, preventing destructive operations against the analytical warehouse.

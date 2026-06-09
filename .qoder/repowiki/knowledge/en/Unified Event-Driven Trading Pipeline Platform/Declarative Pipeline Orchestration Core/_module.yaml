@@ -1,0 +1,13 @@
+schema_version: 1
+module_path: backend_trading/pipeline_core
+title: Declarative Pipeline Orchestration Core
+scope:
+    - pipeline/core/
+source_files: []
+depends_on: []
+related_to:
+    - path: backend_trading/pipeline_runtime_service
+    - path: backend_trading/pipeline_platform
+    - path: backend_trading/pipeline_analytics
+    - path: backend_data_infra/runtime_disruptor
+    - path: backend_trading/trading_strategy/graph_nodes

@@ -1,0 +1,3 @@
+- Each check group method returns `List<CertificationCheck>` and builds results via `runCheck(name, lambda)` or `capabilityCheck(name, broker, Class)` helpers, keeping individual check logic isolated and composable.
+- All domain result types are Java records with static factory methods (`pass()`, `fail()`, `skip()` on `CertificationCheck`; `fromCheck()` on `CertificationArtifact`) and defensive copying of collections in constructors.
+- Latency measurement is uniform across all checks: capture `Instant.now()` before execution, compute `Duration.between(start, Instant.now())` after, and expose `latencyMs()` helper on both `CertificationCheck` and `CertificationReport`.

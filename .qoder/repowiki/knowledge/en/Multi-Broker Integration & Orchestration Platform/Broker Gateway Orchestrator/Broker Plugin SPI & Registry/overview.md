@@ -1,0 +1,1 @@
+Defines a Java ServiceLoader-based plugin architecture for discovering, registering, and managing multi-broker trading API providers with capability metadata and health checks.

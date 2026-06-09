@@ -1,0 +1,3 @@
+- Nodes implement a template method pattern in `BasePipelineNode` where `onEvent` handles state checks, nanosecond-precision timing, and error counting, delegating business logic to the abstract `processEvent` method.
+- Exception swallowing is applied at runtime boundaries (`GraphRuntime`, `GraphCompiler` context wrappers) to ensure that individual node failures do not halt the entire pipeline execution chain.
+- Partitioned nodes use a factory function `Function<Integer, PipelineNode>` combined with a `SymbolShardRouter` to create and route events to isolated shard instances, aggregating metrics across all shards.

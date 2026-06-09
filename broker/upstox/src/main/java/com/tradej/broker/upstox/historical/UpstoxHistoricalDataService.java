@@ -85,11 +85,14 @@ public final class UpstoxHistoricalDataService {
         String normalized = switch (interval.trim().toLowerCase()) {
             case "1d", "d", "day" -> "day";
             case "1m", "1minute" -> "1minute";
-            case "5m", "5minute" -> "5minute";
-            case "15m", "15minute" -> "15minute";
-            case "30m", "30minute", "1h", "60m" -> "30minute";
+            case "30m", "30minute" -> "30minute";
             case "week" -> "week";
             case "month" -> "month";
+            case "5m", "5minute", "15m", "15minute", "1h", "60m", "60minute", "1hour" ->
+                    throw new IllegalArgumentException(
+                            "Upstox V3 API does not support '" + interval + "' interval. "
+                                    + "Supported intraday intervals: 1minute, 30minute. "
+                                    + "Use Dhan or ICICI for 5m/15m/60m candles.");
             default -> interval.trim().toLowerCase();
         };
         validateUpstoxInterval(normalized);

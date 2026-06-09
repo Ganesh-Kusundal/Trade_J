@@ -59,9 +59,12 @@ public final class UpstoxWebSocketMultiplexer implements WebSocketMultiplexer {
     private final AtomicBoolean manuallyDisconnected = new AtomicBoolean(false);
 
     private final ConcurrentHashMap<MarketSubscriptionRequest, FeedMode> subscriptions = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, MarketSubscriptionRequest> symbolToRequest = new ConcurrentHashMap<>();
     private final CopyOnWriteArrayList<MarketDataListener> marketDataListeners = new CopyOnWriteArrayList<>();
     private final CopyOnWriteArrayList<OrderUpdateListener> orderUpdateListeners = new CopyOnWriteArrayList<>();
     private final ConcurrentHashMap<String, OrderStatus> latestOrderStatuses = new ConcurrentHashMap<>();
+    private final com.tradej.broker.core.dedup.MarketTickDedupFilter tickDedupFilter =
+            new com.tradej.broker.core.dedup.MarketTickDedupFilter();
 
     private final ScheduledExecutorService healthExecutor = Executors.newSingleThreadScheduledExecutor(
             r -> new Thread(r, "upstox-feed-health"));
@@ -112,7 +115,13 @@ public final class UpstoxWebSocketMultiplexer implements WebSocketMultiplexer {
         this.supervisor = new DefaultWebSocketSupervisor(STALE_THRESHOLD_MS);
         this.reconnectManager = new ReconnectManager(
                 MAX_RECONNECT_ATTEMPTS, RECONNECT_BASE_DELAY_MS, RECONNECT_MAX_DELAY_MS);
-        this.httpClient = HttpClient.newHttpClient();
+        this.httpClient = HttpClient.newBuilder()
+                .executor(Executors.newSingleThreadExecutor(r -> {
+                    Thread t = new Thread(r, "upstox-http");
+                    t.setDaemon(true);
+                    return t;
+                }))
+                .build();
     }
 
     @Override
@@ -128,6 +137,11 @@ public final class UpstoxWebSocketMultiplexer implements WebSocketMultiplexer {
             connected = true;
             connectionState = ConnectionState.CONNECTED;
             supervisor.onConnected();
+            var healthEvent = new com.tradej.core.domain.event.StreamHealthChanged(
+                    metadataFactory.root(), "upstox", "CONNECTED", 0);
+            for (var listener : marketDataListeners) {
+                listener.onEvent(healthEvent);
+            }
 
             // 2. Connect order/portfolio stream WebSocket (sequential, best-effort)
             connectOrderWebSocket();
@@ -172,6 +186,14 @@ public final class UpstoxWebSocketMultiplexer implements WebSocketMultiplexer {
             orderWs = null;
         }
         healthExecutor.shutdown();
+        try {
+            if (!healthExecutor.awaitTermination(5, TimeUnit.SECONDS)) {
+                healthExecutor.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            healthExecutor.shutdownNow();
+            Thread.currentThread().interrupt();
+        }
         supervisor.disconnect();
         reconnectManager.reset();
     }
@@ -193,12 +215,16 @@ public final class UpstoxWebSocketMultiplexer implements WebSocketMultiplexer {
     public void subscribe(Collection<MarketSubscriptionRequest> instruments, FeedMode feedMode) {
         for (var req : instruments) {
             subscriptions.put(req, feedMode);
+            symbolToRequest.put(req.symbol(), req);
         }
     }
 
     @Override
     public void unsubscribe(Collection<MarketSubscriptionRequest> instruments) {
-        instruments.forEach(subscriptions::remove);
+        for (var req : instruments) {
+            subscriptions.remove(req);
+            symbolToRequest.remove(req.symbol());
+        }
     }
 
     @Override
@@ -227,21 +253,24 @@ public final class UpstoxWebSocketMultiplexer implements WebSocketMultiplexer {
             MarketSubscriptionRequest key = findKey(frame.instrumentToken());
             FeedMode feedMode = key != null ? subscriptions.getOrDefault(key, FeedMode.TICKER) : FeedMode.TICKER;
             MarketTickEvent event = streamNormalizer.toMarketTick(frame, feedMode, sequenceId);
+            // R7: Drop duplicate ticks from broker retransmission
+            if (key != null && tickDedupFilter.isDuplicate(key.symbol(), key.exchangeSegment().name(), sequenceId)) {
+                com.tradej.broker.core.metrics.BrokerFeedMetrics.INSTANCE.recordTickDropped("upstox", "dedup");
+                return;
+            }
+            com.tradej.broker.core.metrics.BrokerFeedMetrics.INSTANCE.recordTickReceived("upstox");
             for (var listener : marketDataListeners) {
                 listener.onEvent(event);
             }
         } catch (UpstoxBinaryParser.UpstoxParserException e) {
-            // malformed frame — skip
+            com.tradej.broker.core.metrics.BrokerFeedMetrics.INSTANCE.recordParseError("upstox");
         }
     }
 
     private MarketSubscriptionRequest findKey(long instrumentToken) {
         String symbol = instrumentResolver.resolveSymbol(instrumentToken);
         if (symbol == null) return null;
-        return subscriptions.keySet().stream()
-                .filter(k -> k.symbol().equals(symbol))
-                .findFirst()
-                .orElse(null);
+        return symbolToRequest.get(symbol);
     }
 
     private void checkHealth() {
@@ -285,6 +314,11 @@ public final class UpstoxWebSocketMultiplexer implements WebSocketMultiplexer {
                 if (reconnectRegistry != null) {
                     reconnectRegistry.notifyReconnect();
                 }
+                var connectedEvent = new com.tradej.core.domain.event.StreamHealthChanged(
+                        metadataFactory.root(), "upstox", "CONNECTED", 0);
+                for (var listener : marketDataListeners) {
+                    listener.onEvent(connectedEvent);
+                }
                 return true;
             } catch (Exception ex) {
                 connected = false;
@@ -295,6 +329,11 @@ public final class UpstoxWebSocketMultiplexer implements WebSocketMultiplexer {
         if (!restored) {
             connected = false;
             connectionState = ConnectionState.FAILED;
+            var healthEvent = new com.tradej.core.domain.event.StreamHealthChanged(
+                    metadataFactory.root(), "upstox", "CIRCUIT_OPEN", reconnectManager.attempts());
+            for (var listener : marketDataListeners) {
+                listener.onEvent(healthEvent);
+            }
         }
     }
 

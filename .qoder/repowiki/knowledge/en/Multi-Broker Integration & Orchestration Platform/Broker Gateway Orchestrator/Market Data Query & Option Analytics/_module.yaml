@@ -1,0 +1,9 @@
+schema_version: 1
+module_path: backend_broker/broker_gateway/broker_query
+title: Market Data Query & Option Analytics
+scope:
+    - broker-gateway/src/main/java/com/tradej/brokergateway/query/
+source_files: []
+depends_on: []
+related_to:
+    - path: backend_trading/trading_options_analytics

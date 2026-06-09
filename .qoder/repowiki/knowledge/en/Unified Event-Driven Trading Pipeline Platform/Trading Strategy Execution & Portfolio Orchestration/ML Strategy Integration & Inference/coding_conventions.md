@@ -1,0 +1,3 @@
+- Use of the Adapter pattern to integrate external or simulated ML logic into the core strategy event loop via standard plugin interfaces.
+- Configuration via immutable records (e.g., `ThresholdConfig`) to allow external tuning of inference rules without code changes.
+- Defensive programming in inference engines by checking model load status and data availability before executing evaluation logic.

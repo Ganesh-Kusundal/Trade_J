@@ -1,0 +1,3 @@
+- Reconciler classes are final and stateless, accepting all dependencies via constructor injection without holding mutable state.
+- Reconciliation methods emit domain events through a `Consumer<DomainEvent>` callback rather than directly publishing to an EventBus, enabling unit-test isolation.
+- All test classes use JUnit 5 with `@Tag("unit")` annotation for categorization, and mock-based tests use `@ExtendWith(MockitoExtension.class)`.

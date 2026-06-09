@@ -16,13 +16,9 @@ import com.tradej.broker.api.model.BrokerCapabilities;
 import com.tradej.broker.api.model.MarketSubscriptionRequest;
 import com.tradej.broker.core.routing.LoadBalancedBrokerGateway;
 import com.tradej.broker.core.startup.BrokerLifecycleManager;
-import com.tradej.broker.dhan.DhanBrokerConnection;
 import com.tradej.broker.dhan.auth.DhanTokenProvider;
 import com.tradej.broker.dhan.config.DhanApiEnvironment;
-import com.tradej.broker.dhan.config.DhanBrokerStartup;
-import com.tradej.broker.icici.IciciBrokerConnection;
 import com.tradej.broker.icici.auth.BreezeTokenProvider;
-import com.tradej.broker.upstox.http.UpstoxApiException;
 import com.tradej.core.domain.event.BrokerAdapterError;
 import com.tradej.core.domain.event.CandleClosed;
 import com.tradej.core.domain.event.CandleDeveloping;
@@ -37,7 +33,6 @@ import com.tradej.core.domain.event.PositionMismatch;
 import com.tradej.core.domain.event.SignalGenerated;
 import com.tradej.core.domain.event.TradeClosed;
 import com.tradej.core.domain.event.TradeOpened;
-import com.tradej.core.domain.model.CandleHistoryRequest;
 import com.tradej.core.domain.model.InstrumentKey;
 import com.tradej.core.domain.port.EventBus;
 import com.tradej.execution.position.EventSourcedNetPositionProvider;
@@ -55,7 +50,6 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 
 import java.nio.file.Path;
-import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -68,6 +62,7 @@ public final class BrokerStartupOrchestrator {
     private final Environment environment;
     private final TradingProperties tradingProperties;
     private final BrokerLifecycleManager lifecycleManager;
+    private final List<BrokerStartupStrategy> strategies;
 
     public BrokerStartupOrchestrator(
             Environment environment,
@@ -77,40 +72,47 @@ public final class BrokerStartupOrchestrator {
         this.environment = environment;
         this.tradingProperties = tradingProperties;
         this.lifecycleManager = lifecycleManager;
+        this.strategies = List.of(
+                new UpstoxStartupStrategy(),
+                new IciciStartupStrategy(),
+                new GatewayStartupStrategy(),
+                new DhanStartupStrategy()
+        );
     }
 
     public void runStartup(
-            TradingProperties properties,
-            ObjectProvider<ScanProperties> scanPropertiesProvider,
-            IBrokerConnection brokerConnection,
-            BrokerCapabilities brokerCapabilities,
+            StartupDependencies deps,
             ObjectProvider<DhanTokenProvider> dhanTokenProvider,
             ObjectProvider<BreezeTokenProvider> breezeTokenProvider,
-            RuntimeHealthState runtimeHealthState,
-            EventBus eventBus,
-            MarketDataPipeline marketDataPipeline,
-            OrderPipeline orderPipeline,
-            AsyncDuckDbWriter asyncDuckDbWriter,
-            ChronicleAuditLogWriter chronicleAuditLogWriter,
-            AsyncDuckDbEventStore asyncDuckDbEventStore,
-            ReconciliationAlertLogger reconciliationAlertLogger,
-            BrokerErrorTracker brokerErrorTracker,
-            ReadModelStore readModelStore,
-            EventSourcedNetPositionProvider netPositionProvider,
             ObjectProvider<RuntimeSubscriptionManager> subscriptionManagerProvider,
-            ObjectProvider<SubscriptionCoordinator> subscriptionCoordinatorProvider,
-            DagPipelineIngressBridge dagPipelineIngressBridge,
-            PositionStateRebuilder positionStateRebuilder,
-            OrderManagementService orderManagementService,
-            OrderReconciler orderReconciler
+            ObjectProvider<SubscriptionCoordinator> subscriptionCoordinatorProvider
     ) {
-        BrokerTransportProfile profile = BrokerTransportProfile.resolve(environment, tradingProperties);
+        TradingProperties properties = deps.properties();
+        IBrokerConnection brokerConnection = deps.brokerConnection();
+        BrokerCapabilities brokerCapabilities = deps.brokerCapabilities();
+        RuntimeHealthState runtimeHealthState = deps.runtimeHealthState();
+        EventBus eventBus = deps.eventBus();
+        MarketDataPipeline marketDataPipeline = deps.marketDataPipeline();
+        OrderPipeline orderPipeline = deps.orderPipeline();
+        AsyncDuckDbWriter asyncDuckDbWriter = deps.asyncDuckDbWriter();
+        ChronicleAuditLogWriter chronicleAuditLogWriter = deps.chronicleAuditLogWriter();
+        AsyncDuckDbEventStore asyncDuckDbEventStore = deps.asyncDuckDbEventStore();
+        ReconciliationAlertLogger reconciliationAlertLogger = deps.reconciliationAlertLogger();
+        BrokerErrorTracker brokerErrorTracker = deps.brokerErrorTracker();
+        ReadModelStore readModelStore = deps.readModelStore();
+        EventSourcedNetPositionProvider netPositionProvider = deps.netPositionProvider();
+        DagPipelineIngressBridge dagPipelineIngressBridge = deps.dagPipelineIngressBridge();
+        PositionStateRebuilder positionStateRebuilder = deps.positionStateRebuilder();
+        OrderManagementService orderManagementService = deps.orderManagementService();
+        OrderReconciler orderReconciler = deps.orderReconciler();
 
-        loadCatalog(properties, brokerConnection, runtimeHealthState, profile);
-        boolean scanEnabled = scanPropertiesProvider.getIfAvailable() != null
-                && scanPropertiesProvider.getIfAvailable().enabled();
+        BrokerTransportProfile profile = BrokerTransportProfile.resolve(environment, tradingProperties);
+        BrokerStartupStrategy strategy = resolveStrategy(profile);
+
+        loadCatalog(properties, brokerConnection, runtimeHealthState, profile, strategy);
+        boolean scanEnabled = deps.scanProperties() != null && deps.scanProperties().enabled();
         List<MarketSubscriptionRequest> subscriptions = validateSubscriptions(
-                properties, brokerConnection, brokerCapabilities, scanEnabled, profile);
+                properties, brokerConnection, brokerCapabilities, scanEnabled, profile, strategy);
 
         if (!profile.isAnalyticsRest()) {
             dhanTokenProvider.ifAvailable(DhanTokenProvider::ensureValid);
@@ -118,12 +120,9 @@ public final class BrokerStartupOrchestrator {
         }
 
         if (!subscriptions.isEmpty()) {
-            DhanApiEnvironment env = properties.broker() != null
-                    ? properties.broker().environment()
-                    : DhanApiEnvironment.LIVE;
-            verifyBrokerPreflight(brokerConnection, subscriptions, env, profile);
+            verifyBrokerPreflight(brokerConnection, subscriptions, profile, strategy);
         } else if (profile.isAnalyticsRest()) {
-            verifyAnalyticsRestPreflight(brokerConnection, properties);
+            verifyAnalyticsRestPreflight(brokerConnection, properties, strategy);
         }
         runtimeHealthState.markBrokerPreflightPassed();
 
@@ -164,62 +163,22 @@ public final class BrokerStartupOrchestrator {
         }
     }
 
+    private BrokerStartupStrategy resolveStrategy(BrokerTransportProfile profile) {
+        return strategies.stream()
+                .filter(s -> s.matches(profile))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException(
+                        "No startup strategy found for broker transport profile: " + profile));
+    }
+
     private void loadCatalog(
             TradingProperties properties,
             IBrokerConnection brokerConnection,
             RuntimeHealthState runtimeHealthState,
-            BrokerTransportProfile profile
+            BrokerTransportProfile profile,
+            BrokerStartupStrategy strategy
     ) {
-        TradingProperties.InstrumentProperties instruments = properties.instruments();
-        String csvPath = instruments == null ? null : instruments.csvPath();
-        Path loadedPath = null;
-        if (csvPath != null && !csvPath.isBlank()) {
-            loadedPath = Path.of(csvPath);
-            lifecycleManager.loadInstrumentCatalog(brokerConnection, loadedPath);
-        } else if (instruments != null && instruments.autoDownload() && !profile.isUpstox()) {
-            if (!(brokerConnection instanceof DhanBrokerConnection dhanConnection)) {
-                throw new IllegalStateException("Dhan auto-download requires DhanBrokerConnection");
-            }
-            String cacheDirectory = instruments.cacheDirectory();
-            if (cacheDirectory == null || cacheDirectory.isBlank()) {
-                throw new IllegalStateException("Dhan runtime requires `trade.instruments.cache-directory` when auto-download is enabled");
-            }
-            loadedPath = dhanConnection.loadDailyInstrumentCatalog(Path.of(cacheDirectory), false);
-        } else if (profile.gateway()) {
-            String cacheDirectory = instruments != null ? instruments.cacheDirectory() : null;
-            if (cacheDirectory == null || cacheDirectory.isBlank()) {
-                cacheDirectory = "runtime-prod/instruments";
-            }
-            loadedPath = Path.of(cacheDirectory);
-            lifecycleManager.loadInstrumentCatalog(brokerConnection, loadedPath);
-        } else if (profile.isUpstox()) {
-            String cacheDirectory = instruments != null ? instruments.cacheDirectory() : null;
-            if (cacheDirectory == null || cacheDirectory.isBlank()) {
-                cacheDirectory = "runtime-dev/upstox-instruments";
-            }
-            loadedPath = Path.of(cacheDirectory);
-            lifecycleManager.loadInstrumentCatalog(brokerConnection, loadedPath);
-        } else if (profile.isIcici()) {
-            String cacheDirectory = instruments != null ? instruments.cacheDirectory() : null;
-            if (cacheDirectory == null || cacheDirectory.isBlank()) {
-                cacheDirectory = "runtime/icici-instruments";
-            }
-            Path cachePath = Path.of(cacheDirectory);
-            if (instruments != null && instruments.autoDownload()) {
-                brokerConnection.loadInstrumentCatalog(null);
-                loadedPath = cachePath;
-            } else if (java.nio.file.Files.exists(cachePath)) {
-                lifecycleManager.loadInstrumentCatalog(brokerConnection, cachePath);
-                loadedPath = cachePath;
-            } else if (brokerConnection instanceof IciciBrokerConnection) {
-                brokerConnection.loadInstrumentCatalog(null);
-                loadedPath = cachePath;
-            } else {
-                throw new IllegalStateException("ICICI runtime requires instrument cache at " + cachePath + " or auto-download");
-            }
-        } else {
-            throw new IllegalStateException("Runtime requires `trade.instruments.csv-path` or instrument auto-download");
-        }
+        strategy.loadCatalog(properties, brokerConnection, lifecycleManager, profile);
         runtimeHealthState.markCatalogLoaded(brokerConnection.instruments().allInstruments().size());
     }
 
@@ -228,31 +187,26 @@ public final class BrokerStartupOrchestrator {
             IBrokerConnection brokerConnection,
             BrokerCapabilities brokerCapabilities,
             boolean scanEnabled,
-            BrokerTransportProfile profile
+            BrokerTransportProfile profile,
+            BrokerStartupStrategy strategy
     ) {
         List<TradingProperties.SubscriptionProperties> configured = properties.subscriptions();
+        strategy.validateSubscriptions(configured, brokerConnection, brokerCapabilities, scanEnabled, profile);
         if (configured == null || configured.isEmpty()) {
-            if (!scanEnabled && !profile.isUpstox()) {
-                throw new IllegalStateException(
-                        "Runtime requires at least one explicit market subscription, or enable trade.scan");
-            }
             return List.of();
         }
         List<BrokerLifecycleManager.SubscriptionConfig> configs = configured.stream()
                 .map(sub -> new BrokerLifecycleManager.SubscriptionConfig(
                         sub.symbol(), sub.exchangeSegment(), sub.feedMode()))
                 .toList();
-        List<MarketSubscriptionRequest> requests = lifecycleManager.validateSubscriptions(
-                configs, brokerCapabilities, brokerConnection);
-        if (brokerConnection instanceof DhanBrokerConnection) {
-            for (TradingProperties.SubscriptionProperties subscription : configured) {
-                DhanBrokerStartup.validateNoDepth200(subscription.exchangeSegment(), subscription.feedMode());
-            }
-        }
-        return requests;
+        return lifecycleManager.validateSubscriptions(configs, brokerCapabilities, brokerConnection);
     }
 
-    private void verifyAnalyticsRestPreflight(IBrokerConnection brokerConnection, TradingProperties properties) {
+    private void verifyAnalyticsRestPreflight(
+            IBrokerConnection brokerConnection,
+            TradingProperties properties,
+            BrokerStartupStrategy strategy
+    ) {
         List<TradingProperties.SubscriptionProperties> configured = properties.subscriptions();
         InstrumentKey seed;
         if (configured != null && !configured.isEmpty()) {
@@ -261,7 +215,18 @@ public final class BrokerStartupOrchestrator {
         } else {
             seed = new InstrumentKey("SBIN", com.tradej.core.domain.value.ExchangeSegment.NSE_EQ);
         }
-        verifyUpstoxPreflight(brokerConnection, seed);
+        strategy.verifyPreflight(brokerConnection, seed, lifecycleManager, null);
+    }
+
+    private void verifyBrokerPreflight(
+            IBrokerConnection brokerConnection,
+            List<MarketSubscriptionRequest> subscriptions,
+            BrokerTransportProfile profile,
+            BrokerStartupStrategy strategy
+    ) {
+        MarketSubscriptionRequest seed = subscriptions.get(0);
+        InstrumentKey instrumentKey = new InstrumentKey(seed.symbol(), seed.exchangeSegment());
+        strategy.verifyPreflight(brokerConnection, instrumentKey, lifecycleManager, profile);
     }
 
     private void subscribeExplicitly(
@@ -283,85 +248,6 @@ public final class BrokerStartupOrchestrator {
         } else {
             byFeedMode.forEach((feedMode, requests) -> brokerConnection.websocket().subscribe(requests, feedMode));
         }
-    }
-
-    private void verifyBrokerPreflight(
-            IBrokerConnection brokerConnection,
-            List<MarketSubscriptionRequest> subscriptions,
-            DhanApiEnvironment environment,
-            BrokerTransportProfile profile
-    ) {
-        MarketSubscriptionRequest seed = subscriptions.get(0);
-        InstrumentKey instrumentKey = new InstrumentKey(seed.symbol(), seed.exchangeSegment());
-        if (profile.isUpstox()) {
-            verifyUpstoxPreflight(brokerConnection, instrumentKey);
-            return;
-        }
-        if (profile.isIcici()) {
-            verifyIciciPreflight(brokerConnection, instrumentKey);
-            return;
-        }
-        if (environment == DhanApiEnvironment.SANDBOX) {
-            try {
-                brokerConnection.portfolio().getBalance();
-            } catch (RuntimeException ex) {
-                log.warn("Broker preflight balance check skipped in sandbox: {}", ex.getMessage());
-            }
-        } else {
-            lifecycleManager.verifyPreflight(brokerConnection, instrumentKey);
-        }
-    }
-
-    private void verifyIciciPreflight(IBrokerConnection brokerConnection, InstrumentKey instrumentKey) {
-        try {
-            brokerConnection.portfolio().getBalance();
-        } catch (RuntimeException ex) {
-            throw new IllegalStateException("ICICI preflight funds check failed", ex);
-        }
-        lifecycleManager.verifyPreflight(brokerConnection, instrumentKey);
-    }
-
-    private void verifyUpstoxPreflight(IBrokerConnection brokerConnection, InstrumentKey instrumentKey) {
-        try {
-            long ltp = brokerConnection.marketData().getLtpPaisa(instrumentKey);
-            if (ltp <= 0) {
-                throw new IllegalStateException("Upstox preflight LTP must be positive for " + instrumentKey);
-            }
-        } catch (RuntimeException ex) {
-            if (isAuthFailure(ex)) {
-                throw ex;
-            }
-            log.warn("Upstox preflight LTP check failed for {} (expected outside market hours): {}",
-                    instrumentKey, ex.getMessage());
-        }
-        LocalDate latestTradingDate = BrokerLifecycleManager.latestTradingDate();
-        try {
-            var candles = brokerConnection.marketData().getCandles(new CandleHistoryRequest(
-                    instrumentKey, "1d",
-                    latestTradingDate.minusDays(7), latestTradingDate
-            ));
-            if (candles.isEmpty()) {
-                log.warn("Upstox preflight historical request returned zero candles for {} (expected outside market hours)",
-                        instrumentKey);
-            }
-        } catch (RuntimeException ex) {
-            if (isAuthFailure(ex)) {
-                throw ex;
-            }
-            log.warn("Upstox preflight candle check failed for {} (expected outside market hours): {}",
-                    instrumentKey, ex.getMessage());
-        }
-    }
-
-    private static boolean isAuthFailure(RuntimeException ex) {
-        Throwable cause = ex;
-        while (cause != null) {
-            if (cause instanceof UpstoxApiException api && api.isAuthFailure()) {
-                return true;
-            }
-            cause = cause.getCause();
-        }
-        return false;
     }
 
     private void subscribeEventHandlers(

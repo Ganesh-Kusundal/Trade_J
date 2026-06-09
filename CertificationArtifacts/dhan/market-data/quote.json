@@ -1,0 +1,11 @@
+{
+  "broker" : "DHAN",
+  "checkName" : "quote",
+  "category" : "market-data",
+  "status" : "PASS",
+  "evidence" : "ltp=127630 open=127700",
+  "latencyMs" : 1813,
+  "certifiedAt" : "2026-06-08T06:25:30.733696Z",
+  "errorMessage" : null,
+  "pass" : true
+}

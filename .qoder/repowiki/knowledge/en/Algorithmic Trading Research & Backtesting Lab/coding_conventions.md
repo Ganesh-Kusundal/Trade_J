@@ -1,0 +1,3 @@
+- Configuration records (`StrategyConfig`, `ScannerConfig`) include a deterministic `configHash` field generated from sorted parameters to uniquely identify experimental setups.
+- Domain models and data transfer objects are implemented as Java `record` types to enforce immutability and concise data carrier patterns.
+- Backtesting services utilize a 'rolling window' or sequential iteration pattern over `List<Candle>` to simulate time-series progression and stateful strategy execution.

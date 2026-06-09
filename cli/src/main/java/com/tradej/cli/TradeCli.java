@@ -1,7 +1,30 @@
 package com.tradej.cli;
 
 import com.tradej.cli.command.CliAnalyticsCommands;
+import com.tradej.cli.command.CliApiCommand;
 import com.tradej.cli.command.CliBrokerGatewayCommands;
+import com.tradej.cli.command.CliCertifyCommand;
+import com.tradej.cli.command.CliCoverageCommand;
+import com.tradej.cli.command.CliArchitectureCommand;
+import com.tradej.cli.command.CliBrokersCommand;
+import com.tradej.cli.command.CliCapabilitiesCommand;
+import com.tradej.cli.command.CliCommandsCommand;
+import com.tradej.cli.command.CliComputeCommand;
+import com.tradej.cli.command.CliDataSourcesCommand;
+import com.tradej.cli.command.CliDashboardCommand;
+import com.tradej.cli.command.CliDoctorCommand;
+import com.tradej.cli.command.CliDocsCommand;
+import com.tradej.cli.command.CliEventsCommand;
+import com.tradej.cli.command.CliFlowsCommand;
+import com.tradej.cli.command.CliHelpCommand;
+import com.tradej.cli.command.CliIndicatorsCommand;
+import com.tradej.cli.command.CliModulesCommand;
+import com.tradej.cli.command.CliMonitorCommand;
+import com.tradej.cli.command.CliParquetCommands;
+import com.tradej.cli.command.CliPluginsCommand;
+import com.tradej.cli.command.CliReadinessCommand;
+import com.tradej.cli.command.CliRegressionCommand;
+import com.tradej.cli.command.CliReplayConsoleCommand;
 import com.tradej.cli.config.CliConfig;
 import com.tradej.cli.interactive.InteractiveShell;
 import picocli.CommandLine;
@@ -77,7 +100,30 @@ import java.util.concurrent.Callable;
                 TradeCli.BracketCmd.class,
                 TradeCli.GttCmd.class,
                 TradeCli.FuturesCmd.class,
-                TradeCli.HealthCmd.class
+                TradeCli.HealthCmd.class,
+                CliDashboardCommand.class,
+                CliMonitorCommand.class,
+                CliReplayConsoleCommand.class,
+                CliComputeCommand.class,
+                CliDoctorCommand.class,
+                CliCommandsCommand.class,
+                CliBrokersCommand.class,
+                CliIndicatorsCommand.class,
+                CliEventsCommand.class,
+                CliModulesCommand.class,
+                CliPluginsCommand.class,
+                CliDataSourcesCommand.class,
+                CliArchitectureCommand.class,
+                CliFlowsCommand.class,
+                CliCapabilitiesCommand.class,
+                CliParquetCommands.class,
+                CliHelpCommand.class,
+                CliCertifyCommand.class,
+                CliDocsCommand.class,
+                CliCoverageCommand.class,
+                CliReadinessCommand.class,
+                CliRegressionCommand.class,
+                CliApiCommand.class
         }
 )
 public class TradeCli implements Callable<Integer> {
@@ -111,6 +157,14 @@ public class TradeCli implements Callable<Integer> {
         if (context != null) {
             context.close();
         }
+    }
+
+    public boolean json() {
+        return json;
+    }
+
+    public boolean yes() {
+        return yes;
     }
 
     @Override
@@ -537,8 +591,20 @@ public class TradeCli implements Callable<Integer> {
 
     abstract static class HistoricalBase extends NestedCmd {
         @Option(names = "--symbol", required = true) String symbol;
-        @Option(names = "--from", required = true) long from;
-        @Option(names = "--to", required = true) long to;
+        @Option(names = "--from") Long from;
+        @Option(names = "--to") Long to;
+
+        @Override
+        public Integer call() throws Exception {
+            if (from == null || to == null) {
+                long toMs = System.currentTimeMillis();
+                long fromMs = toMs - 90L * 24L * 60L * 60L * 1000L;
+                if (from == null) from = fromMs;
+                if (to == null) to = toMs;
+            }
+            run(historical.root.ops());
+            return 0;
+        }
     }
 
     @Command(name = "candles")

@@ -116,13 +116,15 @@ public final class PnLLedger {
                         ? (fillPrice - avgPricePaisa)
                         : (avgPricePaisa - fillPrice);
                 realizedPnlPaisa += closedQty * pnl;
+                long oldSign = (long) Math.signum(netQuantity);
                 netQuantity += delta;
                 if (netQuantity == 0L) {
                     avgPricePaisa = 0L;
-                } else if (Math.signum(netQuantity) != Math.signum(delta)) {
-                    // Position reversed: new average price is the fill price
+                } else if (Math.signum(netQuantity) != oldSign) {
+                    // Position reversed direction: new average price is the fill price
                     avgPricePaisa = fillPrice;
                 }
+                // else: partial close — avgPricePaisa stays unchanged
             }
         }
 

@@ -1,0 +1,4 @@
+- **Documentation Layer**: Organized into living architecture reports (`ARCHITECTURE.md`, `ARCHITECTURE_REPORT.md`), formal API contracts (`openapi.yaml`, `MODULES_AND_APIS.md`), and historical audit trails (`reports/`, `archive/`).
+- **Operational Scripts**: Shell-based automation in `scripts/` for end-to-end broker certification (`broker-certify-all.sh`), token lifecycle management (`refresh-*-token.sh`), and production smoke testing (`production-smoke-test.sh`).
+- **Configuration Management**: Broker-specific property templates and secret placeholders in `config/` (Dhan, Upstox, ICICI) alongside quality gate definitions (`checkstyle.xml`, `spotbugs/exclude.xml`).
+- **Interface Boundaries**: `openapi.yaml` serves as the single source of truth for REST endpoints, while `ARCHITECTURE.md` defines module dependency flows and runtime mode constraints (LIVE/REPLAY/BACKTEST).

@@ -1,11 +1,13 @@
 package com.tradej.app.api;
 
 import com.tradej.app.api.dto.OrderProjectionResponse;
+import com.tradej.app.service.OrderApplicationService;
 import com.tradej.core.domain.oms.LifecycleState;
 import com.tradej.core.domain.oms.OrderSubmitted;
 import com.tradej.core.domain.runtime.RuntimeMode;
 import com.tradej.core.domain.runtime.RuntimeModeHolder;
 import com.tradej.core.domain.time.LiveTradingClock;
+import com.tradej.execution.command.CommandHandler;
 import com.tradej.execution.risk.PositionRiskHandler;
 import com.tradej.execution.service.OrderManagementService;
 import com.tradej.persistence.oms.EventSourcedOrderRepository;
@@ -43,7 +45,10 @@ class OrderControllerComponentTest {
                 com.tradej.core.domain.model.RiskLimits.withOpenPositionQuantity(1_000_000L, 3, 5_000_000L, 3),
                 com.tradej.core.domain.port.NetPositionProvider.empty()
         );
-        controller = new OrderController(orderManagementService, runtimeModeHolder, riskHandler);
+        CommandHandler commandHandler = new CommandHandler(orderManagementService);
+        OrderApplicationService orderApplicationService = new OrderApplicationService(
+                commandHandler, runtimeModeHolder, riskHandler);
+        controller = new OrderController(orderManagementService, orderApplicationService);
         orderManagementService.onBrokerEvent(OrderSubmitted.create("ORD-1", "SIG-1", "SBIN", 10));
         orderManagementService.replayAll();
     }

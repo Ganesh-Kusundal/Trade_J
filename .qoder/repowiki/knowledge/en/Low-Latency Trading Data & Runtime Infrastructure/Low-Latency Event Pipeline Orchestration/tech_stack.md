@@ -1,0 +1,1 @@
+LMAX Disruptor for ring-buffer event processing with optional sharding (ShardedDisruptorEventBus); token bucket rate limiter for tick shedding.

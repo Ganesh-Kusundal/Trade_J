@@ -1,0 +1,4 @@
+- The module implements three final node classes (`CandleNode`, `PortfolioNode`, `StrategyNode`) that extend `BasePipelineNode` from the `com.tradej.pipeline.runtime` package.
+- Each node acts as a thin adapter, delegating `processEvent` calls to injected service engines (`CandleAggregationService`, `PortfolioEngine`, `StrategyEngine`, `GraphStrategySandbox`).
+- `StrategyNode` supports dual-path execution: a legacy path for candle-only strategies via `StrategyEngine` and a modern graph-based path via `GraphStrategySandbox`, preventing double evaluation of `CandleClosed` events.
+- Nodes rely on constructor injection for dependencies and use the `context::publish` method reference to propagate downstream domain events.

@@ -1,0 +1,1 @@
+Detects and alerts on position and market data discrepancies between internal order state, strategy expectations, and broker-reported values.

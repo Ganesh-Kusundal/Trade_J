@@ -1,1 +1,0 @@
-Java 21+ (records, sealed classes implied by style), Gradle build system, SLF4J for logging, JUnit 5 for testing.

@@ -1,0 +1,10 @@
+schema_version: 1
+module_path: backend_trading
+title: Unified Event-Driven Trading Pipeline Platform
+scope:
+    - trading/
+    - pipeline/
+    - replay/
+source_files: []
+depends_on: []
+related_to: []

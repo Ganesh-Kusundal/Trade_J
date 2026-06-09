@@ -1,0 +1,10 @@
+schema_version: 1
+module_path: backend_broker/broker_icici
+title: ICICI Breeze Broker Adapter
+scope:
+    - broker/icici/
+source_files: []
+depends_on: []
+related_to:
+    - path: backend_broker/broker_dhan
+    - path: backend_broker/broker_upstox

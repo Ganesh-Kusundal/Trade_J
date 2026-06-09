@@ -1,5 +1,6 @@
 dependencies {
     implementation project(':core')
+    implementation project(':pipeline-core')
 
     testImplementation 'com.tngtech.archunit:archunit-junit5:1.4.0'
 }

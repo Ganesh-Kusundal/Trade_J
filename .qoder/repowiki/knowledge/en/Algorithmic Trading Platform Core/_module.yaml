@@ -1,8 +1,23 @@
 schema_version: 1
-module_path: trading
+module_path: ""
 title: Algorithmic Trading Platform Core
 scope:
-    - trading/
+    - README.md
+    - build.gradle
+    - settings.gradle
+    - .gitignore
+    - ARCHITECTURE.md
+    - AUDIT_REPORT.md
+    - CLI.md
+    - CONFIG.md
+    - CONTRACT_NAMING.md
+    - EOF
+    - FRONTEND_BACKEND_CONNECTION_TEST.md
+    - IMPLEMENTATION_ROADMAP.md
+    - REGRESSION_MANIFEST.md
+    - TESTING.md
+    - TRADEHULL_PARITY.md
+    - TRADEJ_ARCHITECTURE_CLASS_FLOWS_REPORT.md
 source_files: []
 depends_on: []
 related_to: []

@@ -1,6 +1,9 @@
 package com.tradej.disruptor;
 
 import com.lmax.disruptor.BusySpinWaitStrategy;
+import com.lmax.disruptor.SleepingWaitStrategy;
+import com.lmax.disruptor.WaitStrategy;
+import com.lmax.disruptor.YieldingWaitStrategy;
 import com.lmax.disruptor.dsl.Disruptor;
 import com.lmax.disruptor.dsl.ProducerType;
 import org.slf4j.Logger;
@@ -73,6 +76,28 @@ import java.util.function.Consumer;
         private volatile Thread drainerThread;
         final int ringBufferSize;
         private final DeadLetterQueue deadLetterQueue;
+    private final com.tradej.core.domain.port.EventWriteAheadLog writeAheadLog;
+
+    // Re-entrancy guard: prevents deadlock when a subscriber calls publish()
+    // from within the dispatch handler thread. Re-entrant events are routed
+    // through the downstream queue instead of the ring buffer.
+    private static final ThreadLocal<Boolean> IN_DISPATCH = ThreadLocal.withInitial(() -> Boolean.FALSE);
+
+    /**
+     * Marks the current thread as inside a subscriber dispatch. Called by
+     * {@link AsyncDispatchHandler} before invoking subscriber callbacks so
+     * that any re-entrant {@link #publish(DomainEvent)} from a subscriber is
+     * routed through the downstream queue instead of the ring buffer,
+     * preventing deadlock.
+     */
+    public static void markDispatchBegin() {
+        IN_DISPATCH.set(Boolean.TRUE);
+    }
+
+    /** Clears the re-entrancy guard. Must be called in a finally block after {@link #markDispatchBegin()}. */
+    public static void markDispatchEnd() {
+        IN_DISPATCH.set(Boolean.FALSE);
+    }
 
         /**
          * Creates a DisruptorEventBus from the given configuration.
@@ -85,6 +110,7 @@ import java.util.function.Consumer;
             this.executionHandler = config.executionHandler();
             this.ringBufferSize = 8192;
             this.deadLetterQueue = config.deadLetterQueue() == null ? DeadLetterQueue.noop() : config.deadLetterQueue();
+            this.writeAheadLog = config.writeAheadLog() == null ? com.tradej.core.domain.port.EventWriteAheadLog.noop() : config.writeAheadLog();
             this.dispatchStage = new AsyncDispatchHandler(
                     subscribers,
                     DEFAULT_DISPATCH_QUEUE_CAPACITY,
@@ -96,7 +122,7 @@ import java.util.function.Consumer;
                     ringBufferSize,
                     Executors.defaultThreadFactory(),
                     ProducerType.MULTI,
-                    new BusySpinWaitStrategy()
+                    selectWaitStrategy(config.runtimeMode())
             );
 
             Consumer<DomainEvent> safePublisher = event -> {
@@ -133,130 +159,12 @@ import java.util.function.Consumer;
             } else {
                 disruptor.handleEventsWith(graphStage).then(dispatchStage);
             }
-            log.info("DisruptorEventBus initialized ringBufferSize={} pipeline=graph-runtime{}→async-dispatch portfolio={} timing={}",
+            log.info("DisruptorEventBus initialized ringBufferSize={} pipeline=graph-runtime{}→async-dispatch portfolio={} timing={} mode={} waitStrategy={}",
                     ringBufferSize, graphStrategyStage != null ? "→graph-strategy" : "",
-                    config.portfolioEngine() != null, config.stageTimings() != StageTimings.NO_OP);
+                    config.portfolioEngine() != null, config.stageTimings() != StageTimings.NO_OP,
+                    config.runtimeMode(), selectWaitStrategy(config.runtimeMode()).getClass().getSimpleName());
 
             dedupPruner.scheduleAtFixedRate(this::pruneOldEntries, 1, 1, TimeUnit.MINUTES);
-        }
-
-        /** @deprecated Use {@link #DisruptorEventBus(DisruptorPipelineConfig)} or {@link com.tradej.disruptor.config.DisruptorPipelineBuilder}. */
-        @Deprecated
-        public DisruptorEventBus(
-                PositionRiskHandler positionRiskHandler,
-                CandleAggregationService candleAggregationService,
-                StrategyEngine strategyEngine,
-                ExecutionHandler executionHandler
-        ) {
-            this(DisruptorEventBusLegacySupport.toConfig(positionRiskHandler, candleAggregationService, strategyEngine, null, executionHandler, null, StageTimings.NO_OP, null, null, null, false));
-        }
-
-        /** @deprecated Use {@link #DisruptorEventBus(DisruptorPipelineConfig)} or {@link com.tradej.disruptor.config.DisruptorPipelineBuilder}. */
-        @Deprecated
-        public DisruptorEventBus(
-                PositionRiskHandler positionRiskHandler,
-                CandleAggregationService candleAggregationService,
-                StrategyEngine strategyEngine,
-                ExecutionHandler executionHandler,
-                PortfolioEngine portfolioEngine
-        ) {
-            this(DisruptorEventBusLegacySupport.toConfig(positionRiskHandler, candleAggregationService, strategyEngine, null, executionHandler, portfolioEngine, StageTimings.NO_OP, null, DeadLetterQueue.noop(), null, true));
-        }
-
-        /** @deprecated Use {@link #DisruptorEventBus(DisruptorPipelineConfig)} or {@link com.tradej.disruptor.config.DisruptorPipelineBuilder}. */
-        @Deprecated
-        public DisruptorEventBus(
-                PositionRiskHandler positionRiskHandler,
-                CandleAggregationService candleAggregationService,
-                StrategyEngine strategyEngine,
-                ExecutionHandler executionHandler,
-                PortfolioEngine portfolioEngine,
-                StageTimings stageTimings
-        ) {
-            this(DisruptorEventBusLegacySupport.toConfig(positionRiskHandler, candleAggregationService, strategyEngine, null, executionHandler, portfolioEngine, stageTimings, null, DeadLetterQueue.noop(), null, true));
-        }
-
-        /** @deprecated Use {@link #DisruptorEventBus(DisruptorPipelineConfig)} or {@link com.tradej.disruptor.config.DisruptorPipelineBuilder}. */
-        @Deprecated
-        public DisruptorEventBus(
-                PositionRiskHandler positionRiskHandler,
-                CandleAggregationService candleAggregationService,
-                StrategyEngine strategyEngine,
-                ExecutionHandler executionHandler,
-                PortfolioEngine portfolioEngine,
-                StageTimings stageTimings,
-                FeatureStore hotPathFeatureStore,
-                DeadLetterQueue deadLetterQueue
-        ) {
-            this(DisruptorEventBusLegacySupport.toConfig(positionRiskHandler, candleAggregationService, strategyEngine, null, executionHandler, portfolioEngine, stageTimings, hotPathFeatureStore, deadLetterQueue, null, false));
-        }
-
-        /** @deprecated Use {@link #DisruptorEventBus(DisruptorPipelineConfig)} or {@link com.tradej.disruptor.config.DisruptorPipelineBuilder}. */
-        @Deprecated
-        public DisruptorEventBus(
-                PositionRiskHandler positionRiskHandler,
-                CandleAggregationService candleAggregationService,
-                StrategyEngine strategyEngine,
-                ExecutionHandler executionHandler,
-                PortfolioEngine portfolioEngine,
-                StageTimings stageTimings,
-                FeatureStore hotPathFeatureStore,
-                DeadLetterQueue deadLetterQueue,
-                PipelineRuntimeBridge pipelineRuntimeBridge
-        ) {
-            this(DisruptorEventBusLegacySupport.toConfig(positionRiskHandler, candleAggregationService, strategyEngine, null, executionHandler, portfolioEngine, stageTimings, hotPathFeatureStore, deadLetterQueue, pipelineRuntimeBridge, true));
-        }
-
-        /** @deprecated Use {@link #DisruptorEventBus(DisruptorPipelineConfig)} or {@link com.tradej.disruptor.config.DisruptorPipelineBuilder}. */
-        @Deprecated
-        public DisruptorEventBus(
-                PositionRiskHandler positionRiskHandler,
-                CandleAggregationService candleAggregationService,
-                StrategyEngine strategyEngine,
-                GraphStrategySandbox graphStrategySandbox,
-                ExecutionHandler executionHandler,
-                PortfolioEngine portfolioEngine,
-                StageTimings stageTimings,
-                FeatureStore hotPathFeatureStore,
-                DeadLetterQueue deadLetterQueue,
-                PipelineRuntimeBridge pipelineRuntimeBridge
-        ) {
-            this(DisruptorEventBusLegacySupport.toConfig(positionRiskHandler, candleAggregationService, strategyEngine, graphStrategySandbox, executionHandler, portfolioEngine, stageTimings, hotPathFeatureStore, deadLetterQueue, pipelineRuntimeBridge, true));
-        }
-
-        /** @deprecated Use {@link #DisruptorEventBus(DisruptorPipelineConfig)} or {@link com.tradej.disruptor.config.DisruptorPipelineBuilder}. */
-        @Deprecated
-        public DisruptorEventBus(
-                PositionRiskHandler positionRiskHandler,
-                CandleAggregationService candleAggregationService,
-                StrategyEngine strategyEngine,
-                ExecutionHandler executionHandler,
-                PortfolioEngine portfolioEngine,
-                StageTimings stageTimings,
-                FeatureStore hotPathFeatureStore,
-                DeadLetterQueue deadLetterQueue,
-                PipelineRuntimeBridge pipelineRuntimeBridge,
-                boolean compileGraphOnInit
-        ) {
-            this(DisruptorEventBusLegacySupport.toConfig(positionRiskHandler, candleAggregationService, strategyEngine, null, executionHandler, portfolioEngine, stageTimings, hotPathFeatureStore, deadLetterQueue, pipelineRuntimeBridge, compileGraphOnInit));
-        }
-
-        /** @deprecated Use {@link #DisruptorEventBus(DisruptorPipelineConfig)} or {@link com.tradej.disruptor.config.DisruptorPipelineBuilder}. */
-        @Deprecated
-        public DisruptorEventBus(
-                PositionRiskHandler positionRiskHandler,
-                CandleAggregationService candleAggregationService,
-                StrategyEngine strategyEngine,
-                GraphStrategySandbox graphStrategySandbox,
-                ExecutionHandler executionHandler,
-                PortfolioEngine portfolioEngine,
-                StageTimings stageTimings,
-                FeatureStore hotPathFeatureStore,
-                DeadLetterQueue deadLetterQueue,
-                PipelineRuntimeBridge pipelineRuntimeBridge,
-                boolean compileGraphOnInit
-        ) {
-            this(DisruptorEventBusLegacySupport.toConfig(positionRiskHandler, candleAggregationService, strategyEngine, graphStrategySandbox, executionHandler, portfolioEngine, stageTimings, hotPathFeatureStore, deadLetterQueue, pipelineRuntimeBridge, compileGraphOnInit));
         }
 
     @Override
@@ -274,11 +182,33 @@ import java.util.function.Consumer;
 
     @Override
     public void publish(DomainEvent event) {
-        if (event == null || isDuplicate(event)) {
+        if (event == null) {
             return;
         }
         if (log.isTraceEnabled()) {
             log.trace("Publishing event type={} eventId={}", event.getClass().getSimpleName(), event.eventId());
+        }
+        // Re-entrancy guard: if called from within a dispatch handler (subscriber callback),
+        // route through the downstream queue to prevent ring buffer deadlock.
+        // Must be checked BEFORE dedup — the first publish already registered the dedup key,
+        // so re-publishing from the drainer would otherwise be flagged as duplicate.
+        if (IN_DISPATCH.get()) {
+            if (!downstreamQueue.offer(event)) {
+                deadLetterQueue.append("reentrant-queue", event,
+                        "Re-entrant downstream queue full (capacity=" + DOWNSTREAM_QUEUE_CAPACITY + ")");
+                log.warn("Re-entrant downstream queue full — dropping event type={} eventId={}",
+                        event.getClass().getSimpleName(), event.eventId());
+            }
+            return;
+        }
+        if (isDuplicate(event)) {
+            return;
+        }
+        // Write-ahead log: persist event before entering ring buffer for crash recovery
+        try {
+            writeAheadLog.write(event);
+        } catch (Exception e) {
+            log.warn("WAL write failed for event type={}: {}", event.getClass().getSimpleName(), e.getMessage());
         }
         disruptor.getRingBuffer().publishEvent((envelope, sequence) -> envelope.setEvent(event));
     }
@@ -342,6 +272,24 @@ import java.util.function.Consumer;
         }
     }
 
+    /**
+     * Recover events from the write-ahead log after a crash.
+     * Replays all persisted events back through the event bus pipeline.
+     * Must be called after {@link #start()}.
+     *
+     * @return number of events replayed
+     */
+    public long recoverFromWal() {
+        if (!started) {
+            throw new IllegalStateException("Bus must be started before recovery");
+        }
+        long count = writeAheadLog.replay(this::publish);
+        if (count > 0) {
+            log.info("Recovered {} events from write-ahead log", count);
+        }
+        return count;
+    }
+
     public long ringBufferRemainingCapacity() {
         return disruptor.getRingBuffer().remainingCapacity();
     }
@@ -391,9 +339,9 @@ import java.util.function.Consumer;
     private String dedupKey(DomainEvent event) {
         return switch (event) {
             case MarketTickEvent tick ->
-                    "TICK:" + tick.symbol() + ":" + tick.segment() + ":" + tick.exchangeTimestampEpochMs();
+                    "TICK:" + tick.symbol() + ":" + tick.segment() + ":" + tick.exchangeTimestampEpochMs() + ":" + tick.metadata().sequenceId();
             case DepthUpdateEvent depth ->
-                    "DEPTH:" + depth.symbol() + ":" + depth.segment() + ":" + depth.exchangeTimestampMs();
+                    "DEPTH:" + depth.symbol() + ":" + depth.segment() + ":" + depth.exchangeTimestampMs() + ":" + depth.metadata().sequenceId();
             case OrderAccepted accepted ->
                     "ORDER:" + accepted.order().orderId() + ":OrderAccepted";
             case OrderFilled filled ->
@@ -401,6 +349,21 @@ import java.util.function.Consumer;
             case OrderRejected rejected ->
                     "ORDER:" + rejected.order().orderId() + ":OrderRejected";
             default -> event.eventId();
+        };
+    }
+
+    /**
+     * Select the Disruptor {@link WaitStrategy} based on the runtime mode.
+     * <ul>
+     *   <li>LIVE → {@link BusySpinWaitStrategy} (lowest latency, highest CPU)</li>
+     *   <li>REPLAY/BACKTEST → {@link YieldingWaitStrategy} (balanced latency/CPU)</li>
+     *   <li>Other → {@link SleepingWaitStrategy} (lowest CPU, acceptable for CLI)</li>
+     * </ul>
+     */
+    private static WaitStrategy selectWaitStrategy(com.tradej.core.domain.runtime.RuntimeMode mode) {
+        return switch (mode) {
+            case LIVE -> new BusySpinWaitStrategy();
+            case REPLAY, BACKTEST -> new YieldingWaitStrategy();
         };
     }
 

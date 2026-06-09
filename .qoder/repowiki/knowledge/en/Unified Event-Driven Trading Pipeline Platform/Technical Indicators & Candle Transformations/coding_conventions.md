@@ -1,0 +1,3 @@
+- Indicator logic is separated from SPI registration by implementing calculations in dedicated classes (e.g., `RSI`) and wrapping them in lightweight `*Provider` implementations.
+- All indicator providers return a `List<Double>` of the same size as the input candle list, using `Double.NaN` for periods with insufficient data.
+- SPI implementations are registered via fully qualified class names in `META-INF/services` files corresponding to their interface.

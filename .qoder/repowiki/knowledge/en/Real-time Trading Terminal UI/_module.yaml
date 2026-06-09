@@ -1,0 +1,10 @@
+schema_version: 1
+module_path: frontend
+title: Real-time Trading Terminal UI
+scope:
+    - frontend/
+source_files: []
+depends_on: []
+related_to:
+    - path: backend_app_services
+    - path: backend_trading/trading_execution

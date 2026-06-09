@@ -1,0 +1,1 @@
+Java records for immutable data modeling; weighted master score composition with configurable factor weights via `InstitutionalScanConfig.baseline()`; cross-sectional z-score normalization for feature standardization across the stock universe at each timestamp.

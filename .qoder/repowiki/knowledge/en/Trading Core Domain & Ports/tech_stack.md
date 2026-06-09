@@ -1,0 +1,1 @@
+Java 21+ (sealed interfaces, records), Project Reactor (reactive streams), ArchUnit (architecture enforcement in tests).

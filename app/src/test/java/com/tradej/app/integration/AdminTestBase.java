@@ -13,7 +13,7 @@ import com.tradej.hotpath.MarketDataPipeline;
 import com.tradej.hotpath.OrderPipeline;
 import com.tradej.replay.engine.ReplayOrchestrator;
 import com.tradej.persistence.replay.HistoricalRangeService;
-import com.tradej.strategy.service.StrategyEngine;
+import com.tradej.strategy.service.GraphStrategySandbox;
 import org.junit.jupiter.api.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -72,7 +72,7 @@ abstract class AdminTestBase {
     protected OrderPipeline orderPipeline;
 
     @MockitoBean
-    protected StrategyEngine strategyEngine;
+    protected GraphStrategySandbox graphStrategySandbox;
 
     @MockitoBean(name = "localHistoricalRangeService")
     @Qualifier("localHistoricalRangeService")

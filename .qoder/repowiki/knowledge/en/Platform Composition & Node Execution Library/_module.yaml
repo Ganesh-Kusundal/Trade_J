@@ -1,0 +1,10 @@
+schema_version: 1
+module_path: backend_platform_support
+title: Platform Composition & Node Execution Library
+scope:
+    - composition/
+    - nodes/
+    - architecture-test/
+source_files: []
+depends_on: []
+related_to: []

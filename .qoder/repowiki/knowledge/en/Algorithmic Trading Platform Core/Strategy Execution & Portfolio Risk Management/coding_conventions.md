@@ -1,3 +1,0 @@
-- Strategy plugins implement lifecycle hooks `onStart` and `onStop` for resource initialization and cleanup within the sandbox runtime.
-- Portfolio state mutations follow a reserve-commit-release lifecycle, where capital is reserved on signal generation, adjusted on trade opening, and freed on trade closing or suppression.
-- Domain events are enriched with strategy-specific attributes (e.g., `strategyName`, `quantity`) before being published downstream from the sandbox.

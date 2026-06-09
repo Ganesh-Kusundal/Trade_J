@@ -1,0 +1,1 @@
+Provides order event journaling, CQRS read-model projection, live PnL computation, and market depth subscription orchestration for the trading execution engine.

@@ -40,6 +40,7 @@ public final class PositionRiskHandler implements DomainEventVisitor {
     private final PortfolioEngine portfolioEngine;
     private final MarginEnforcementHandler marginEnforcement;
     private final KillSwitchCoordinator killSwitchCoordinator;
+    private final RiskCheckChain riskCheckChain;
 
     private final AtomicLong realizedLossPaisa = new AtomicLong();
     private final AtomicLong unrealizedLossPaisa = new AtomicLong();
@@ -75,6 +76,11 @@ public final class PositionRiskHandler implements DomainEventVisitor {
         this.portfolioEngine = portfolioEngine;
         this.marginEnforcement = marginEnforcement;
         this.killSwitchCoordinator = killSwitchCoordinator;
+        this.riskCheckChain = new RiskCheckChain(java.util.List.of(
+                new KillSwitchRiskCheck(),
+                new DailyLossRiskCheck(),
+                new PositionLimitRiskCheck()
+        ));
     }
 
     public void onDomainEvent(DomainEvent event, Consumer<DomainEvent> publisher) {
@@ -210,12 +216,28 @@ public final class PositionRiskHandler implements DomainEventVisitor {
             java.util.function.Consumer<DomainEvent> publisher,
             SignalGenerated sourceSignal
     ) {
-        if (killSwitch.get() || reconciliationHalt.get()) {
-            rejectSignal(pending, publisher, killSwitch.get() ? "kill_switch_active" : "reconciliation_halt");
-            return;
-        }
         OrderRequest order = pending.orderRequest();
         String symbol = order.symbol();
+
+        // Build risk context from current handler state
+        RiskContext riskContext = new RiskContext(
+                symbol,
+                realizedLossPaisa.get(),
+                unrealizedLossPaisa.get(),
+                openTrades.get(),
+                killSwitch.get(),
+                reconciliationHalt.get(),
+                riskLimits.maxDailyLossPaisa(),
+                riskLimits.maxOpenPositionQuantity()
+        );
+
+        // Run composable risk check chain (kill switch → daily loss → position limit)
+        java.util.Optional<RiskVerdict> rejection = riskCheckChain.findRejection(riskContext);
+        if (rejection.isPresent()) {
+            rejectSignal(pending, publisher, rejection.get().checkName() + ":" + rejection.get().reason());
+            return;
+        }
+
         boolean isBuy = order.side() == Side.BUY;
         long currentPosition = netPositionProvider.getNetPosition(symbol);
         boolean wouldFlipPosition = (isBuy && currentPosition < 0) || (!isBuy && currentPosition > 0);
@@ -227,10 +249,6 @@ public final class PositionRiskHandler implements DomainEventVisitor {
         }
         if (Math.abs(order.quantity() * order.pricePaisa()) > riskLimits.maxOrderValuePaisa()) {
             rejectSignal(pending, publisher, "max_notional_value");
-            return;
-        }
-        if (Math.abs(currentPosition) >= riskLimits.maxOpenPositionQuantity() && wouldFlipPosition) {
-            rejectSignal(pending, publisher, "max_open_position_quantity");
             return;
         }
         if (currentPosition == 0

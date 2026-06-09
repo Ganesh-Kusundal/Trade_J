@@ -1,3 +1,0 @@
-- Domain data carriers are immutable Java records (e.g., `ResearchSession`, `RunResult`, `StrategyConfig`, `ScannerConfig`) used consistently across core and lab layers.
-- Backtesting services inject `DuckDbAnalyticsEngine` for candle retrieval and `DuckDbResearchStore` for result persistence, following a service-repository separation pattern.
-- All DuckDB write operations in `DuckDbResearchStore` are synchronized and use parameterized PreparedStatement inserts to prevent SQL injection and ensure thread safety.

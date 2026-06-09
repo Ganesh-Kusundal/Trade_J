@@ -22,39 +22,31 @@ public final class DuckDbScanStore implements AutoCloseable {
     private static final Logger log = LoggerFactory.getLogger(DuckDbScanStore.class);
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
-    private final Path databasePath;
-    private Connection connection;
+    private final DuckDbConnectionPool pool;
+    private final boolean ownsPool;
+    private Connection rawConnection;
 
     public DuckDbScanStore(Path databasePath) {
-        this.databasePath = databasePath;
-        initConnection();
+        this.pool = DuckDbConnectionPool.create(databasePath);
+        this.ownsPool = true;
+        this.rawConnection = pool.rawConnection();
+        bootstrap(rawConnection);
     }
 
-    private void initConnection() {
+    public DuckDbScanStore(DuckDbConnectionPool pool) {
+        this.pool = pool;
+        this.ownsPool = false;
+        this.rawConnection = pool.rawConnection();
+        bootstrap(rawConnection);
+    }
+
+    private Connection connection() {
+        return pool != null ? pool.rawConnection() : rawConnection;
+    }
+
+    private void bootstrap(Connection conn) {
         try {
-            this.connection = DriverManager.getConnection("jdbc:duckdb:" + databasePath.toAbsolutePath());
-            bootstrap();
-        } catch (SQLException e) {
-            throw new IllegalStateException("Unable to initialize DuckDB scan store at " + databasePath, e);
-        }
-    }
-
-    private synchronized void ensureConnection() throws SQLException {
-        if (connection == null || connection.isClosed() || !connection.isValid(2)) {
-            log.warn("DuckDB scan store connection lost — reconnecting");
-            try {
-                if (connection != null) {
-                    connection.close();
-                }
-            } catch (Exception ignored) {
-                // ignore
-            }
-            initConnection();
-        }
-    }
-
-    private void bootstrap() throws SQLException {
-        connection.createStatement().execute("""
+            conn.createStatement().execute("""
                 create table if not exists scan_runs (
                     run_id varchar primary key,
                     profile_id varchar not null,
@@ -67,7 +59,7 @@ public final class DuckDbScanStore implements AutoCloseable {
                     error_message varchar
                 )
                 """);
-        connection.createStatement().execute("""
+            conn.createStatement().execute("""
                 create table if not exists scan_hits (
                     run_id varchar not null,
                     symbol varchar not null,
@@ -81,12 +73,14 @@ public final class DuckDbScanStore implements AutoCloseable {
                     rank_order integer
                 )
                 """);
+        } catch (SQLException e) {
+            throw new IllegalStateException("Failed to bootstrap scan store tables", e);
+        }
     }
 
     public synchronized void save(ScanResult result) throws SQLException {
-        ensureConnection();
         ScanRun run = result.run();
-        try (PreparedStatement ps = connection.prepareStatement("""
+        try (PreparedStatement ps = connection().prepareStatement("""
                 insert into scan_runs (
                     run_id, profile_id, started_at_ms, finished_at_ms, status,
                     universe_size, hit_count, partial_failure_count, error_message
@@ -105,7 +99,7 @@ public final class DuckDbScanStore implements AutoCloseable {
         }
         int rank = 0;
         for (ScanHit hit : result.hits()) {
-            try (PreparedStatement ps = connection.prepareStatement("""
+            try (PreparedStatement ps = connection().prepareStatement("""
                     insert into scan_hits (
                         run_id, symbol, exchange_segment, asset_class, underlying,
                         score, reasons_json, snapshot_json, promoted, rank_order
@@ -127,8 +121,7 @@ public final class DuckDbScanStore implements AutoCloseable {
     }
 
     public synchronized Optional<ScanResult> latestByProfile(String profileId) throws SQLException {
-        ensureConnection();
-        try (PreparedStatement ps = connection.prepareStatement("""
+        try (PreparedStatement ps = connection().prepareStatement("""
                 select run_id from scan_runs
                 where profile_id = ?
                 order by started_at_ms desc
@@ -145,9 +138,8 @@ public final class DuckDbScanStore implements AutoCloseable {
     }
 
     public synchronized Optional<ScanResult> findByRunId(String runId) throws SQLException {
-        ensureConnection();
         ScanRun run;
-        try (PreparedStatement ps = connection.prepareStatement("select * from scan_runs where run_id = ?")) {
+        try (PreparedStatement ps = connection().prepareStatement("select * from scan_runs where run_id = ?")) {
             ps.setString(1, runId);
             try (ResultSet rs = ps.executeQuery()) {
                 if (!rs.next()) {
@@ -167,7 +159,7 @@ public final class DuckDbScanStore implements AutoCloseable {
             }
         }
         List<ScanHit> hits = new ArrayList<>();
-        try (PreparedStatement ps = connection.prepareStatement("""
+        try (PreparedStatement ps = connection().prepareStatement("""
                 select * from scan_hits where run_id = ? order by rank_order
                 """)) {
             ps.setString(1, runId);
@@ -192,9 +184,8 @@ public final class DuckDbScanStore implements AutoCloseable {
     }
 
     public synchronized List<ScanRun> listRuns(String profileId, int limit) throws SQLException {
-        ensureConnection();
         List<ScanRun> runs = new ArrayList<>();
-        try (PreparedStatement ps = connection.prepareStatement("""
+        try (PreparedStatement ps = connection().prepareStatement("""
                 select * from scan_runs
                 where profile_id = ?
                 order by started_at_ms desc
@@ -223,9 +214,11 @@ public final class DuckDbScanStore implements AutoCloseable {
 
     @Override
     public synchronized void close() {
-        if (connection != null) {
+        if (ownsPool && pool != null) {
+            pool.close();
+        } else if (pool == null && rawConnection != null) {
             try {
-                connection.close();
+                rawConnection.close();
             } catch (SQLException e) {
                 log.warn("Failed to close DuckDB scan store: {}", e.getMessage());
             }

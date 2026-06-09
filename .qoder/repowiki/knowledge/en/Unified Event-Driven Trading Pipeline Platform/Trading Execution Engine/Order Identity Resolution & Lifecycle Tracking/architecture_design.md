@@ -1,0 +1,3 @@
+- `OrderIdentityRegistry` is the core in-memory store using four `ConcurrentHashMap` instances for O(1) lookups across all identity axes (broker↔internal, signal↔internal), supporting deferred broker-ID acknowledgement via a two-phase register/acknowledge API.
+- `OrderIdentityRehydrator` is a static utility that replays persisted OMS events (`OrderSubmitted`, `OrderAcknowledged`) through an `EventSourcedOrderRepository` to reconstruct registry state on application startup, decoupling persistence from runtime resolution logic.
+- The module has no external framework dependencies beyond SLF4J for logging; it exposes plain Java classes with no Spring annotations or lifecycle hooks, relying on callers to wire the registry as a singleton and invoke rehydration at boot.

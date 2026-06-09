@@ -1,0 +1,6 @@
+- Implements the `NetPositionProvider` port from the core domain, serving as the single source of truth for position risk handlers.
+- Uses an event-sourcing architecture where `TradeOpened` and `TradeClosed` events are processed via a `DomainEventVisitor` to update internal state.
+- Maintains thread-safe state using `ConcurrentHashMap` for per-symbol position aggregation and per-trade contribution tracking.
+- Handles out-of-order event delivery by buffering `TradeClosed` events until the corresponding `TradeOpened` event is received.
+- Provides snapshot/restore capabilities (`StateSnapshot`) to support state recovery or testing scenarios.
+- Calculates institutional weighted average cost basis for position entries, preserving average price on reductions and updating on flips.

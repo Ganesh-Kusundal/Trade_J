@@ -1,1 +1,0 @@
-Provides historical replay, strategy backtesting, scanner evaluation, and analytics persistence for trading research workflows.

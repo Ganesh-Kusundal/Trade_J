@@ -14,6 +14,8 @@ import com.tradej.persistence.replay.ReplayRunner;
 import com.tradej.core.domain.port.EventBus;
 import com.tradej.pipeline.clock.VirtualClock;
 import com.tradej.replay.engine.IsolatedReplayStateManager;
+import com.tradej.replay.engine.ReplayOrchestrator;
+import com.tradej.replay.engine.PositionStateRebuilder;
 import com.tradej.execution.readmodel.ReadModelStore;
 import com.tradej.execution.position.EventSourcedNetPositionProvider;
 import com.tradej.execution.risk.PositionRiskHandler;
@@ -120,5 +122,20 @@ public class PersistenceConfiguration {
             OrderIdentityRegistry identityRegistry
     ) {
         return args -> OrderIdentityRehydrator.rehydrate(omsRepo, identityRegistry);
+    }
+
+    @Bean
+    ReplayOrchestrator replayOrchestrator(
+            ReplayRunner replayRunner,
+            HistoricalRangeService localHistoricalRangeService,
+            VirtualClock virtualClock,
+            ReplayStateManager replayStateManager
+    ) {
+        return new ReplayOrchestrator(replayRunner, localHistoricalRangeService, virtualClock, replayStateManager);
+    }
+
+    @Bean
+    PositionStateRebuilder positionStateRebuilder(ReplayOrchestrator replayOrchestrator) {
+        return new PositionStateRebuilder(replayOrchestrator);
     }
 }

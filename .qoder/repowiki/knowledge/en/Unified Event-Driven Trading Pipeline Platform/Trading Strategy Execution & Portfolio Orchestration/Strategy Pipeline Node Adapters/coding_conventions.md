@@ -1,0 +1,3 @@
+- All node classes are declared as `final` and extend `BasePipelineNode`, implementing `onInit` (often as no-op) and `processEvent`.
+- Dependencies are injected exclusively via constructor arguments, with no field setters or default constructors exposed.
+- Event propagation to downstream nodes is consistently performed using the `context::publish` method reference passed to service engines.

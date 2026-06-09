@@ -1,0 +1,11 @@
+{
+  "broker" : "DHAN",
+  "checkName" : "ohlc",
+  "category" : "market-data",
+  "status" : "PASS",
+  "evidence" : "o=127700 h=128260 l=127350 c=129100",
+  "latencyMs" : 2101,
+  "certifiedAt" : "2026-06-08T06:25:30.734197Z",
+  "errorMessage" : null,
+  "pass" : true
+}

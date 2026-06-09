@@ -1,0 +1,3 @@
+- Use of Java records for all graph definition classes (`PipelineGraph`, `PipelineNodeDef`, `PipelineEdgeDef`, `IngressNodeConfig`) to ensure immutability and concise data modeling.
+- Defensive copying in record constructors (e.g., `List.copyOf(nodes)`) to prevent external mutation of internal graph state.
+- Centralized validation logic in a final utility class (`PipelineGraphValidator`) with private constructor, exposing static methods for different validation contexts.

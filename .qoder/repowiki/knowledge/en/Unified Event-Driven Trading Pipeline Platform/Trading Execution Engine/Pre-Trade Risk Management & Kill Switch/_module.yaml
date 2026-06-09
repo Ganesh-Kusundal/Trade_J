@@ -1,0 +1,11 @@
+schema_version: 1
+module_path: backend_trading/trading_execution/risk_management
+title: Pre-Trade Risk Management & Kill Switch
+scope:
+    - trading/execution/src/main/java/com/tradej/execution/risk/
+    - trading/execution/src/test/java/com/tradej/execution/risk/
+source_files: []
+depends_on: []
+related_to:
+    - path: backend_trading/trading_strategy/portfolio
+    - path: backend_trading/trading_execution/core_execution

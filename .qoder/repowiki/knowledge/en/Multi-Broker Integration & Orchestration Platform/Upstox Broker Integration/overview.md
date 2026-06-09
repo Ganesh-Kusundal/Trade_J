@@ -1,0 +1,1 @@
+Provides a capability-based facade for Upstox trading, market data, and portfolio management via REST and WebSocket protocols.

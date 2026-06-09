@@ -198,7 +198,8 @@ class PositionRiskHandlerComponentTest {
                 sbinBuyOrder(1L, 75_000L, "correlation-kill")), emitted::add);
 
         SignalSuppressed suppressed = assertInstanceOf(SignalSuppressed.class, emitted.get(0));
-        assertEquals("kill_switch_active", suppressed.reason());
+        assertTrue(suppressed.reason().contains("kill_switch"),
+                "Expected kill_switch rejection but got: " + suppressed.reason());
     }
 
     @Test

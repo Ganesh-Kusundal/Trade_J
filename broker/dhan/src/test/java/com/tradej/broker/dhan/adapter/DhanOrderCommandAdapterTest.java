@@ -132,6 +132,8 @@ class DhanOrderCommandAdapterTest {
         void modifyOrderSingleCallReturnsUpdatedOrder() {
             ModifyOrderRequest request = new ModifyOrderRequest(
                     "ORDER123",
+                    null,
+                    null,
                     15L,
                     355000L,
                     null,
@@ -154,6 +156,8 @@ class DhanOrderCommandAdapterTest {
         void modifyOrderThrowsOnRestFailure() {
             ModifyOrderRequest request = new ModifyOrderRequest(
                     "ORDER123",
+                    null,
+                    null,
                     15L,
                     355000L,
                     null,

@@ -83,10 +83,17 @@ public final class DhanWebSocketMultiplexer implements WebSocketMultiplexer {
         t.setDaemon(true);
         return t;
     });
+    private final ScheduledExecutorService reconciliationScheduler = Executors.newSingleThreadScheduledExecutor(r -> {
+        Thread t = new Thread(r, "dhan-sub-reconcile");
+        t.setDaemon(true);
+        return t;
+    });
 
     // ---- Event listeners ----
     private final Map<String, OrderStatus> latestOrderStatuses = new ConcurrentHashMap<>();
     private final CopyOnWriteArrayList<MarketDataListener> marketListeners = new CopyOnWriteArrayList<>();
+    private final com.tradej.broker.core.dedup.MarketTickDedupFilter tickDedupFilter =
+            new com.tradej.broker.core.dedup.MarketTickDedupFilter();
     private final CopyOnWriteArrayList<OrderUpdateListener> orderListeners = new CopyOnWriteArrayList<>();
 
     // ---- Constructors ----
@@ -173,6 +180,7 @@ public final class DhanWebSocketMultiplexer implements WebSocketMultiplexer {
             connectDepthClientIfNeeded();
         }
         healthMonitor.start();
+        reconciliationScheduler.scheduleAtFixedRate(this::reconcileSubscriptions, 5, 5, TimeUnit.MINUTES);
     }
 
     @Override
@@ -186,6 +194,24 @@ public final class DhanWebSocketMultiplexer implements WebSocketMultiplexer {
         DhanTwentyDepthWebSocketClient depthClient = subscriptionManager.getDepthClient();
         if (depthClient != null) {
             depthClient.disconnect();
+        }
+        reconnectScheduler.shutdown();
+        try {
+            if (!reconnectScheduler.awaitTermination(5, TimeUnit.SECONDS)) {
+                reconnectScheduler.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            reconnectScheduler.shutdownNow();
+            Thread.currentThread().interrupt();
+        }
+        reconciliationScheduler.shutdown();
+        try {
+            if (!reconciliationScheduler.awaitTermination(5, TimeUnit.SECONDS)) {
+                reconciliationScheduler.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            reconciliationScheduler.shutdownNow();
+            Thread.currentThread().interrupt();
         }
     }
 
@@ -426,6 +452,9 @@ public final class DhanWebSocketMultiplexer implements WebSocketMultiplexer {
             public void onConnected() {
                 connected = true;
                 healthMonitor.resetTimestamps();
+                tickDedupFilter.reset();
+                com.tradej.broker.core.metrics.BrokerFeedMetrics.INSTANCE.recordReconnect("dhan");
+                com.tradej.broker.core.metrics.BrokerFeedMetrics.INSTANCE.setActiveSubscriptions("dhan", subscriptionManager.snapshot().size());
                 scheduleResubscribe();
                 publishMarket(healthEvent("dhan", "CONNECTED", 0));
             }
@@ -490,12 +519,27 @@ public final class DhanWebSocketMultiplexer implements WebSocketMultiplexer {
 
     private void handleFeedPacket(DhanMarketFeedPacket packet, FeedMode feedMode) {
         try {
+            if (packet instanceof DhanMarketFeedPacket.Heartbeat
+                    || packet instanceof DhanMarketFeedPacket.MarketStatus
+                    || packet instanceof DhanMarketFeedPacket.PrevClose) {
+                return;
+            }
             DhanInstrumentDefinition definition =
                     resolver.requireSecurityId(packet.securityId());
             MarketTickEvent tick = normalizer.normalizeFeedPacket(packet, definition, feedMode);
+            if (tick == null) {
+                return;
+            }
             healthMonitor.recordMarketEvent();
+            // R7: Drop duplicate ticks from broker retransmission
+            if (tickDedupFilter.isDuplicate(tick.symbol(), tick.segment().name(), tick.exchangeTimestampEpochMs())) {
+                com.tradej.broker.core.metrics.BrokerFeedMetrics.INSTANCE.recordTickDropped("dhan", "dedup");
+                return;
+            }
+            com.tradej.broker.core.metrics.BrokerFeedMetrics.INSTANCE.recordTickReceived("dhan");
             publishMarket(tick);
         } catch (RuntimeException ex) {
+            com.tradej.broker.core.metrics.BrokerFeedMetrics.INSTANCE.recordParseError("dhan");
             publishMarket(brokerError("market-normalization", ex.getMessage()));
         }
     }
@@ -556,6 +600,14 @@ public final class DhanWebSocketMultiplexer implements WebSocketMultiplexer {
         Map<FeedMode, List<MarketSubscriptionRequest>> grouped =
                 subscriptionManager.groupedByMode();
         grouped.forEach((feedMode, requests) -> subscribe(requests, feedMode));
+    }
+
+    private void reconcileSubscriptions() {
+        synchronized (transportLock) {
+            if (!shutdown && connected && !subscriptionManager.isEmpty()) {
+                resubscribeAll();
+            }
+        }
     }
 
     // ---- Internal: event helpers ----

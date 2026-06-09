@@ -25,6 +25,7 @@ public final class ReplayRunner implements AutoCloseable {
     private final EventBus eventBus;
     private final VirtualClock virtualClock;
     private final ReplayStateManager stateManager;
+    private final ReplayMetrics metrics;
     private final AtomicLong entriesRead = new AtomicLong();
     private volatile boolean closed;
 
@@ -42,6 +43,11 @@ public final class ReplayRunner implements AutoCloseable {
         this.eventBus = eventBus;
         this.virtualClock = virtualClock;
         this.stateManager = stateManager != null ? stateManager : ReplayStateManager.NOOP;
+        this.metrics = new ReplayMetrics();
+    }
+
+    public ReplayMetrics metrics() {
+        return metrics;
     }
 
     /**
@@ -109,6 +115,7 @@ public final class ReplayRunner implements AutoCloseable {
 
         stateManager.afterReplay();
         ReplayResult result = new ReplayResult(totalRead, replayed, skipped, failed);
+        metrics.recordReplay(replayed, failed, 0);
         log.info("Replay complete: {}", result.summary());
         return result;
     }

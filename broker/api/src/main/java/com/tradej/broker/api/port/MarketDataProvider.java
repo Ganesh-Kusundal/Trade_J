@@ -1,5 +1,7 @@
 package com.tradej.broker.api.port;
 
+import com.tradej.broker.api.exception.UnsupportedIntervalException;
+import com.tradej.broker.api.model.HistoricalDataCapabilities;
 import com.tradej.core.domain.model.Candle;
 import com.tradej.core.domain.model.CandleHistoryRequest;
 import com.tradej.core.domain.model.InstrumentKey;
@@ -26,4 +28,17 @@ public interface MarketDataProvider {
     Map<InstrumentKey, Quote> getQuoteBatch(Collection<InstrumentKey> instrumentKeys);
 
     Map<InstrumentKey, Quote> getOhlcBatch(Collection<InstrumentKey> instrumentKeys);
+
+    default HistoricalDataCapabilities capabilities() {
+        return null;
+    }
+
+    default void validateInterval(String interval) {
+        HistoricalDataCapabilities caps = capabilities();
+        if (caps == null || interval == null) return;
+        String normalized = interval.trim().toLowerCase();
+        if (!caps.supportedIntervals().contains(normalized)) {
+            throw new UnsupportedIntervalException(getClass().getSimpleName(), interval, caps.supportedIntervals());
+        }
+    }
 }

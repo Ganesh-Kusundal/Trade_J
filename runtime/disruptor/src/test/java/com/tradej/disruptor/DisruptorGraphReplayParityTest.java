@@ -133,17 +133,16 @@ class DisruptorGraphReplayParityTest {
                 }
         );
 
-        return new DisruptorEventBus(
-                riskHandler,
-                candleService,
-                strategyEngine,
-                executionHandler,
-                portfolioEngine,
-                StageTimings.NO_OP,
-                null,
-                DeadLetterQueue.noop(),
-                bridge
-        );
+        return new com.tradej.disruptor.config.DisruptorPipelineBuilder()
+                .positionRiskHandler(riskHandler)
+                .candleAggregationService(candleService)
+                .strategyEngine(strategyEngine)
+                .executionHandler(executionHandler)
+                .portfolioEngine(portfolioEngine)
+                .stageTimings(StageTimings.NO_OP)
+                .deadLetterQueue(DeadLetterQueue.noop())
+                .pipelineRuntimeBridge(bridge)
+                .buildBus();
     }
 
     private static PipelineContext pipelineContext(VirtualClock clock, List<Candle> closes) {

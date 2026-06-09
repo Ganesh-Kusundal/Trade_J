@@ -1,0 +1,10 @@
+schema_version: 1
+module_path: backend_trading/trading_strategy/graph_nodes
+title: Strategy Pipeline Node Adapters
+scope:
+    - trading/strategy/src/main/java/com/tradej/strategy/node/
+    - trading/strategy/src/test/java/com/tradej/strategy/node/
+source_files: []
+depends_on: []
+related_to:
+    - path: backend_trading/pipeline_core

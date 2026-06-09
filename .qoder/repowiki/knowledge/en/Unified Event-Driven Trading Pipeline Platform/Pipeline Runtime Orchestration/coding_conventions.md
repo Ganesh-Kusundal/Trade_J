@@ -1,0 +1,3 @@
+- Synchronized reload methods: Graph compilation and deployment methods (`reload`, `bootstrapGraph`) are synchronized to ensure thread-safe state transitions during updates.
+- Graceful degradation in factory: `PipelineNodeFactory` returns no-op node implementations when optional dependencies (like Feature Store or Scan Engine) are unavailable, preventing startup failures.
+- Static graph templates: Default pipeline configurations (Hot-Path, Scanner) are defined as static factory methods within `PipelineRuntimeService` for easy bootstrapping.

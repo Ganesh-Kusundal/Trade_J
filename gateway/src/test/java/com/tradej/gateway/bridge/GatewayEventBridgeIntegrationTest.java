@@ -156,15 +156,15 @@ class GatewayEventBridgeIntegrationTest {
                 "No events should be sent for unhandled types");
     }
 
-    // ── Dedup through the full pipeline ─────────────────────────────────
+    // ── Pass-through behavior (dedup is at bus level, not bridge) ──────────
 
     @Test
-    void duplicateEventsAreDeduplicatedThroughFullPipeline() throws Exception {
+    void duplicateEventsAllPassThrough() throws Exception {
         WebSocketTransport transport = openTransport("s1");
         router.subscribe(transport, GatewayTopic.PNL_UPDATE);
         router.start();
 
-        String fixedEventId = "dedup-test-id";
+        String fixedEventId = "passthrough-test-id";
         var metadata = new EventMetadata(fixedEventId, 0L, 0L, 0L, "", 1);
         var event = new PnlUpdatedEvent(metadata, 100L, 50L, 200L);
 
@@ -172,14 +172,13 @@ class GatewayEventBridgeIntegrationTest {
         bridge.onDomainEvent(event);
         bridge.onDomainEvent(event);
 
-        assertTrue(awaitSent(router, 1, 5000),
-                "Only one copy should be delivered despite 3 publishes");
+        // Bridge is pass-through — all 3 events delivered (dedup is at bus level)
+        assertTrue(awaitSent(router, 3, 5000),
+                "All 3 events should be delivered — bridge is pass-through");
 
-        verify(transport, times(1)).sendBinary(any(byte[].class));
-        assertEquals(1, bridge.eventCount(),
-                "Bridge should report 1 processed event");
-        assertEquals(2, bridge.dedupHitCount(),
-                "Bridge should report 2 dedup hits");
+        verify(transport, times(3)).sendBinary(any(byte[].class));
+        assertEquals(3, bridge.eventCount(),
+                "Bridge should count all 3 events (pass-through)");
     }
 
     @Test
@@ -198,7 +197,6 @@ class GatewayEventBridgeIntegrationTest {
 
         verify(transport, times(2)).sendBinary(any(byte[].class));
         assertEquals(2, bridge.eventCount());
-        assertEquals(0, bridge.dedupHitCount());
     }
 
     // ── Connection lifecycle ────────────────────────────────────────────
@@ -314,14 +312,10 @@ class GatewayEventBridgeIntegrationTest {
 
         assertEquals(3, bridge.eventCount(),
                 "Bridge should count 3 processed events");
-        assertEquals(3, bridge.dedupCacheSize(),
-                "Dedup cache should have 3 entries");
-        assertEquals(0, bridge.dedupHitCount(),
-                "No dedup hits for unique events");
     }
 
     @Test
-    void bridgeMetricsWithDedup() {
+    void bridgeMetricsPassThrough() {
         router.start();
 
         String commonId = "duplicate-id";
@@ -331,9 +325,8 @@ class GatewayEventBridgeIntegrationTest {
         bridge.onDomainEvent(new PnlUpdatedEvent(meta, 100L, 50L, 200L));
         bridge.onDomainEvent(new PnlUpdatedEvent(meta, 100L, 50L, 200L));
 
-        assertEquals(1, bridge.eventCount());
-        assertEquals(2, bridge.dedupHitCount());
-        assertEquals(1, bridge.dedupCacheSize());
+        // Bridge is pass-through — all events counted (dedup is at bus level)
+        assertEquals(3, bridge.eventCount());
     }
 
     // ── Edge cases ──────────────────────────────────────────────────────

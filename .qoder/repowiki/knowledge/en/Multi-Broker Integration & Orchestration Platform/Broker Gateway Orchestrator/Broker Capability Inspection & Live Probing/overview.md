@@ -1,0 +1,1 @@
+Inspects broker capabilities through static interface checks and live API probes, producing structured reports on supported features, latency, and metadata.

@@ -1,1 +1,0 @@
-Java 21, Spring Boot 3.4, LMAX Disruptor, DuckDB, Chronicle Queue, React 19, TypeScript, Vite, Gradle Multi-Module

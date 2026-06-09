@@ -64,6 +64,11 @@ public final class LoadBalancedMarketDataProvider implements MarketDataProvider 
     }
 
     @Override
+    public com.tradej.broker.api.model.HistoricalDataCapabilities capabilities() {
+        return providers.isEmpty() ? null : providers.getFirst().capabilities();
+    }
+
+    @Override
     public Map<InstrumentKey, Long> getLtpBatch(Collection<InstrumentKey> instrumentKeys) {
         return withFailover(provider -> provider.getLtpBatch(instrumentKeys));
     }

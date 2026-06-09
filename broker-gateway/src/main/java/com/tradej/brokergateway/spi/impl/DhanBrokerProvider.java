@@ -1,21 +1,19 @@
 package com.tradej.brokergateway.spi.impl;
 
 import com.tradej.broker.api.IBrokerConnection;
+import com.tradej.broker.api.port.IdempotencyCachePort;
+import com.tradej.broker.dhan.DhanBrokerConnection;
+import com.tradej.broker.dhan.config.DhanConnectionSettings;
 import com.tradej.brokergateway.result.BrokerSource;
 import com.tradej.brokergateway.spi.BrokerDescriptor;
 import com.tradej.brokergateway.spi.BrokerProvider;
 import com.tradej.brokergateway.spi.CapabilityMetadata;
-import com.tradej.composition.BrokerComposition;
 import com.tradej.composition.config.BrokerProfile;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
-/**
- * Dhan broker provider — bridges {@link BrokerComposition} to the {@link BrokerProvider} SPI.
- *
- * <p>Registered via {@code META-INF/services/com.tradej.brokergateway.spi.BrokerProvider}.
- */
 public final class DhanBrokerProvider implements BrokerProvider {
 
     @Override
@@ -75,10 +73,34 @@ public final class DhanBrokerProvider implements BrokerProvider {
 
     @Override
     public IBrokerConnection connect(BrokerProfile profile) {
-        if (profile.dhan() == null) {
+        BrokerProfile.DhanConfig dhan = profile.dhan();
+        if (dhan == null) {
             throw new IllegalArgumentException("Dhan configuration is required");
         }
-        BrokerProfile dhanProfile = new BrokerProfile(BrokerProfile.BrokerType.DHAN, profile.dhan(), null, null);
-        return BrokerComposition.create(dhanProfile).brokerConnection();
+        DhanConnectionSettings settings = new DhanConnectionSettings(
+                dhan.clientId(),
+                dhan.accessToken(),
+                dhan.environment(),
+                dhan.restBaseUrl(),
+                false,
+                3,
+                5,
+                true,
+                true,
+                dhan.authMode(),
+                dhan.pinFile(),
+                dhan.totpSecretFile(),
+                dhan.tokenStateFile(),
+                dhan.refreshBufferMinutes(),
+                null,
+                false
+        );
+        return DhanBrokerConnection.create(settings, new NoOpIdempotencyCache());
+    }
+
+    private static final class NoOpIdempotencyCache implements IdempotencyCachePort {
+        @Override public Optional<com.tradej.core.domain.model.Order> get(String clientOrderId) { return Optional.empty(); }
+        @Override public void put(String clientOrderId, com.tradej.core.domain.model.Order order) {}
+        @Override public void remove(String clientOrderId) {}
     }
 }

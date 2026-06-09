@@ -31,12 +31,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.time.Duration;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -44,37 +39,18 @@ import java.util.concurrent.atomic.AtomicLong;
  *
  * <p>Each domain event type is mapped to a {@link GatewayTopic} and serialized to JSON.
  *
- * <p>Includes an event-ID dedup cache to prevent duplicate broadcasts during replay
- * or rapid-fire duplicate delivery. Periodic pruning prevents unbounded cache growth
- * (fixes GB-01 — reduces unnecessary broadcast volume during high volatility).
+ * <p>Dedup is handled at the bus level ({@code DisruptorEventBus}). This bridge is a
+ * pure pass-through serializer — no duplicate filtering here.
  */
 public final class GatewayEventBridge implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(GatewayEventBridge.class);
 
-    /** Maximum entries in the dedup cache before eviction kicks in. */
-    private static final int MAX_DEDUP_ENTRIES = 200_000;
-
-    /** Age-based eviction: run every N calls to avoid O(n) scan on every hot-path event. */
-    private static final int EVICTION_INTERVAL = 1024;
-
-    /** Events older than this TTL are pruned from the dedup cache. */
-    private static final Duration DEDUP_TTL = Duration.ofSeconds(30);
-
     private final GatewayTopicRouter router;
     private final ObjectMapper objectMapper;
     private final InstrumentResolver instrumentResolver;
 
-    // ── Event-ID dedup cache ──
-    private final ConcurrentHashMap<String, Long> seenEventIds = new ConcurrentHashMap<>();
-    private final AtomicLong bridgeCallCounter = new AtomicLong();
-    private final AtomicLong dedupHitCount = new AtomicLong();
     private final AtomicLong eventCount = new AtomicLong();
-    private final ScheduledExecutorService dedupPruner = Executors.newSingleThreadScheduledExecutor(r -> {
-        Thread t = new Thread(r, "gateway-dedup-pruner");
-        t.setDaemon(true);
-        return t;
-    });
 
     public GatewayEventBridge(GatewayTopicRouter router, ObjectMapper objectMapper) {
         this(router, objectMapper, null);
@@ -84,8 +60,6 @@ public final class GatewayEventBridge implements AutoCloseable {
         this.router = router;
         this.objectMapper = objectMapper;
         this.instrumentResolver = instrumentResolver;
-        // Schedule periodic dedup pruning every 5 minutes
-        dedupPruner.scheduleAtFixedRate(this::pruneDedupCache, 5, 5, TimeUnit.MINUTES);
     }
 
     /**
@@ -119,12 +93,6 @@ public final class GatewayEventBridge implements AutoCloseable {
             return;
         }
 
-        // Dedup: skip events with recently seen IDs (prevents duplicate broadcasts
-        // during replay or when the same event arrives via multiple paths).
-        if (isDuplicate(event)) {
-            return;
-        }
-
         try {
             switch (event) {
                 case MarketTickEvent tick ->
@@ -143,10 +111,10 @@ public final class GatewayEventBridge implements AutoCloseable {
                         router.publish(GatewayTopic.ORDER_UPDATE, writeJson(orderPayload(filled)));
                 case TradeOpened opened ->
                         router.publish(GatewayTopic.POSITION_UPDATE, writeJson(positionPayload(
-                                opened.symbol(), opened.size(), opened.entryPricePaisa(), "OPEN")));
+                                opened.symbol(), resolveSegment(opened.symbol()), opened.size(), opened.entryPricePaisa(), "OPEN")));
                 case TradeClosed closed ->
                         router.publish(GatewayTopic.POSITION_UPDATE, writeJson(positionPayload(
-                                closed.symbol(), 0L, 0L, "CLOSED")));
+                                closed.symbol(), resolveSegment(closed.symbol()), 0L, 0L, "CLOSED")));
                 case SignalGenerated signal ->
                         router.publish(GatewayTopic.STRATEGY_SIGNAL, writeJson(signalPayload(signal)));
                 case ReplayTimeChangedEvent replay ->
@@ -173,67 +141,17 @@ public final class GatewayEventBridge implements AutoCloseable {
 
     @Override
     public void close() {
-        dedupPruner.shutdown();
-        try {
-            if (!dedupPruner.awaitTermination(2, TimeUnit.SECONDS)) {
-                dedupPruner.shutdownNow();
-            }
-        } catch (InterruptedException e) {
-            dedupPruner.shutdownNow();
-            Thread.currentThread().interrupt();
-        }
+        // No resources to release — dedup is handled at the bus level
     }
 
     // ── Metrics ──
-
-    /** Number of events that were skipped due to dedup cache hit. */
-    public long dedupHitCount() {
-        return dedupHitCount.get();
-    }
 
     /** Number of events successfully bridged to the router. */
     public long eventCount() {
         return eventCount.get();
     }
 
-    /** Current size of the dedup cache. */
-    public int dedupCacheSize() {
-        return seenEventIds.size();
-    }
-
     // ── Private helpers ──
-
-    /**
-     * Check if an event is a duplicate by its event ID.
-     * When the cache reaches capacity, evicts only entries older than DEDUP_TTL
-     * rather than clearing the entire cache.
-     */
-    private boolean isDuplicate(DomainEvent event) {
-        // Age-based eviction: throttled to run every EVICTION_INTERVAL calls
-        // to avoid O(n) iteration on every hot-path event.
-        if (seenEventIds.size() >= MAX_DEDUP_ENTRIES
-                && (bridgeCallCounter.incrementAndGet() & (EVICTION_INTERVAL - 1)) == 0) {
-            long cutoff = System.currentTimeMillis() - DEDUP_TTL.toMillis();
-            seenEventIds.values().removeIf(ts -> ts < cutoff);
-        }
-        Long previous = seenEventIds.putIfAbsent(event.eventId(), System.currentTimeMillis());
-        if (previous != null) {
-            dedupHitCount.incrementAndGet();
-            return true;
-        }
-        return false;
-    }
-
-    /** Periodic pruner to clean entries older than the TTL. */
-    private void pruneDedupCache() {
-        long cutoff = System.currentTimeMillis() - DEDUP_TTL.toMillis();
-        int before = seenEventIds.size();
-        seenEventIds.values().removeIf(ts -> ts < cutoff);
-        int pruned = before - seenEventIds.size();
-        if (pruned > 0 && log.isTraceEnabled()) {
-            log.trace("Pruned {} stale entries from gateway dedup cache (size={})", pruned, seenEventIds.size());
-        }
-    }
 
     private byte[] writeJson(ObjectNode node) throws com.fasterxml.jackson.core.JsonProcessingException {
         return objectMapper.writeValueAsBytes(node);
@@ -287,9 +205,11 @@ public final class GatewayEventBridge implements AutoCloseable {
 
     private ObjectNode candlePayload(Candle candle) {
         ObjectNode node = objectMapper.createObjectNode();
-        String canonical = canonicalSymbol(candle.symbol(), ExchangeSegment.NSE_EQ);
+        ExchangeSegment segment = resolveSegment(candle.symbol());
+        String canonical = canonicalSymbol(candle.symbol(), segment);
         node.put("symbol", canonical);
         node.put("canonicalSymbol", canonical);
+        node.put("segment", segment.name());
         node.put("interval", candle.interval());
         node.put("startTimeMs", candle.startTimeMs());
         node.put("endTimeMs", candle.endTimeMs());
@@ -347,9 +267,9 @@ public final class GatewayEventBridge implements AutoCloseable {
         return node;
     }
 
-    private ObjectNode positionPayload(String symbol, long size, long entryPricePaisa, String action) {
+    private ObjectNode positionPayload(String symbol, ExchangeSegment segment, long size, long entryPricePaisa, String action) {
         ObjectNode node = objectMapper.createObjectNode();
-        putSymbolFields(node, symbol, ExchangeSegment.NSE_EQ);
+        putSymbolFields(node, symbol, segment);
         node.put("size", size);
         node.put("entryPricePaisa", entryPricePaisa);
         node.put("action", action);
@@ -359,7 +279,7 @@ public final class GatewayEventBridge implements AutoCloseable {
     private ObjectNode signalPayload(SignalGenerated signal) {
         ObjectNode node = objectMapper.createObjectNode();
         node.put("signalId", signal.signalId());
-        putSymbolFields(node, signal.symbol(), ExchangeSegment.NSE_EQ);
+        putSymbolFields(node, signal.symbol(), resolveSegment(signal.symbol()));
         node.put("side", signal.side().name());
         node.put("setup", signal.setup());
         return node;
@@ -464,6 +384,18 @@ public final class GatewayEventBridge implements AutoCloseable {
             return instrumentResolver.toCanonicalSymbol(symbol, segment);
         } catch (Exception ex) {
             return symbol;
+        }
+    }
+
+    private ExchangeSegment resolveSegment(String symbol) {
+        if (instrumentResolver == null || symbol == null || symbol.isBlank()) {
+            return ExchangeSegment.NSE_EQ;
+        }
+        try {
+            var instrument = instrumentResolver.resolveNormalized(symbol, ExchangeSegment.NSE_EQ);
+            return instrument != null ? instrument.exchangeSegment() : ExchangeSegment.NSE_EQ;
+        } catch (Exception ex) {
+            return ExchangeSegment.NSE_EQ;
         }
     }
 

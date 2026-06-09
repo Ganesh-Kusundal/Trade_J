@@ -4,12 +4,14 @@ plugins {
 
 dependencies {
     implementation project(':core')
+    implementation project(':pipeline-core')
     implementation project(':trading-strategy')
     implementation project(':trading-execution')
     implementation "com.lmax:disruptor:${versions.disruptor}"
     implementation 'org.slf4j:slf4j-api'
 
     testFixturesApi project(':core')
+    testFixturesApi project(':pipeline-core')
     testFixturesApi project(':trading-execution')
 
     testImplementation testFixtures(project(':core'))

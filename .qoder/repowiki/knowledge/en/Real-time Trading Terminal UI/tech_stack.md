@@ -1,0 +1,1 @@
+React 19 with TypeScript, Vite for build tooling, Zustand for state management, Tailwind CSS v4 for styling, and Lightweight Charts for financial visualization. WebSocket is used for real-time data ingestion.

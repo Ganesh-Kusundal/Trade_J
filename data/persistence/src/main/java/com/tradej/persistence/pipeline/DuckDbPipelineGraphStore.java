@@ -24,31 +24,30 @@ public final class DuckDbPipelineGraphStore implements AutoCloseable {
     private static final Logger log = LoggerFactory.getLogger(DuckDbPipelineGraphStore.class);
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
-    private final Path databasePath;
-    private Connection connection;
+    private final com.tradej.persistence.duckdb.DuckDbConnectionPool pool;
+    private final boolean ownsPool;
+    private Connection rawConnection;
 
     public DuckDbPipelineGraphStore(Path databasePath) {
-        this.databasePath = databasePath;
-        initConnection();
+        this.pool = com.tradej.persistence.duckdb.DuckDbConnectionPool.create(databasePath);
+        this.ownsPool = true;
+        this.rawConnection = pool.rawConnection();
+        bootstrap(rawConnection);
     }
 
-    private void initConnection() {
-        try {
-            this.connection = DriverManager.getConnection("jdbc:duckdb:" + databasePath.toAbsolutePath());
-            bootstrap();
-        } catch (SQLException e) {
-            throw new IllegalStateException("Unable to initialize pipeline graph store at " + databasePath, e);
-        }
+    public DuckDbPipelineGraphStore(com.tradej.persistence.duckdb.DuckDbConnectionPool pool) {
+        this.pool = pool;
+        this.ownsPool = false;
+        this.rawConnection = pool.rawConnection();
+        bootstrap(rawConnection);
     }
 
-    private synchronized void ensureConnection() throws SQLException {
-        if (connection == null || connection.isClosed() || !connection.isValid(2)) {
-            initConnection();
-        }
+    private Connection connection() {
+        return pool != null ? pool.rawConnection() : rawConnection;
     }
 
-    private void bootstrap() throws SQLException {
-        try (var stmt = connection.createStatement()) {
+    private void bootstrap(Connection conn) {
+        try (var stmt = conn.createStatement()) {
             stmt.execute("""
                     create table if not exists pipeline_graphs (
                         graph_id varchar not null,
@@ -59,13 +58,14 @@ public final class DuckDbPipelineGraphStore implements AutoCloseable {
                         primary key (graph_id, version)
                     )
                     """);
+        } catch (SQLException e) {
+            throw new IllegalStateException("Failed to bootstrap pipeline graph store tables", e);
         }
     }
 
     public synchronized void save(PipelineGraph graph) throws SQLException {
-        ensureConnection();
         String json = toJson(graph);
-        try (PreparedStatement ps = connection.prepareStatement("""
+        try (PreparedStatement ps = connection().prepareStatement("""
                 insert into pipeline_graphs (graph_id, version, name, graph_json, saved_at_ms)
                 values (?, ?, ?, ?, ?)
                 on conflict (graph_id, version) do update set
@@ -84,8 +84,7 @@ public final class DuckDbPipelineGraphStore implements AutoCloseable {
     }
 
     public synchronized Optional<PipelineGraph> loadLatest(String graphId) throws SQLException {
-        ensureConnection();
-        try (PreparedStatement ps = connection.prepareStatement("""
+        try (PreparedStatement ps = connection().prepareStatement("""
                 select graph_json from pipeline_graphs
                 where graph_id = ?
                 order by version desc
@@ -102,8 +101,7 @@ public final class DuckDbPipelineGraphStore implements AutoCloseable {
     }
 
     public synchronized Optional<PipelineGraph> loadVersion(String graphId, int version) throws SQLException {
-        ensureConnection();
-        try (PreparedStatement ps = connection.prepareStatement("""
+        try (PreparedStatement ps = connection().prepareStatement("""
                 select graph_json from pipeline_graphs
                 where graph_id = ? and version = ?
                 """)) {
@@ -119,9 +117,8 @@ public final class DuckDbPipelineGraphStore implements AutoCloseable {
     }
 
     public synchronized List<PipelineGraphVersion> listVersions(String graphId) throws SQLException {
-        ensureConnection();
         List<PipelineGraphVersion> versions = new ArrayList<>();
-        try (PreparedStatement ps = connection.prepareStatement("""
+        try (PreparedStatement ps = connection().prepareStatement("""
                 select graph_id, version, name, saved_at_ms
                 from pipeline_graphs
                 where graph_id = ?
@@ -144,9 +141,11 @@ public final class DuckDbPipelineGraphStore implements AutoCloseable {
 
     @Override
     public synchronized void close() {
-        if (connection != null) {
+        if (ownsPool && pool != null) {
+            pool.close();
+        } else if (pool == null && rawConnection != null) {
             try {
-                connection.close();
+                rawConnection.close();
             } catch (SQLException e) {
                 log.warn("Failed to close pipeline graph store: {}", e.getMessage());
             }

@@ -5,7 +5,7 @@ import com.tradej.core.domain.event.SignalGenerated;
 
 import java.util.Optional;
 
-@Deprecated(since = "2.0", forRemoval = true)
+@Deprecated(since = "2.0")
 public interface StrategyPlugin {
     String name();
 

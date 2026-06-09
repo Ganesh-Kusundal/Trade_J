@@ -1,0 +1,4 @@
+- Uses `io.socket:socket.io-client` for WebSocket streaming.
+- Uses `org.seleniumhq.selenium:selenium-java` for headless browser automation during authentication.
+- Uses `com.eatthepath:java-otp` for TOTP generation.
+- Implements custom SHA-256 request signing in `BreezeRequestSigner` aligned with the Breeze Python SDK.

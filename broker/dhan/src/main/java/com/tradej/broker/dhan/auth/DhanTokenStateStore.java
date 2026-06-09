@@ -35,6 +35,13 @@ public class DhanTokenStateStore {
         if (path == null) {
             return;
         }
+        if (state == null) {
+            try {
+                Files.deleteIfExists(path);
+            } catch (IOException ignored) {
+            }
+            return;
+        }
         try {
             Path parent = path.getParent();
             if (parent != null) {

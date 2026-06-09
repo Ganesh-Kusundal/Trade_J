@@ -1,0 +1,1 @@
+Manages the lifecycle, versioning, and templating of immutable pipeline definitions with in-memory persistence.

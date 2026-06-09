@@ -1,0 +1,1 @@
+Java with Gradle multi-project build; Caffeine for local idempotency caching; SLF4J/Logback for structured logging.

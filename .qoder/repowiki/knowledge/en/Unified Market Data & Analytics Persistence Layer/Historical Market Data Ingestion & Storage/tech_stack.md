@@ -1,1 +1,0 @@
-Uses DuckDB (via `duckdb_jdbc`) as the primary engine for both metadata persistence and high-performance analytical queries over Parquet files; integrates with Jackson for JSON-based job configuration serialization.

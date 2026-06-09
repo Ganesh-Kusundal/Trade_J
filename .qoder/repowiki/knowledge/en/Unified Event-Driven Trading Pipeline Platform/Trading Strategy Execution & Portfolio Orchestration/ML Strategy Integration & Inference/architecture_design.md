@@ -1,0 +1,4 @@
+- Adapters: `MLStrategyPlugin` implements both `StrategyPlugin` and `GraphStrategyPlugin` to bridge ML inference into legacy and new event-driven sandboxes, listening for `CandleClosed` events.
+- Inference Engine: `ThresholdMLInferenceEngine` implements the `MLInferenceEngine` port using configurable technical indicator thresholds (RSI, EMA, Volume) as a simulation for real ML models.
+- Registry: `DefaultModelRegistry` provides an in-memory implementation of the `ModelRegistry` port for managing model availability during development.
+- Dependency Direction: The module depends on core domain ports (`MLInferenceEngine`, `FeatureStore`, `ModelRegistry`) and strategy APIs, ensuring decoupling from specific ML frameworks.

@@ -1,0 +1,1 @@
+Manages the lifecycle of market data WebSocket subscriptions, handling state reconciliation, batching, and recovery after connection failures.

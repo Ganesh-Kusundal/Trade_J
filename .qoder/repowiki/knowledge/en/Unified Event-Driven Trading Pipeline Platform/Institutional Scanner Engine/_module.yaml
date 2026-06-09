@@ -1,0 +1,9 @@
+schema_version: 1
+module_path: backend_trading/trading_institutional_scanner
+title: Institutional Scanner Engine
+scope:
+    - trading/institutional-scanner/
+source_files: []
+depends_on: []
+related_to:
+    - path: backend_trading/trading_scanner

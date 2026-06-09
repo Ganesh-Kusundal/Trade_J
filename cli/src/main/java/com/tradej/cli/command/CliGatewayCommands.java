@@ -149,6 +149,60 @@ public final class CliGatewayCommands extends CliCommandSupport {
             return;
         }
         out().print(BrokerExplorer.formatReport(report));
+
+        Map<String, Integer> coverage = countTestCoverage(report.capabilities().keySet());
+        if (!coverage.isEmpty()) {
+            out().println("\n  Test Coverage:");
+            List<String[]> coverageRows = new java.util.ArrayList<>();
+            for (Map.Entry<String, Integer> entry : coverage.entrySet()) {
+                coverageRows.add(new String[]{
+                        entry.getKey(),
+                        String.valueOf(entry.getValue()) + " test classes",
+                        entry.getValue() > 0 ? "COVERED" : "NO TESTS"
+                });
+            }
+            TablePrinter.print(new String[]{"Capability", "Coverage", "Status"}, coverageRows);
+        }
+    }
+
+    private Map<String, Integer> countTestCoverage(java.util.Set<String> capabilities) {
+        String workspaceRoot = System.getProperty("trade.workspace.root", ".");
+        Map<String, Integer> coverage = new java.util.LinkedHashMap<>();
+        String[] testDirs = {
+                workspaceRoot + "/broker-gateway/src/test/java",
+                workspaceRoot + "/broker/dhan/src/test/java",
+                workspaceRoot + "/broker/upstox/src/test/java",
+                workspaceRoot + "/broker/icici/src/test/java",
+                workspaceRoot + "/app/src/test/java",
+                workspaceRoot + "/trading/execution/src/test/java",
+                workspaceRoot + "/trading/simulation/src/test/java"
+        };
+        for (String cap : capabilities) {
+            int count = 0;
+            String capLower = cap.toLowerCase().replace("provider", "").replace("command", "")
+                    .replace("query", "").replace("multiplexer", "");
+            for (String dir : testDirs) {
+                java.io.File testDir = new java.io.File(dir);
+                if (!testDir.exists()) continue;
+                count += countMatchingFiles(testDir, capLower);
+            }
+            coverage.put(cap, count);
+        }
+        return coverage;
+    }
+
+    private int countMatchingFiles(java.io.File dir, String keyword) {
+        int count = 0;
+        java.io.File[] files = dir.listFiles();
+        if (files == null) return 0;
+        for (java.io.File f : files) {
+            if (f.isDirectory()) {
+                count += countMatchingFiles(f, keyword);
+            } else if (f.getName().endsWith("Test.java") && f.getName().toLowerCase().contains(keyword)) {
+                count++;
+            }
+        }
+        return count;
     }
 
     public void capabilities(String brokerName, boolean jsonOutput) {

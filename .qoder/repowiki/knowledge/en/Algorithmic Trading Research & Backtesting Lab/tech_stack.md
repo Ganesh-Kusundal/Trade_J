@@ -1,0 +1,2 @@
+- **Embedded Analytics**: Uses `org.duckdb:duckdb_jdbc` for high-performance, in-process OLAP storage of tick-level candles and trade logs.
+- **Deterministic Hashing**: Employs SHA-256 hashing via `java.security.MessageDigest` on serialized JSON configurations (`StrategyConfig`, `ScannerConfig`) to ensure reproducible experiment tracking.

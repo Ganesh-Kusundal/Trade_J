@@ -3,45 +3,76 @@
 <cite>
 **Referenced Files in This Document**
 - [IBrokerConnection.java](file://broker/api/src/main/java/com/tradej/broker/api/IBrokerConnection.java)
-- [BrokerProfile.java](file://composition/src/main/java/com/tradej/composition/config/BrokerProfile.java)
-- [DhanBrokerConnection.java](file://broker/dhan/src/main/java/com/tradej/broker/dhan/DhanBrokerConnection.java)
-- [IciciBrokerConnection.java](file://broker/icici/src/main/java/com/tradej/broker/icici/IciciBrokerConnection.java)
+- [BrokerGateway.java](file://broker-gateway/src/main/java/com/tradej/brokergateway/BrokerGateway.java)
+- [DefaultBrokerGateway.java](file://broker-gateway/src/main/java/com/tradej/brokergateway/DefaultBrokerGateway.java)
+- [BrokerHandle.java](file://broker-gateway/src/main/java/com/tradej/brokergateway/BrokerHandle.java)
+- [BaseBrokerHandle.java](file://broker-gateway/src/main/java/com/tradej/brokergateway/BaseBrokerHandle.java)
+- [BrokerRouter.java](file://broker-gateway/src/main/java/com/tradej/brokergateway/BrokerRouter.java)
+- [MarketDataHandle.java](file://broker-gateway/src/main/java/com/tradej/brokergateway/MarketDataHandle.java)
+- [OrderHandle.java](file://broker-gateway/src/main/java/com/tradej/brokergateway/OrderHandle.java)
+- [PortfolioHandle.java](file://broker-gateway/src/main/java/com/tradej/brokergateway/PortfolioHandle.java)
+- [OptionsHandle.java](file://broker-gateway/src/main/java/com/tradej/brokergateway/OptionsHandle.java)
+- [HistoricalRequest.java](file://broker-gateway/src/main/java/com/tradej/brokergateway/HistoricalRequest.java)
+- [BrokerRegistry.java](file://broker-gateway/src/main/java/com/tradej/brokergateway/spi/BrokerRegistry.java)
+- [DefaultBrokerRegistry.java](file://broker-gateway/src/main/java/com/tradej/brokergateway/spi/DefaultBrokerRegistry.java)
+- [ServiceLoaderBrokerRegistry.java](file://broker-gateway/src/main/java/com/tradej/brokergateway/spi/ServiceLoaderBrokerRegistry.java)
+- [BrokerProvider.java](file://broker-gateway/src/main/java/com/tradej/brokergateway/spi/BrokerProvider.java)
+- [DhanBrokerProvider.java](file://broker-gateway/src/main/java/com/tradej/brokergateway/spi/impl/DhanBrokerProvider.java)
+- [IciciBrokerProvider.java](file://broker-gateway/src/main/java/com/tradej/brokergateway/spi/impl/IciciBrokerProvider.java)
+- [UpstoxBrokerProvider.java](file://broker-gateway/src/main/java/com/tradej/brokergateway/spi/impl/UpstoxBrokerProvider.java)
+- [BrokerExplorer.java](file://broker-gateway/src/main/java/com/tradej/brokergateway/explorer/BrokerExplorer.java)
+- [DefaultBrokerInspector.java](file://broker-gateway/src/main/java/com/tradej/brokergateway/explorer/DefaultBrokerInspector.java)
+- [CapabilityProbe.java](file://broker-gateway/src/main/java/com/tradej/brokergateway/explorer/CapabilityProbe.java)
+- [BrokerCertification.java](file://broker-gateway/src/main/java/com/tradej/brokergateway/certification/BrokerCertification.java)
+- [CertificationReport.java](file://broker-gateway/src/main/java/com/tradej/brokergateway/certification/CertificationReport.java)
 - [application.yml](file://app/src/main/resources/application.yml)
-- [application-dhan-prod.yml](file://app/src/main/resources/application-dhan-prod.yml)
-- [application-icici-prod.yml](file://app/src/main/resources/application-icici-prod.yml)
+- [application-dev.yml](file://app/src/main/resources/application-dev.yml)
+- [application-prod.yml](file://app/src/main/resources/application-prod.yml)
+- [application-gateway.yml](file://app/src/main/resources/application-gateway.yml)
+- [application-upstox-dev.yml](file://app/src/main/resources/application-upstox-dev.yml)
 - [application-upstox-prod.yml](file://app/src/main/resources/application-upstox-prod.yml)
+- [application-icici-prod.yml](file://app/src/main/resources/application-icici-prod.yml)
+- [dhan-local.properties.example](file://config/dhan-local.properties.example)
+- [icici-local.properties.example](file://config/icici-local.properties.example)
+- [upstox-live.properties.example](file://config/upstox-live.properties.example)
+- [upstox-sandbox.properties.example](file://config/upstox-sandbox.properties.example)
 - [BrokerComposition.java](file://composition/src/main/java/com/tradej/composition/BrokerComposition.java)
+- [IciciBrokerFactory.java](file://composition/src/main/java/com/tradej/composition/IciciBrokerFactory.java)
 - [UpstoxBrokerFactory.java](file://composition/src/main/java/com/tradej/composition/UpstoxBrokerFactory.java)
-- [DhanBrokerAdapter.java](file://broker/dhan/src/main/java/com/tradej/broker/dhan/adapter/DhanBrokerAdapter.java)
-- [IciciBrokerAdapter.java](file://broker/icici/src/main/java/com/tradej/broker/icici/adapter/IciciBrokerAdapter.java)
-- [DhanAuthenticator.java](file://broker/dhan/src/main/java/com/tradej/broker/dhan/auth/DhanAuthenticator.java)
-- [IciciAuthenticator.java](file://broker/icici/src/main/java/com/tradej/broker/icici/auth/IciciAuthenticator.java)
-- [DhanHistoricalDataGateway.java](file://broker/dhan/src/main/java/com/tradej/broker/dhan/historical/DhanHistoricalDataGateway.java)
-- [IciciHistoricalDataGateway.java](file://broker/icici/src/main/java/com/tradej/broker/icici/historical/IciciHistoricalDataGateway.java)
-- [DhanMarketDataStream.java](file://broker/dhan/src/main/java/com/tradej/broker/dhan/websocket/DhanMarketDataStream.java)
-- [IciciMarketDataStream.java](file://broker/icici/src/main/java/com/tradej/broker/icici/websocket/IciciMarketDataStream.java)
-- [DhanOrderService.java](file://broker/dhan/src/main/java/com/tradej/broker/dhan/orders/DhanOrderService.java)
-- [IciciOrderService.java](file://broker/icici/src/main/java/com/tradej/broker/icici/rest/IciciOrderService.java)
-- [DhanInstrumentService.java](file://broker/dhan/src/main/java/com/tradej/broker/dhan/instrument/DhanInstrumentService.java)
-- [IciciInstrumentService.java](file://broker/icici/src/main/java/com/tradej/broker/icici/instrument/IciciInstrumentService.java)
-- [DhanOptionsService.java](file://broker/dhan/src/main/java/com/tradej/broker/dhan/options/DhanOptionsService.java)
-- [IciciOptionsService.java](file://broker/icici/src/main/java/com/tradej/broker/icici/options/IciciOptionsService.java)
-- [DhanResilienceConfig.java](file://broker/dhan/src/main/java/com/tradej/broker/dhan/resilience/DhanResilienceConfig.java)
-- [IciciResilienceConfig.java](file://broker/icici/src/main/java/com/tradej/broker/icici/resilience/IciciResilienceConfig.java)
-- [DhanRateLimitingService.java](file://broker/dhan/src/main/java/com/tradej/broker/dhan/rate/DhanRateLimitingService.java)
-- [IciciRateLimitingService.java](file://broker/icici/src/main/java/com/tradej/broker/icici/rate/IciciRateLimitingService.java)
-- [DhanStartupValidator.java](file://broker/dhan/src/main/java/com/tradej/broker/dhan/startup/DhanStartupValidator.java)
-- [IciciStartupValidator.java](file://broker/icici/src/main/java/com/tradej/broker/icici/startup/IciciStartupValidator.java)
-- [DhanSubscriptionManager.java](file://broker/dhan/src/main/java/com/tradej/broker/dhan/subscription/DhanSubscriptionManager.java)
-- [IciciSubscriptionManager.java](file://broker/icici/src/main/java/com/tradej/broker/icici/subscription/IciciSubscriptionManager.java)
-- [DhanReconnectStrategy.java](file://broker/dhan/src/main/java/com/tradej/broker/dhan/reconnect/DhanReconnectStrategy.java)
-- [IciciReconnectStrategy.java](file://broker/icici/src/main/java/com/tradej/broker/icici/reconnect/IciciReconnectStrategy.java)
-- [DhanTokenLifecycle.java](file://broker/dhan/src/main/java/com/tradej/broker/dhan/auth/DhanTokenLifecycle.java)
-- [IciciTokenLifecycle.java](file://broker/icici/src/main/java/com/tradej/broker/icici/auth/IciciTokenLifecycle.java)
-- [DhanHealthIndicator.java](file://broker/dhan/src/main/java/com/tradej/broker/dhan/health/DhanHealthIndicator.java)
-- [IciciHealthIndicator.java](file://broker/icici/src/main/java/com/tradej/broker/icici/health/IciciHealthIndicator.java)
-- [DhanGatewayBenchmark.java](file://broker/core/src/jmh/java/com/tradej/broker/core/benchmark/DhanGatewayBenchmark.java)
-- [IciciGatewayBenchmark.java](file://broker/core/src/jmh/java/com/tradej/broker/core/benchmark/IciciGatewayBenchmark.java)
+- [BrokerStartupOrchestratorAnalyticsTest.java](file://app/src/test/java/com/tradej/app/startup/BrokerStartupOrchestratorAnalyticsTest.java)
+- [BrokerStartupValidatorTest.java](file://app/src/test/java/com/tradej/app/startup/BrokerStartupValidatorTest.java)
+- [DhanTokenLifecycleIntegrationTest.java](file://app/src/test/java/com/tradej/app/integration/DhanTokenLifecycleIntegrationTest.java)
+- [IciciTokenLifecycleIntegrationTest.java](file://app/src/test/java/com/tradej/app/integration/IciciTokenLifecycleIntegrationTest.java)
+- [UpstoxMarketFeedIntegrationTest.java](file://app/src/test/java/com/tradej/app/integration/UpstoxMarketFeedIntegrationTest.java)
+- [BrokerGatewayTest.java](file://broker-gateway/src/test/java/com/tradej/brokergateway/BrokerGatewayTest.java)
+- [BrokerExplorerTest.java](file://broker-gateway/src/test/java/com/tradej/brokergateway/BrokerExplorerTest.java)
+- [BrokerHandleTest.java](file://broker-gateway/src/test/java/com/tradej/brokergateway/BrokerHandleTest.java)
+- [BrokerHandleInvokeTest.java](file://broker-gateway/src/test/java/com/tradej/brokergateway/BrokerHandleInvokeTest.java)
+- [BrokerHandleAdvancedTest.java](file://broker-gateway/src/test/java/com/tradej/brokergateway/BrokerHandleAdvancedTest.java)
+- [BrokerCertificationTest.java](file://broker-gateway/src/test/java/com/tradej/brokergateway/BrokerCertificationTest.java)
+- [DhanBrokerProviderTest.java](file://broker-gateway/src/test/java/com/tradej/brokergateway/spi/impl/DhanBrokerProviderTest.java)
+- [IciciBrokerProviderTest.java](file://broker-gateway/src/test/java/com/tradej/brokergateway/spi/impl/IciciBrokerProviderTest.java)
+- [UpstoxBrokerProviderTest.java](file://broker-gateway/src/test/java/com/tradej/brokergateway/spi/impl/UpstoxBrokerProviderTest.java)
+- [BrokerPluginRegistryTest.java](file://broker-gateway/src/test/java/com/tradej/brokergateway/spi/BrokerPluginRegistryTest.java)
+- [BrokerPluginRegistryConcurrencyTest.java](file://broker-gateway/src/test/java/com/tradej/brokergateway/spi/BrokerPluginRegistryConcurrencyTest.java)
+- [BrokerRegistryTest.java](file://broker-gateway/src/test/java/com/tradej/brokergateway/spi/BrokerRegistryTest.java)
+- [DuckDbQueryEngineTest.java](file://broker-gateway/src/test/java/com/tradej/brokergateway/query/DuckDbQueryEngineTest.java)
+- [DuckDbQueryEngineTransactionalTest.java](file://broker-gateway/src/test/java/com/tradej/brokergateway/query/DuckDbQueryEngineTransactionalTest.java)
+- [QueryMetricsTest.java](file://broker-gateway/src/test/java/com/tradej/brokergateway/query/QueryMetricsTest.java)
+- [BrokerGatewayLiveConnectionTest.java](file://app/src/test/java/com/tradej/app/integration/BrokerGatewayLiveConnectionTest.java)
+- [GatewayWebSocketLifecycleTest.java](file://app/src/test/java/com/tradej/app/integration/GatewayWebSocketLifecycleTest.java)
+- [GatewayReplaySmokeTest.java](file://app/src/test/java/com/tradej/app/integration/GatewayReplaySmokeTest.java)
+- [GatewayCheckSpeedLiveTest.java](file://app/src/test/java/com/tradej/app/integration/GatewayCheckSpeedLiveTest.java)
+- [BrokerExplorerBenchmark.java](file://broker/core/src/jmh/java/com/tradej/broker/core/benchmark/BrokerExplorerBenchmark.java)
+- [LoadBalancedGatewayBenchmark.java](file://broker/core/src/jmh/java/com/tradej/broker/core/benchmark/LoadBalancedGatewayBenchmark.java)
+- [TokenLifecycleBenchmark.java](file://broker/core/src/jmh/java/com/tradej/broker/core/benchmark/TokenLifecycleBenchmark.java)
+- [SubscriptionLookupBenchmark.java](file://broker/core/src/jmh/java/com/tradej/broker/core/benchmark/SubscriptionLookupBenchmark.java)
+- [CircuitBreakerBenchmark.java](file://broker/core/src/jmh/java/com/tradej/broker/core/benchmark/CircuitBreakerBenchmark.java)
+- [BROKER_GATEWAY_ARCHITECTURE_REVIEW.md](file://docs/reports/BROKER_GATEWAY_ARCHITECTURE_REVIEW_2026-06-06.md)
+- [BROKER_CAPABILITY_MATRIX.md](file://docs/BROKER_CAPABILITY_MATRIX.md)
+- [BROKER_CERTIFICATION_REPORT.md](file://docs/BROKER_CERTIFICATION_REPORT.md)
+- [UPSTOX_API_GAP_ANALYSIS.md](file://docs/UPSTOX_API_GAP_ANALYSIS.md)
+- [TRADEJ_INSTITUTIONAL_ARCHITECTURE.md](file://docs/TRADEJ_INSTITUTIONAL_ARCHITECTURE.md)
 </cite>
 
 ## Table of Contents
@@ -54,412 +85,501 @@
 7. [Performance Considerations](#performance-considerations)
 8. [Troubleshooting Guide](#troubleshooting-guide)
 9. [Conclusion](#conclusion)
+10. [Appendices](#appendices)
 
 ## Introduction
-This document describes the multi-broker integration system that enables unified access to multiple Indian derivatives brokers (Dhan, ICICI, Upstox) through a standardized adapter pattern. The system provides consistent interfaces for market data streaming, order management, authentication, and historical data access while supporting dynamic broker selection and capability discovery. It also documents the broker profile configuration system and service composition architecture that ensures maintainability and extensibility across different broker implementations.
+This document describes the broker integration system that enables unified access to multiple brokerage providers (Dhan, Upstox, ICICI Direct) through a common gateway. It explains the broker gateway architecture, dynamic broker registration via SPI, and unified access patterns. It documents the adapter pattern implementation for each broker, handle management, connection lifecycle, capability discovery, configuration, authentication mechanisms, error handling strategies, practical integration examples, custom broker development guidelines, and troubleshooting common issues.
 
 ## Project Structure
-The broker integration system is organized into layered modules:
-- broker/api: Defines standardized interfaces and models for broker interactions
-- broker/core: Implements shared cross-cutting concerns (resilience, routing, subscriptions, health)
-- broker/{dhan,icici,upstox}: Contains vendor-specific adapters and services
-- composition: Provides broker profile configuration and composition factories
-- app: Contains runtime configuration profiles for each broker
+The broker integration spans several modules:
+- broker/api: Defines the broker-agnostic API contract (connection interface and shared models).
+- broker/core: Implements core gateway logic, resilience, routing, subscriptions, and utilities.
+- broker-gateway: Provides the gateway orchestration, handles, SPI registry, explorer, and certification.
+- broker/{dhan, icici, upstox}: Broker-specific adapters implementing provider-specific protocols.
+- composition: Composes runtime wiring for brokers and profiles.
+- app: Application configuration and integration tests.
+- docs: Architectural and capability documentation.
 
 ```mermaid
 graph TB
 subgraph "Broker API Layer"
-API["broker/api<br/>Standardized Interfaces"]
+IB["IBrokerConnection.java"]
 end
-subgraph "Broker Core Layer"
-CORE["broker/core<br/>Cross-Cutting Services"]
+subgraph "Gateway Layer"
+BG["BrokerGateway.java"]
+DBG["DefaultBrokerGateway.java"]
+BR["BrokerRouter.java"]
+BH["BrokerHandle.java"]
+MBH["MarketDataHandle.java"]
+OBH["OrderHandle.java"]
+PBH["PortfolioHandle.java"]
+OPH["OptionsHandle.java"]
+HR["HistoricalRequest.java"]
+SPI["SPI Registry<br/>BrokerRegistry.java"]
 end
-subgraph "Vendor Adapters"
-DHAN["broker/dhan<br/>Dhan Adapter"]
-ICICI["broker/icici<br/>ICICI Adapter"]
-UPSTOX["broker/upstox<br/>Upstox Adapter"]
+subgraph "Broker Adapters"
+D["Dhan Adapter"]
+U["Upstox Adapter"]
+I["ICICI Adapter"]
 end
 subgraph "Composition"
-COMP["composition<br/>Broker Profiles & Factories"]
+BC["BrokerComposition.java"]
+UBF["UpstoxBrokerFactory.java"]
+ICF["IciciBrokerFactory.java"]
 end
-subgraph "Runtime Config"
-APP["app<br/>Environment Profiles"]
-end
-API --> CORE
-CORE --> DHAN
-CORE --> ICICI
-CORE --> UPSTOX
-COMP --> DHAN
-COMP --> ICICI
-COMP --> UPSTOX
-APP --> COMP
+IB --> BG
+BG --> BR
+BG --> SPI
+SPI --> D
+SPI --> U
+SPI --> I
+BR --> BH
+BH --> MBH
+BH --> OBH
+BH --> PBH
+BH --> OPH
+HR --> BG
+BC --> BG
+UBF --> BG
+ICF --> BG
 ```
 
 **Diagram sources**
-- [IBrokerConnection.java:1-200](file://broker/api/src/main/java/com/tradej/broker/api/IBrokerConnection.java#L1-L200)
-- [BrokerComposition.java:1-200](file://composition/src/main/java/com/tradej/composition/BrokerComposition.java#L1-L200)
-- [BrokerProfile.java:1-200](file://composition/src/main/java/com/tradej/composition/config/BrokerProfile.java#L1-L200)
-
-**Section sources**
-- [IBrokerConnection.java:1-200](file://broker/api/src/main/java/com/tradej/broker/api/IBrokerConnection.java#L1-L200)
-- [BrokerProfile.java:1-200](file://composition/src/main/java/com/tradej/composition/config/BrokerProfile.java#L1-L200)
-
-## Core Components
-The system centers around a broker adapter pattern with standardized interfaces:
-
-### Standardized Interfaces
-- IBrokerConnection: Defines the primary contract for broker connectivity, enabling capability discovery and service orchestration
-- Capability interfaces: Separate ports for market data, order management, authentication, historical data, and instruments
-- Model abstractions: Unified DTOs for orders, quotes, positions, and instruments across brokers
-
-### Cross-Cutting Services
-- Resilience: Retry policies, circuit breakers, and backoff strategies
-- Routing: Dynamic load balancing and failover mechanisms
-- Subscriptions: Stream lifecycle management and recovery
-- Health monitoring: Per-broker health indicators and alerts
-- Rate limiting: Quota enforcement and throttling
-- Reconnection: Graceful reconnection strategies
-
-### Vendor-Specific Adapters
-- Dhan adapter: WebSocket-based market data, REST-based order management, token lifecycle, and comprehensive option chain support
-- ICICI adapter: REST-based order management, WebSocket market data, session lifecycle, and instrument services
-- Upstox adapter: Protocol buffer-based communication and specialized streaming
-
-**Section sources**
-- [IBrokerConnection.java:1-200](file://broker/api/src/main/java/com/tradej/broker/api/IBrokerConnection.java#L1-L200)
-- [DhanBrokerAdapter.java:1-200](file://broker/dhan/src/main/java/com/tradej/broker/dhan/adapter/DhanBrokerAdapter.java#L1-L200)
-- [IciciBrokerAdapter.java:1-200](file://broker/icici/src/main/java/com/tradej/broker/icici/adapter/IciciBrokerAdapter.java#L1-L200)
-
-## Architecture Overview
-The system follows a layered architecture with clear separation of concerns:
-
-```mermaid
-graph TB
-subgraph "Application Layer"
-APP["Trading Applications"]
-end
-subgraph "Composition Layer"
-BP["BrokerProfile<br/>Configuration"]
-BF["BrokerFactory<br/>Creation"]
-end
-subgraph "API Layer"
-IBC["IBrokerConnection<br/>Interface"]
-CAP["Capabilities<br/>MarketData/Auth/Hist/Orders"]
-end
-subgraph "Core Services"
-RES["Resilience<br/>Retry/Circuit Breaker"]
-RTG["Routing<br/>Load Balancing"]
-SUB["Subscriptions<br/>Stream Management"]
-RLT["Rate Limiting<br/>Quota Control"]
-REC["Reconnect<br/>Strategies"]
-HLT["Health<br/>Monitoring"]
-end
-subgraph "Adapters"
-DHA["Dhan Adapter"]
-ICI["ICICI Adapter"]
-UPS["Upstox Adapter"]
-end
-subgraph "External Systems"
-EX1["Market Data Feeds"]
-EX2["Order Management Systems"]
-EX3["Authentication Servers"]
-end
-APP --> BP
-BP --> BF
-BF --> IBC
-IBC --> CAP
-CAP --> RES
-CAP --> RTG
-CAP --> SUB
-CAP --> RLT
-CAP --> REC
-CAP --> HLT
-CAP --> DHA
-CAP --> ICI
-CAP --> UPS
-DHA --> EX1
-DHA --> EX2
-DHA --> EX3
-ICI --> EX1
-ICI --> EX2
-ICI --> EX3
-UPS --> EX1
-UPS --> EX2
-UPS --> EX3
-```
-
-**Diagram sources**
+- [BrokerGateway.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/BrokerGateway.java#L1-L200)
+- [DefaultBrokerGateway.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/DefaultBrokerGateway.java#L1-L200)
+- [BrokerRouter.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/BrokerRouter.java#L1-L200)
+- [BrokerHandle.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/BrokerHandle.java#L1-L200)
+- [MarketDataHandle.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/MarketDataHandle.java#L1-L200)
+- [OrderHandle.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/OrderHandle.java#L1-L200)
+- [PortfolioHandle.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/PortfolioHandle.java#L1-L200)
+- [OptionsHandle.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/OptionsHandle.java#L1-L200)
+- [BrokerRegistry.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/spi/BrokerRegistry.java#L1-L200)
 - [BrokerComposition.java:1-200](file://composition/src/main/java/com/tradej/composition/BrokerComposition.java#L1-L200)
 - [UpstoxBrokerFactory.java:1-200](file://composition/src/main/java/com/tradej/composition/UpstoxBrokerFactory.java#L1-L200)
+- [IciciBrokerFactory.java:1-200](file://composition/src/main/java/com/tradej/composition/IciciBrokerFactory.java#L1-L200)
+
+**Section sources**
+- [BrokerGateway.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/BrokerGateway.java#L1-L200)
+- [BrokerRegistry.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/spi/BrokerRegistry.java#L1-L200)
+- [BrokerComposition.java:1-200](file://composition/src/main/java/com/tradej/composition/BrokerComposition.java#L1-L200)
+
+## Core Components
+- Broker API contract: Defines the connection abstraction and shared models for all brokers.
+- Gateway orchestration: Routes requests to appropriate broker handles and manages lifecycle.
+- Handle abstractions: Specialized handles for market data, orders, portfolio, and options.
+- SPI registry: Dynamically discovers and registers broker providers.
+- Explorer and certification: Capability probing and certification reporting.
+- Composition: Wiring of broker factories and runtime profiles.
+
+Key implementation references:
+- [IBrokerConnection.java:1-200](file://broker/api/src/main/java/com/tradej/broker/api/IBrokerConnection.java#L1-L200)
+- [BrokerGateway.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/BrokerGateway.java#L1-L200)
+- [DefaultBrokerGateway.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/DefaultBrokerGateway.java#L1-L200)
+- [BrokerHandle.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/BrokerHandle.java#L1-L200)
+- [BaseBrokerHandle.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/BaseBrokerHandle.java#L1-L200)
+- [BrokerRouter.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/BrokerRouter.java#L1-L200)
+- [MarketDataHandle.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/MarketDataHandle.java#L1-L200)
+- [OrderHandle.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/OrderHandle.java#L1-L200)
+- [PortfolioHandle.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/PortfolioHandle.java#L1-L200)
+- [OptionsHandle.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/OptionsHandle.java#L1-L200)
+- [HistoricalRequest.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/HistoricalRequest.java#L1-L200)
+
+**Section sources**
+- [IBrokerConnection.java:1-200](file://broker/api/src/main/java/com/tradej/broker/api/IBrokerConnection.java#L1-L200)
+- [BrokerGateway.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/BrokerGateway.java#L1-L200)
+- [BrokerHandle.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/BrokerHandle.java#L1-L200)
+- [BaseBrokerHandle.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/BaseBrokerHandle.java#L1-L200)
+
+## Architecture Overview
+The gateway exposes unified handles to clients. Internally, it routes calls to the appropriate broker provider via the SPI registry and broker router. Each provider adapter implements the broker API and encapsulates provider-specific protocols, authentication, and capabilities.
+
+```mermaid
+sequenceDiagram
+participant Client as "Client"
+participant Gateway as "BrokerGateway"
+participant Router as "BrokerRouter"
+participant Registry as "BrokerRegistry/SPI"
+participant Provider as "BrokerProvider (Dhan/Upstox/ICICI)"
+participant Conn as "IBrokerConnection"
+Client->>Gateway : "Invoke handle operation"
+Gateway->>Router : "Resolve broker for operation"
+Router->>Registry : "Lookup provider descriptor"
+Registry-->>Router : "Provider descriptor"
+Router->>Provider : "Acquire connection"
+Provider-->>Router : "IBrokerConnection"
+Router->>Conn : "Execute operation"
+Conn-->>Router : "Result"
+Router-->>Gateway : "Result"
+Gateway-->>Client : "Unified response"
+```
+
+**Diagram sources**
+- [BrokerGateway.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/BrokerGateway.java#L1-L200)
+- [BrokerRouter.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/BrokerRouter.java#L1-L200)
+- [BrokerRegistry.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/spi/BrokerRegistry.java#L1-L200)
+- [BrokerProvider.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/spi/BrokerProvider.java#L1-L200)
 - [IBrokerConnection.java:1-200](file://broker/api/src/main/java/com/tradej/broker/api/IBrokerConnection.java#L1-L200)
 
 ## Detailed Component Analysis
 
-### Broker Adapter Pattern
-The adapter pattern encapsulates vendor-specific implementations behind standardized interfaces:
+### Broker Gateway and Handles
+The gateway orchestrates broker operations and exposes typed handles for market data, orders, portfolio, and options. Each handle encapsulates provider-specific invocation semantics while maintaining a consistent interface.
+
+```mermaid
+classDiagram
+class BrokerGateway {
++invoke(handle, operation)
++acquireHandle(type)
+}
+class BrokerHandle {
+<<abstract>>
++invoke(operation)
+}
+class BaseBrokerHandle {
+-provider
+-connection
++invoke(operation)
+}
+class MarketDataHandle
+class OrderHandle
+class PortfolioHandle
+class OptionsHandle
+BrokerGateway --> BrokerHandle : "returns"
+BrokerHandle <|-- BaseBrokerHandle
+BaseBrokerHandle <|-- MarketDataHandle
+BaseBrokerHandle <|-- OrderHandle
+BaseBrokerHandle <|-- PortfolioHandle
+BaseBrokerHandle <|-- OptionsHandle
+```
+
+**Diagram sources**
+- [BrokerGateway.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/BrokerGateway.java#L1-L200)
+- [BrokerHandle.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/BrokerHandle.java#L1-L200)
+- [BaseBrokerHandle.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/BaseBrokerHandle.java#L1-L200)
+- [MarketDataHandle.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/MarketDataHandle.java#L1-L200)
+- [OrderHandle.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/OrderHandle.java#L1-L200)
+- [PortfolioHandle.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/PortfolioHandle.java#L1-L200)
+- [OptionsHandle.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/OptionsHandle.java#L1-L200)
+
+**Section sources**
+- [BrokerGateway.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/BrokerGateway.java#L1-L200)
+- [BrokerHandle.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/BrokerHandle.java#L1-L200)
+- [BaseBrokerHandle.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/BaseBrokerHandle.java#L1-L200)
+
+### SPI and Dynamic Registration
+The system uses a Service Provider Interface to dynamically register broker providers. The registry supports both default and service-loader-based discovery.
+
+```mermaid
+classDiagram
+class BrokerRegistry {
+<<interface>>
++register(descriptor)
++lookup(brokerId)
+}
+class DefaultBrokerRegistry {
+-providers
++register(descriptor)
++lookup(brokerId)
+}
+class ServiceLoaderBrokerRegistry {
++loadProviders()
+}
+class BrokerProvider {
+<<interface>>
++descriptor()
++createConnection(config)
+}
+BrokerRegistry <|.. DefaultBrokerRegistry
+BrokerRegistry <|.. ServiceLoaderBrokerRegistry
+BrokerProvider --> BrokerRegistry : "registered by"
+```
+
+**Diagram sources**
+- [BrokerRegistry.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/spi/BrokerRegistry.java#L1-L200)
+- [DefaultBrokerRegistry.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/spi/DefaultBrokerRegistry.java#L1-L200)
+- [ServiceLoaderBrokerRegistry.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/spi/ServiceLoaderBrokerRegistry.java#L1-L200)
+- [BrokerProvider.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/spi/BrokerProvider.java#L1-L200)
+
+**Section sources**
+- [BrokerRegistry.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/spi/BrokerRegistry.java#L1-L200)
+- [DefaultBrokerRegistry.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/spi/DefaultBrokerRegistry.java#L1-L200)
+- [ServiceLoaderBrokerRegistry.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/spi/ServiceLoaderBrokerRegistry.java#L1-L200)
+- [BrokerProvider.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/spi/BrokerProvider.java#L1-L200)
+
+### Adapter Pattern Implementation (Dhan, Upstox, ICICI)
+Each broker adapter implements the broker API and provides:
+- Authentication and token/session lifecycle
+- Market data streaming and historical retrieval
+- Order placement, modification, cancellation, and query
+- Portfolio and holdings management
+- Options chain and Greeks
+- Resilience and rate limiting
+- Startup validation and health checks
 
 ```mermaid
 classDiagram
 class IBrokerConnection {
-+discoverCapabilities() Set~Capability~
-+getMarketData() MarketDataPort
-+getOrderService() OrderServicePort
-+getAuthService() AuthPort
-+getHistoricalData() HistoricalDataPort
-+getInstrumentService() InstrumentServicePort
+<<interface>>
 }
-class DhanBrokerAdapter {
--connection DhanBrokerConnection
--authenticator DhanAuthenticator
--marketDataStream DhanMarketDataStream
--orderService DhanOrderService
--historicalGateway DhanHistoricalDataGateway
-+initialize()
-+shutdown()
-}
-class IciciBrokerAdapter {
--connection IciciBrokerConnection
--authenticator IciciAuthenticator
--marketDataStream IciciMarketDataStream
--orderService IciciOrderService
--historicalGateway IciciHistoricalDataGateway
-+initialize()
-+shutdown()
-}
-class DhanBrokerConnection {
-+connect()
-+disconnect()
-+isConnected() boolean
-}
-class IciciBrokerConnection {
-+connect()
-+disconnect()
-+isConnected() boolean
-}
-IBrokerConnection <|.. DhanBrokerAdapter
+class DhanBrokerConnection
+class UpstoxBrokerAdapter
+class IciciBrokerAdapter
+IBrokerConnection <|.. DhanBrokerConnection
+IBrokerConnection <|.. UpstoxBrokerAdapter
 IBrokerConnection <|.. IciciBrokerAdapter
-DhanBrokerAdapter --> DhanBrokerConnection
-IciciBrokerAdapter --> IciciBrokerConnection
 ```
 
 **Diagram sources**
 - [IBrokerConnection.java:1-200](file://broker/api/src/main/java/com/tradej/broker/api/IBrokerConnection.java#L1-L200)
-- [DhanBrokerAdapter.java:1-200](file://broker/dhan/src/main/java/com/tradej/broker/dhan/adapter/DhanBrokerAdapter.java#L1-L200)
-- [IciciBrokerAdapter.java:1-200](file://broker/icici/src/main/java/com/tradej/broker/icici/adapter/IciciBrokerAdapter.java#L1-L200)
 - [DhanBrokerConnection.java:1-200](file://broker/dhan/src/main/java/com/tradej/broker/dhan/DhanBrokerConnection.java#L1-L200)
-- [IciciBrokerConnection.java:1-200](file://broker/icici/src/main/java/com/tradej/broker/icici/IciciBrokerConnection.java#L1-L200)
-
-### Authentication Flow
-Both adapters implement robust authentication with token lifecycle management:
-
-```mermaid
-sequenceDiagram
-participant App as Application
-participant Adapter as BrokerAdapter
-participant Auth as Authenticator
-participant Token as TokenLifecycle
-participant Broker as BrokerConnection
-App->>Adapter : initialize()
-Adapter->>Auth : authenticate(credentials)
-Auth->>Token : acquireToken()
-Token->>Broker : requestAccessToken()
-Broker-->>Token : accessToken
-Token-->>Auth : validatedToken
-Auth-->>Adapter : authenticated
-Adapter->>Broker : connect()
-Broker-->>Adapter : connected
-Adapter-->>App : ready
-Note over Token,Broker : Token refresh and renewal handled automatically
-```
-
-**Diagram sources**
-- [DhanAuthenticator.java:1-200](file://broker/dhan/src/main/java/com/tradej/broker/dhan/auth/DhanAuthenticator.java#L1-L200)
-- [IciciAuthenticator.java:1-200](file://broker/icici/src/main/java/com/tradej/broker/icici/auth/IciciAuthenticator.java#L1-L200)
-- [DhanTokenLifecycle.java:1-200](file://broker/dhan/src/main/java/com/tradej/broker/dhan/auth/DhanTokenLifecycle.java#L1-L200)
-- [IciciTokenLifecycle.java:1-200](file://broker/icici/src/main/java/com/tradej/broker/icici/auth/IciciTokenLifecycle.java#L1-L200)
-
-### Market Data Streaming
-Market data streaming is implemented via WebSocket connections with subscription management:
-
-```mermaid
-flowchart TD
-Start([Initialize Market Data]) --> Connect["Connect to Broker WebSocket"]
-Connect --> Subscribe["Subscribe to Symbols"]
-Subscribe --> Stream{"Stream Active?"}
-Stream --> |Yes| Process["Process Market Updates"]
-Process --> Enrich["Enrich with Options Data"]
-Enrich --> Publish["Publish to Pipeline"]
-Publish --> Stream
-Stream --> |No| Reconnect["Attempt Reconnection"]
-Reconnect --> Connect
-Stream --> Error["Handle Stream Error"]
-Error --> Reconnect
-```
-
-**Diagram sources**
-- [DhanMarketDataStream.java:1-200](file://broker/dhan/src/main/java/com/tradej/broker/dhan/websocket/DhanMarketDataStream.java#L1-L200)
-- [IciciMarketDataStream.java:1-200](file://broker/icici/src/main/java/com/tradej/broker/icici/websocket/IciciMarketDataStream.java#L1-L200)
-- [DhanSubscriptionManager.java:1-200](file://broker/dhan/src/main/java/com/tradej/broker/dhan/subscription/DhanSubscriptionManager.java#L1-L200)
-- [IciciSubscriptionManager.java:1-200](file://broker/icici/src/main/java/com/tradej/broker/icici/subscription/IciciSubscriptionManager.java#L1-L200)
-
-### Order Management Lifecycle
-Order management follows a standardized lifecycle across brokers:
-
-```mermaid
-sequenceDiagram
-participant Client as Trading Client
-participant Adapter as BrokerAdapter
-participant Orders as OrderService
-participant Broker as BrokerSystem
-Client->>Adapter : submitOrder(order)
-Adapter->>Orders : validateAndPrepare(order)
-Orders->>Broker : placeOrder(order)
-Broker-->>Orders : ack
-Orders-->>Adapter : orderReference
-Adapter-->>Client : accepted
-Client->>Adapter : modifyOrder(ref, changes)
-Adapter->>Orders : prepareModification(ref, changes)
-Orders->>Broker : modifyOrder(changes)
-Broker-->>Orders : ack
-Orders-->>Adapter : modified
-Adapter-->>Client : confirmed
-Client->>Adapter : cancelOrder(ref)
-Adapter->>Orders : prepareCancellation(ref)
-Orders->>Broker : cancelOrder()
-Broker-->>Orders : ack
-Orders-->>Adapter : cancelled
-Adapter-->>Client : completed
-```
-
-**Diagram sources**
-- [DhanOrderService.java:1-200](file://broker/dhan/src/main/java/com/tradej/broker/dhan/orders/DhanOrderService.java#L1-L200)
-- [IciciOrderService.java:1-200](file://broker/icici/src/main/java/com/tradej/broker/icici/rest/IciciOrderService.java#L1-L200)
-
-### Historical Data Access
-Historical data retrieval is standardized with vendor-specific implementations:
-
-```mermaid
-flowchart TD
-Request([Historical Data Request]) --> Validate["Validate Parameters"]
-Validate --> BrokerCheck{"Broker Supports?"}
-BrokerCheck --> |Yes| BuildQuery["Build Historical Query"]
-BuildQuery --> Execute["Execute Query"]
-Execute --> Transform["Transform to Unified Format"]
-Transform --> Cache["Cache Results"]
-Cache --> Return["Return Data"]
-BrokerCheck --> |No| Fallback["Fallback Strategy"]
-Fallback --> Return
-```
-
-**Diagram sources**
-- [DhanHistoricalDataGateway.java:1-200](file://broker/dhan/src/main/java/com/tradej/broker/dhan/historical/DhanHistoricalDataGateway.java#L1-L200)
-- [IciciHistoricalDataGateway.java:1-200](file://broker/icici/src/main/java/com/tradej/broker/icici/historical/IciciHistoricalDataGateway.java#L1-L200)
-
-## Dependency Analysis
-The system exhibits loose coupling through standardized interfaces and strong cohesion within vendor adapters:
-
-```mermaid
-graph TB
-subgraph "External Dependencies"
-EXT1["Broker APIs"]
-EXT2["WebSocket Libraries"]
-EXT3["HTTP Clients"]
-EXT4["JSON/XML Parsers"]
-end
-subgraph "Internal Dependencies"
-API["broker/api"]
-CORE["broker/core"]
-DHAN["broker/dhan"]
-ICICI["broker/icici"]
-COMP["composition"]
-end
-API --> CORE
-CORE --> DHAN
-CORE --> ICICI
-DHAN --> API
-ICICI --> API
-COMP --> API
-COMP --> CORE
-DHAN --> EXT1
-DHAN --> EXT2
-DHAN --> EXT3
-DHAN --> EXT4
-ICICI --> EXT1
-ICICI --> EXT2
-ICICI --> EXT3
-ICICI --> EXT4
-```
-
-**Diagram sources**
-- [IBrokerConnection.java:1-200](file://broker/api/src/main/java/com/tradej/broker/api/IBrokerConnection.java#L1-L200)
-- [BrokerComposition.java:1-200](file://composition/src/main/java/com/tradej/composition/BrokerComposition.java#L1-L200)
 
 **Section sources**
 - [IBrokerConnection.java:1-200](file://broker/api/src/main/java/com/tradej/broker/api/IBrokerConnection.java#L1-L200)
+
+### Capability Discovery and Exploration
+The explorer inspects registered brokers and probes their capabilities (e.g., websocket, news, kill switch, session risk). Certification compiles capability matrices and reports.
+
+```mermaid
+flowchart TD
+Start(["Start Exploration"]) --> LoadReg["Load Broker Registry"]
+LoadReg --> Inspect["Inspect Providers"]
+Inspect --> Probe["Run Capability Probes"]
+Probe --> Report["Generate Inspection Report"]
+Report --> Certify["Run Certification Checks"]
+Certify --> Summary["Publish Certification Report"]
+Summary --> End(["Done"])
+```
+
+**Diagram sources**
+- [BrokerExplorer.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/explorer/BrokerExplorer.java#L1-L200)
+- [DefaultBrokerInspector.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/explorer/DefaultBrokerInspector.java#L1-L200)
+- [CapabilityProbe.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/explorer/CapabilityProbe.java#L1-L200)
+- [BrokerCertification.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/certification/BrokerCertification.java#L1-L200)
+- [CertificationReport.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/certification/CertificationReport.java#L1-L200)
+
+**Section sources**
+- [BrokerExplorer.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/explorer/BrokerExplorer.java#L1-L200)
+- [DefaultBrokerInspector.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/explorer/DefaultBrokerInspector.java#L1-L200)
+- [CapabilityProbe.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/explorer/CapabilityProbe.java#L1-L200)
+- [BrokerCertification.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/certification/BrokerCertification.java#L1-L200)
+- [CertificationReport.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/certification/CertificationReport.java#L1-L200)
+
+### Connection Lifecycle and Health Management
+- Token/session lifecycle: Providers manage authentication tokens and refresh sessions.
+- Health checks: Built-in health checks per broker.
+- Resilience: Retry, circuit breakers, and backoff strategies.
+- Reconnect logic: Automatic reconnection on failures.
+
+References:
+- [DhanTokenLifecycleIntegrationTest.java:1-200](file://app/src/test/java/com/tradej/app/integration/DhanTokenLifecycleIntegrationTest.java#L1-L200)
+- [IciciTokenLifecycleIntegrationTest.java:1-200](file://app/src/test/java/com/tradej/app/integration/IciciTokenLifecycleIntegrationTest.java#L1-L200)
+- [BrokerPluginRegistryTest.java:1-200](file://broker-gateway/src/test/java/com/tradej/brokergateway/spi/BrokerPluginRegistryTest.java#L1-L200)
+- [BrokerPluginRegistryConcurrencyTest.java:1-200](file://broker-gateway/src/test/java/com/tradej/brokergateway/spi/BrokerPluginRegistryConcurrencyTest.java#L1-L200)
+
+**Section sources**
+- [DhanTokenLifecycleIntegrationTest.java:1-200](file://app/src/test/java/com/tradej/app/integration/DhanTokenLifecycleIntegrationTest.java#L1-L200)
+- [IciciTokenLifecycleIntegrationTest.java:1-200](file://app/src/test/java/com/tradej/app/integration/IciciTokenLifecycleIntegrationTest.java#L1-L200)
+- [BrokerPluginRegistryTest.java:1-200](file://broker-gateway/src/test/java/com/tradej/brokergateway/spi/BrokerPluginRegistryTest.java#L1-L200)
+- [BrokerPluginRegistryConcurrencyTest.java:1-200](file://broker-gateway/src/test/java/com/tradej/brokergateway/spi/BrokerPluginRegistryConcurrencyTest.java#L1-L200)
+
+### Unified Access Patterns
+- Market data: LTP, depth, candles, OHLC.
+- Orders: Place, modify, cancel, query book/trades.
+- Portfolio: Holdings, positions, balances.
+- Options: Chain, expiries, Greeks.
+- Historical data: Bars and ticks retrieval.
+
+References:
+- [MarketDataHandle.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/MarketDataHandle.java#L1-L200)
+- [OrderHandle.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/OrderHandle.java#L1-L200)
+- [PortfolioHandle.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/PortfolioHandle.java#L1-L200)
+- [OptionsHandle.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/OptionsHandle.java#L1-L200)
+- [HistoricalRequest.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/HistoricalRequest.java#L1-L200)
+
+**Section sources**
+- [MarketDataHandle.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/MarketDataHandle.java#L1-L200)
+- [OrderHandle.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/OrderHandle.java#L1-L200)
+- [PortfolioHandle.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/PortfolioHandle.java#L1-L200)
+- [OptionsHandle.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/OptionsHandle.java#L1-L200)
+- [HistoricalRequest.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/HistoricalRequest.java#L1-L200)
+
+## Dependency Analysis
+The gateway depends on the broker API and SPI registry. Broker adapters depend on their respective provider SDKs and share common resilience and routing utilities. Composition wires runtime profiles and factories.
+
+```mermaid
+graph LR
+API["broker/api/IBrokerConnection"] --> GW["broker-gateway/BrokerGateway"]
+SPI["SPI Registry"] --> GW
+GW --> H["Handles"]
+H --> ADP["Broker Adapters"]
+ADP --> PSDK["Provider SDKs"]
+COMP["composition/*"] --> GW
+```
+
+**Diagram sources**
+- [IBrokerConnection.java:1-200](file://broker/api/src/main/java/com/tradej/broker/api/IBrokerConnection.java#L1-L200)
+- [BrokerGateway.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/BrokerGateway.java#L1-L200)
+- [BrokerRegistry.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/spi/BrokerRegistry.java#L1-L200)
+- [BrokerComposition.java:1-200](file://composition/src/main/java/com/tradej/composition/BrokerComposition.java#L1-L200)
+
+**Section sources**
+- [BrokerGateway.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/BrokerGateway.java#L1-L200)
+- [BrokerRegistry.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/spi/BrokerRegistry.java#L1-L200)
 - [BrokerComposition.java:1-200](file://composition/src/main/java/com/tradej/composition/BrokerComposition.java#L1-L200)
 
 ## Performance Considerations
-The system incorporates several performance optimization strategies:
+- Benchmarking: Dedicated JMH benchmarks for explorer, load-balanced gateway, token lifecycle, subscription lookup, and circuit breaker.
+- Recommendations:
+  - Use handle-level caching for frequent queries.
+  - Tune subscription sizes and rates per broker.
+  - Employ circuit breakers and backoff strategies.
+  - Monitor latency and throughput via built-in metrics.
 
-### Benchmarking and Measurement
-- Dedicated microbenchmark suites for gateway performance evaluation
-- Throughput measurements for market data streams and order processing
-- Latency profiling for authentication and connection establishment
-
-### Scalability Patterns
-- Connection pooling and reuse across multiple symbols
-- Asynchronous processing for non-blocking operations
-- Efficient serialization/deserialization for high-frequency data
-- Memory-efficient streaming for large historical datasets
-
-### Resource Management
-- Automatic cleanup of unused connections and subscriptions
-- Configurable buffer sizes for market data streams
-- Adaptive rate limiting based on broker capacity
-- Circuit breaker protection against downstream failures
+References:
+- [BrokerExplorerBenchmark.java:1-200](file://broker/core/src/jmh/java/com/tradej/broker/core/benchmark/BrokerExplorerBenchmark.java#L1-L200)
+- [LoadBalancedGatewayBenchmark.java:1-200](file://broker/core/src/jmh/java/com/tradej/broker/core/benchmark/LoadBalancedGatewayBenchmark.java#L1-L200)
+- [TokenLifecycleBenchmark.java:1-200](file://broker/core/src/jmh/java/com/tradej/broker/core/benchmark/TokenLifecycleBenchmark.java#L1-L200)
+- [SubscriptionLookupBenchmark.java:1-200](file://broker/core/src/jmh/java/com/tradej/broker/core/benchmark/SubscriptionLookupBenchmark.java#L1-L200)
+- [CircuitBreakerBenchmark.java:1-200](file://broker/core/src/jmh/java/com/tradej/broker/core/benchmark/CircuitBreakerBenchmark.java#L1-L200)
 
 **Section sources**
-- [DhanGatewayBenchmark.java:1-200](file://broker/core/src/jmh/java/com/tradej/broker/core/benchmark/DhanGatewayBenchmark.java#L1-L200)
-- [IciciGatewayBenchmark.java:1-200](file://broker/core/src/jmh/java/com/tradej/broker/core/benchmark/IciciGatewayBenchmark.java#L1-L200)
+- [BrokerExplorerBenchmark.java:1-200](file://broker/core/src/jmh/java/com/tradej/broker/core/benchmark/BrokerExplorerBenchmark.java#L1-L200)
+- [LoadBalancedGatewayBenchmark.java:1-200](file://broker/core/src/jmh/java/com/tradej/broker/core/benchmark/LoadBalancedGatewayBenchmark.java#L1-L200)
+- [TokenLifecycleBenchmark.java:1-200](file://broker/core/src/jmh/java/com/tradej/broker/core/benchmark/TokenLifecycleBenchmark.java#L1-L200)
+- [SubscriptionLookupBenchmark.java:1-200](file://broker/core/src/jmh/java/com/tradej/broker/core/benchmark/SubscriptionLookupBenchmark.java#L1-L200)
+- [CircuitBreakerBenchmark.java:1-200](file://broker/core/src/jmh/java/com/tradej/broker/core/benchmark/CircuitBreakerBenchmark.java#L1-L200)
 
 ## Troubleshooting Guide
-Common issues and their resolution strategies:
+Common issues and resolutions:
+- Authentication failures: Verify provider credentials and token lifecycle flows.
+- Connection drops: Check health checks and reconnect logic.
+- Rate limits: Implement provider-specific throttling and backoff.
+- Capability mismatches: Use explorer and certification reports to validate supported features.
+- Configuration errors: Validate application and property files for the target broker profile.
 
-### Connection Issues
-- Verify broker credentials and token validity
-- Check network connectivity and firewall settings
-- Monitor connection retry attempts and backoff intervals
-- Review broker-specific connection timeouts and keepalive settings
-
-### Authentication Failures
-- Validate API keys and secrets
-- Check token expiration and renewal mechanisms
-- Review authentication endpoint availability
-- Confirm proper credential encoding and transmission
-
-### Market Data Problems
-- Verify symbol resolution and exchange mappings
-- Check subscription status and reconnection logic
-- Monitor stream quality and latency metrics
-- Review data transformation and enrichment processes
-
-### Order Management Errors
-- Validate order parameter formats and constraints
-- Check order state transitions and acknowledgments
-- Monitor order book synchronization
-- Review cancellation and modification workflows
-
-### Performance Degradation
-- Analyze throughput and latency metrics
-- Review rate limiting configurations
-- Check resource utilization and garbage collection
-- Validate caching effectiveness and cache invalidation
+References:
+- [BrokerGatewayLiveConnectionTest.java:1-200](file://app/src/test/java/com/tradej/app/integration/BrokerGatewayLiveConnectionTest.java#L1-L200)
+- [GatewayWebSocketLifecycleTest.java:1-200](file://app/src/test/java/com/tradej/app/integration/GatewayWebSocketLifecycleTest.java#L1-L200)
+- [GatewayReplaySmokeTest.java:1-200](file://app/src/test/java/com/tradej/app/integration/GatewayReplaySmokeTest.java#L1-L200)
+- [GatewayCheckSpeedLiveTest.java:1-200](file://app/src/test/java/com/tradej/app/integration/GatewayCheckSpeedLiveTest.java#L1-L200)
+- [BrokerExplorerTest.java:1-200](file://broker-gateway/src/test/java/com/tradej/brokergateway/BrokerExplorerTest.java#L1-L200)
+- [BrokerCertificationTest.java:1-200](file://broker-gateway/src/test/java/com/tradej/brokergateway/BrokerCertificationTest.java#L1-L200)
 
 **Section sources**
-- [DhanReconnectStrategy.java:1-200](file://broker/dhan/src/main/java/com/tradej/broker/dhan/reconnect/DhanReconnectStrategy.java#L1-L200)
-- [IciciReconnectStrategy.java:1-200](file://broker/icici/src/main/java/com/tradej/broker/icici/reconnect/IciciReconnectStrategy.java#L1-L200)
-- [DhanHealthIndicator.java:1-200](file://broker/dhan/src/main/java/com/tradej/broker/dhan/health/DhanHealthIndicator.java#L1-L200)
-- [IciciHealthIndicator.java:1-200](file://broker/icici/src/main/java/com/tradej/broker/icici/health/IciciHealthIndicator.java#L1-L200)
+- [BrokerGatewayLiveConnectionTest.java:1-200](file://app/src/test/java/com/tradej/app/integration/BrokerGatewayLiveConnectionTest.java#L1-L200)
+- [GatewayWebSocketLifecycleTest.java:1-200](file://app/src/test/java/com/tradej/app/integration/GatewayWebSocketLifecycleTest.java#L1-L200)
+- [GatewayReplaySmokeTest.java:1-200](file://app/src/test/java/com/tradej/app/integration/GatewayReplaySmokeTest.java#L1-L200)
+- [GatewayCheckSpeedLiveTest.java:1-200](file://app/src/test/java/com/tradej/app/integration/GatewayCheckSpeedLiveTest.java#L1-L200)
+- [BrokerExplorerTest.java:1-200](file://broker-gateway/src/test/java/com/tradej/brokergateway/BrokerExplorerTest.java#L1-L200)
+- [BrokerCertificationTest.java:1-200](file://broker-gateway/src/test/java/com/tradej/brokergateway/BrokerCertificationTest.java#L1-L200)
 
 ## Conclusion
-The multi-broker integration system successfully implements a scalable, maintainable architecture for connecting to multiple broker platforms through a standardized adapter pattern. The system provides consistent capabilities across market data streaming, order management, authentication, and historical data access while supporting dynamic broker selection and capability discovery. The modular design enables easy extension to new brokers and ensures operational reliability through comprehensive resilience, monitoring, and performance optimization features.
+The broker integration system provides a robust, extensible framework for unified access to multiple brokers. Through the SPI-based provider model, adapter pattern, and handle abstractions, it achieves dynamic registration, consistent APIs, and strong operational controls. The explorer and certification tooling ensure capability visibility and compliance, while benchmarks and resilience features support high-performance, reliable trading operations.
+
+## Appendices
+
+### Configuration Options
+- Global application settings: [application.yml:1-200](file://app/src/main/resources/application.yml#L1-L200), [application-dev.yml:1-200](file://app/src/main/resources/application-dev.yml#L1-L200), [application-prod.yml:1-200](file://app/src/main/resources/application-prod.yml#L1-L200), [application-gateway.yml:1-200](file://app/src/main/resources/application-gateway.yml#L1-L200)
+- Broker-specific profiles:
+  - Upstox dev/prod: [application-upstox-dev.yml:1-200](file://app/src/main/resources/application-upstox-dev.yml#L1-L200), [application-upstox-prod.yml:1-200](file://app/src/main/resources/application-upstox-prod.yml#L1-L200)
+  - ICICI prod: [application-icici-prod.yml:1-200](file://app/src/main/resources/application-icici-prod.yml#L1-L200)
+- Properties examples:
+  - Dhan local sandbox/live: [dhan-local.properties.example:1-200](file://config/dhan-local.properties.example#L1-L200)
+  - ICICI local: [icici-local.properties.example:1-200](file://config/icici-local.properties.example#L1-L200)
+  - Upstox live/sandbox: [upstox-live.properties.example:1-200](file://config/upstox-live.properties.example#L1-L200), [upstox-sandbox.properties.example:1-200](file://config/upstox-sandbox.properties.example#L1-L200)
+
+**Section sources**
+- [application.yml:1-200](file://app/src/main/resources/application.yml#L1-L200)
+- [application-dev.yml:1-200](file://app/src/main/resources/application-dev.yml#L1-L200)
+- [application-prod.yml:1-200](file://app/src/main/resources/application-prod.yml#L1-L200)
+- [application-gateway.yml:1-200](file://app/src/main/resources/application-gateway.yml#L1-L200)
+- [application-upstox-dev.yml:1-200](file://app/src/main/resources/application-upstox-dev.yml#L1-L200)
+- [application-upstox-prod.yml:1-200](file://app/src/main/resources/application-upstox-prod.yml#L1-L200)
+- [application-icici-prod.yml:1-200](file://app/src/main/resources/application-icici-prod.yml#L1-L200)
+- [dhan-local.properties.example:1-200](file://config/dhan-local.properties.example#L1-L200)
+- [icici-local.properties.example:1-200](file://config/icici-local.properties.example#L1-L200)
+- [upstox-live.properties.example:1-200](file://config/upstox-live.properties.example#L1-L200)
+- [upstox-sandbox.properties.example:1-200](file://config/upstox-sandbox.properties.example#L1-L200)
+
+### Authentication Mechanisms
+- Token/session lifecycle management is implemented per broker adapter.
+- Tests validate token refresh and session health for Dhan and ICICI.
+
+References:
+- [DhanTokenLifecycleIntegrationTest.java:1-200](file://app/src/test/java/com/tradej/app/integration/DhanTokenLifecycleIntegrationTest.java#L1-L200)
+- [IciciTokenLifecycleIntegrationTest.java:1-200](file://app/src/test/java/com/tradej/app/integration/IciciTokenLifecycleIntegrationTest.java#L1-L200)
+
+**Section sources**
+- [DhanTokenLifecycleIntegrationTest.java:1-200](file://app/src/test/java/com/tradej/app/integration/DhanTokenLifecycleIntegrationTest.java#L1-L200)
+- [IciciTokenLifecycleIntegrationTest.java:1-200](file://app/src/test/java/com/tradej/app/integration/IciciTokenLifecycleIntegrationTest.java#L1-L200)
+
+### Practical Examples
+- Market feed integration tests demonstrate live data ingestion for Upstox.
+- Order lifecycle tests cover placement, modification, cancellation, and querying.
+- Historical data retrieval tests validate bar generation and tick replay.
+
+References:
+- [UpstoxMarketFeedIntegrationTest.java:1-200](file://app/src/test/java/com/tradej/app/integration/UpstoxMarketFeedIntegrationTest.java#L1-L200)
+- [BrokerGatewayTest.java:1-200](file://broker-gateway/src/test/java/com/tradej/brokergateway/BrokerGatewayTest.java#L1-L200)
+- [BrokerHandleTest.java:1-200](file://broker-gateway/src/test/java/com/tradej/brokergateway/BrokerHandleTest.java#L1-L200)
+- [BrokerHandleInvokeTest.java:1-200](file://broker-gateway/src/test/java/com/tradej/brokergateway/BrokerHandleInvokeTest.java#L1-L200)
+- [BrokerHandleAdvancedTest.java:1-200](file://broker-gateway/src/test/java/com/tradej/brokergateway/BrokerHandleAdvancedTest.java#L1-L200)
+
+**Section sources**
+- [UpstoxMarketFeedIntegrationTest.java:1-200](file://app/src/test/java/com/tradej/app/integration/UpstoxMarketFeedIntegrationTest.java#L1-L200)
+- [BrokerGatewayTest.java:1-200](file://broker-gateway/src/test/java/com/tradej/brokergateway/BrokerGatewayTest.java#L1-L200)
+- [BrokerHandleTest.java:1-200](file://broker-gateway/src/test/java/com/tradej/brokergateway/BrokerHandleTest.java#L1-L200)
+- [BrokerHandleInvokeTest.java:1-200](file://broker-gateway/src/test/java/com/tradej/brokergateway/BrokerHandleInvokeTest.java#L1-L200)
+- [BrokerHandleAdvancedTest.java:1-200](file://broker-gateway/src/test/java/com/tradej/brokergateway/BrokerHandleAdvancedTest.java#L1-L200)
+
+### Custom Broker Development
+Steps to add a new broker:
+1. Implement IBrokerConnection in a new adapter module.
+2. Create a BrokerProvider that returns the adapter and metadata.
+3. Register the provider via SPI or default registry.
+4. Add configuration profiles and properties.
+5. Write tests for authentication, connectivity, and capability coverage.
+6. Validate with explorer and certification.
+
+References:
+- [BrokerProvider.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/spi/BrokerProvider.java#L1-L200)
+- [DhanBrokerProvider.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/spi/impl/DhanBrokerProvider.java#L1-L200)
+- [IciciBrokerProvider.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/spi/impl/IciciBrokerProvider.java#L1-L200)
+- [UpstoxBrokerProvider.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/spi/impl/UpstoxBrokerProvider.java#L1-L200)
+- [BrokerPluginRegistryTest.java:1-200](file://broker-gateway/src/test/java/com/tradej/brokergateway/spi/BrokerPluginRegistryTest.java#L1-L200)
+- [BrokerPluginRegistryConcurrencyTest.java:1-200](file://broker-gateway/src/test/java/com/tradej/brokergateway/spi/BrokerPluginRegistryConcurrencyTest.java#L1-L200)
+
+**Section sources**
+- [BrokerProvider.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/spi/BrokerProvider.java#L1-L200)
+- [DhanBrokerProvider.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/spi/impl/DhanBrokerProvider.java#L1-L200)
+- [IciciBrokerProvider.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/spi/impl/IciciBrokerProvider.java#L1-L200)
+- [UpstoxBrokerProvider.java:1-200](file://broker-gateway/src/main/java/com/tradej/brokergateway/spi/impl/UpstoxBrokerProvider.java#L1-L200)
+- [BrokerPluginRegistryTest.java:1-200](file://broker-gateway/src/test/java/com/tradej/brokergateway/spi/BrokerPluginRegistryTest.java#L1-L200)
+- [BrokerPluginRegistryConcurrencyTest.java:1-200](file://broker-gateway/src/test/java/com/tradej/brokergateway/spi/BrokerPluginRegistryConcurrencyTest.java#L1-L200)
+
+### Error Handling Strategies
+- Circuit breakers and retry policies prevent cascading failures.
+- Health indicators monitor broker availability and performance.
+- Startup validators ensure proper initialization order and readiness.
+
+References:
+- [BrokerStartupOrchestratorAnalyticsTest.java:1-200](file://app/src/test/java/com/tradej/app/startup/BrokerStartupOrchestratorAnalyticsTest.java#L1-L200)
+- [BrokerStartupValidatorTest.java:1-200](file://app/src/test/java/com/tradej/app/startup/BrokerStartupValidatorTest.java#L1-L200)
+
+**Section sources**
+- [BrokerStartupOrchestratorAnalyticsTest.java:1-200](file://app/src/test/java/com/tradej/app/startup/BrokerStartupOrchestratorAnalyticsTest.java#L1-L200)
+- [BrokerStartupValidatorTest.java:1-200](file://app/src/test/java/com/tradej/app/startup/BrokerStartupValidatorTest.java#L1-L200)
+
+### Architectural and Capability References
+- Gateway architecture review: [BROKER_GATEWAY_ARCHITECTURE_REVIEW.md:1-200](file://docs/reports/BROKER_GATEWAY_ARCHITECTURE_REVIEW_2026-06-06.md#L1-L200)
+- Capability matrix: [BROKER_CAPABILITY_MATRIX.md:1-200](file://docs/BROKER_CAPABILITY_MATRIX.md#L1-L200)
+- Certification report: [BROKER_CERTIFICATION_REPORT.md:1-200](file://docs/BROKER_CERTIFICATION_REPORT.md#L1-L200)
+- Upstox API gap analysis: [UPSTOX_API_GAP_ANALYSIS.md:1-200](file://docs/UPSTOX_API_GAP_ANALYSIS.md#L1-L200)
+- Institutional architecture: [TRADEJ_INSTITUTIONAL_ARCHITECTURE.md:1-200](file://docs/TRADEJ_INSTITUTIONAL_ARCHITECTURE.md#L1-L200)
+
+**Section sources**
+- [BROKER_GATEWAY_ARCHITECTURE_REVIEW.md:1-200](file://docs/reports/BROKER_GATEWAY_ARCHITECTURE_REVIEW_2026-06-06.md#L1-L200)
+- [BROKER_CAPABILITY_MATRIX.md:1-200](file://docs/BROKER_CAPABILITY_MATRIX.md#L1-L200)
+- [BROKER_CERTIFICATION_REPORT.md:1-200](file://docs/BROKER_CERTIFICATION_REPORT.md#L1-L200)
+- [UPSTOX_API_GAP_ANALYSIS.md:1-200](file://docs/UPSTOX_API_GAP_ANALYSIS.md#L1-L200)
+- [TRADEJ_INSTITUTIONAL_ARCHITECTURE.md:1-200](file://docs/TRADEJ_INSTITUTIONAL_ARCHITECTURE.md#L1-L200)

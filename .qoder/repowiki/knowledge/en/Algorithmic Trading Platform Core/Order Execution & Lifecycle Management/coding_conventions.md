@@ -1,3 +1,0 @@
-- Use of sealed interfaces and records (e.g., `ExecutionCommand`, `OrderEventEntry`) to model finite, type-safe command and event structures within the module.
-- Defensive identity resolution where fill events are deferred and retried if the internal order ID mapping is not yet available in the `OrderIdentityRegistry`.
-- Event-sourced state reconstruction where `OrderManagementService` rebuilds order projections by replaying persisted events from the repository on startup or lookup.

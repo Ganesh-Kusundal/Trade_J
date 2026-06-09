@@ -1,5 +1,6 @@
 dependencies {
     implementation project(':core')
+    implementation project(':pipeline-core')
     implementation "net.openhft:chronicle-queue:${versions.chronicleQueue}"
     implementation "org.duckdb:duckdb_jdbc:${versions.duckdb}"
     implementation 'com.fasterxml.jackson.core:jackson-databind'

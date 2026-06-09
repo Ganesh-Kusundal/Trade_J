@@ -1,0 +1,3 @@
+- REST clients (e.g., `UpstoxOrderRestClient`) are stateless and delegate raw HTTP execution to `UpstoxJsonHttpClient` or `UpstoxHttpClient`.
+- Domain mapping is centralized in `UpstoxDomainMapper` and specific mappers (e.g., `UpstoxHistoricalCandleMapper`) to isolate API schema changes.
+- WebSocket frame parsing is implemented via static methods in dedicated parser classes (e.g., `UpstoxBinaryParser`) that throw runtime exceptions for malformed data.

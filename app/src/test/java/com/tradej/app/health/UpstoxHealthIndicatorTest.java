@@ -125,6 +125,6 @@ class UpstoxHealthIndicatorTest {
         ObjectProvider<BrokerTransportCapabilities> capsProvider = mock(ObjectProvider.class);
         when(capsProvider.getIfUnique()).thenReturn(transportCapabilities);
         return new UpstoxHealthIndicator(
-                brokerConnection, tokenSource, capsProvider, marketDataProvider);
+                brokerConnection, tokenSource, capsProvider, marketDataProvider, null);
     }
 }

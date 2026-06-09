@@ -32,7 +32,8 @@ class RuntimeModeStartupOrderComponentTest {
         TradingProperties properties = new TradingProperties(
                 null, null, null, null, null, null, null, null,
                 new TradingProperties.RuntimeProperties(configured),
-                null, null, null, null, null, null, null, null
+                null, null, null, null, null, null, null, null,
+                null
         );
         new RuntimeConfiguration(properties, holder).applyConfiguredMode();
 

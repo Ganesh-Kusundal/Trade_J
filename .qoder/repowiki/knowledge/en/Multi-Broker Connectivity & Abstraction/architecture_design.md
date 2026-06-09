@@ -1,5 +1,0 @@
-- **Layered Hexagonal Architecture**: The module is split into `api` (ports/interfaces), `core` (shared infrastructure/resilience), and vendor-specific adapters (`dhan`, `upstox`, `icici`).
-- **Capability-Based Access**: `IBrokerConnection` serves as the primary facade, exposing broker features via optional capabilities (e.g., `OptionsCapable`, `FuturesCapable`) and default port accessors.
-- **Adapter Pattern**: Each vendor sub-module implements the `api` ports through specialized adapters (e.g., `DhanOrderCommandAdapter`) that translate domain models to vendor-specific API calls.
-- **Resilience & Routing**: `broker-core` provides `LoadBalancedBrokerGateway` for aggregating multiple connections with round-robin/failover strategies, alongside `CircuitBreaker` and `RetryExecutor` for fault tolerance.
-- **WebSocket Multiplexing**: Dedicated multiplexers in each adapter manage complex WebSocket lifecycles, including automatic reconnection, token rotation, and subscription state management.

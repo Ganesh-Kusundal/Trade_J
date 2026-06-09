@@ -1,1 +1,0 @@
-Java records for immutable DTOs; Gradle multi-project build with inter-module dependencies (`:core`, `:data-historical-ingest`, `:trade-pipeline-platform`); JUnit 5 for unit testing.

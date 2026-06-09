@@ -1,19 +1,10 @@
 package com.tradej.disruptor;
 
 import com.tradej.core.domain.event.DomainEvent;
-import com.tradej.core.domain.port.DeadLetterQueue;
 import com.tradej.core.domain.port.DomainEventHandler;
 import com.tradej.core.domain.port.EventBus;
-import com.tradej.core.domain.port.FeatureStore;
-import com.tradej.disruptor.config.StageTimings;
-import com.tradej.pipeline.runtime.PipelineRuntimeBridge;
+import com.tradej.disruptor.config.DisruptorPipelineConfig;
 import com.tradej.core.routing.SymbolShardRouter;
-import com.tradej.execution.risk.PositionRiskHandler;
-import com.tradej.execution.service.ExecutionHandler;
-import com.tradej.strategy.portfolio.PortfolioEngine;
-import com.tradej.strategy.service.CandleAggregationService;
-import com.tradej.strategy.service.GraphStrategySandbox;
-import com.tradej.strategy.service.StrategyEngine;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,54 +24,18 @@ public final class ShardedDisruptorEventBus implements EventBus, DisruptorBusMet
     private final List<DisruptorEventBus> shards;
     private final int shardCount;
 
-    public ShardedDisruptorEventBus(
-            int shardCount,
-            PositionRiskHandler positionRiskHandler,
-            CandleAggregationService candleAggregationService,
-            StrategyEngine strategyEngine,
-            ExecutionHandler executionHandler,
-            PortfolioEngine portfolioEngine,
-            StageTimings stageTimings,
-            FeatureStore hotPathFeatureStore,
-            DeadLetterQueue deadLetterQueue,
-            PipelineRuntimeBridge pipelineRuntimeBridge
-    ) {
-        this(shardCount, positionRiskHandler, candleAggregationService, strategyEngine, null, executionHandler,
-                portfolioEngine, stageTimings, hotPathFeatureStore, deadLetterQueue, pipelineRuntimeBridge);
-    }
-
-    public ShardedDisruptorEventBus(
-            int shardCount,
-            PositionRiskHandler positionRiskHandler,
-            CandleAggregationService candleAggregationService,
-            StrategyEngine strategyEngine,
-            GraphStrategySandbox graphStrategySandbox,
-            ExecutionHandler executionHandler,
-            PortfolioEngine portfolioEngine,
-            StageTimings stageTimings,
-            FeatureStore hotPathFeatureStore,
-            DeadLetterQueue deadLetterQueue,
-            PipelineRuntimeBridge pipelineRuntimeBridge
-    ) {
+    /**
+     * Creates a sharded event bus from a pipeline configuration.
+     * Each shard gets its own {@link DisruptorEventBus} with the same config.
+     */
+    public ShardedDisruptorEventBus(int shardCount, DisruptorPipelineConfig config) {
         if (shardCount < 1) {
             throw new IllegalArgumentException("shardCount must be >= 1");
         }
         this.shardCount = shardCount;
         this.shards = new ArrayList<>(shardCount);
         for (int i = 0; i < shardCount; i++) {
-            shards.add(new DisruptorEventBus(
-                    positionRiskHandler,
-                    candleAggregationService,
-                    strategyEngine,
-                    graphStrategySandbox,
-                    executionHandler,
-                    portfolioEngine,
-                    stageTimings,
-                    hotPathFeatureStore,
-                    deadLetterQueue,
-                    pipelineRuntimeBridge,
-                    i == 0
-            ));
+            shards.add(new DisruptorEventBus(config));
         }
         log.info("ShardedDisruptorEventBus initialized shardCount={} ringBufferSizePerShard={}",
                 shardCount, shards.getFirst().ringBufferSize());

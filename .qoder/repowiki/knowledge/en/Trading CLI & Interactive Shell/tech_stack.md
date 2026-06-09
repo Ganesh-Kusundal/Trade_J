@@ -1,1 +1,0 @@
-Uses `picocli` 4.7.6 for declarative CLI parsing and `jline3` 3.26.3 for interactive terminal handling.

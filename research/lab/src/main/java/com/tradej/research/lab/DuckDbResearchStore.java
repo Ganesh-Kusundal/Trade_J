@@ -3,7 +3,6 @@ package com.tradej.research.lab;
 import com.tradej.research.core.RunResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Repository;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -15,7 +14,6 @@ import java.sql.Statement;
  * Handles persistence and querying of research, backtesting, and scanner runs in DuckDB.
  * Maintains a single persistent connection to avoid in-memory database replication issues.
  */
-@Repository
 public class DuckDbResearchStore implements AutoCloseable {
     private static final Logger log = LoggerFactory.getLogger(DuckDbResearchStore.class);
     private final String dbUrl;

@@ -1,0 +1,6 @@
+com.tradej.indicators.spi.builtin.RSIProvider
+com.tradej.indicators.spi.builtin.EMAProvider
+com.tradej.indicators.spi.builtin.SMAProvider
+com.tradej.indicators.spi.builtin.ATRProvider
+com.tradej.indicators.spi.builtin.VWAPProvider
+com.tradej.indicators.spi.builtin.OBVProvider

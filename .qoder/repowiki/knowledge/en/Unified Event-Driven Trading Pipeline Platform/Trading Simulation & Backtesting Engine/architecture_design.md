@@ -1,0 +1,6 @@
+- Core matching logic resides in `MatchingEngine`, which resolves fill prices using last-traded data and applies slippage models (spread, volatility, partial fills).
+- `SimulatedOrderService` acts as the orchestration layer, routing normalized orders to the engine and updating the `PnLLedger`.
+- `PnLLedger` maintains thread-safe per-symbol position states and calculates realized/unrealized P&L.
+- `BacktestServiceImpl` implements the `BacktestService` interface, executing strategies against historical or simulated candle data.
+- `SimulationMetrics` provides atomic counters for performance and accuracy tracking.
+- The module depends on `:core` for domain models (`Order`, `Trade`, `Candle`) and utilities (`TradingClock`, `ExchangeTickSizeRegistry`).

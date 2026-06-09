@@ -1,0 +1,1 @@
+Java Virtual Threads (for isolated strategy execution), Spring Framework (for dependency injection and lifecycle management), Gradle (build system).

@@ -1,0 +1,9 @@
+schema_version: 1
+module_path: backend_trading/pipeline_core/graph_model
+title: Declarative Pipeline Graph Model
+scope:
+    - pipeline/core/src/main/java/com/tradej/pipeline/graph/
+source_files: []
+depends_on: []
+related_to:
+    - path: backend_trading/pipeline_core/runtime_engine

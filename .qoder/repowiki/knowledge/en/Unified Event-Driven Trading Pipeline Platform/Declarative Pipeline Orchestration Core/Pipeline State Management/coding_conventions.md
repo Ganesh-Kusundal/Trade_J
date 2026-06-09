@@ -1,0 +1,3 @@
+- State store interfaces use generic type parameters <K, V> to remain agnostic of key and value types across different node implementations.
+- Read operations return Optional<V> instead of null to enforce explicit handling of missing state.
+- In-memory implementations rely on ConcurrentHashMap for lock-free thread safety without external synchronization.

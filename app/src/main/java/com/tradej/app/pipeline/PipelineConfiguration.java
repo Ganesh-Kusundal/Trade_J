@@ -1,6 +1,7 @@
 package com.tradej.app.pipeline;
 
 import com.tradej.core.domain.port.FeatureStore;
+import com.tradej.core.domain.time.TradingClock;
 import com.tradej.execution.risk.PositionRiskHandler;
 import com.tradej.execution.service.ExecutionHandler;
 import com.tradej.feature.store.OptionsAwareFeatureStore;
@@ -14,10 +15,10 @@ import com.tradej.pipeline.registry.NodeRegistry;
 import com.tradej.pipeline.registry.NodeTypeDescriptor;
 import com.tradej.pipeline.runtime.IngressNode;
 import com.tradej.pipeline.runtime.PipelineNodeTypes;
+import com.tradej.pipeline.service.reactor.ReactorBridgeMetrics;
 import com.tradej.pipeline.service.DagPipelineRuntimeService;
 import com.tradej.pipeline.service.PipelineNodeFactory;
 import com.tradej.pipeline.service.PipelineRuntimeService;
-import com.tradej.pipeline.service.reactor.ReactorBridgeMetrics;
 import com.tradej.scanner.engine.ScanEngine;
 import com.tradej.scanner.model.ScanProfile;
 import com.tradej.composition.config.ScanProperties;
@@ -49,8 +50,18 @@ public class PipelineConfiguration {
     }
 
     @Bean
+    CandleAggregationService candleAggregationService(TradingClock tradingClock) {
+        return new CandleAggregationService(List.of("1m", "5m", "15m", "1h"), tradingClock);
+    }
+
+    @Bean
     ReactorBridge reactorBridge() {
         return new ReactorBridge();
+    }
+
+    @Bean
+    ReactorBridgeMetrics reactorBridgeMetrics() {
+        return new ReactorBridgeMetrics();
     }
 
     @Bean
@@ -173,12 +184,13 @@ public class PipelineConfiguration {
             OptionsAwareFeatureStore hotPathFeatureStore,
             ReactorBridge reactorBridge,
             @Autowired(required = false) ScanEngine scanEngine,
-            ScanProperties scanProperties
+            @Autowired(required = false) ScanProperties scanProperties
     ) {
         FeatureStore featureStore = hotPathFeatureStore;
-        Map<String, ScanProfile> scanProfilesById = scanProperties.profiles().stream()
+        Map<String, ScanProfile> scanProfilesById = (scanProperties != null ? scanProperties.profiles().stream()
                 .map(ScanProfileMapper::toDomain)
-                .collect(java.util.stream.Collectors.toMap(ScanProfile::id, profile -> profile, (left, right) -> right));
+                .collect(java.util.stream.Collectors.toMap(ScanProfile::id, profile -> profile, (left, right) -> right))
+                : Map.of());
         return new PipelineNodeFactory(
                 nodeRegistry,
                 positionRiskHandler,
@@ -192,6 +204,17 @@ public class PipelineConfiguration {
                 scanEngine,
                 scanProfilesById
         );
+    }
+
+    @Bean
+    PipelineRuntimeService pipelineRuntimeService(
+            PipelineNodeFactory pipelineNodeFactory,
+            VirtualClock virtualClock,
+            DuckDbPipelineGraphStore pipelineGraphStore,
+            ReactorBridgeMetrics reactorBridgeMetrics,
+            ReactorBridge reactorBridge
+    ) {
+        return new PipelineRuntimeService(pipelineNodeFactory, virtualClock, pipelineGraphStore, reactorBridgeMetrics, reactorBridge);
     }
 
     @Bean
@@ -209,6 +232,22 @@ public class PipelineConfiguration {
                 log.warn("Failed to load persisted pipeline graph — using built-in default: {}", e.getMessage());
             }
         };
+    }
+
+    @Bean
+    DagPipelineRuntimeService dagPipelineRuntimeService(
+            PipelineNodeFactory pipelineNodeFactory,
+            VirtualClock virtualClock,
+            DuckDbPipelineGraphStore pipelineGraphStore
+    ) {
+        return new DagPipelineRuntimeService(pipelineNodeFactory, virtualClock, pipelineGraphStore);
+    }
+
+    @Bean
+    com.tradej.pipeline.service.DagPipelineIngressBridge dagPipelineIngressBridge(
+            DagPipelineRuntimeService dagPipelineRuntimeService
+    ) {
+        return new com.tradej.pipeline.service.DagPipelineIngressBridge(dagPipelineRuntimeService);
     }
 
     @Bean

@@ -1,0 +1,1 @@
+Handles order placement, fill reconciliation, and lifecycle state management with circuit breaker protection and partitioned execution queues.

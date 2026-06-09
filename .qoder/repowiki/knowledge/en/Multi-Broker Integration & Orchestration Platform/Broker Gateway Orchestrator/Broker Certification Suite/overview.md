@@ -1,0 +1,1 @@
+Runs a comprehensive 25-check validation suite against broker integrations covering market data, options, portfolio, orders, margin, futures, and capabilities.

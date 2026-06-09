@@ -1,4 +1,0 @@
-- Domain model types are defined as Java records with compact constructors that enforce non-null constraints via Objects.requireNonNull and defensively copy mutable collections using Map.copyOf or List.copyOf.
-- Analytics capabilities follow an interface-with-default-implementation pattern: a public interface (PerformanceAnalytics, DrawdownAnalytics) declares the contract, and a final class prefixed with Default (DefaultPerformanceAnalytics, DefaultDrawdownAnalytics) provides the concrete implementation.
-- Report/result types are modeled as immutable Java records (PerformanceReport, DrawdownReport, TradeRecord, EquityPoint) carrying computed metrics without behavior.
-- Runtime services distinguish execution modes at compile time: PipelineRuntimeService rejects DAG graphs with IllegalArgumentException, while DagPipelineRuntimeService rejects non-DAG graphs, enforcing mode-specific validation before compilation.

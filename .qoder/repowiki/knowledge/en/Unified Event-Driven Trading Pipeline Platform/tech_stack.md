@@ -1,0 +1,1 @@
+Java Service Provider Interface (SPI) for pluggable indicator registration; AtomicReference-based hot-swap for runtime graph deployment.

@@ -31,64 +31,56 @@ public final class DuckDbFeatureStore implements FeatureStore, AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(DuckDbFeatureStore.class);
 
+    private final com.tradej.persistence.duckdb.DuckDbConnectionPool pool;
+    private final boolean ownsPool;
     private final Path databasePath;
-    private Connection connection;
+    private Connection rawConnection;
 
     public DuckDbFeatureStore(Path databasePath) {
+        this.pool = null;
+        this.ownsPool = false;
         this.databasePath = databasePath;
         initConnection();
     }
 
-    DuckDbFeatureStore(Connection connection) {
+    public DuckDbFeatureStore(com.tradej.persistence.duckdb.DuckDbConnectionPool pool) {
+        this.pool = pool;
+        this.ownsPool = false;
         this.databasePath = null;
-        this.connection = connection;
-        try {
-            bootstrap();
-        } catch (SQLException e) {
-            throw new IllegalStateException("Unable to bootstrap feature store tables", e);
-        }
+        this.rawConnection = pool.rawConnection();
+        bootstrap(rawConnection);
+    }
+
+    DuckDbFeatureStore(Connection connection) {
+        this.pool = null;
+        this.ownsPool = false;
+        this.databasePath = null;
+        this.rawConnection = connection;
+        bootstrap(connection);
+    }
+
+    private Connection connection() {
+        return pool != null ? pool.rawConnection() : rawConnection;
     }
 
     private void initConnection() {
         try {
-            this.connection = DriverManager.getConnection("jdbc:duckdb:" + databasePath.toAbsolutePath());
-            bootstrap();
+            this.rawConnection = DriverManager.getConnection("jdbc:duckdb:" + databasePath.toAbsolutePath());
+            bootstrap(rawConnection);
         } catch (SQLException e) {
             throw new IllegalStateException("Unable to initialize DuckDB feature store at " + databasePath, e);
         }
     }
 
-    // Throttle ensureConnection: only validate the connection every N events,
-    // since isValid(2) sends a JDBC round-trip. Rely on SQLException from the
-    // actual operation to trigger a reconnection if needed (fixes FS-01).
-    private static final int CONNECTION_CHECK_INTERVAL = 1000;
-    private int eventCounter;
-
-    /**
-     * Validates the connection and reconnects if broken.
-     * Throttled to check only every {@link #CONNECTION_CHECK_INTERVAL} events
-     * to avoid a JDBC round-trip on every tick/candle hot-path.
-     */
     private synchronized void ensureConnection() throws SQLException {
-        if (databasePath == null) {
-            return; // injected connection — don't manage lifecycle
-        }
-        eventCounter++;
-        if (eventCounter < CONNECTION_CHECK_INTERVAL && connection != null && !connection.isClosed()) {
-            return; // Connection was recently validated — skip expensive check
-        }
-        eventCounter = 0;
-        if (connection == null || connection.isClosed() || !connection.isValid(2)) {
+        if (pool != null) return;
+        if (databasePath == null) return;
+        if (rawConnection == null || rawConnection.isClosed() || !rawConnection.isValid(2)) {
             log.warn("DuckDB feature store connection lost — reconnecting");
             try {
-                if (connection != null) {
-                    connection.close();
-                }
-            } catch (Exception ignored) {
-                // ignore
-            }
+                if (rawConnection != null) rawConnection.close();
+            } catch (Exception ignored) {}
             initConnection();
-            log.info("DuckDB feature store reconnected successfully");
         }
     }
 
@@ -127,15 +119,16 @@ public final class DuckDbFeatureStore implements FeatureStore, AutoCloseable {
 
     @Override
     public void close() throws Exception {
-        if (connection != null) {
-            connection.close();
+        if (rawConnection != null) {
+            rawConnection.close();
         }
     }
 
     // ── Table bootstrap ──
 
-    private void bootstrap() throws SQLException {
-        connection.createStatement().execute("""
+    private void bootstrap(Connection conn) {
+        try {
+            conn.createStatement().execute("""
                 create table if not exists feature_ticks (
                     event_id varchar,
                     symbol varchar,
@@ -149,8 +142,8 @@ public final class DuckDbFeatureStore implements FeatureStore, AutoCloseable {
                     depth_json varchar
                 )
                 """);
-        migrateFeatureTicksColumns();
-        connection.createStatement().execute("""
+        migrateFeatureTicksColumns(conn);
+        conn.createStatement().execute("""
                 create table if not exists feature_candles (
                     event_id varchar,
                     symbol varchar,
@@ -167,13 +160,16 @@ public final class DuckDbFeatureStore implements FeatureStore, AutoCloseable {
                     primary key (symbol, interval, start_time_ms)
                 )
                 """);
+        } catch (SQLException e) {
+            throw new IllegalStateException("Failed to bootstrap feature store tables", e);
+        }
     }
 
-    private void migrateFeatureTicksColumns() throws SQLException {
+    private void migrateFeatureTicksColumns(Connection conn) {
         try {
-            connection.createStatement().execute(
+            conn.createStatement().execute(
                     "alter table feature_ticks add column if not exists exchange_segment varchar");
-            connection.createStatement().execute(
+            conn.createStatement().execute(
                     "alter table feature_ticks add column if not exists depth_json varchar");
         } catch (SQLException ignored) {
             // Legacy table layout without new columns
@@ -183,7 +179,7 @@ public final class DuckDbFeatureStore implements FeatureStore, AutoCloseable {
     // ── Insert / upsert ──
 
     private void insertMarketTick(MarketTickEvent tick) throws SQLException {
-        try (PreparedStatement ps = connection.prepareStatement("""
+        try (PreparedStatement ps = connection().prepareStatement("""
                 insert into feature_ticks values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """)) {
             ps.setString(1, tick.eventId());
@@ -202,7 +198,7 @@ public final class DuckDbFeatureStore implements FeatureStore, AutoCloseable {
 
 
     private void upsertCandle(Candle candle, boolean closed) throws SQLException {
-        try (PreparedStatement ps = connection.prepareStatement("""
+        try (PreparedStatement ps = connection().prepareStatement("""
                 insert into feature_candles values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 on conflict (symbol, interval, start_time_ms) do update set
                     close_paisa = excluded.close_paisa,
@@ -233,7 +229,7 @@ public final class DuckDbFeatureStore implements FeatureStore, AutoCloseable {
 
     private List<Candle> queryCandles(String symbol, String interval, int limit) throws SQLException {
         List<Candle> candles = new ArrayList<>();
-        try (PreparedStatement ps = connection.prepareStatement("""
+        try (PreparedStatement ps = connection().prepareStatement("""
                 select start_time_ms, end_time_ms, open_paisa, high_paisa, low_paisa,
                        close_paisa, volume, closed
                 from feature_candles

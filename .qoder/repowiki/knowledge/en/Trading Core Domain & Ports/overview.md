@@ -1,0 +1,1 @@
+Defines the immutable domain model, event-driven architecture, and hexagonal ports for a high-frequency trading system.

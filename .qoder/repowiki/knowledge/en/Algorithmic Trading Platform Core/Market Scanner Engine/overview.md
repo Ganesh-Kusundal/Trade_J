@@ -1,1 +1,0 @@
-Executes configurable multi-criteria scans against market universes with optional option-chain fine-pass filtering and result ranking.

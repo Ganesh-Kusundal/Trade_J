@@ -1,4 +1,0 @@
-- Hot path components (`MarketDataPipeline`, `OrderPipeline`) are implemented as final classes without Spring annotations to eliminate container overhead and facilitate direct benchmarking.
-- Lock-free rate tracking uses `AtomicReference` with CAS loops and `System.nanoTime()` to compute exponential moving average (EMA) rates for ticks and orders.
-- MDC (Mapped Diagnostic Context) enrichment and clearing is consistently applied in `try/finally` blocks within pipeline handlers to ensure traceability across asynchronous boundaries.
-- Configuration is managed via immutable Java records (`DisruptorPipelineConfig`, `StageTimings`) with validation logic embedded in compact constructors or static factory methods.

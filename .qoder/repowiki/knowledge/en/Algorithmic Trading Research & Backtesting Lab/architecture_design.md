@@ -1,0 +1,4 @@
+- **Layered Structure**: The module is organized into `api` (Spring Boot REST controllers), `lab` (core business logic for backtesting and scanning), and `core` (domain records like `ResearchSession`, `RunResult`, and configuration hashes).
+- **Persistence Layer**: `DuckDbResearchStore` acts as the primary data access object, managing a persistent JDBC connection to a local `research.db` file and handling schema initialization for `run_results`, `trade_log`, and `scanner_hits`.
+- **Service Boundaries**: `StrategyLabService` and `ScannerLabService` orchestrate the execution of `GraphStrategyPlugin` instances and `ScanCriterion` pipelines against historical candle data fetched from `DuckDbAnalyticsEngine`.
+- **Integration Points**: The `mcp-server` sub-module exposes read-only research tools via a JSON-RPC over SSE interface, allowing external AI agents to query backtest results and replay status without direct database access.

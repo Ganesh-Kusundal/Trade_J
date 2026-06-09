@@ -1,0 +1,3 @@
+- FeatureStore implementations use pattern matching switch expressions to handle specific DomainEvent subtypes (e.g., CandleClosed, MarketTickEvent) while silently ignoring unsupported types.
+- Time-series data is stored using integer-based representations for financial values (e.g., ltp_paisa, open_paisa) to maintain precision and avoid floating-point arithmetic errors.
+- In-memory state management relies on ConcurrentHashMap with compute-based atomic updates to handle concurrent candle upserts and enforce bounded history limits (MAX_CANDLES_PER_KEY).

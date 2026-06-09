@@ -4,7 +4,9 @@ import com.tradej.composition.config.StorageProfile;
 import com.tradej.persistence.chronicle.ChronicleAuditLogWriter;
 import com.tradej.persistence.chronicle.ChronicleDeadLetterQueue;
 import com.tradej.persistence.duckdb.AsyncDuckDbEventStore;
+import com.tradej.persistence.duckdb.DuckDbConnectionPool;
 import com.tradej.persistence.duckdb.DuckDbEventStore;
+import com.tradej.persistence.duckdb.DuckDbScanStore;
 import com.tradej.persistence.oms.EventSourcedOrderRepository;
 import com.tradej.persistence.pipeline.DuckDbPipelineGraphStore;
 import com.tradej.persistence.replay.HistoricalRangeService;
@@ -24,24 +26,30 @@ public final class DataComposition {
     private final StorageProfile storageProfile;
     private final DeadLetterQueue deadLetterQueue;
     private final ChronicleAuditLogWriter chronicleAuditLogWriter;
+    private final DuckDbConnectionPool duckDbPool;
     private final DuckDbEventStore duckDbEventStore;
     private final AsyncDuckDbEventStore asyncDuckDbEventStore;
     private final DuckDbPipelineGraphStore pipelineGraphStore;
+    private final DuckDbScanStore scanStore;
 
     private DataComposition(
             StorageProfile storageProfile,
             DeadLetterQueue deadLetterQueue,
             ChronicleAuditLogWriter chronicleAuditLogWriter,
+            DuckDbConnectionPool duckDbPool,
             DuckDbEventStore duckDbEventStore,
             AsyncDuckDbEventStore asyncDuckDbEventStore,
-            DuckDbPipelineGraphStore pipelineGraphStore
+            DuckDbPipelineGraphStore pipelineGraphStore,
+            DuckDbScanStore scanStore
     ) {
         this.storageProfile = storageProfile;
         this.deadLetterQueue = deadLetterQueue;
         this.chronicleAuditLogWriter = chronicleAuditLogWriter;
+        this.duckDbPool = duckDbPool;
         this.duckDbEventStore = duckDbEventStore;
         this.asyncDuckDbEventStore = asyncDuckDbEventStore;
         this.pipelineGraphStore = pipelineGraphStore;
+        this.scanStore = scanStore;
     }
 
     public static DataComposition create(StorageProfile storageProfile) {
@@ -50,12 +58,15 @@ public final class DataComposition {
 
         DeadLetterQueue dlq = new ChronicleDeadLetterQueue(chroniclePath.resolve(DLQ_QUEUE_SUBDIR));
         ChronicleAuditLogWriter auditLog = new ChronicleAuditLogWriter(chroniclePath);
-        DuckDbEventStore eventStore = new DuckDbEventStore(duckdbPath);
-        AsyncDuckDbEventStore asyncEventStore = new AsyncDuckDbEventStore(eventStore);
-        DuckDbPipelineGraphStore graphStore = new DuckDbPipelineGraphStore(duckdbPath);
 
-        log.info("Data composition created: chronicle={} duckdb={}", chroniclePath, duckdbPath);
-        return new DataComposition(storageProfile, dlq, auditLog, eventStore, asyncEventStore, graphStore);
+        DuckDbConnectionPool pool = DuckDbConnectionPool.create(duckdbPath);
+        DuckDbEventStore eventStore = new DuckDbEventStore(pool);
+        AsyncDuckDbEventStore asyncEventStore = new AsyncDuckDbEventStore(eventStore);
+        DuckDbPipelineGraphStore graphStore = new DuckDbPipelineGraphStore(pool);
+        DuckDbScanStore scanStore = new DuckDbScanStore(pool);
+
+        log.info("Data composition created: chronicle={} duckdb={} (shared pool)", chroniclePath, duckdbPath);
+        return new DataComposition(storageProfile, dlq, auditLog, pool, eventStore, asyncEventStore, graphStore, scanStore);
     }
 
     public StorageProfile storageProfile() {
@@ -80,5 +91,13 @@ public final class DataComposition {
 
     public DuckDbPipelineGraphStore pipelineGraphStore() {
         return pipelineGraphStore;
+    }
+
+    public DuckDbConnectionPool duckDbPool() {
+        return duckDbPool;
+    }
+
+    public DuckDbScanStore scanStore() {
+        return scanStore;
     }
 }

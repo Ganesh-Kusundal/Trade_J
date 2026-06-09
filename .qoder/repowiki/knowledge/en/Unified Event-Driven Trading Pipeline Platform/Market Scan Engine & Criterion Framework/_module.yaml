@@ -1,0 +1,10 @@
+schema_version: 1
+module_path: backend_trading/trading_scanner
+title: Market Scan Engine & Criterion Framework
+scope:
+    - trading/scanner/
+source_files: []
+depends_on: []
+related_to:
+    - path: backend_research
+    - path: backend_trading/trading_institutional_scanner

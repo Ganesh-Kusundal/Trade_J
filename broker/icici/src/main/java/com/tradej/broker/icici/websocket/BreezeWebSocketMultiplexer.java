@@ -57,10 +57,15 @@ public final class BreezeWebSocketMultiplexer implements WebSocketMultiplexer {
     private final CopyOnWriteArrayList<MarketDataListener> marketListeners = new CopyOnWriteArrayList<>();
     private final CopyOnWriteArrayList<OrderUpdateListener> orderListeners = new CopyOnWriteArrayList<>();
     private final Map<String, OrderStatus> latestOrderStatuses = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<MarketSubscriptionRequest, String> scriptCodeCache = new ConcurrentHashMap<>();
+    private final com.tradej.broker.core.dedup.MarketTickDedupFilter tickDedupFilter =
+            new com.tradej.broker.core.dedup.MarketTickDedupFilter();
 
     private volatile Socket quoteSocket;
     private volatile Socket orderSocket;
     private volatile boolean connected;
+    private volatile BreezeWebSocketHealthMonitor healthMonitor;
+    private volatile java.util.concurrent.ScheduledExecutorService sessionRefreshScheduler;
 
     public BreezeWebSocketMultiplexer(
             BreezeTokenProvider tokenProvider,
@@ -107,20 +112,42 @@ public final class BreezeWebSocketMultiplexer implements WebSocketMultiplexer {
         quoteSocket = openSocket(BreezeApiEndpoints.LIVE_STREAM_URL, session.userId(), session.sessionKey(), true);
         orderSocket = openSocket(BreezeApiEndpoints.LIVE_FEEDS_URL, session.userId(), session.sessionKey(), false);
         connected = true;
-        // Initial resubscribe is handled by the EVENT_CONNECT handler in openSocket().
-        // Reconnect re-subscription is handled by ReconnectListenerRegistry → SubscriptionCoordinator.
+
+        // Start health monitor for staleness detection
+        if (healthMonitor == null) {
+            healthMonitor = new BreezeWebSocketHealthMonitor(
+                    idleMs -> log.warn("ICICI feed stale: {}ms idle", idleMs),
+                    event -> { for (var l : marketListeners) { if (event instanceof com.tradej.core.domain.event.MarketTickEvent t) l.onEvent(t); } },
+                    metadataFactory, "icici");
+        }
+        healthMonitor.resetTimestamps();
+        healthMonitor.start();
+
+        sessionRefreshScheduler = java.util.concurrent.Executors.newSingleThreadScheduledExecutor(
+                r -> { Thread t = new Thread(r, "icici-session-refresh"); t.setDaemon(true); return t; });
+        long msUntilRefresh = computeMsUntilPreMidnight();
+        if (msUntilRefresh > 0) {
+            sessionRefreshScheduler.schedule(this::refreshSession, msUntilRefresh, java.util.concurrent.TimeUnit.MILLISECONDS);
+        }
     }
 
     @Override
     public void disconnect() {
         connected = false;
+        if (healthMonitor != null) {
+            healthMonitor.emitDisconnected();
+            healthMonitor.stop();
+        }
+        if (sessionRefreshScheduler != null) {
+            sessionRefreshScheduler.shutdown();
+            sessionRefreshScheduler = null;
+        }
         closeSocket(quoteSocket);
         closeSocket(orderSocket);
         quoteSocket = null;
         orderSocket = null;
-        // MED-1: prevent unbounded memory growth over trading sessions.
-        // Subscriptions are repopulated on reconnect via resubscribeAll() / SubscriptionCoordinator.
         subscriptions.clear();
+        scriptCodeCache.clear();
         shutdownExecutor(wsExecutor);
     }
 
@@ -165,6 +192,7 @@ public final class BreezeWebSocketMultiplexer implements WebSocketMultiplexer {
     @Override
     public void unsubscribe(Collection<MarketSubscriptionRequest> instruments) {
         instruments.forEach(subscriptions::remove);
+        instruments.forEach(scriptCodeCache::remove);
         if (connected && quoteSocket != null) {
             List<String> tokens = scriptCodes(instruments);
             if (!tokens.isEmpty()) {
@@ -205,20 +233,21 @@ public final class BreezeWebSocketMultiplexer implements WebSocketMultiplexer {
             } else {
                 socket.on("order", args -> handleOrder(args));
             }
-            // Track first connect to distinguish initial connect from socket.io reconnects.
-            // Socket.io fires EVENT_CONNECT on both initial connect and reconnect.
-            java.util.concurrent.atomic.AtomicBoolean firstConnect = new java.util.concurrent.atomic.AtomicBoolean(true);
+            // Always resubscribe on every EVENT_CONNECT (initial + reconnect).
+            // Socket.IO join is idempotent — re-emitting join for already-joined instruments is a no-op.
+            // This fixes the critical bug where reconnects after the first connect silently lost
+            // all subscriptions because firstConnect.compareAndSet prevented resubscribeAll().
             socket.on(Socket.EVENT_CONNECT, args -> {
                 log.info("ICICI websocket connected: {}", url);
-                if (firstConnect.compareAndSet(true, false)) {
-                    // First connect — resubscribe directly (coordinator has no desired state yet).
-                    resubscribeAll();
-                } else {
-                    // Socket.io reconnect — delegate to dedicated executor so it never
-                    // competes with strategy threads or ForkJoinPool.common.
-                    if (reconnectRegistry != null) {
-                        wsExecutor.submit(() -> reconnectRegistry.notifyReconnect());
-                    }
+                tickDedupFilter.reset();
+                com.tradej.broker.core.metrics.BrokerFeedMetrics.INSTANCE.recordReconnect("icici");
+                com.tradej.broker.core.metrics.BrokerFeedMetrics.INSTANCE.setActiveSubscriptions("icici", subscriptions.size());
+                resubscribeAll();
+                if (healthMonitor != null) {
+                    healthMonitor.emitConnected();
+                }
+                if (reconnectRegistry != null) {
+                    wsExecutor.submit(() -> reconnectRegistry.notifyReconnect());
                 }
             });
             socket.on(Socket.EVENT_CONNECT_ERROR, args -> log.warn("ICICI websocket connect error {}: {}", url, args));
@@ -235,13 +264,30 @@ public final class BreezeWebSocketMultiplexer implements WebSocketMultiplexer {
         }
     }
 
+    private static final int EMIT_BATCH_SIZE = 200;
+    private static final long EMIT_BATCH_DELAY_MS = 100;
+
     private void emitJoin(Collection<MarketSubscriptionRequest> instruments) {
         if (quoteSocket == null) {
             return;
         }
         List<String> tokens = scriptCodes(instruments);
-        if (!tokens.isEmpty()) {
-            quoteSocket.emit("join", new JSONArray(tokens));
+        if (tokens.isEmpty()) {
+            return;
+        }
+        // R9: Rate-limited batched emit to avoid Socket.IO message size limits
+        for (int i = 0; i < tokens.size(); i += EMIT_BATCH_SIZE) {
+            int end = Math.min(i + EMIT_BATCH_SIZE, tokens.size());
+            List<String> batch = tokens.subList(i, end);
+            quoteSocket.emit("join", new JSONArray(batch));
+            if (end < tokens.size()) {
+                try {
+                    Thread.sleep(EMIT_BATCH_DELAY_MS);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
         }
     }
 
@@ -249,8 +295,10 @@ public final class BreezeWebSocketMultiplexer implements WebSocketMultiplexer {
         List<String> tokens = new ArrayList<>();
         for (MarketSubscriptionRequest request : instruments) {
             try {
-                tokens.add(instrumentResolver.requireBreezeDefinition(
-                        new InstrumentKey(request.symbol(), request.exchangeSegment())).scriptCode());
+                String code = scriptCodeCache.computeIfAbsent(request, req ->
+                        instrumentResolver.requireBreezeDefinition(
+                                new InstrumentKey(req.symbol(), req.exchangeSegment())).scriptCode());
+                tokens.add(code);
             } catch (Exception ex) {
                 log.warn("Skipping ICICI subscription for {}: {}", request, ex.getMessage());
             }
@@ -262,26 +310,43 @@ public final class BreezeWebSocketMultiplexer implements WebSocketMultiplexer {
         if (args == null || args.length == 0 || args[0] == null) {
             return;
         }
+        if (healthMonitor != null) {
+            healthMonitor.recordMarketEvent();
+        }
         try {
             JSONObject tick = args[0] instanceof JSONObject json ? json : new JSONObject(String.valueOf(args[0]));
             long ltpPaisa = Math.round(tick.optDouble("last", tick.optDouble("ltp", 0.0)) * 100.0);
+            long openPaisa = tick.has("open") ? Math.round(tick.optDouble("open", 0.0) * 100.0) : 0L;
+            long highPaisa = tick.has("high") ? Math.round(tick.optDouble("high", 0.0) * 100.0) : 0L;
+            long lowPaisa = tick.has("low") ? Math.round(tick.optDouble("low", 0.0) * 100.0) : 0L;
+            long closePaisa = tick.has("close") ? Math.round(tick.optDouble("close", 0.0) * 100.0) : 0L;
+            long volume = tick.optLong("ttq", tick.optLong("volume", 0L));
+            long oi = tick.optLong("open_interest", tick.optLong("oi", 0L));
             String symbol = tick.optString("stock_code", tick.optString("stock_name", "UNKNOWN"));
+            String exchangeCode = tick.optString("exchange_code", tick.optString("exchange", null));
+            com.tradej.core.domain.value.ExchangeSegment segment = resolveSegment(exchangeCode, symbol);
             MarketTickEvent event = new MarketTickEvent(
                     metadataFactory.root(),
                     sequenceCounter.incrementAndGet(),
                     symbol,
-                    com.tradej.core.domain.value.ExchangeSegment.NSE_EQ,
+                    segment,
                     com.tradej.core.domain.value.FeedMode.TICKER,
                     ltpPaisa,
                     tick.optLong("ltq", 0L),
-                    tick.optLong("ttq", 0L),
+                    volume,
                     System.currentTimeMillis(),
                     java.util.Optional.empty()
-            , 0L, 0L);
+            , oi, 0L);
+            if (tickDedupFilter.isDuplicate(symbol, segment.name(), event.sequenceId())) {
+                com.tradej.broker.core.metrics.BrokerFeedMetrics.INSTANCE.recordTickDropped("icici", "dedup");
+                return;
+            }
+            com.tradej.broker.core.metrics.BrokerFeedMetrics.INSTANCE.recordTickReceived("icici");
             for (MarketDataListener listener : marketListeners) {
                 listener.onEvent(event);
             }
         } catch (Exception ex) {
+            com.tradej.broker.core.metrics.BrokerFeedMetrics.INSTANCE.recordParseError("icici");
             log.debug("Failed to parse ICICI quote tick: {}", ex.getMessage());
         }
     }
@@ -459,6 +524,30 @@ public final class BreezeWebSocketMultiplexer implements WebSocketMultiplexer {
             case "ordered", "open", "pending"                   -> OrderStatus.OPEN;
             default -> OrderStatus.UNKNOWN;
         };
+    }
+
+    private long computeMsUntilPreMidnight() {
+        java.time.ZoneId ist = java.time.ZoneId.of("Asia/Kolkata");
+        java.time.ZonedDateTime now = java.time.ZonedDateTime.now(ist);
+        java.time.ZonedDateTime nextMidnight = now.toLocalDate().plusDays(1).atStartOfDay(ist);
+        long fiveMinutesBeforeMs = nextMidnight.toInstant().toEpochMilli() - 5 * 60 * 1000L;
+        long delay = fiveMinutesBeforeMs - now.toInstant().toEpochMilli();
+        return Math.max(delay, 0L);
+    }
+
+    private void refreshSession() {
+        try {
+            log.info("Refreshing ICICI session before midnight expiry");
+            tokenProvider.ensureValid();
+            if (sessionRefreshScheduler != null && !sessionRefreshScheduler.isShutdown()) {
+                long nextDelay = computeMsUntilPreMidnight();
+                if (nextDelay > 0) {
+                    sessionRefreshScheduler.schedule(this::refreshSession, nextDelay, java.util.concurrent.TimeUnit.MILLISECONDS);
+                }
+            }
+        } catch (Exception ex) {
+            log.warn("ICICI session refresh failed: {}", ex.getMessage());
+        }
     }
 
     private static void closeSocket(Socket socket) {

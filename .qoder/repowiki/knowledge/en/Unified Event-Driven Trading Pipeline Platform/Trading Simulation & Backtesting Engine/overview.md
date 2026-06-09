@@ -1,0 +1,1 @@
+Provides deterministic order matching with configurable slippage, P&L tracking, and historical strategy backtesting for simulated trading environments.

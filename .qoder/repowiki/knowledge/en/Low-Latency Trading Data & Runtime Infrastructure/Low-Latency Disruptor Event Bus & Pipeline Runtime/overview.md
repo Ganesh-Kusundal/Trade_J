@@ -1,0 +1,1 @@
+Implements a high-throughput, low-latency event bus using the LMAX Disruptor pattern for real-time trading strategy execution and risk management.

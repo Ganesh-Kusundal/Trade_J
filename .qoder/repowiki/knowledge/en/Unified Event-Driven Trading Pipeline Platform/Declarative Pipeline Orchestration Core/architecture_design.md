@@ -1,0 +1,5 @@
+- **Compilation & Normalization**: The `GraphNormalizer` bridges the declarative graph model and runtime by inferring execution modes (HOT_PATH vs DAG) and injecting implicit ingress nodes before `GraphCompiler` produces a topological `ExecutionPlan`.
+- **Dual-Path Execution**: `PipelineRuntime` unifies event injection for all modes, routing events through `GraphRuntime` which supports both sequential hot-path processing and DAG-based adjacency routing via `PipelineContext`.
+- **Reactive Offloading**: `ReactorBridge` aggregates `Flux` streams from `ReactivePipelineNode` instances, providing a unified cold-path output for analytics and persistence while keeping the hot-path synchronous.
+- **Hot-Swap Deployment**: `PipelineRuntime` manages atomic runtime swaps using an `AtomicReference<GraphRuntime>`, allowing live graph updates without stopping the event processing loop.
+- **Shared Infrastructure**: All children depend on `VirtualClock` for time abstraction (critical for backtesting/replay) and `StateStore` for node-level state persistence, injected via `PipelineContext`.

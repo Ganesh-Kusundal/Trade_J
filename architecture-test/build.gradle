@@ -4,6 +4,7 @@ plugins {
 
 def coreModules = [
         ':core',
+        ':pipeline-core',
         ':broker-api',
         ':broker-core',
         ':broker-dhan',
@@ -20,6 +21,7 @@ def coreModules = [
         ':trading-institutional-scanner',
         ':trading-indicators',
         ':trading-options-analytics',
+        ':broker-gateway',
         ':runtime-disruptor',
         ':runtime-hotpath',
         ':pipeline-runtime',

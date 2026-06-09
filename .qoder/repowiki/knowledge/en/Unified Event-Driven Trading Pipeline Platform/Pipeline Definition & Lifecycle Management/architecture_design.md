@@ -1,0 +1,4 @@
+- Core domain models (`PipelineDefinition`, `PipelineSnapshot`) are implemented as immutable Java records with defensive copying in canonical constructors.
+- Service layer is split into `PipelineCatalogService` for lifecycle operations (publish, archive, rollback) and `PipelineTemplateService` for template management and instantiation.
+- Persistence is abstracted via the `PipelineStore` interface, currently backed by an in-memory implementation (`InMemoryPipelineStore`) to decouple business logic from storage details.
+- Dependencies on `:core` and `:pipeline-core` modules provide foundational graph structures and shared pipeline utilities.

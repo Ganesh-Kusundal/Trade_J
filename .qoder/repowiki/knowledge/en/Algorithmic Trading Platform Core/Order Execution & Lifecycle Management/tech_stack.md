@@ -1,2 +1,0 @@
-- **Caching**: Uses `Caffeine` for high-performance, expiration-based caching of trade-opened states (`tradeOpenedEmitted`).
-- **Concurrency**: Relies on `ArrayBlockingQueue` for backpressure-aware command queuing and `ConcurrentHashMap` for thread-safe identity and state registries.

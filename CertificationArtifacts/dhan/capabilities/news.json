@@ -1,0 +1,11 @@
+{
+  "broker" : "DHAN",
+  "checkName" : "news",
+  "category" : "capabilities",
+  "status" : "PASS",
+  "evidence" : "not supported (optional)",
+  "latencyMs" : 0,
+  "certifiedAt" : "2026-06-08T06:25:30.737388Z",
+  "errorMessage" : null,
+  "pass" : true
+}

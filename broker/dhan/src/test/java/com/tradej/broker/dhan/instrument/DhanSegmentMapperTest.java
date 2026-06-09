@@ -4,11 +4,21 @@ import com.tradej.core.domain.value.ExchangeSegment;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+import java.util.Set;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @Tag("unit")
 class DhanSegmentMapperTest {
+
+    private static final Set<ExchangeSegment> NON_DHAN_SEGMENTS = Set.of(
+            ExchangeSegment.UNKNOWN,
+            ExchangeSegment.CRYPTO_SPOT,
+            ExchangeSegment.CRYPTO_FUTURES,
+            ExchangeSegment.FX_SPOT,
+            ExchangeSegment.US_EQUITY
+    );
 
     @Test
     void toWireValueReturnsCanonicalNameForAllSupportedSegments() {
@@ -33,8 +43,15 @@ class DhanSegmentMapperTest {
     }
 
     @Test
+    void toWireValueRejectsUnsupportedSegments() {
+        assertThrows(IllegalArgumentException.class, () -> DhanSegmentMapper.toWireValue(ExchangeSegment.CRYPTO_SPOT));
+        assertThrows(IllegalArgumentException.class, () -> DhanSegmentMapper.toWireValue(ExchangeSegment.CRYPTO_FUTURES));
+        assertThrows(IllegalArgumentException.class, () -> DhanSegmentMapper.toWireValue(ExchangeSegment.FX_SPOT));
+        assertThrows(IllegalArgumentException.class, () -> DhanSegmentMapper.toWireValue(ExchangeSegment.US_EQUITY));
+    }
+
+    @Test
     void toWireValueIsStableAcrossCalls() {
-        // Verifies the mapping is a pure function — calling it twice yields the same value.
         String first = DhanSegmentMapper.toWireValue(ExchangeSegment.NSE_FNO);
         String second = DhanSegmentMapper.toWireValue(ExchangeSegment.NSE_FNO);
         assertEquals(first, second);
@@ -42,11 +59,8 @@ class DhanSegmentMapperTest {
 
     @Test
     void fromValueRoundTripsThroughToWireValue() {
-        // Inbound: Dhan wire value "NSE_FNO" → canonical NSE_FNO
-        // Outbound: canonical NSE_FNO → wire value "NSE_FNO"
-        // Together they form a stable round-trip.
         for (ExchangeSegment segment : ExchangeSegment.values()) {
-            if (segment == ExchangeSegment.UNKNOWN) continue;
+            if (NON_DHAN_SEGMENTS.contains(segment)) continue;
             String wire = DhanSegmentMapper.toWireValue(segment);
             assertEquals(segment, DhanSegmentMapper.fromValue(wire),
                     "Round-trip failed for " + segment + " via wire value " + wire);

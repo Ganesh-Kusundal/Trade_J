@@ -1,6 +1,0 @@
-- The module is split into two sub-packages: `disruptor` (event bus implementation) and `hotpath` (pipeline orchestrators).
-- `DisruptorEventBus` implements the `EventBus` port using an 8192-slot ring buffer with `BusySpinWaitStrategy` and a multi-stage pipeline: graph runtime → optional graph strategy → async dispatch.
-- `ShardedDisruptorEventBus` scales throughput by partitioning events across multiple `DisruptorEventBus` instances using symbol-based sharding via `SymbolShardRouter`.
-- `MarketDataPipeline` and `OrderPipeline` are pure-Java, Spring-free entry points that ingest broker WebSocket ticks and order callbacks, applying optional rate limiting (`TokenBucket`) before publishing to the bus.
-- `PipelineConfig` acts as a wiring factory, assembling `EventBus`, `MarketDataPipeline`, and `OrderPipeline` into `PipelineComponents` without relying on framework dependency injection.
-- Legacy constructor chains in `DisruptorEventBus` are deprecated in favor of the immutable `DisruptorPipelineConfig` record and `DisruptorPipelineBuilder`.

@@ -2,7 +2,6 @@ package com.tradej.composition;
 
 import com.tradej.broker.api.IBrokerConnection;
 import com.tradej.broker.api.port.IdempotencyCachePort;
-import com.tradej.core.domain.model.Order;
 import com.tradej.broker.core.startup.BrokerLifecycleManager;
 import com.tradej.broker.dhan.DhanBrokerConnection;
 import com.tradej.broker.dhan.config.DhanConnectionSettings;
@@ -36,7 +35,7 @@ public final class BrokerComposition {
         IBrokerConnection connection = switch (profile.brokerType()) {
             case DHAN, GATEWAY -> createDhan(profile.dhan(), idempotencyCache);
             case UPSTOX -> createUpstox(profile.upstox());
-            case ICICI -> createIcici(profile.icici());
+            case ICICI -> IciciBrokerFactory.create(profile.icici());
         };
         log.info("Created {} broker composition", profile.brokerType());
         return new BrokerComposition(profile, connection);
@@ -88,10 +87,6 @@ public final class BrokerComposition {
         return UpstoxBrokerFactory.create(settings, Path.of("runtime/upstox-token-state.json"));
     }
 
-    private static IBrokerConnection createIcici(BrokerProfile.IciciConfig icici) {
-        return IciciBrokerFactory.create(icici);
-    }
-
     public BrokerProfile profile() {
         return profile;
     }
@@ -106,12 +101,12 @@ public final class BrokerComposition {
 
     private static final class NoOpIdempotencyCache implements IdempotencyCachePort {
         @Override
-        public Optional<Order> get(String clientOrderId) {
+        public Optional<com.tradej.core.domain.model.Order> get(String clientOrderId) {
             return Optional.empty();
         }
 
         @Override
-        public void put(String clientOrderId, Order order) {
+        public void put(String clientOrderId, com.tradej.core.domain.model.Order order) {
         }
 
         @Override

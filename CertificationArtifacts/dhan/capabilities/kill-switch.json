@@ -1,0 +1,11 @@
+{
+  "broker" : "DHAN",
+  "checkName" : "kill-switch",
+  "category" : "capabilities",
+  "status" : "PASS",
+  "evidence" : "supported",
+  "latencyMs" : 0,
+  "certifiedAt" : "2026-06-08T06:25:30.737537Z",
+  "errorMessage" : null,
+  "pass" : true
+}

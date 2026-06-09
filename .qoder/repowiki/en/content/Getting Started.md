@@ -2,34 +2,36 @@
 
 <cite>
 **Referenced Files in This Document**
-- [README.md](file://README.md)
-- [CONFIG.md](file://CONFIG.md)
-- [CLI.md](file://CLI.md)
 - [application.yml](file://app/src/main/resources/application.yml)
 - [application-dev.yml](file://app/src/main/resources/application-dev.yml)
-- [application-prod.yml](file://app/src/main/resources/application-prod.yml)
-- [application-replay.yml](file://app/src/main/resources/application-replay.yml)
+- [application-dev-live.yml](file://app/src/main/resources/application-dev-live.yml)
+- [application-upstox-analytics.yml](file://app/src/main/resources/application-upstox-analytics.yml)
 - [application-upstox-dev.yml](file://app/src/main/resources/application-upstox-dev.yml)
 - [application-upstox-prod.yml](file://app/src/main/resources/application-upstox-prod.yml)
-- [application-upstox-analytics.yml](file://app/src/main/resources/application-upstox-analytics.yml)
 - [application-icici-prod.yml](file://app/src/main/resources/application-icici-prod.yml)
-- [application-dev-live.yml](file://app/src/main/resources/application-dev-live.yml)
 - [application-gateway.yml](file://app/src/main/resources/application-gateway.yml)
-- [dhan-local.properties.example](file://config/dhan-local.properties.example)
+- [application-replay.yml](file://app/src/main/resources/application-replay.yml)
+- [application-test.yml](file://app/src/main/resources/application-test.yml)
+- [logback-spring.xml](file://app/src/main/resources/logback-spring.xml)
 - [dhan-sandbox.properties.example](file://config/dhan-sandbox.properties.example)
-- [icici-local.properties.example](file://config/icici-local.properties.example)
 - [upstox-live.properties.example](file://config/upstox-live.properties.example)
 - [upstox-sandbox.properties.example](file://config/upstox-sandbox.properties.example)
-- [build.gradle](file://build.gradle)
+- [icici-local.properties.example](file://config/icici-local.properties.example)
+- [dhan-local.properties.example](file://config/dhan-local.properties.example)
+- [build.gradle](file://app/build.gradle)
 - [gradle.properties](file://gradle.properties)
-- [settings.gradle](file://settings.gradle)
+- [gradle-wrapper.properties](file://gradle/wrapper/gradle-wrapper.properties)
+- [README.md](file://README.md)
+- [CONFIG.md](file://CONFIG.md)
+- [USAGE_GUIDE.md](file://docs/USAGE_GUIDE.md)
+- [BROKER_CAPABILITY_MATRIX.md](file://docs/BROKER_CAPABILITY_MATRIX.md)
+- [PRODUCTION_DEPLOYMENT.md](file://docs/PRODUCTION_DEPLOYMENT.md)
+- [runtime-mode-audit.md](file://docs/runtime-mode-audit.md)
 - [console-smoke.sh](file://scripts/console-smoke.sh)
-- [production-smoke-test.sh](file://scripts/production-smoke-test.sh)
-- [run-full-regression.sh](file://scripts/run-full-regression.sh)
-- [test-api.sh](file://scripts/test-api.sh)
-- [upstox-smoke.sh](file://scripts/upstox-smoke.sh)
 - [dhan-smoke.sh](file://scripts/dhan-smoke.sh)
-- [tradej-smoke-test.sh](file://scripts/tradej-smoke-test.sh)
+- [upstox-smoke.sh](file://scripts/upstox-smoke.sh)
+- [test-api.sh](file://scripts/test-api.sh)
+- [test-backend-connection.sh](file://test-backend-connection.sh)
 </cite>
 
 ## Table of Contents
@@ -45,312 +47,316 @@
 10. [Appendices](#appendices)
 
 ## Introduction
-This guide helps you install, configure, and deploy the Trade-J trading platform for the first time. It covers prerequisites, environment setup, credential configuration, and basic usage across the three main runtime modes: sandbox, live, and analytics. You will also find verification steps and troubleshooting tips to ensure a smooth start.
+This guide helps you install, configure, and run Trade-J for the first time. It covers prerequisites, environment setup, configuration management, and three quick start options: default Dhan sandbox, live market data mode, and Upstox analytics-only mode. You will learn how to set credentials via config files, activate Spring profiles, and verify your installation.
 
 ## Project Structure
-Trade-J is a multi-module Gradle project with distinct areas for core trading logic, broker integrations, data pipelines, analytics, and CLI tooling. The application’s runtime profiles and broker configurations are primarily managed via Spring Boot configuration files under the resources directory and property files under the config directory.
+Trade-J is a multi-module Gradle project with a Spring Boot application at the center. Configuration is managed via Spring profiles and external property files. The primary runtime configuration files reside under app/src/main/resources, while broker-specific property templates are under config/.
+
+Key locations:
+- Application configuration YAML files under app/src/main/resources
+- Broker property templates under config/
+- Build and wrapper configuration under app/build.gradle and gradle properties
+- Documentation under docs/ and scripts/
 
 ```mermaid
 graph TB
-A["Root Build Scripts<br/>build.gradle, settings.gradle, gradle.properties"] --> B["Application Profiles<br/>application.yml, application-*.yml"]
-A --> C["Broker Config Examples<br/>config/*.properties.example"]
-A --> D["CLI Tooling<br/>cli module"]
-A --> E["Broker Integrations<br/>broker/*"]
-A --> F["Data & Pipelines<br/>data/*, pipeline/*"]
-A --> G["Research & Trading<br/>research/*, trading/*"]
-A --> H["Runtime Modes<br/>sandbox/live/analytics"]
+A["app/src/main/resources<br/>application*.yml"] --> B["Spring Profiles"]
+C["config/*.properties.example"] --> D["Credential Templates"]
+E["app/build.gradle"] --> F["Gradle Build"]
+G["gradle.properties"] --> F
+H["gradle-wrapper.properties"] --> F
+I["docs/*"] --> J["Guides & Reports"]
+K["scripts/*"] --> L["Verification Scripts"]
 ```
 
+**Diagram sources**
+- [application.yml:1-200](file://app/src/main/resources/application.yml#L1-L200)
+- [build.gradle:1-200](file://app/build.gradle#L1-L200)
+- [gradle.properties:1-100](file://gradle.properties#L1-L100)
+- [gradle-wrapper.properties:1-50](file://gradle/wrapper/gradle-wrapper.properties#L1-L50)
+
 **Section sources**
-- [build.gradle](file://build.gradle)
-- [settings.gradle](file://settings.gradle)
-- [gradle.properties](file://gradle.properties)
+- [application.yml:1-200](file://app/src/main/resources/application.yml#L1-L200)
+- [build.gradle:1-200](file://app/build.gradle#L1-L200)
+- [gradle.properties:1-100](file://gradle.properties#L1-L100)
+- [gradle-wrapper.properties:1-50](file://gradle/wrapper/gradle-wrapper.properties#L1-L50)
 
 ## Core Components
-- Application configuration: Centralized in Spring Boot YAML files under app/src/main/resources. These define runtime profiles and broker-specific settings.
-- Broker credentials: Provided via property files under config/, with examples for Dhan, Upstox, and ICICI.
-- CLI tooling: Offers commands for attaching sessions, downloading data, scanning, and trading operations.
-- Modules: Core, broker integrations, data, analytics, pipeline, research, and trading form the platform’s functional layers.
+- Spring Boot application with multiple profiles for development, production, replay, gateway, and broker-specific modes
+- Broker integrations for Dhan, Upstox, and ICICI
+- CLI and scripts for smoke testing and verification
+- Logging configured via logback-spring.xml
+
+Quick-start options:
+- Default Dhan sandbox mode
+- Live market data mode
+- Upstox analytics-only mode
 
 **Section sources**
-- [application.yml](file://app/src/main/resources/application.yml)
-- [CLI.md](file://CLI.md)
+- [application.yml:1-200](file://app/src/main/resources/application.yml#L1-L200)
+- [application-dev.yml:1-200](file://app/src/main/resources/application-dev.yml#L1-L200)
+- [application-dev-live.yml:1-200](file://app/src/main/resources/application-dev-live.yml#L1-L200)
+- [application-upstox-analytics.yml:1-200](file://app/src/main/resources/application-upstox-analytics.yml#L1-L200)
+- [application-upstox-dev.yml:1-200](file://app/src/main/resources/application-upstox-dev.yml#L1-L200)
+- [application-upstox-prod.yml:1-200](file://app/src/main/resources/application-upstox-prod.yml#L1-L200)
+- [application-icici-prod.yml:1-200](file://app/src/main/resources/application-icici-prod.yml#L1-L200)
+- [application-gateway.yml:1-200](file://app/src/main/resources/application-gateway.yml#L1-L200)
+- [application-replay.yml:1-200](file://app/src/main/resources/application-replay.yml#L1-L200)
+- [application-test.yml:1-200](file://app/src/main/resources/application-test.yml#L1-L200)
 
 ## Architecture Overview
-The platform supports three primary runtime modes, each tailored to a specific operational goal:
-
-- Sandbox mode: Safe testing and development with simulated environments.
-- Live mode: Real market connectivity and order execution.
-- Analytics mode: Aggregated analytics and reporting across feeds and pipelines.
+Trade-J uses Spring profiles to select runtime modes and broker configurations. The application loads a base configuration and overlays broker-specific settings. Credential templates under config/ provide placeholders for API keys and tokens.
 
 ```mermaid
 graph TB
 subgraph "Runtime Modes"
-S["Sandbox Mode<br/>application-dev.yml, application-upstox-dev.yml"]
-L["Live Mode<br/>application-dev-live.yml, application-prod.yml"]
-A["Analytics Mode<br/>application-upstox-analytics.yml"]
+Dev["application-dev.yml"]
+DevLive["application-dev-live.yml"]
+UpstoxAnalytics["application-upstox-analytics.yml"]
+UpstoxDev["application-upstox-dev.yml"]
+UpstoxProd["application-upstox-prod.yml"]
+IciciProd["application-icici-prod.yml"]
+Gateway["application-gateway.yml"]
+Replay["application-replay.yml"]
+Test["application-test.yml"]
 end
-subgraph "Profiles"
-P1["Dev Profile<br/>application-dev.yml"]
-P2["Prod Profile<br/>application-prod.yml"]
-P3["Replay Profile<br/>application-replay.yml"]
-P4["Gateway Profile<br/>application-gateway.yml"]
+Base["application.yml"] --> Dev
+Base --> DevLive
+Base --> UpstoxAnalytics
+Base --> UpstoxDev
+Base --> UpstoxProd
+Base --> IciciProd
+Base --> Gateway
+Base --> Replay
+Base --> Test
+subgraph "Credentials"
+DhanSandbox["config/dhan-sandbox.properties.example"]
+UpstoxSandbox["config/upstox-sandbox.properties.example"]
+UpstoxLive["config/upstox-live.properties.example"]
+IciciLocal["config/icici-local.properties.example"]
+DhanLocal["config/dhan-local.properties.example"]
 end
-S --> P1
-L --> P1
-L --> P2
-A --> P1
-A --> P3
-L --> P4
+Dev -.-> DhanSandbox
+DevLive -.-> UpstoxLive
+UpstoxAnalytics -.-> UpstoxSandbox
+UpstoxDev -.-> UpstoxSandbox
+UpstoxProd -.-> UpstoxLive
+IciciProd -.-> IciciLocal
+Replay -.-> DhanSandbox
+Gateway -.-> DhanSandbox
 ```
 
 **Diagram sources**
-- [application-dev.yml](file://app/src/main/resources/application-dev.yml)
-- [application-prod.yml](file://app/src/main/resources/application-prod.yml)
-- [application-replay.yml](file://app/src/main/resources/application-replay.yml)
-- [application-gateway.yml](file://app/src/main/resources/application-gateway.yml)
-- [application-upstox-dev.yml](file://app/src/main/resources/application-upstox-dev.yml)
-- [application-upstox-prod.yml](file://app/src/main/resources/application-upstox-prod.yml)
-- [application-upstox-analytics.yml](file://app/src/main/resources/application-upstox-analytics.yml)
-- [application-dev-live.yml](file://app/src/main/resources/application-dev-live.yml)
+- [application.yml:1-200](file://app/src/main/resources/application.yml#L1-L200)
+- [application-dev.yml:1-200](file://app/src/main/resources/application-dev.yml#L1-L200)
+- [application-dev-live.yml:1-200](file://app/src/main/resources/application-dev-live.yml#L1-L200)
+- [application-upstox-analytics.yml:1-200](file://app/src/main/resources/application-upstox-analytics.yml#L1-L200)
+- [application-upstox-dev.yml:1-200](file://app/src/main/resources/application-upstox-dev.yml#L1-L200)
+- [application-upstox-prod.yml:1-200](file://app/src/main/resources/application-upstox-prod.yml#L1-L200)
+- [application-icici-prod.yml:1-200](file://app/src/main/resources/application-icici-prod.yml#L1-L200)
+- [application-gateway.yml:1-200](file://app/src/main/resources/application-gateway.yml#L1-L200)
+- [application-replay.yml:1-200](file://app/src/main/resources/application-replay.yml#L1-L200)
+- [application-test.yml:1-200](file://app/src/main/resources/application-test.yml#L1-L200)
+- [dhan-sandbox.properties.example:1-200](file://config/dhan-sandbox.properties.example#L1-L200)
+- [upstox-sandbox.properties.example:1-200](file://config/upstox-sandbox.properties.example#L1-L200)
+- [upstox-live.properties.example:1-200](file://config/upstox-live.properties.example#L1-L200)
+- [icici-local.properties.example:1-200](file://config/icici-local.properties.example#L1-L200)
+- [dhan-local.properties.example:1-200](file://config/dhan-local.properties.example#L1-L200)
 
 ## Detailed Component Analysis
 
-### Prerequisites and Environment Setup
-- Java: Use Java 21 as required by the project.
-- Gradle: Build and run tasks are orchestrated via Gradle; ensure Gradle wrapper is available.
-- Node.js (frontend): Required for building the frontend assets; see frontend-related scripts and packages.
-- Git: Clone the repository and keep up to date with upstream branches.
+### Prerequisites
+- Java 21 JDK
+- Gradle (version managed by wrapper)
+- Git (for cloning and updates)
 
-Verification steps:
-- Confirm Java version and Gradle availability.
-- Build the project to validate dependencies resolve correctly.
-
-**Section sources**
-- [gradle.properties](file://gradle.properties)
-- [build.gradle](file://build.gradle)
-
-### Initial Installation and First-Time Deployment
-- Clone the repository and navigate to the project root.
-- Sync submodules if applicable.
-- Build the project using the Gradle wrapper to fetch dependencies and compile modules.
-- Verify the build completes successfully across all modules.
-
-Optional: Build frontend assets if you plan to use the web interface locally.
+Verify your environment:
+- java -version
+- ./gradlew --version
 
 **Section sources**
-- [README.md](file://README.md)
-- [build.gradle](file://build.gradle)
+- [gradle-wrapper.properties:1-50](file://gradle/wrapper/gradle-wrapper.properties#L1-L50)
+- [gradle.properties:1-100](file://gradle.properties#L1-L100)
 
-### Credential Setup Using Config Examples
-Configure broker credentials using the provided property examples. Copy the relevant example file to a local properties file and fill in your broker-specific keys and tokens.
+### Environment Setup
+1. Clone the repository and enter the project directory.
+2. Ensure Java 21 is installed and selected as your default JDK.
+3. Confirm Gradle wrapper compatibility.
 
-- Dhan
-  - Example: [dhan-local.properties.example](file://config/dhan-local.properties.example)
-  - Sandbox example: [dhan-sandbox.properties.example](file://config/dhan-sandbox.properties.example)
-- ICICI
-  - Example: [icici-local.properties.example](file://config/icici-local.properties.example)
-- Upstox
-  - Live example: [upstox-live.properties.example](file://config/upstox-live.properties.example)
-  - Sandbox example: [upstox-sandbox.properties.example](file://config/upstox-sandbox.properties.example)
+Build and run:
+- ./gradlew clean build
+- ./gradlew bootRun
 
-Notes:
-- Replace placeholder values with your actual API keys, tokens, and endpoints.
-- Keep secrets out of version control; use environment variables or secure vaults in production.
+Logs are written using logback-spring.xml.
 
 **Section sources**
-- [dhan-local.properties.example](file://config/dhan-local.properties.example)
-- [dhan-sandbox.properties.example](file://config/dhan-sandbox.properties.example)
-- [icici-local.properties.example](file://config/icici-local.properties.example)
-- [upstox-live.properties.example](file://config/upstox-live.properties.example)
-- [upstox-sandbox.properties.example](file://config/upstox-sandbox.properties.example)
+- [build.gradle:1-200](file://app/build.gradle#L1-L200)
+- [logback-spring.xml:1-200](file://app/src/main/resources/logback-spring.xml#L1-L200)
 
-### Environment Configuration
-Runtime behavior is controlled by Spring profiles and broker-specific application YAML files. Select the appropriate profile for your environment and broker.
+### Configuration Management
+- Base configuration: application.yml
+- Mode-specific overlays: application-*.yml
+- Broker credentials: config/*.properties.example
 
-Key configuration files:
-- Base application: [application.yml](file://app/src/main/resources/application.yml)
-- Dev sandbox: [application-dev.yml](file://app/src/main/resources/application-dev.yml)
-- Production: [application-prod.yml](file://app/src/main/resources/application-prod.yml)
-- Replay: [application-replay.yml](file://app/src/main/resources/application-replay.yml)
-- Upstox dev: [application-upstox-dev.yml](file://app/src/main/resources/application-upstox-dev.yml)
-- Upstox prod: [application-upstox-prod.yml](file://app/src/main/resources/application-upstox-prod.yml)
-- Upstox analytics: [application-upstox-analytics.yml](file://app/src/main/resources/application-upstox-analytics.yml)
-- ICICI prod: [application-icici-prod.yml](file://app/src/main/resources/application-icici-prod.yml)
-- Dev live: [application-dev-live.yml](file://app/src/main/resources/application-dev-live.yml)
-- Gateway: [application-gateway.yml](file://app/src/main/resources/application-gateway.yml)
+Credential setup:
+- Copy the appropriate *.example file to remove .example
+- Populate required fields (API keys, tokens, URLs) as indicated by the template comments
+- Keep secrets out of version control
 
-How to apply:
-- Set the active Spring profile via JVM arguments or environment variables.
-- Point the application to the correct broker configuration file per the selected runtime mode.
+Spring profile activation:
+- Use spring.profiles.active to select a mode
+- Example: application-dev.yml activates development mode
+- For broker-specific modes, use the corresponding application-*.yml
+
+Logging:
+- Logback configuration is applied via logback-spring.xml
 
 **Section sources**
-- [application.yml](file://app/src/main/resources/application.yml)
-- [application-dev.yml](file://app/src/main/resources/application-dev.yml)
-- [application-prod.yml](file://app/src/main/resources/application-prod.yml)
-- [application-replay.yml](file://app/src/main/resources/application-replay.yml)
-- [application-upstox-dev.yml](file://app/src/main/resources/application-upstox-dev.yml)
-- [application-upstox-prod.yml](file://app/src/main/resources/application-upstox-prod.yml)
-- [application-upstox-analytics.yml](file://app/src/main/resources/application-upstox-analytics.yml)
-- [application-icici-prod.yml](file://app/src/main/resources/application-icici-prod.yml)
-- [application-dev-live.yml](file://app/src/main/resources/application-dev-live.yml)
-- [application-gateway.yml](file://app/src/main/resources/application-gateway.yml)
+- [application.yml:1-200](file://app/src/main/resources/application.yml#L1-L200)
+- [application-dev.yml:1-200](file://app/src/main/resources/application-dev.yml#L1-L200)
+- [application-dev-live.yml:1-200](file://app/src/main/resources/application-dev-live.yml#L1-L200)
+- [application-upstox-analytics.yml:1-200](file://app/src/main/resources/application-upstox-analytics.yml#L1-L200)
+- [application-upstox-dev.yml:1-200](file://app/src/main/resources/application-upstox-dev.yml#L1-L200)
+- [application-upstox-prod.yml:1-200](file://app/src/main/resources/application-upstox-prod.yml#L1-L200)
+- [application-icici-prod.yml:1-200](file://app/src/main/resources/application-icici-prod.yml#L1-L200)
+- [application-gateway.yml:1-200](file://app/src/main/resources/application-gateway.yml#L1-L200)
+- [application-replay.yml:1-200](file://app/src/main/resources/application-replay.yml#L1-L200)
+- [application-test.yml:1-200](file://app/src/main/resources/application-test.yml#L1-L200)
+- [dhan-sandbox.properties.example:1-200](file://config/dhan-sandbox.properties.example#L1-L200)
+- [upstox-sandbox.properties.example:1-200](file://config/upstox-sandbox.properties.example#L1-L200)
+- [upstox-live.properties.example:1-200](file://config/upstox-live.properties.example#L1-L200)
+- [icici-local.properties.example:1-200](file://config/icici-local.properties.example#L1-L200)
+- [dhan-local.properties.example:1-200](file://config/dhan-local.properties.example#L1-L200)
+- [logback-spring.xml:1-200](file://app/src/main/resources/logback-spring.xml#L1-L200)
+
+### Quick Start Options
+
+#### Option 1: Default Dhan Sandbox
+- Purpose: Evaluate core functionality with Dhan’s sandbox
+- Steps:
+  - Activate development mode via application-dev.yml
+  - Copy config/dhan-sandbox.properties.example to dhan-sandbox.properties
+  - Fill in sandbox credentials per template comments
+  - Run the application
+- Verification:
+  - Use scripts/dhan-smoke.sh to validate connectivity and basic market data
+  - Check logs for successful broker initialization
+
+**Section sources**
+- [application-dev.yml:1-200](file://app/src/main/resources/application-dev.yml#L1-L200)
+- [dhan-sandbox.properties.example:1-200](file://config/dhan-sandbox.properties.example#L1-L200)
+- [dhan-smoke.sh:1-200](file://scripts/dhan-smoke.sh#L1-L200)
+
+#### Option 2: Live Market Data Mode
+- Purpose: Connect to live market data feeds
+- Steps:
+  - Activate live development mode via application-dev-live.yml
+  - Configure Upstox live credentials using config/upstox-live.properties.example
+  - Run the application
+- Verification:
+  - Use scripts/upstox-smoke.sh to confirm live feed reception
+  - Review logs for health indicators and subscription confirmations
+
+**Section sources**
+- [application-dev-live.yml:1-200](file://app/src/main/resources/application-dev-live.yml#L1-L200)
+- [upstox-live.properties.example:1-200](file://config/upstox-live.properties.example#L1-L200)
+- [upstox-smoke.sh:1-200](file://scripts/upstox-smoke.sh#L1-L200)
+
+#### Option 3: Upstox Analytics-Only Mode
+- Purpose: Enable analytics features without placing live orders
+- Steps:
+  - Activate Upstox analytics mode via application-upstox-analytics.yml
+  - Use config/upstox-sandbox.properties.example for sandbox analytics
+  - Run the application
+- Verification:
+  - Use scripts/console-smoke.sh to validate console and analytics endpoints
+  - Confirm analytics dashboards load without order execution
+
+**Section sources**
+- [application-upstox-analytics.yml:1-200](file://app/src/main/resources/application-upstox-analytics.yml#L1-L200)
+- [upstox-sandbox.properties.example:1-200](file://config/upstox-sandbox.properties.example#L1-L200)
+- [console-smoke.sh:1-200](file://scripts/console-smoke.sh#L1-L200)
 
 ### Basic Usage Examples
-Use the CLI to interact with the platform for common tasks such as attaching broker sessions, downloading instruments, scanning, and trading.
-
-- CLI overview and commands: [CLI.md](file://CLI.md)
-- Broker session attachment and management are exposed via CLI commands.
-- Download and import equity instruments for trading.
-- Run scans and portfolio queries.
-- Place and manage orders in supported modes.
-
-Tip: Start with sandbox mode to validate your setup before moving to live.
+- Start the application with the chosen profile
+- Access the console/dashboard via the embedded server
+- Use scripts/test-api.sh to validate backend endpoints
+- Use scripts/test-backend-connection.sh to verify internal connectivity
 
 **Section sources**
-- [CLI.md](file://CLI.md)
-
-### Three Main Runtime Modes
-
-#### Sandbox Mode
-Purpose: Safe testing and development with simulated environments.
-- Use dev sandbox profile: [application-dev.yml](file://app/src/main/resources/application-dev.yml)
-- Optional Upstox sandbox: [application-upstox-dev.yml](file://app/src/main/resources/application-upstox-dev.yml)
-- Configure sandbox credentials using the sandbox property examples.
-
-Verification:
-- Run smoke tests for sandbox components.
-- Use scripts to validate connectivity and data flow.
-
-**Section sources**
-- [application-dev.yml](file://app/src/main/resources/application-dev.yml)
-- [application-upstox-dev.yml](file://app/src/main/resources/application-upstox-dev.yml)
-- [dhan-sandbox.properties.example](file://config/dhan-sandbox.properties.example)
-- [upstox-sandbox.properties.example](file://config/upstox-sandbox.properties.example)
-
-#### Live Mode
-Purpose: Real market connectivity and order execution.
-- Use dev live profile: [application-dev-live.yml](file://app/src/main/resources/application-dev-live.yml)
-- Production profile: [application-prod.yml](file://app/src/main/resources/application-prod.yml)
-- Configure live credentials using the live property examples.
-
-Verification:
-- Run production smoke tests.
-- Execute basic order lifecycle checks.
-
-**Section sources**
-- [application-dev-live.yml](file://app/src/main/resources/application-dev-live.yml)
-- [application-prod.yml](file://app/src/main/resources/application-prod.yml)
-- [upstox-live.properties.example](file://config/upstox-live.properties.example)
-- [dhan-local.properties.example](file://config/dhan-local.properties.example)
-- [icici-local.properties.example](file://config/icici-local.properties.example)
-
-#### Analytics Mode
-Purpose: Aggregated analytics and reporting across feeds and pipelines.
-- Use Upstox analytics profile: [application-upstox-analytics.yml](file://app/src/main/resources/application-upstox-analytics.yml)
-- Replay profile: [application-replay.yml](file://app/src/main/resources/application-replay.yml)
-- Gateway profile: [application-gateway.yml](file://app/src/main/resources/application-gateway.yml)
-
-Verification:
-- Validate analytics ingestion and catalog updates.
-- Confirm replay parity and pipeline correctness.
-
-**Section sources**
-- [application-upstox-analytics.yml](file://app/src/main/resources/application-upstox-analytics.yml)
-- [application-replay.yml](file://app/src/main/resources/application-replay.yml)
-- [application-gateway.yml](file://app/src/main/resources/application-gateway.yml)
+- [test-api.sh:1-200](file://scripts/test-api.sh#L1-L200)
+- [test-backend-connection.sh:1-200](file://test-backend-connection.sh#L1-L200)
 
 ## Dependency Analysis
-The project uses Gradle for multi-module builds. The root build script coordinates subprojects and shared configurations.
+Trade-J relies on Gradle for building and managing dependencies. The Gradle wrapper ensures consistent builds across environments. Spring profiles overlay configuration files to tailor runtime behavior.
 
 ```mermaid
-graph TB
-Root["Root Build<br/>build.gradle"] --> Core["Core Module"]
-Root --> Broker["Broker Integrations"]
-Root --> Data["Data & Persistence"]
-Root --> Pipeline["Pipeline Platform"]
-Root --> CLI["CLI Module"]
-Root --> Research["Research"]
-Root --> Trading["Trading"]
-Root --> Gateway["Gateway"]
-Root --> Analytics["Analytics"]
+graph LR
+Gradle["Gradle Wrapper"] --> Build["Build Script"]
+Build --> App["Application JAR"]
+App --> Spring["Spring Profiles"]
+Spring --> Config["YAML Configs"]
+Spring --> Props["Property Templates"]
 ```
 
 **Diagram sources**
-- [build.gradle](file://build.gradle)
-- [settings.gradle](file://settings.gradle)
+- [build.gradle:1-200](file://app/build.gradle#L1-L200)
+- [gradle-wrapper.properties:1-50](file://gradle/wrapper/gradle-wrapper.properties#L1-L50)
+- [application.yml:1-200](file://app/src/main/resources/application.yml#L1-L200)
 
 **Section sources**
-- [build.gradle](file://build.gradle)
-- [settings.gradle](file://settings.gradle)
+- [build.gradle:1-200](file://app/build.gradle#L1-L200)
+- [gradle-wrapper.properties:1-50](file://gradle/wrapper/gradle-wrapper.properties#L1-L50)
 
 ## Performance Considerations
-- Prefer sandbox mode for iterative development to reduce resource usage.
-- Use replay mode to validate performance and throughput without live market impact.
-- Monitor broker rate limits and adjust request pacing accordingly.
-- Keep frontend assets built and cached for faster local iteration.
+- Prefer sandbox or replay modes during initial setup to reduce network overhead
+- Use application-replay.yml for offline validation of pipeline behavior
+- Monitor logs for latency and throughput metrics during live mode
+
+[No sources needed since this section provides general guidance]
 
 ## Troubleshooting Guide
-Common setup issues and remedies:
-
-- Java version mismatch
-  - Symptom: Build fails with incompatible class files.
-  - Fix: Ensure Java 21 is installed and configured in your environment.
-
-- Gradle sync failures
-  - Symptom: Dependencies fail to resolve.
-  - Fix: Clean and rebuild; invalidate caches if using an IDE; verify network connectivity.
-
-- Missing broker credentials
-  - Symptom: Authentication errors or empty sessions.
-  - Fix: Copy the relevant example property file and populate your keys and tokens.
-
-- Incorrect Spring profile selection
-  - Symptom: Wrong broker or mode loaded.
-  - Fix: Set the active profile explicitly via JVM arguments or environment variables.
-
-- Frontend asset build issues
-  - Symptom: Blank UI or missing assets.
-  - Fix: Install Node.js dependencies and rebuild frontend assets.
-
-Verification scripts:
-- Console smoke: [console-smoke.sh](file://scripts/console-smoke.sh)
-- Production smoke: [production-smoke-test.sh](file://scripts/production-smoke-test.sh)
-- Full regression: [run-full-regression.sh](file://scripts/run-full-regression.sh)
-- API tests: [test-api.sh](file://scripts/test-api.sh)
-- Upstox smoke: [upstox-smoke.sh](file://scripts/upstox-smoke.sh)
-- Dhan smoke: [dhan-smoke.sh](file://scripts/dhan-smoke.sh)
-- TradeJ smoke: [tradej-smoke-test.sh](file://scripts/tradej-smoke-test.sh)
+Common issues and resolutions:
+- Java version mismatch: Ensure Java 21 is installed and selected
+- Gradle sync failures: Run ./gradlew clean build and ./gradlew --refresh-dependencies
+- Missing credentials: Populate the copied .properties files with required values
+- Profile activation: Verify spring.profiles.active matches the intended application-*.yml
+- Network connectivity: Use scripts/test-backend-connection.sh to validate internal services
+- Endpoint verification: Use scripts/test-api.sh to confirm API availability
 
 **Section sources**
-- [console-smoke.sh](file://scripts/console-smoke.sh)
-- [production-smoke-test.sh](file://scripts/production-smoke-test.sh)
-- [run-full-regression.sh](file://scripts/run-full-regression.sh)
-- [test-api.sh](file://scripts/test-api.sh)
-- [upstox-smoke.sh](file://scripts/upstox-smoke.sh)
-- [dhan-smoke.sh](file://scripts/dhan-smoke.sh)
-- [tradej-smoke-test.sh](file://scripts/tradej-smoke-test.sh)
+- [gradle-wrapper.properties:1-50](file://gradle/wrapper/gradle-wrapper.properties#L1-L50)
+- [test-backend-connection.sh:1-200](file://test-backend-connection.sh#L1-L200)
+- [test-api.sh:1-200](file://scripts/test-api.sh#L1-L200)
 
 ## Conclusion
-You now have the essentials to install Trade-J, configure credentials, select runtime modes, and verify your setup. Start in sandbox mode, progress to live after validation, and leverage analytics mode for insights. Use the provided scripts and configuration files to streamline deployment and troubleshooting.
+You now have the essentials to install Trade-J, configure credentials, activate the desired runtime mode, and verify your setup. Start with the Dhan sandbox for a safe evaluation, then progress to live or analytics-only modes as needed.
+
+[No sources needed since this section summarizes without analyzing specific files]
 
 ## Appendices
 
-### Appendix A: Quick Reference Checklist
-- Installed Java 21 and verified with the build.
-- Copied and filled broker credential examples.
-- Selected and applied the correct Spring profile.
-- Built and verified the project.
-- Ran a smoke test script for your chosen mode.
+### Verification Checklist
+- Java 21 is installed and selected
+- Gradle wrapper resolves correctly
+- Credentials populated in the appropriate .properties file
+- Spring profile matches the intended application-*.yml
+- Logs show successful broker initialization
+- Smoke scripts report success
 
-### Appendix B: Configuration Files Index
-- Base application: [application.yml](file://app/src/main/resources/application.yml)
-- Dev sandbox: [application-dev.yml](file://app/src/main/resources/application-dev.yml)
-- Production: [application-prod.yml](file://app/src/main/resources/application-prod.yml)
-- Replay: [application-replay.yml](file://app/src/main/resources/application-replay.yml)
-- Upstox dev: [application-upstox-dev.yml](file://app/src/main/resources/application-upstox-dev.yml)
-- Upstox prod: [application-upstox-prod.yml](file://app/src/main/resources/application-upstox-prod.yml)
-- Upstox analytics: [application-upstox-analytics.yml](file://app/src/main/resources/application-upstox-analytics.yml)
-- ICICI prod: [application-icici-prod.yml](file://app/src/main/resources/application-icici-prod.yml)
-- Dev live: [application-dev-live.yml](file://app/src/main/resources/application-dev-live.yml)
-- Gateway: [application-gateway.yml](file://app/src/main/resources/application-gateway.yml)
+**Section sources**
+- [dhan-smoke.sh:1-200](file://scripts/dhan-smoke.sh#L1-L200)
+- [upstox-smoke.sh:1-200](file://scripts/upstox-smoke.sh#L1-L200)
+- [console-smoke.sh:1-200](file://scripts/console-smoke.sh#L1-L200)
+- [test-api.sh:1-200](file://scripts/test-api.sh#L1-L200)
+- [test-backend-connection.sh:1-200](file://test-backend-connection.sh#L1-L200)
+
+### Additional References
+- Runtime mode audit and deployment guidance are available in docs/
+- Broker capability matrix and usage guides are included in docs/
+
+**Section sources**
+- [runtime-mode-audit.md:1-200](file://docs/runtime-mode-audit.md#L1-L200)
+- [PRODUCTION_DEPLOYMENT.md:1-200](file://docs/PRODUCTION_DEPLOYMENT.md#L1-L200)
+- [BROKER_CAPABILITY_MATRIX.md:1-200](file://docs/BROKER_CAPABILITY_MATRIX.md#L1-L200)
+- [USAGE_GUIDE.md:1-200](file://docs/USAGE_GUIDE.md#L1-L200)

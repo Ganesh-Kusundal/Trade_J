@@ -1,0 +1,1 @@
+All child modules share a common Java/Gradle build ecosystem and rely heavily on DuckDB for both real-time feature computation and historical analytics, ensuring consistent query semantics across live and batch contexts.

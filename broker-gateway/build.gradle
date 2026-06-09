@@ -2,13 +2,18 @@ dependencies {
     api project(':core')
     api project(':broker-api')
     implementation project(':broker-core')
+    implementation project(':broker-dhan')
+    implementation project(':broker-upstox')
+    implementation project(':broker-icici')
     implementation project(':composition')
 
     implementation 'org.slf4j:slf4j-api'
     implementation 'com.fasterxml.jackson.core:jackson-databind'
+    implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
     implementation "org.duckdb:duckdb_jdbc:${versions.duckdb}"
 
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testImplementation 'org.mockito:mockito-core'
     testImplementation 'org.mockito:mockito-junit-jupiter'
+    testImplementation testFixtures(project(':core'))
 }

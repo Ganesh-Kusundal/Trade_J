@@ -1,0 +1,1 @@
+Uses Java ServiceLoader pattern for plugin discovery, configured via `META-INF/services` files.

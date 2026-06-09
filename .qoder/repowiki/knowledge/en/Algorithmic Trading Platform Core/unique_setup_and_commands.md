@@ -1,0 +1,2 @@
+- **Unified Build & Test**: `./gradlew build` compiles all 24+ subprojects; `./gradlew fullRegressionTest` executes the complete cross-layer test pyramid including broker sandbox integration.
+- **Mode-Specific Startup**: `./gradlew :app:bootRun --args='--spring.profiles.active=dev-live'` starts the live trading engine, while other profiles activate replay or analytics-only modes.

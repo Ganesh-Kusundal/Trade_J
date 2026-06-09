@@ -1,1 +1,0 @@
-Uses Caffeine for high-performance local caching of analytics results.
