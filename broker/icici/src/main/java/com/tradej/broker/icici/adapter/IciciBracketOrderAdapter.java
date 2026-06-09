@@ -8,7 +8,27 @@ import java.util.List;
 
 /**
  * ICICI bracket order adapter.
- * ICICI Breeze API does not natively support bracket orders.
+ * 
+ * <p>ICICI Breeze API does not natively support bracket orders (super orders).
+ * This adapter implements the {@link BracketOrderProvider} interface to maintain
+ * API consistency but throws {@link UnsupportedOperationException} for all operations.
+ * 
+ * <p><b>API Limitation</b>: ICICI Breeze does not provide endpoints for:
+ * <ul>
+ *   <li>Placing bracket/super orders</li>
+ *   <li>Modifying bracket order legs</li>
+ *   <li>Canceling bracket orders</li>
+ *   <li>Listing bracket orders</li>
+ * </ul>
+ * 
+ * <p><b>Workaround</b>: Users can manually implement bracket order logic by:
+ * <ol>
+ *   <li>Placing the main order via {@link com.tradej.broker.api.port.OrderCommand#placeOrder}</li>
+ *   <li>Monitoring order status via {@link com.tradej.broker.api.port.OrderQuery}</li>
+ *   <li>Placing target and stop-loss orders as separate limit orders when main order fills</li>
+ * </ol>
+ * 
+ * @see <a href="https://api.icicidirect.com/breezeapi-documentation/">ICICI Breeze API Documentation</a>
  */
 public final class IciciBracketOrderAdapter implements BracketOrderProvider {
 

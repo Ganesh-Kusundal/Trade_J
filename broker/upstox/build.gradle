@@ -5,6 +5,8 @@ dependencies {
     implementation 'com.fasterxml.jackson.core:jackson-databind'
     implementation 'org.slf4j:slf4j-api'
 
+    testImplementation project(':broker-api')
+    testImplementation testFixtures(project(':broker-api'))
     testImplementation 'org.mockito:mockito-core'
     testImplementation 'org.mockito:mockito-junit-jupiter'
 }

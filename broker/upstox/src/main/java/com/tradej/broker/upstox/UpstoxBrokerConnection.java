@@ -1,7 +1,9 @@
 package com.tradej.broker.upstox;
 
 import com.tradej.broker.api.IBrokerConnection;
+import com.tradej.broker.api.capability.MarginCapable;
 import com.tradej.broker.api.capability.NewsCapable;
+import com.tradej.broker.api.capability.OptionsCapable;
 import com.tradej.broker.api.port.ConditionalAlertProvider;
 import com.tradej.broker.api.port.CoverOrderProvider;
 import com.tradej.broker.api.port.FuturesProvider;
@@ -52,6 +54,11 @@ public final class UpstoxBrokerConnection implements IBrokerConnection {
     private final UpstoxInstrumentResolver upstoxInstrumentResolver;
     private final MarketStatusProvider marketStatusProvider;
     private final CoverOrderProvider coverOrderProvider;
+    
+    // Cached capability markers for consistency
+    private final NewsCapable newsCapable = new NewsCapable() { };
+    private final OptionsCapable optionsCapable = new OptionsCapable() { };
+    private final MarginCapable marginCapable = new MarginCapable() { };
 
     public UpstoxBrokerConnection(
             MarketDataProvider marketDataProvider,
@@ -163,7 +170,13 @@ public final class UpstoxBrokerConnection implements IBrokerConnection {
             return Optional.of(capabilityClass.cast(newsProvider));
         }
         if (NewsCapable.class.equals(capabilityClass)) {
-            return Optional.of(capabilityClass.cast(new NewsCapable() { }));
+            return Optional.of(capabilityClass.cast(newsCapable));
+        }
+        if (OptionsCapable.class.equals(capabilityClass) && optionsProvider != null) {
+            return Optional.of(capabilityClass.cast(optionsCapable));
+        }
+        if (MarginCapable.class.equals(capabilityClass) && marginProvider != null) {
+            return Optional.of(capabilityClass.cast(marginCapable));
         }
         if (capabilityClass.isInstance(conditionalAlertProvider)) {
             return Optional.of(capabilityClass.cast(conditionalAlertProvider));
