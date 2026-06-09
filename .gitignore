@@ -1,51 +1,64 @@
-/.gradle/
-/**/build/
-/.idea/
-*.iml
+# Compiled and build artifacts
+*.class
+*.o
+*.obj
+*.out
+build/
+target/
+
+# Dependencies
+node_modules/
+venv/
+.venv/
+__pycache__/
+.mypy_cache/
+.pytest_cache/
+.gradle/
+
+# Logs and temp files
 *.log
-*.db
-*.duckdb
-*.duckdb.wal
-**/runtime-dev/
-**/runtime-test/
-**/runtime-prod/
-/data/historical-equity/
-/chronicle/
-/out/
-/.DS_Store
-test_output.txt
-**/readmodel-snapshot.json
-**/risk-state.json
-app/data/
-/config/dhan-local.properties
-/config/upstox-sandbox.properties
-/config/upstox-live.properties
-/config/dhan-sandbox.properties
-/config/dhan-pin.txt
-/config/dhan-totp-secret.txt
-/config/icici-local.properties
-/config/icici-totp-secret.txt
-/config/icici-username.txt
-/config/icici-password.txt
-/config/icici-api-session.txt
-/runtime/icici-token-state.json
-# Workspace runtime artifacts (not :runtime-disruptor / :runtime-hotpath sources)
-/runtime/dhan-token-state.json
-/runtime/cli-instruments/
-/app/runtime/
-**/runtime/dhan-token-state.json
-**/dhan-token-state.json
-*.parquet
-# Historical data files (large binary parquet files)
-data/historical/**/*.parquet
-data/analytics/**/*.parquet
-data/feature-store/**/*.parquet
-# Keep source code tracked
-data/analytics/src/
-data/feature-store/src/
-data/historical/build/
-data/analytics/build/
-data/feature-store/build/
-# Reference POC (not part of Trade-J build)
-/REFERANCE/
-/.cline/
+*.tmp
+*.swp
+*.swo
+
+# Environment
+.env
+.env.local
+*.env.*
+
+# Editors
+.vscode/
+.idea/
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Coverage
+coverage/
+htmlcov/
+.coverage
+
+# Compressed files
+*.zip
+*.gz
+*.tar
+*.tgz
+*.bz2
+*.xz
+*.7z
+*.rar
+*.zst
+*.lz4
+*.lzh
+*.cab
+*.arj
+*.rpm
+*.deb
+*.Z
+*.lz
+*.lzo
+*.tar.gz
+*.tar.bz2
+*.tar.xz
+*.tar.zst
