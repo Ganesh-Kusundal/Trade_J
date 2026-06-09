@@ -48,4 +48,5 @@ data/analytics/build/
 data/feature-store/build/
 # Reference POC (not part of Trade-J build)
 /REFERANCE/
+/poc/
 /.cline/

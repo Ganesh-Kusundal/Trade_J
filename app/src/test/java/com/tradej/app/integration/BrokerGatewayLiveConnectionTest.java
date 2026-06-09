@@ -11,6 +11,7 @@ import com.tradej.brokergateway.result.GatewayResult;
 import com.tradej.core.domain.instrument.IndexSymbols;
 import com.tradej.core.domain.instrument.Instruments;
 import com.tradej.core.domain.model.Instrument;
+import com.tradej.core.domain.model.OptionChainSnapshot;
 import com.tradej.core.domain.model.OptionQuote;
 import com.tradej.core.domain.value.ExchangeSegment;
 import com.tradej.execution.service.CaffeineIdempotencyCache;
@@ -172,11 +173,20 @@ class BrokerGatewayLiveConnectionTest {
         List<LocalDate> expiries = brokerConnection.options().getExpiries("NIFTY", ExchangeSegment.IDX_I);
         assertFalse(expiries.isEmpty(), "Expected at least one NIFTY option expiry for live smoke test.");
         LocalDate nearestExpiry = expiries.getFirst();
-        List<Instrument> contracts = brokerConnection.options()
-                .getOptionContracts("NIFTY", ExchangeSegment.IDX_I, nearestExpiry);
-        assertFalse(contracts.isEmpty(), "Expected tradable NIFTY option contracts from the instrument master.");
-        Instrument first = contracts.getFirst();
-        return new InstrumentKeyRef(first.key());
+        
+        // Get option chain from live API (includes all contracts)
+        OptionChainSnapshot chain = brokerConnection.options()
+                .getOptionChain("NIFTY", ExchangeSegment.IDX_I, nearestExpiry);
+        assertFalse(chain.strikes().isEmpty(), "Expected option chain strikes from live API.");
+        
+        // Extract first available option contract from the chain
+        OptionQuote firstLeg = chain.strikes().stream()
+                .map(entry -> entry.call() != null ? entry.call() : entry.put())
+                .filter(java.util.Objects::nonNull)
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("Expected at least one option leg in chain"));
+        
+        return new InstrumentKeyRef(firstLeg.instrument().key());
     }
 
     private record InstrumentKeyRef(com.tradej.core.domain.model.InstrumentKey value) {

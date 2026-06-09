@@ -30,6 +30,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.lang.reflect.InvocationTargetException;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
@@ -297,7 +298,7 @@ class DhanMarketDataProviderTest {
 
         @BeforeEach
         void setUp() {
-            request = new CandleHistoryRequest(key, "1d", 1000000L, 2000000L);
+            request = new CandleHistoryRequest(key, "1d", LocalDate.of(1970, 1, 12), LocalDate.of(1970, 1, 24));
             candlesFromClient = List.of(
                     new Candle("RELIANCE", "1d", 1000000L, 1100000L, 100L, 110L, 99L, 105L, 1000L, true),
                     new Candle("RELIANCE", "1d", 1100000L, 1200000L, 110L, 120L, 109L, 115L, 1500L, true)
@@ -310,7 +311,7 @@ class DhanMarketDataProviderTest {
             CandleHistoryRequest capturedRequest = request; // effectively final
             when(historicalDataClient.fetchRange(eq(capturedRequest), eq(def)))
                     .thenReturn(List.of(new DhanJsonResponse(MAPPER.createObjectNode())));
-            when(historicalDataMapper.toCandles(any(JsonNode.class), eq(instrument), eq("1d")))
+            when(historicalDataMapper.toCandles(any(DhanJsonResponse.class), eq(instrument), eq("1d")))
                     .thenReturn(candlesFromClient);
 
             List<Candle> result = provider.getCandles(request);
@@ -331,7 +332,7 @@ class DhanMarketDataProviderTest {
             Candle candle1 = new Candle("RELIANCE", "1d", 1000000L, 1100000L, 100L, 110L, 99L, 105L, 1000L, true);
             Candle candle2 = new Candle("RELIANCE", "1d", 1100000L, 1200000L, 110L, 120L, 109L, 115L, 1500L, true);
             // Return candle1 from first page, candle1+candle2 from second page (overlap)
-            when(historicalDataMapper.toCandles(any(JsonNode.class), eq(instrument), eq("1d")))
+            when(historicalDataMapper.toCandles(any(DhanJsonResponse.class), eq(instrument), eq("1d")))
                     .thenReturn(List.of(candle1))
                     .thenReturn(List.of(candle1, candle2));
 
@@ -345,7 +346,7 @@ class DhanMarketDataProviderTest {
             when(context.resolveDef(request.instrument())).thenReturn(def);
             when(historicalDataClient.fetchRange(eq(request), eq(def)))
                     .thenReturn(List.of(new DhanJsonResponse(MAPPER.createObjectNode())));
-            when(historicalDataMapper.toCandles(any(JsonNode.class), eq(instrument), eq("1d")))
+            when(historicalDataMapper.toCandles(any(DhanJsonResponse.class), eq(instrument), eq("1d")))
                     .thenReturn(List.of());
 
             List<Candle> result = provider.getCandles(request);
@@ -577,7 +578,7 @@ class DhanMarketDataProviderTest {
 
         @Test
         void getCandlesThrowsOnInvalidInterval() {
-            CandleHistoryRequest badRequest = new CandleHistoryRequest(key, "bad-interval", 1000L, 2000L);
+            CandleHistoryRequest badRequest = new CandleHistoryRequest(key, "bad-interval", LocalDate.of(1970, 1, 1), LocalDate.of(1970, 1, 2));
 
             assertThrows(IllegalArgumentException.class, () -> provider.getCandles(badRequest));
         }
@@ -729,7 +730,6 @@ class DhanMarketDataProviderTest {
         @Test
         void executePropagatesHttpError() {
             when(context.resolveDef(key)).thenReturn(def);
-            when(apiUrlResolver.marketFeedLtpUrl()).thenReturn(LTP_URL);
             stubExecuteThrows(ApiCategory.QUOTE, "quote-ltp",
                     new RuntimeException("HTTP 429 Rate limit exceeded"));
 

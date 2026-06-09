@@ -9,7 +9,6 @@ import com.tradej.core.domain.model.InferenceResult;
 import com.tradej.core.domain.port.FeatureStore;
 import com.tradej.core.domain.port.MLInferenceEngine;
 import com.tradej.strategy.api.GraphStrategyPlugin;
-import com.tradej.strategy.api.StrategyPlugin;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -20,8 +19,8 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * A {@link StrategyPlugin} and {@link GraphStrategyPlugin} adapter that bridges
- * the ML inference pipeline into the strategy execution sandbox.
+ * {@link GraphStrategyPlugin} adapter that bridges the ML inference pipeline
+ * into the strategy execution sandbox.
  *
  * <p>On each {@link CandleClosed} event, this plugin:
  * <ol>
@@ -30,15 +29,11 @@ import java.util.UUID;
  *   <li>Converts the result into a {@link SignalGenerated} for the downstream pipeline</li>
  * </ol>
  *
- * <p>Implements both {@link StrategyPlugin} (legacy candle-only) and
- * {@link GraphStrategyPlugin} (unified event dispatch) so it works in
- * both the old sandbox and the new graph sandbox.
- *
  * <p>This allows ML-driven strategies to participate in the same signal pipeline
  * as traditional rule-based strategies, with portfolio-level risk checks applied
  * uniformly by the {@code PortfolioEngine} and {@code PositionRiskHandler}.
  */
-public final class MLStrategyPlugin implements StrategyPlugin, GraphStrategyPlugin {
+public final class MLStrategyPlugin implements GraphStrategyPlugin {
 
     private static final Logger log = LoggerFactory.getLogger(MLStrategyPlugin.class);
 
@@ -73,15 +68,6 @@ public final class MLStrategyPlugin implements StrategyPlugin, GraphStrategyPlug
     public String name() {
         return name;
     }
-
-    // ── Legacy StrategyPlugin (candle-only) ──
-
-    @Override
-    public Optional<SignalGenerated> onCandleClosed(CandleClosed event) {
-        return evaluateCandle(event);
-    }
-
-    // ── GraphStrategyPlugin (unified dispatch) ──
 
     @Override
     public List<Class<? extends DomainEvent>> subscribedEventTypes() {

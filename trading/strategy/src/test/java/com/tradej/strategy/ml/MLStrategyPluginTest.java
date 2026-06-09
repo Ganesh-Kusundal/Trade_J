@@ -8,7 +8,6 @@ import com.tradej.core.domain.model.FeatureVector;
 import com.tradej.core.domain.model.InferenceResult;
 import com.tradej.core.domain.port.MLInferenceEngine;
 import com.tradej.core.domain.value.Side;
-import com.tradej.strategy.api.StrategyPlugin;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -55,7 +54,7 @@ class MLStrategyPluginTest {
                 754_00L, 0.12, 100_000L, 50L
         ));
 
-        Optional<SignalGenerated> signal = plugin.onCandleClosed(sampleCandle);
+        Optional<SignalGenerated> signal = plugin.onEvent(sampleCandle);
         assertTrue(signal.isPresent(), "ML engine with BUY result should produce a SignalGenerated");
         assertEquals(Side.BUY, signal.get().side());
         assertEquals("SBIN", signal.get().symbol());
@@ -76,7 +75,7 @@ class MLStrategyPluginTest {
                 754_00L, 0.10, 0L, 50L
         ));
 
-        Optional<SignalGenerated> signal = plugin.onCandleClosed(sampleCandle);
+        Optional<SignalGenerated> signal = plugin.onEvent(sampleCandle);
         assertTrue(signal.isEmpty(), "Neutral RSI should produce no signal");
     }
 
@@ -87,7 +86,7 @@ class MLStrategyPluginTest {
         // Feature store returns empty
         featureStore.features = Optional.empty();
 
-        Optional<SignalGenerated> signal = plugin.onCandleClosed(sampleCandle);
+        Optional<SignalGenerated> signal = plugin.onEvent(sampleCandle);
         assertTrue(signal.isEmpty(), "No features should produce no signal");
     }
 
@@ -101,7 +100,7 @@ class MLStrategyPluginTest {
                 755_00L, 0.15, -500_000L, 50L
         ));
 
-        Optional<SignalGenerated> signal = plugin.onCandleClosed(sampleCandle);
+        Optional<SignalGenerated> signal = plugin.onEvent(sampleCandle);
         assertTrue(signal.isPresent());
         assertEquals(Side.SELL, signal.get().side());
         assertEquals("RSI_OVERBOUGHT", signal.get().setup());
@@ -118,7 +117,7 @@ class MLStrategyPluginTest {
                 754_00L, 0.12, 100_000L, 50L
         ));
 
-        Optional<SignalGenerated> signal = plugin.onCandleClosed(sampleCandle);
+        Optional<SignalGenerated> signal = plugin.onEvent(sampleCandle);
         assertTrue(signal.isPresent());
         assertEquals(0.85, (double) signal.get().attributes().get("confidence"), 0.001);
         assertEquals("RSI_OVERSOLD", signal.get().attributes().get("setup"));

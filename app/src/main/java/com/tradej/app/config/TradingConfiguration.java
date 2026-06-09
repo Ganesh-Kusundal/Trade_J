@@ -22,8 +22,6 @@ import com.tradej.simulation.MatchingEngine;
 import com.tradej.simulation.PnLLedger;
 import com.tradej.simulation.SimulatedOrderService;
 import com.tradej.strategy.api.GraphStrategyPlugin;
-import com.tradej.strategy.api.StrategyPlugin;
-import com.tradej.strategy.api.StrategyPluginAdapter;
 import com.tradej.strategy.example.DepthImbalanceStrategy;
 import com.tradej.strategy.example.TickPriceChangeStrategy;
 import com.tradej.strategy.ml.DefaultModelRegistry;
@@ -37,8 +35,13 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import com.tradej.core.domain.event.MarketTickEvent;
+import com.tradej.core.domain.event.ReconciliationHaltRequired;
+import com.tradej.core.domain.model.RiskLimits;
+import com.tradej.core.domain.port.EventBus;
+import com.tradej.core.domain.port.NetPositionProvider;
+import com.tradej.execution.risk.MarkToMarketRiskMonitor;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -47,6 +50,56 @@ import java.util.List;
  */
 @Configuration
 public class TradingConfiguration {
+
+    // ── Risk beans ──
+
+    @Bean
+    com.tradej.core.domain.model.RiskLimits riskLimits(TradingProperties properties) {
+        TradingProperties.RiskProperties risk = properties.risk();
+        return new com.tradej.core.domain.model.RiskLimits(
+                risk.maxDailyLossPaisa(),
+                risk.maxConsecutiveLosses(),
+                risk.maxOrderValuePaisa(),
+                risk.effectiveMaxOpenPositionQuantity(),
+                risk.maxDistinctOpenPositions());
+    }
+
+    @Bean
+    MarkToMarketRiskMonitor markToMarketRiskMonitor(
+            TradingProperties properties,
+            NetPositionProvider netPositionProvider
+    ) {
+        return new MarkToMarketRiskMonitor(
+                properties.risk().enforceUnrealizedLoss(),
+                netPositionProvider,
+                properties.risk().maxDailyLossPaisa());
+    }
+
+    @Bean
+    RiskEventBusSubscriber riskEventBusSubscriber(
+            EventBus eventBus,
+            MarkToMarketRiskMonitor markToMarketRiskMonitor,
+            PositionRiskHandler positionRiskHandler
+    ) {
+        return new RiskEventBusSubscriber(eventBus, markToMarketRiskMonitor, positionRiskHandler);
+    }
+
+    /**
+     * Subscribes risk monitors to the event bus on construction,
+     * breaking the circular dependency:
+     * eventBus → pipeline → positionRiskHandler → markToMarketRiskMonitor → eventBus
+     */
+    static final class RiskEventBusSubscriber {
+        RiskEventBusSubscriber(
+                EventBus eventBus,
+                MarkToMarketRiskMonitor markToMarketRiskMonitor,
+                PositionRiskHandler positionRiskHandler
+        ) {
+            markToMarketRiskMonitor.setEventBus(eventBus);
+            eventBus.subscribe(MarketTickEvent.class, markToMarketRiskMonitor::onMarketTick);
+            eventBus.subscribe(ReconciliationHaltRequired.class, positionRiskHandler::handleReconciliationHalt);
+        }
+    }
 
     // ── Simulation beans ──
 
@@ -235,24 +288,11 @@ public class TradingConfiguration {
         return new OptionsContextStrategyPlugin(featureStore);
     }
 
-    /**
-     * Creates the unified graph strategy sandbox with both legacy
-     * {@link StrategyPlugin} instances (adapter-wrapped) and native
-     * {@link GraphStrategyPlugin} instances.
-     */
     @Bean(destroyMethod = "shutdown")
     GraphStrategySandbox graphStrategySandbox(
-            List<StrategyPlugin> strategyPlugins,
             List<GraphStrategyPlugin> graphStrategyPlugins,
             EventMetadataFactory eventMetadataFactory
     ) {
-        List<GraphStrategyPlugin> allPlugins = new ArrayList<>();
-        // Wrap legacy candle-only plugins via adapter
-        for (StrategyPlugin plugin : strategyPlugins) {
-            allPlugins.add(new StrategyPluginAdapter(plugin));
-        }
-        // Add native graph strategy plugins (tick, depth, ML)
-        allPlugins.addAll(graphStrategyPlugins);
-        return new GraphStrategySandbox(allPlugins, eventMetadataFactory);
+        return new GraphStrategySandbox(graphStrategyPlugins, eventMetadataFactory);
     }
 }

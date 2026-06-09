@@ -12,9 +12,6 @@ include 'broker-core'
 project(':broker-core').projectDir = file('broker/core')
 include 'broker-dhan'
 project(':broker-dhan').projectDir = file('broker/dhan')
-// POC Module - Reactive Dhan (isolated proof-of-concept)
-include 'broker-dhan-reactive'
-project(':broker-dhan-reactive').projectDir = file('poc/broker-dhan-reactive')
 include 'broker-upstox'
 project(':broker-upstox').projectDir = file('broker/upstox')
 include 'broker-icici'

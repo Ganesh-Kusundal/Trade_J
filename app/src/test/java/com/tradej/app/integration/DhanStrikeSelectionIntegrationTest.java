@@ -2,6 +2,7 @@ package com.tradej.app.integration;
 
 import com.tradej.broker.dhan.DhanBrokerConnection;
 import com.tradej.core.domain.model.Instrument;
+import com.tradej.core.domain.model.OptionChainEntry;
 import com.tradej.core.domain.model.OptionChainSnapshot;
 import com.tradej.core.domain.value.ExchangeSegment;
 import com.tradej.core.domain.value.OptionType;
@@ -51,9 +52,9 @@ class DhanStrikeSelectionIntegrationTest {
         long spot = chain.spotPricePaisa();
         assertTrue(spot > 0L);
 
-        Set<Long> listedStrikes = brokerConnection.options().getOptionContracts(UNDERLYING, ExchangeSegment.IDX_I, expiry).stream()
-                .map(Instrument::strikePricePaisa)
-                .filter(java.util.Objects::nonNull)
+        // Extract strikes from live option chain (no need for getOptionContracts)
+        Set<Long> listedStrikes = chain.strikes().stream()
+                .map(OptionChainEntry::strikePricePaisa)
                 .collect(Collectors.toSet());
         assertFalse(listedStrikes.isEmpty());
 

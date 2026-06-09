@@ -14,6 +14,13 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.context.annotation.Primary;
 
+import java.time.Clock;
+import java.time.Instant;
+import org.springframework.context.annotation.Profile;
+import com.tradej.core.domain.event.EventMetadataFactory;
+import com.tradej.core.domain.time.LiveTradingClock;
+import com.tradej.core.domain.time.ReplayTradingClock;
+import com.tradej.core.domain.time.TradingClock;
 import java.util.function.Consumer;
 
 /**
@@ -22,6 +29,32 @@ import java.util.function.Consumer;
  */
 @Configuration
 public class RuntimeConfiguration {
+
+    // ── Time and clocks ──
+
+    @Bean
+    @Profile("!replay")
+    Clock clock() {
+        return Clock.systemDefaultZone();
+    }
+
+    @Bean
+    @Primary
+    @Profile("!replay")
+    public TradingClock liveTradingClock() {
+        return new LiveTradingClock();
+    }
+
+    @Bean
+    @Profile("replay")
+    public TradingClock replayTradingClock() {
+        return new ReplayTradingClock(Instant.EPOCH);
+    }
+
+    @Bean
+    public EventMetadataFactory eventMetadataFactory(TradingClock tradingClock) {
+        return new EventMetadataFactory(tradingClock);
+    }
 
     // ── Runtime mode ──
 

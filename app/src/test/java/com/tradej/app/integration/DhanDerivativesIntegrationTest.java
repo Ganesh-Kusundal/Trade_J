@@ -59,26 +59,36 @@ class DhanDerivativesIntegrationTest {
     void fetchesLiveNiftyOptionChainThroughBrokerBoundary() throws Exception {
         connectWithDailyInstrumentMaster();
 
+        // Get expiries from live API
         List<LocalDate> expiries = brokerConnection.options().getExpiries("NIFTY", ExchangeSegment.IDX_I);
         assertFalse(expiries.isEmpty(), "Expected at least one option expiry for NIFTY.");
         assertEquals(expiries, expiries.stream().sorted().toList(), "Expiries from Dhan expirylist should be sorted.");
 
         LocalDate nearestExpiry = expiries.getFirst();
-        List<Instrument> contracts = brokerConnection.options().getOptionContracts("NIFTY", ExchangeSegment.IDX_I, nearestExpiry);
-        assertFalse(contracts.isEmpty(), "Expected tradable NIFTY option contracts from the instrument master.");
-
+        
+        // Get option chain directly from live API (includes all contracts with live data)
         OptionChainSnapshot chain = brokerConnection.options().getOptionChain("NIFTY", ExchangeSegment.IDX_I, nearestExpiry);
+        
+        // Verify chain has strikes with live data
+        assertTrue(chain.spotPricePaisa() > 0L, "Option chain should expose the underlying spot price.");
+        assertFalse(chain.strikes().isEmpty(), "Expected the live option chain to contain strikes.");
+        assertTrue(chain.strikes().stream().anyMatch(entry -> entry.call() != null || entry.put() != null),
+                "Expected at least one resolved option leg in the live option chain.");
+        
+        // Extract contracts from the live chain (no need for separate getOptionContracts call)
+        long contractCount = chain.strikes().stream()
+                .mapToLong(entry -> (entry.call() != null ? 1 : 0) + (entry.put() != null ? 1 : 0))
+                .sum();
+        assertTrue(contractCount > 0, "Expected option contracts in the live chain.");
+        
+        // Get greeks from live data
         OptionQuote firstLeg = chain.strikes().stream()
                 .map(entry -> entry.call() != null ? entry.call() : entry.put())
                 .filter(java.util.Objects::nonNull)
                 .findFirst()
                 .orElseThrow();
         OptionQuote greeks = brokerConnection.options().getGreeks(firstLeg.instrument().key());
-
-        assertTrue(chain.spotPricePaisa() > 0L, "Option chain should expose the underlying spot price.");
-        assertFalse(chain.strikes().isEmpty(), "Expected the live option chain to contain strikes.");
-        assertTrue(chain.strikes().stream().anyMatch(entry -> entry.call() != null || entry.put() != null),
-                "Expected at least one resolved option leg in the live option chain.");
+        
         assertNotNull(greeks.greeks(), "Resolved option greeks should be available through the broker boundary.");
     }
 

@@ -92,6 +92,18 @@ public class DataConfiguration {
 
     private static final Logger log = LoggerFactory.getLogger(DataConfiguration.class);
 
+    // ── Workspace ──
+
+    @Bean
+    WorkspacePaths workspacePaths() {
+        return WorkspacePaths.fromSystemProperty();
+    }
+
+    @Bean
+    Path workspaceRoot(WorkspacePaths workspacePaths) {
+        return workspacePaths.workspaceRoot();
+    }
+
     // ── Read model ──
 
     @Bean

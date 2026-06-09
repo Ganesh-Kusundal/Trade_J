@@ -10,11 +10,11 @@ import java.util.Optional;
  * Strategy plugin that receives arbitrary {@link DomainEvent} types for
  * tick-level, depth-level, and multi-event strategy evaluation.
  * <p>
- * Unlike {@link StrategyPlugin} which only receives {@code CandleClosed},
- * this interface supports:
+ * Supports:
  * <ul>
  *   <li>Tick strategies (e.g., market-making, tick-IM balance)</li>
  *   <li>Depth strategies (e.g., L2 imbalance, order book pressure)</li>
+ *   <li>Candle strategies (e.g., moving average crossovers, breakouts)</li>
  *   <li>Multi-event strategies (e.g., tick + depth + candle combined)</li>
  *   <li>Reactive streaming evaluation</li>
  * </ul>
