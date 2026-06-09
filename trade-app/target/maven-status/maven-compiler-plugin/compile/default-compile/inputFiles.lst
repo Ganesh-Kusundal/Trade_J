@@ -1,0 +1,13 @@
+/Users/apple/Downloads/Trade_J/trade-app/src/main/java/com/tradej/app/ui/NewsFeedView.java
+/Users/apple/Downloads/Trade_J/trade-app/src/main/java/com/tradej/app/gateway/NewsGateway.java
+/Users/apple/Downloads/Trade_J/trade-app/src/main/java/com/tradej/app/ui/OptionsChainView.java
+/Users/apple/Downloads/Trade_J/trade-app/src/main/java/com/tradej/app/TradeApp.java
+/Users/apple/Downloads/Trade_J/trade-app/src/main/java/com/tradej/app/model/OptionChainData.java
+/Users/apple/Downloads/Trade_J/trade-app/src/main/java/com/tradej/app/ui/BrokerSelectionPanel.java
+/Users/apple/Downloads/Trade_J/trade-app/src/main/java/com/tradej/app/gateway/BrokerGatewayClient.java
+/Users/apple/Downloads/Trade_J/trade-app/src/main/java/com/tradej/app/model/NewsItem.java
+/Users/apple/Downloads/Trade_J/trade-app/src/main/java/com/tradej/app/model/HistoricalData.java
+/Users/apple/Downloads/Trade_J/trade-app/src/main/java/com/tradej/app/gateway/MarketDataGateway.java
+/Users/apple/Downloads/Trade_J/trade-app/src/main/java/com/tradej/app/ui/HistoricalDataView.java
+/Users/apple/Downloads/Trade_J/trade-app/src/main/java/com/tradej/app/gateway/OptionsDataGateway.java
+/Users/apple/Downloads/Trade_J/trade-app/src/main/java/com/tradej/app/model/BrokerInfo.java
