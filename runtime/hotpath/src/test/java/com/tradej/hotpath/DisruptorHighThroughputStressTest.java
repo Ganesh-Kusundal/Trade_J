@@ -159,7 +159,8 @@ public class DisruptorHighThroughputStressTest {
         var idReg = new OrderIdentityRegistry();
         var runtimeModeHolder = new com.tradej.core.domain.runtime.RuntimeModeHolder();
         var execHandler = new ExecutionHandler(null, runtimeModeHolder,
-                new com.tradej.core.domain.time.LiveTradingClock(), cb, idReg, DeadLetterQueue.noop());
+                new com.tradej.core.domain.time.LiveTradingClock(), cb, idReg, DeadLetterQueue.noop(),
+                com.tradej.execution.service.ExecutionConfig.DEFAULTS);
 
         var riskHandler = new PositionRiskHandler(RiskLimits.withOpenPositionQuantity(10, 10, 10000000L, 5), () -> java.util.Collections.emptyMap());
         var bridge = com.tradej.disruptor.testsupport.PassthroughNode.passthroughBridge();

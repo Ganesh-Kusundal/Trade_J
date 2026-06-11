@@ -5,11 +5,15 @@ import com.tradej.core.domain.model.Candle;
 import com.tradej.core.domain.model.CandleHistoryRequest;
 import com.tradej.core.domain.model.InstrumentKey;
 import com.tradej.core.domain.value.ExchangeSegment;
+import com.tradej.historical.ingest.canonical.CanonicalBarQuery;
+import com.tradej.historical.ingest.canonical.CanonicalPaths;
 import com.tradej.historical.ingest.canonical.ParquetWriteService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.nio.file.Path;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -29,13 +33,22 @@ public final class BackfillService {
     private final GapDetector gapDetector;
     private final MarketDataProvider marketDataProvider;
     private final ParquetWriteService writer;
+    private final Path barsRoot;
 
     public BackfillService(GapDetector gapDetector,
                             MarketDataProvider marketDataProvider,
                             ParquetWriteService writer) {
+        this(gapDetector, marketDataProvider, writer, null);
+    }
+
+    public BackfillService(GapDetector gapDetector,
+                            MarketDataProvider marketDataProvider,
+                            ParquetWriteService writer,
+                            Path barsRoot) {
         this.gapDetector = gapDetector;
         this.marketDataProvider = marketDataProvider;
         this.writer = writer;
+        this.barsRoot = barsRoot;
     }
 
     public BackfillResult backfill(String symbol, ExchangeSegment segment,
@@ -75,9 +88,22 @@ public final class BackfillService {
 
     public List<BackfillResult> backfillAll(List<String> symbols, ExchangeSegment segment,
                                              String interval, LocalDate from, LocalDate to) {
+        ZoneId IST = ZoneId.of("Asia/Kolkata");
+        long fromMs = from.atStartOfDay(IST).toInstant().toEpochMilli();
+        long toMs = to.plusDays(1).atStartOfDay(IST).toInstant().toEpochMilli() - 1;
+
         List<BackfillResult> results = new ArrayList<>();
         for (String symbol : symbols) {
-            results.add(backfill(symbol, segment, interval, from, to, Set.of()));
+            Set<Long> actualTimestamps = Set.of();
+            if (barsRoot != null) {
+                try (CanonicalBarQuery query = new CanonicalBarQuery(barsRoot)) {
+                    actualTimestamps = query.queryBarTimestamps(
+                            symbol, segment.name(), interval, fromMs, toMs);
+                } catch (Exception ex) {
+                    log.warn("Failed to query actual timestamps for {}: {}", symbol, ex.getMessage());
+                }
+            }
+            results.add(backfill(symbol, segment, interval, from, to, actualTimestamps));
         }
         return results;
     }

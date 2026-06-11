@@ -3,8 +3,8 @@ package com.tradej.brokergateway.spi.impl;
 import com.tradej.broker.api.IBrokerConnection;
 import com.tradej.broker.api.port.InstrumentResolver;
 import com.tradej.broker.api.port.MarketDataProvider;
+import com.tradej.broker.api.spi.BrokerSource;
 import com.tradej.brokergateway.BrokerHandle;
-import com.tradej.brokergateway.result.BrokerSource;
 import com.tradej.brokergateway.simulation.PaperBrokerConnection;
 import com.tradej.brokergateway.spi.BrokerHealthCheck.HealthStatus;
 import com.tradej.core.domain.model.InstrumentKey;
@@ -145,6 +145,11 @@ class BrokerHealthCheckTest {
 
         StubBrokerConnection(LtpFunction ltpFunction) {
             this.ltpFunction = ltpFunction;
+        }
+
+        @Override
+        public com.tradej.broker.api.spi.BrokerSource source() {
+            return com.tradej.broker.api.spi.BrokerSource.SIMULATION;
         }
 
         @Override

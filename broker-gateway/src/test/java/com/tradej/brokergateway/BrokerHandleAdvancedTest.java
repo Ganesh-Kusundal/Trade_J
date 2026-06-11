@@ -9,7 +9,7 @@ import com.tradej.broker.api.port.OptionsProvider;
 import com.tradej.broker.api.port.OrderCommand;
 import com.tradej.broker.api.port.OrderQuery;
 import com.tradej.broker.api.port.PortfolioProvider;
-import com.tradej.brokergateway.result.BrokerSource;
+import com.tradej.broker.api.spi.BrokerSource;
 import com.tradej.brokergateway.result.GatewayResult;
 import com.tradej.core.domain.model.Balance;
 import com.tradej.core.domain.model.ConditionalAlert;

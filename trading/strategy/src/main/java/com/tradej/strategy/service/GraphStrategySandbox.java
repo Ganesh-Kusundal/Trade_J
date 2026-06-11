@@ -92,29 +92,30 @@ public final class GraphStrategySandbox {
             future
                     .orTimeout(timeoutMs, TimeUnit.MILLISECONDS)
                     .handle((optSignal, error) -> {
-                        if (error == null && optSignal != null && optSignal.isPresent()) {
-                            SignalGenerated raw = optSignal.get();
-                            var enrichedAttrs = new HashMap<>(raw.attributes());
-                            enrichedAttrs.put("strategyName", pluginName);
-                            enrichedAttrs.put("triggerEvent", event.getClass().getSimpleName());
-                            if (!enrichedAttrs.containsKey(ATTR_QUANTITY)) {
-                                long computedQty = positionSizer.computeQuantity(raw);
-                                if (computedQty > 0) {
-                                    enrichedAttrs.put(ATTR_QUANTITY, computedQty);
+                        if (error == null && optSignal != null) {
+                            optSignal.ifPresent(signal -> {
+                                var enrichedAttrs = new HashMap<>(signal.attributes());
+                                enrichedAttrs.put("strategyName", pluginName);
+                                enrichedAttrs.put("triggerEvent", event.getClass().getSimpleName());
+                                if (!enrichedAttrs.containsKey(ATTR_QUANTITY)) {
+                                    long computedQty = positionSizer.computeQuantity(signal);
+                                    if (computedQty > 0) {
+                                        enrichedAttrs.put(ATTR_QUANTITY, computedQty);
+                                    }
                                 }
-                            }
-                            downstream.accept(new SignalGenerated(
-                                    raw.metadata(),
-                                    raw.signalId(),
-                                    raw.symbol(),
-                                    raw.interval(),
-                                    raw.side(),
-                                    raw.entryPricePaisa(),
-                                    raw.stopLossPaisa(),
-                                    raw.takeProfitPaisa(),
-                                    raw.setup(),
-                                    Collections.unmodifiableMap(enrichedAttrs)
-                            ));
+                                downstream.accept(new SignalGenerated(
+                                        signal.metadata(),
+                                        signal.signalId(),
+                                        signal.symbol(),
+                                        signal.interval(),
+                                        signal.side(),
+                                        signal.entryPricePaisa(),
+                                        signal.stopLossPaisa(),
+                                        signal.takeProfitPaisa(),
+                                        signal.setup(),
+                                        Collections.unmodifiableMap(enrichedAttrs)
+                                ));
+                            });
                         } else if (error != null) {
                             if (error instanceof CancellationException) {
                                 return null;

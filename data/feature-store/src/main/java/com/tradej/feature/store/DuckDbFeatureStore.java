@@ -8,6 +8,8 @@ import com.tradej.core.domain.model.Candle;
 import com.tradej.core.domain.model.FeatureGenerator;
 import com.tradej.core.domain.model.FeatureVector;
 import com.tradej.core.domain.port.FeatureStore;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,6 +32,7 @@ import java.util.Optional;
 public final class DuckDbFeatureStore implements FeatureStore, AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(DuckDbFeatureStore.class);
+    private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private final com.tradej.persistence.duckdb.DuckDbConnectionPool pool;
     private final boolean ownsPool;
@@ -191,7 +194,7 @@ public final class DuckDbFeatureStore implements FeatureStore, AutoCloseable {
             ps.setLong(7, tick.exchangeTimestampEpochMs());
             ps.setLong(8, System.currentTimeMillis());
             ps.setString(9, tick.segment() != null ? tick.segment().name() : null);
-            ps.setString(10, tick.depth().map(d -> "").orElse(null));
+            ps.setString(10, tick.depth().map(DuckDbFeatureStore::depthToJson).orElse(null));
             ps.executeUpdate();
         }
     }
@@ -260,5 +263,14 @@ public final class DuckDbFeatureStore implements FeatureStore, AutoCloseable {
         // Return in chronological order (oldest first) for feature computation
         java.util.Collections.reverse(candles);
         return candles;
+    }
+
+    private static String depthToJson(com.tradej.core.domain.model.MarketDepth depth) {
+        try {
+            return MAPPER.writeValueAsString(depth);
+        } catch (JsonProcessingException e) {
+            log.warn("Failed to serialize MarketDepth: {}", e.getMessage());
+            return null;
+        }
     }
 }

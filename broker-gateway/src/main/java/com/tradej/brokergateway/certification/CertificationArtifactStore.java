@@ -3,7 +3,7 @@ package com.tradej.brokergateway.certification;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
-import com.tradej.brokergateway.result.BrokerSource;
+import com.tradej.broker.api.spi.BrokerSource;
 
 import java.io.IOException;
 import java.nio.file.Files;

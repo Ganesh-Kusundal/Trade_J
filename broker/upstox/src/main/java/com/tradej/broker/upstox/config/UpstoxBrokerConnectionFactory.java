@@ -58,12 +58,12 @@ import java.util.Map;
  * <p>Extracted from the composition-layer factory to keep auto-configuration
  * self-contained within the broker/upstox module.
  */
-final class UpstoxBrokerConnectionFactory {
+public final class UpstoxBrokerConnectionFactory {
 
     private UpstoxBrokerConnectionFactory() {
     }
 
-    static UpstoxBrokerConnection create(UpstoxConnectionSettings settings) {
+    public static UpstoxBrokerConnection create(UpstoxConnectionSettings settings) {
         HttpClient httpClient = HttpClient.newHttpClient();
         String baseUrl = settings.isSandbox()
                 ? UpstoxApiEnvironment.SANDBOX.baseUrl()
@@ -76,6 +76,23 @@ final class UpstoxBrokerConnectionFactory {
                         settings,
                         Path.of("runtime/upstox-token-state.json")
                 );
+
+        return create(settings, tokenSource);
+    }
+
+    /**
+     * Creates a connection using an externally-provided token source.
+     * <p>
+     * Use this overload in the Spring app module so the same {@link UpstoxTokenManager}
+     * instance is shared between the broker connection, the notifier webhook controller,
+     * and the daily token refresh scheduler.
+     */
+    public static UpstoxBrokerConnection create(UpstoxConnectionSettings settings,
+                                                 UpstoxBearerTokenSource tokenSource) {
+        HttpClient httpClient = HttpClient.newHttpClient();
+        String baseUrl = settings.isSandbox()
+                ? UpstoxApiEnvironment.SANDBOX.baseUrl()
+                : UpstoxApiEnvironment.LIVE.baseUrl();
 
         UpstoxHttpClient authenticatedClient = new UpstoxHttpClient(httpClient, tokenSource, baseUrl);
         UpstoxJsonHttpClient jsonClient = new UpstoxJsonHttpClient(authenticatedClient);

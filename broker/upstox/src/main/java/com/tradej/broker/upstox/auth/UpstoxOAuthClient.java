@@ -158,6 +158,50 @@ public final class UpstoxOAuthClient {
     }
 
     /**
+     * Triggers the Upstox Access Token Request API (Flow 2 — semi-automated daily refresh).
+     * <p>
+     * Calls {@code POST /v3/login/auth/token/request/{clientId}} with the client secret.
+     * Upstox sends a push/WhatsApp notification to the user; on approval, the token is
+     * delivered to the configured notifier webhook endpoint.
+     *
+     * @return parsed response containing {@code status}, {@code authorization_expiry}, {@code notifier_url}
+     */
+    @SuppressWarnings("unchecked")
+    public java.util.Map<String, Object> triggerTokenRequest(String clientId, String clientSecret) {
+        String url = baseUrl.replace("/v2", "/v3")
+                + "/login/auth/token/request/" + clientId;
+        String jsonBody = "{\"client_secret\":\"" + clientSecret + "\"}";
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .header("Content-Type", "application/json")
+                .header("Accept", "application/json")
+                .timeout(REQUEST_TIMEOUT)
+                .POST(HttpRequest.BodyPublishers.ofString(jsonBody, StandardCharsets.UTF_8))
+                .build();
+        try {
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            int status = response.statusCode();
+            String responseBody = response.body();
+            if (status < 200 || status >= 300) {
+                throw new UpstoxAuthException("Token request API returned " + status + ": " + responseBody);
+            }
+            JsonNode root = MAPPER.readTree(responseBody);
+            JsonNode data = root.get("data");
+            java.util.Map<String, Object> result = new java.util.LinkedHashMap<>();
+            result.put("status", root.has("status") ? root.get("status").asText() : "unknown");
+            if (data != null) {
+                result.put("authorizationExpiry",
+                        data.has("authorization_expiry") ? data.get("authorization_expiry").asText() : null);
+                result.put("notifierUrl",
+                        data.has("notifier_url") ? data.get("notifier_url").asText() : null);
+            }
+            return result;
+        } catch (IOException | InterruptedException e) {
+            throw new UpstoxAuthException("Token request API call failed", e);
+        }
+    }
+
+    /**
      * Response from the token endpoint.
      */
     public record TokenResponse(

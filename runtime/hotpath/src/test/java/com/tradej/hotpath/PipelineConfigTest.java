@@ -77,6 +77,7 @@ class PipelineConfigTest {
             @Override public ConditionalAlertProvider alerts() { return null; }
             @Override public InstrumentResolver instruments() { return null; }
             @Override public WebSocketMultiplexer websocket() { return null; }
+            @Override public com.tradej.broker.api.spi.BrokerSource source() { return com.tradej.broker.api.spi.BrokerSource.SIMULATION; }
             @Override public void connect() {}
             @Override public void disconnect() {}
             @Override public void loadInstrumentCatalog(Path catalogPath) {}
@@ -89,7 +90,7 @@ class PipelineConfigTest {
                 oms
         );
         var runtimeModeHolder = new com.tradej.core.domain.runtime.RuntimeModeHolder();
-        return new ExecutionHandler(omsService, runtimeModeHolder, new LiveTradingClock(), breaker, new OrderIdentityRegistry(), com.tradej.core.domain.port.DeadLetterQueue.noop());
+        return new ExecutionHandler(omsService, runtimeModeHolder, new LiveTradingClock(), breaker, new OrderIdentityRegistry(), com.tradej.core.domain.port.DeadLetterQueue.noop(), com.tradej.execution.service.ExecutionConfig.DEFAULTS);
     }
 
     private com.tradej.pipeline.runtime.PipelineRuntimeBridge testBridge(

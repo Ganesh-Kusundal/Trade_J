@@ -1,0 +1,6 @@
+org.gradle.jvmargs=-Xmx2g -Dfile.encoding=UTF-8
+org.gradle.parallel=true
+# Build cache disabled for local development — `clean build` can produce UP-TO-DATE
+# tasks with empty output directories due to cache/clean interaction.
+# Enable via --build-cache for CI or fresh builds.
+org.gradle.caching=false

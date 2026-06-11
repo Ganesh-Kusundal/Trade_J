@@ -3,6 +3,7 @@ package com.tradej.app.config;
 import com.tradej.broker.dhan.config.DhanAuthMode;
 import com.tradej.broker.icici.config.IciciAuthMode;
 import com.tradej.broker.dhan.config.DhanApiEnvironment;
+import com.tradej.core.domain.runtime.RuntimeBus;
 import com.tradej.core.domain.runtime.RuntimeMode;
 import com.tradej.core.domain.value.ExchangeSegment;
 import com.tradej.core.domain.value.FeedMode;
@@ -43,7 +44,7 @@ public record TradingProperties(
 ) {
     public TradingProperties {
         if (runtime == null) {
-            runtime = new RuntimeProperties(RuntimeMode.LIVE);
+            runtime = new RuntimeProperties(RuntimeMode.LIVE, RuntimeBus.SIMPLE);
         }
         if (hotPath == null) {
             hotPath = new HotPathProperties(0);
@@ -118,8 +119,12 @@ public record TradingProperties(
     }
 
     public record RuntimeProperties(
-            @DefaultValue("LIVE") RuntimeMode mode
+            @DefaultValue("LIVE") RuntimeMode mode,
+            @DefaultValue("SIMPLE") RuntimeBus bus
     ) {
+        public RuntimeProperties(RuntimeMode mode) {
+            this(mode, RuntimeBus.SIMPLE);
+        }
     }
 
     public record DhanProperties(

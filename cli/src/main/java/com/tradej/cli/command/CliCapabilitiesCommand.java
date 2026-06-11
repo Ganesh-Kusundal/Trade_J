@@ -1,6 +1,6 @@
 package com.tradej.cli.command;
 
-import com.tradej.brokergateway.spi.BrokerProvider;
+import com.tradej.broker.api.spi.BrokerProvider;
 import com.tradej.cli.TradeCli;
 import com.tradej.cli.output.Ansi;
 import com.tradej.cli.output.RichTable;
@@ -115,8 +115,8 @@ public final class CliCapabilitiesCommand implements Callable<Integer> {
 
         System.out.println(Ansi.bold("\n  Certification Evidence\n"));
 
-        for (com.tradej.brokergateway.result.BrokerSource source :
-                com.tradej.brokergateway.result.BrokerSource.values()) {
+        for (com.tradej.broker.api.spi.BrokerSource source :
+                com.tradej.broker.api.spi.BrokerSource.values()) {
             try {
                 int count = store.countArtifacts(source);
                 if (count > 0) {

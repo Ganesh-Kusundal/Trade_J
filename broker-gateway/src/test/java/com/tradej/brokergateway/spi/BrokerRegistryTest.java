@@ -1,7 +1,12 @@
 package com.tradej.brokergateway.spi;
 
 import com.tradej.broker.api.IBrokerConnection;
-import com.tradej.brokergateway.result.BrokerSource;
+import com.tradej.broker.api.spi.BrokerDescriptor;
+import com.tradej.broker.api.spi.BrokerProvider;
+import com.tradej.broker.api.spi.BrokerRegistry;
+import com.tradej.broker.api.spi.DefaultBrokerRegistry;
+import com.tradej.broker.api.spi.ServiceLoaderBrokerRegistry;
+import com.tradej.broker.api.spi.BrokerSource;
 import com.tradej.composition.config.BrokerProfile;
 import org.junit.jupiter.api.Test;
 

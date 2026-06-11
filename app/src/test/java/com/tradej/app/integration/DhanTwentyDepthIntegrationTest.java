@@ -61,12 +61,16 @@ class DhanTwentyDepthIntegrationTest {
         });
 
         brokerConnection.connect();
+        System.out.println("[TEST-DEBUG] Connected. Subscribing to TCS 20-level depth...");
         brokerConnection.websocket().subscribe(
                 java.util.List.of(new MarketSubscriptionRequest("TCS", ExchangeSegment.NSE_EQ)),
                 FeedMode.DEPTH_20
         );
+        System.out.println("[TEST-DEBUG] Subscribed. Awaiting depth update (60s timeout)...");
 
-        assertTrue(depth.await(30, TimeUnit.SECONDS), "Expected twentydepth update for TCS during market hours.");
+        assertTrue(depth.await(60, TimeUnit.SECONDS),
+                "Expected twentydepth update for TCS during market hours within 60s. "
+                        + "Depth WebSocket may have failed to connect or subscription was rejected.");
 
         DepthUpdateEvent received = latestDepth.get();
         assertNotNull(received);

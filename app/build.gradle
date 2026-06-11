@@ -51,13 +51,13 @@ bootJar {
 }
 
 // ── Frontend build integration ───────────────────────────────────
-def frontendDir = file("${rootDir}/frontend")
+def frontendDir = file("${rootDir}/trade_j_frontend")
 def consoleStaticDir = file("src/main/resources/static/console")
 
 task installFrontend(type: Exec) {
     workingDir frontendDir
     commandLine 'npm', 'install'
-    inputs.file "${frontendDir}/package.json"
+    inputs.files "${frontendDir}/package.json", "${frontendDir}/package-lock.json"
     outputs.dir "${frontendDir}/node_modules"
 }
 
@@ -73,7 +73,7 @@ task buildFrontend(type: Exec) {
 task testFrontend(type: Exec) {
     dependsOn installFrontend
     workingDir frontendDir
-    commandLine 'npm', 'test'
+    commandLine 'npm', 'run', 'test'
     inputs.dir "${frontendDir}/src"
     inputs.file "${frontendDir}/vite.config.ts"
 }

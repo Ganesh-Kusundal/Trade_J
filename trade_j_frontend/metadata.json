@@ -1,0 +1,6 @@
+{
+  "name": "trade_j",
+  "description": "A professional, high-density real-time trading terminal featuring multi-broker (Zerodha, Dhan, Upstox, Binance), multi-exchange (NSE, BSE, NFO, CDS, MCX), and multi-asset L2 order books and tick streams.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

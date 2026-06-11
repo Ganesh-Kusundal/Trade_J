@@ -64,7 +64,7 @@ class PipelineCompilationEndToEndTest {
     private final List<DomainEvent> candleEvents = new CopyOnWriteArrayList<>();
     private final List<DomainEvent> strategyEvents = new CopyOnWriteArrayList<>();
     private final List<DomainEvent> omsEvents = new CopyOnWriteArrayList<>();
-    private final List<String> nodeExecutionOrder = new CopyOnWriteArrayList<>();
+    private final List<String> executionOrder = new CopyOnWriteArrayList<>();
 
     @BeforeEach
     void setUp() throws IOException {
@@ -123,10 +123,10 @@ class PipelineCompilationEndToEndTest {
 
         graph.publish(tick);
 
-        int ingressIdx = nodeExecutionOrder.indexOf("ingress");
-        int riskIdx = nodeExecutionOrder.indexOf("risk");
-        int candleIdx = nodeExecutionOrder.indexOf("candle");
-        int strategyIdx = nodeExecutionOrder.indexOf("strategy");
+        int ingressIdx = executionOrder.indexOf("ingress");
+        int riskIdx = executionOrder.indexOf("risk");
+        int candleIdx = executionOrder.indexOf("candle");
+        int strategyIdx = executionOrder.indexOf("strategy");
 
         assertThat(ingressIdx).isLessThan(riskIdx);
         assertThat(riskIdx).isLessThan(candleIdx);
@@ -254,7 +254,7 @@ class PipelineCompilationEndToEndTest {
 
         assertThat(riskEvents).isNotEmpty();
         assertThat(candleEvents).isNotEmpty();
-        assertThat(nodeExecutionOrder.indexOf("risk")).isLessThan(nodeExecutionOrder.indexOf("candle"));
+        assertThat(executionOrder.indexOf("risk")).isLessThan(executionOrder.indexOf("candle"));
     }
 
     @Test
@@ -268,7 +268,7 @@ class PipelineCompilationEndToEndTest {
     }
 
     private PipelineGraph buildFullPipelineGraph() {
-        List<String> executionOrder = new CopyOnWriteArrayList<>();
+        executionOrder.clear();
 
         eventBus.subscribe(MarketTickEvent.class, tick -> {
             ingressEvents.add(tick);
@@ -290,8 +290,8 @@ class PipelineCompilationEndToEndTest {
             executionOrder.add("candle-closed");
         });
 
-        eventBus.subscribe(MarketTickEvent.class, tick -> {
-            strategyEvents.add(tick);
+        eventBus.subscribe(CandleDeveloping.class, candle -> {
+            strategyEvents.add(candle);
             executionOrder.add("strategy");
         });
 
@@ -304,7 +304,7 @@ class PipelineCompilationEndToEndTest {
                 List.of("ingress", "risk", "candle", "strategy", "oms"),
                 eventBus,
                 candleService,
-                executionOrder,
+                this.executionOrder,
                 new PipelineMetrics()
         );
     }

@@ -20,11 +20,15 @@ import com.tradej.broker.api.port.NewsProvider;
 
 import java.nio.file.Path;
 
+import com.tradej.broker.api.spi.BrokerSource;
+
 /**
  * Broker connection facade. Optional capabilities are resolved via {@link #getCapability(Class)}
  * with default port accessors delegating to capability lookup.
  */
 public interface IBrokerConnection extends AutoCloseable {
+
+    BrokerSource source();
 
     <T> Optional<T> getCapability(Class<T> capabilityClass);
 

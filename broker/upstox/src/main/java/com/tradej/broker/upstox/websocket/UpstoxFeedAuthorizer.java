@@ -30,9 +30,10 @@ public final class UpstoxFeedAuthorizer {
 
     /**
      * Authorizes a market data WebSocket connection.
+     * Uses v3 endpoint as v2 has been discontinued.
      */
     public AuthorizedFeed authorize() {
-        return authorizeFeed(UpstoxEndpoints.FEED_AUTHORIZE_PATH);
+        return authorizeFeedFullUrl(UpstoxEndpoints.FEED_AUTHORIZE_V3_FULL_URL);
     }
 
     /**
@@ -55,20 +56,35 @@ public final class UpstoxFeedAuthorizer {
     private AuthorizedFeed authorizeFeed(String path) {
         try {
             String body = UpstoxResponseGuard.requireSuccessBody(httpClient.get(path));
-            JsonNode root = MAPPER.readTree(body);
-            JsonNode data = root.get("data");
-            if (data == null || !data.has("authorized_redirect_uri")) {
-                throw new UpstoxFeedAuthorizationException(
-                        "Missing authorized_redirect_uri in feed authorize response: " + body);
-            }
-            String wsUri = data.get("authorized_redirect_uri").asText();
-            long expiryMs = data.has("expiry") ? data.get("expiry").asLong() * 1000L : -1L;
-            return new AuthorizedFeed(wsUri, expiryMs);
+            return parseAuthorizedFeed(body);
         } catch (UpstoxApiException e) {
             throw new UpstoxFeedAuthorizationException(e.getMessage(), e);
         } catch (IOException e) {
             throw new UpstoxFeedAuthorizationException("Feed authorization request failed", e);
         }
+    }
+
+    private AuthorizedFeed authorizeFeedFullUrl(String fullUrl) {
+        try {
+            String body = UpstoxResponseGuard.requireSuccessBody(httpClient.getUrl(fullUrl));
+            return parseAuthorizedFeed(body);
+        } catch (UpstoxApiException e) {
+            throw new UpstoxFeedAuthorizationException(e.getMessage(), e);
+        } catch (IOException e) {
+            throw new UpstoxFeedAuthorizationException("Feed authorization request failed", e);
+        }
+    }
+
+    private AuthorizedFeed parseAuthorizedFeed(String body) throws IOException {
+        JsonNode root = MAPPER.readTree(body);
+        JsonNode data = root.get("data");
+        if (data == null || !data.has("authorized_redirect_uri")) {
+            throw new UpstoxFeedAuthorizationException(
+                    "Missing authorized_redirect_uri in feed authorize response: " + body);
+        }
+        String wsUri = data.get("authorized_redirect_uri").asText();
+        long expiryMs = data.has("expiry") ? data.get("expiry").asLong() * 1000L : -1L;
+        return new AuthorizedFeed(wsUri, expiryMs);
     }
 
     /**

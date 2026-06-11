@@ -144,6 +144,14 @@ public final class LoadBalancedBrokerGateway implements IBrokerConnection {
     }
 
     @Override
+    public com.tradej.broker.api.spi.BrokerSource source() {
+        if (connections.isEmpty()) {
+            throw new IllegalStateException("No broker connections available");
+        }
+        return connections.get(0).source();
+    }
+
+    @Override
     public <T> Optional<T> getCapability(Class<T> capabilityClass) {
         if (capabilityClass == null) return Optional.empty();
         if (capabilityClass.isAssignableFrom(getClass())) {

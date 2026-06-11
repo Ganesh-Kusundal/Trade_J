@@ -495,6 +495,20 @@ public class DataConfiguration {
     }
 
     @Bean
+    com.tradej.historical.ingest.sync.RuntimeParquetExporter runtimeParquetExporter(
+            TradingProperties properties,
+            com.tradej.historical.ingest.canonical.ParquetWriteService parquetWriteService) {
+        Path runtimeDb = Path.of(properties.storage().duckdbPath());
+        return new com.tradej.historical.ingest.sync.RuntimeParquetExporter(
+                runtimeDb, parquetWriteService, "NSE_EQ");
+    }
+
+    @Bean
+    com.tradej.app.sync.SyncStatusStore syncStatusStore(TradingProperties properties) {
+        return new com.tradej.app.sync.SyncStatusStore(Path.of(properties.storage().duckdbPath()));
+    }
+
+    @Bean
     com.tradej.historical.ingest.canonical.CanonicalBarQuery canonicalBarQuery(
             @org.springframework.beans.factory.annotation.Qualifier("canonicalDataRoot") Path dataRoot) {
         return new com.tradej.historical.ingest.canonical.CanonicalBarQuery(

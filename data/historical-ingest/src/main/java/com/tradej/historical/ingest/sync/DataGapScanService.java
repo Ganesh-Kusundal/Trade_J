@@ -26,6 +26,7 @@ public final class DataGapScanService {
     private static final ZoneId IST = ZoneId.of("Asia/Kolkata");
     private static final int FULL_DAY_BARS_1M = 375;
     private static final double PARTIAL_THRESHOLD = 0.8;
+    private static final int SAMPLE_SIZE = 10;
 
     private final CompositeHolidayCalendar calendar;
     private final Path barsRoot;
@@ -63,11 +64,6 @@ public final class DataGapScanService {
             }
         }
 
-        List<LocalDate> missingDates = new ArrayList<>();
-        List<LocalDate> partialDates = new ArrayList<>();
-        List<LocalDate> completeDates = new ArrayList<>();
-        int totalBars = 0;
-
         try (CanonicalBarQuery query = new CanonicalBarQuery(barsRoot)) {
             List<String> symbols = query.availableSymbols(segment, interval);
             if (symbols.isEmpty()) {
@@ -76,34 +72,61 @@ public final class DataGapScanService {
                         tradingDays, List.of(), Map.of());
             }
 
-            String sampleSymbol = symbols.getFirst();
+            List<String> sampleSymbols = symbols.size() <= SAMPLE_SIZE
+                    ? symbols
+                    : symbols.subList(0, SAMPLE_SIZE);
+
+            Set<LocalDate> allMissingDates = new LinkedHashSet<>();
+            Set<LocalDate> allPartialDates = new LinkedHashSet<>();
+            int completeDayCount = 0;
+
             for (LocalDate day : tradingDays) {
                 long fromMs = day.atStartOfDay(IST).toInstant().toEpochMilli();
                 long toMs = day.plusDays(1).atStartOfDay(IST).toInstant().toEpochMilli() - 1;
-                List<Map<String, Object>> rows = query.queryBars(sampleSymbol, segment, interval, fromMs, toMs, 1000);
-                int barCount = rows.size();
-                totalBars += barCount;
 
-                if (barCount == 0) {
-                    missingDates.add(day);
-                } else if (barCount < FULL_DAY_BARS_1M * PARTIAL_THRESHOLD) {
-                    partialDates.add(day);
-                } else {
-                    completeDates.add(day);
+                boolean anyMissing = false;
+                boolean anyPartial = false;
+                boolean allComplete = true;
+
+                for (String sym : sampleSymbols) {
+                    List<Map<String, Object>> rows = query.queryBars(sym, segment, interval, fromMs, toMs, 1000);
+                    int barCount = rows.size();
+
+                    if (barCount == 0) {
+                        anyMissing = true;
+                        allComplete = false;
+                    } else if (barCount < FULL_DAY_BARS_1M * PARTIAL_THRESHOLD) {
+                        anyPartial = true;
+                        allComplete = false;
+                    }
+                }
+
+                if (anyMissing) {
+                    allMissingDates.add(day);
+                } else if (anyPartial) {
+                    allPartialDates.add(day);
+                } else if (allComplete) {
+                    completeDayCount++;
                 }
             }
+
+            log.info("Gap scan {} {} ({} symbols sampled): {} trading days, {} complete, {} partial, {} missing",
+                    segment, interval, sampleSymbols.size(), tradingDays.size(),
+                    completeDayCount, allPartialDates.size(), allMissingDates.size());
+
+            List<LocalDate> missingList = new ArrayList<>(allMissingDates);
+            Collections.sort(missingList);
+            List<LocalDate> partialList = new ArrayList<>(allPartialDates);
+            Collections.sort(partialList);
+
+            return new GapReport(from, to, tradingDays.size(),
+                    completeDayCount, partialList.size(), missingList.size(),
+                    missingList, partialList, Map.of());
         } catch (SQLException ex) {
             log.error("Gap scan failed", ex);
             return new GapReport(from, to, tradingDays.size(), 0, 0, tradingDays.size(),
                     tradingDays, List.of(), Map.of());
         }
-
-        log.info("Gap scan {} {}: {} trading days, {} complete, {} partial, {} missing",
-                segment, interval, tradingDays.size(), completeDates.size(), partialDates.size(), missingDates.size());
-
-        return new GapReport(from, to, tradingDays.size(),
-                completeDates.size(), partialDates.size(), missingDates.size(),
-                missingDates, partialDates, Map.of());
     }
 
     public record GapReport(

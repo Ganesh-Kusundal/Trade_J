@@ -2,11 +2,13 @@ package com.tradej.app.health;
 
 import com.tradej.broker.api.IBrokerConnection;
 import com.tradej.core.domain.port.EventBus;
+import com.tradej.core.domain.runtime.RuntimeBusHolder;
 import com.tradej.disruptor.DisruptorBusMetrics;
 import com.tradej.hotpath.MarketDataPipeline;
 import com.tradej.hotpath.OrderPipeline;
 import org.springframework.boot.actuate.health.Health;
 import org.springframework.boot.actuate.health.HealthIndicator;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.stereotype.Component;
 
 import java.util.LinkedHashMap;
@@ -21,13 +23,14 @@ import java.util.Map;
  * When any subsystem is unhealthy, the indicator reports {@code DOWN}
  * with a details map identifying which subsystems are degraded.
  */
-@Component
+@ConditionalOnBean(IBrokerConnection.class)
 public class PlatformHealthIndicator implements HealthIndicator {
 
     private final IBrokerConnection brokerConnection;
     private final MarketDataPipeline marketDataPipeline;
     private final EventBus eventBus;
     private final DisruptorBusMetrics disruptorBusMetrics;
+    private final RuntimeBusHolder runtimeBusHolder;
     private final OrderPipeline orderPipeline;
     private final BrokerErrorTracker errorTracker;
     private final AlertManager alertManager;
@@ -41,10 +44,33 @@ public class PlatformHealthIndicator implements HealthIndicator {
             BrokerErrorTracker errorTracker,
             AlertManager alertManager
     ) {
+        this(
+                brokerConnection,
+                marketDataPipeline,
+                eventBus,
+                disruptorBusMetrics,
+                new RuntimeBusHolder(),
+                orderPipeline,
+                errorTracker,
+                alertManager
+        );
+    }
+
+    public PlatformHealthIndicator(
+            IBrokerConnection brokerConnection,
+            MarketDataPipeline marketDataPipeline,
+            EventBus eventBus,
+            DisruptorBusMetrics disruptorBusMetrics,
+            RuntimeBusHolder runtimeBusHolder,
+            OrderPipeline orderPipeline,
+            BrokerErrorTracker errorTracker,
+            AlertManager alertManager
+    ) {
         this.brokerConnection = brokerConnection;
         this.marketDataPipeline = marketDataPipeline;
         this.eventBus = eventBus;
         this.disruptorBusMetrics = disruptorBusMetrics;
+        this.runtimeBusHolder = runtimeBusHolder;
         this.orderPipeline = orderPipeline;
         this.errorTracker = errorTracker;
         this.alertManager = alertManager;
@@ -90,6 +116,8 @@ public class PlatformHealthIndicator implements HealthIndicator {
         long droppedEvents = disruptorBusMetrics.dispatchDroppedEventCount();
         details.put("eventBus", Map.of(
                 "status", eventBusStarted ? "UP" : "DOWN",
+                "mode", runtimeBusHolder.mode().name(),
+                "implementation", eventBus.getClass().getSimpleName(),
                 "started", eventBusStarted,
                 "subscribers", subscriberCount,
                 "dispatchQueueDepth", dispatchQueueDepth,

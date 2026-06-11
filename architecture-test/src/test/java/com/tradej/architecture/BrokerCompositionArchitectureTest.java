@@ -68,14 +68,14 @@ class BrokerCompositionArchitectureTest {
                         "com.tradej.cli"
                 );
 
-        brokerApiClasses = new ClassFileImporter().importPackage("com.tradej.broker.api");
-        brokerCoreClasses = new ClassFileImporter().importPackage("com.tradej.broker.core");
-        brokerDhanClasses = new ClassFileImporter().importPackage("com.tradej.broker.dhan");
-        brokerUpstoxClasses = new ClassFileImporter().importPackage("com.tradej.broker.upstox");
-        brokerIciciClasses = new ClassFileImporter().importPackage("com.tradej.broker.icici");
-        compositionClasses = new ClassFileImporter().importPackage("com.tradej.composition");
-        appConfigClasses = new ClassFileImporter().importPackage("com.tradej.app.config");
-        gatewayClasses = new ClassFileImporter().importPackage("com.tradej.brokergateway");
+        brokerApiClasses = new ClassFileImporter().importPackages("com.tradej.broker.api");
+        brokerCoreClasses = new ClassFileImporter().importPackages("com.tradej.broker.core");
+        brokerDhanClasses = new ClassFileImporter().importPackages("com.tradej.broker.dhan");
+        brokerUpstoxClasses = new ClassFileImporter().importPackages("com.tradej.broker.upstox");
+        brokerIciciClasses = new ClassFileImporter().importPackages("com.tradej.broker.icici");
+        compositionClasses = new ClassFileImporter().importPackages("com.tradej.composition");
+        appConfigClasses = new ClassFileImporter().importPackages("com.tradej.app.config");
+        gatewayClasses = new ClassFileImporter().importPackages("com.tradej.brokergateway");
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -89,9 +89,6 @@ class BrokerCompositionArchitectureTest {
         @Test
         @DisplayName("BrokerComposition should not contain switch statements on broker type")
         void brokerCompositionMustNotHaveBrokerTypeSwitch() {
-            // This test will FAIL until we remove the switch statement from BrokerComposition
-            // Target: BrokerComposition delegates to BrokerRegistry, not switch
-            
             ArchRule rule = classes()
                     .that().haveSimpleName("BrokerComposition")
                     .should(notContainBrokerTypeSwitch());
@@ -100,21 +97,46 @@ class BrokerCompositionArchitectureTest {
         }
 
         @Test
+        @DisplayName("BrokerGateway should not have factory methods that bypass BrokerComposition")
+        void brokerGatewayMustNotHaveDirectFactoryMethods() {
+            List<JavaClass> gatewayClassesList = allClasses.stream()
+                    .filter(c -> c.getSimpleName().equals("BrokerGateway")
+                            || c.getSimpleName().equals("DefaultBrokerGateway"))
+                    .collect(Collectors.toList());
+
+            for (JavaClass gatewayClass : gatewayClassesList) {
+                boolean hasDhanFactory = gatewayClass.getMethods().stream()
+                        .anyMatch(m -> m.getName().equals("dhan"));
+                boolean hasFromRegistryFactory = gatewayClass.getMethods().stream()
+                        .anyMatch(m -> m.getName().equals("fromRegistry"));
+
+                assertThat(hasDhanFactory)
+                        .as("%s should not have a dhan() factory method", gatewayClass.getSimpleName())
+                        .isFalse();
+                assertThat(hasFromRegistryFactory)
+                        .as("%s should not have a fromRegistry() factory method", gatewayClass.getSimpleName())
+                        .isFalse();
+            }
+        }
+
+        @Test
         @DisplayName("Only one class should create IBrokerConnection instances")
         void onlyOneCompositionPathForBrokerConnection() {
             // Count how many classes directly instantiate broker connections
             // Target: Only BrokerProvider implementations should create connections
             
+            // Simplified check: look for classes that reference BrokerConnection classes
+            // This is a simpler version that works with ArchUnit 1.4.0
             List<JavaClass> directCreators = allClasses.stream()
                     .filter(clazz -> !clazz.getPackageName().startsWith("com.tradej.broker.dhan"))
                     .filter(clazz -> !clazz.getPackageName().startsWith("com.tradej.broker.upstox"))
                     .filter(clazz -> !clazz.getPackageName().startsWith("com.tradej.broker.icici"))
                     .filter(clazz -> !clazz.getPackageName().equals("com.tradej.broker.api"))
                     .filter(clazz -> !clazz.getPackageName().equals("com.tradej.broker.core"))
-                    .filter(clazz -> clazz.getCodeReferencesFromSelf().stream()
-                            .anyMatch(ref -> ref.getTargetClass() != null &&
-                                    (ref.getTargetClass().getName().contains("BrokerConnection") ||
-                                     ref.getTargetClass().getName().contains("BrokerFactory"))))
+                    .filter(clazz -> clazz.getDirectDependenciesFromSelf().stream()
+                            .anyMatch(dep -> dep.getTargetClass() != null &&
+                                    (dep.getTargetClass().getName().contains("BrokerConnection") ||
+                                     dep.getTargetClass().getName().contains("BrokerFactory"))))
                     .collect(Collectors.toList());
 
             // Currently will FAIL - multiple creators exist
@@ -129,16 +151,16 @@ class BrokerCompositionArchitectureTest {
             return new ArchCondition<>("not contain switch statements on broker type") {
                 @Override
                 public void check(JavaClass item, ConditionEvents events) {
-                    item.getCodeReferencesFromSelf().forEach(ref -> {
-                        // Check for switch statements on BrokerType
-                        String sourceCode = item.getSourceCodeLocation().toString();
-                        if (sourceCode.contains("switch") && 
-                            (ref.getTargetClass() != null && 
-                             ref.getTargetClass().getName().contains("BrokerType"))) {
-                            events.add(SimpleConditionEvent.violated(item,
-                                    item.getName() + " contains switch on broker type at " + sourceCode));
-                        }
-                    });
+                    // Simplified check - look for references to BrokerType enum
+                    // In a real implementation, you'd parse the source code
+                    boolean hasSwitchOnBrokerType = item.getDirectDependenciesFromSelf().stream()
+                            .anyMatch(dep -> dep.getTargetClass() != null && 
+                                            dep.getTargetClass().getName().contains("BrokerType"));
+                    
+                    if (hasSwitchOnBrokerType) {
+                        events.add(SimpleConditionEvent.violated(item,
+                                item.getName() + " may contain switch on broker type"));
+                    }
                 }
             };
         }
@@ -234,17 +256,18 @@ class BrokerCompositionArchitectureTest {
         }
 
         @Test
-        @DisplayName("BrokerComposition and AutoConfiguration should produce same connection type")
-        void compositionAndAutoConfigProduceSameType() {
-            // This is already tested in CompositionVsAutoConfigurationTest
-            // Just verify it exists
-            
-            boolean testExists = allClasses.stream()
-                    .anyMatch(c -> c.getName().contains("CompositionVsAutoConfigurationTest"));
+        @DisplayName("No broker-specific auto-configuration classes should exist")
+        void noBrokerAutoConfigurations() {
+            List<JavaClass> autoConfigs = allClasses.stream()
+                    .filter(c -> c.getSimpleName().endsWith("AutoConfiguration"))
+                    .filter(c -> c.getPackageName().startsWith("com.tradej.broker."))
+                    .collect(Collectors.toList());
 
-            assertThat(testExists)
-                    .as("CompositionVsAutoConfigurationTest should exist")
-                    .isTrue();
+            assertThat(autoConfigs)
+                    .as("Broker modules should not have auto-configuration classes; "
+                            + "use BrokerComposition + BrokerProvider SPI instead. Found: %s",
+                            autoConfigs.stream().map(JavaClass::getName).collect(Collectors.toList()))
+                    .isEmpty();
         }
     }
 

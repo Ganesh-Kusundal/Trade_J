@@ -54,8 +54,8 @@ public final class DuckDbEventStore implements DomainEventHandler<DomainEvent>, 
         this.ownsPool = false;
         this.ingestedAtMs = ingestedAtMs;
         this.databasePath = null;
-        this.connection = pool.rawConnection();
-        bootstrap(connection);
+        this.connection = null;
+        pool.withConnectionVoid(this::bootstrap);
     }
 
     DuckDbEventStore(Connection connection, LongSupplier ingestedAtMs) {

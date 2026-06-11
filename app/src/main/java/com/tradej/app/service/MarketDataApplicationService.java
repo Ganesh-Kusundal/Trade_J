@@ -1,5 +1,6 @@
 package com.tradej.app.service;
 
+import com.tradej.broker.api.port.MarketDataProvider;
 import com.tradej.brokergateway.MarketGateway;
 import com.tradej.brokergateway.result.GatewayResult;
 import com.tradej.core.domain.model.Candle;
@@ -17,32 +18,38 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-/**
- * Application service for market data queries.
- * Encapsulates source selection logic (broker vs parquet) and
- * capability discovery that was previously in the controller.
- */
 @Service
 public class MarketDataApplicationService {
 
     private final MarketGateway marketGateway;
     private final Optional<BrokerHistoricalQueryService> brokerHistoricalQueryService;
     private final Optional<HistoricalAnalyticsService> historicalAnalyticsService;
+    private final Optional<MarketDataProvider> marketDataProvider;
 
     public MarketDataApplicationService(
             MarketGateway marketGateway,
             Optional<BrokerHistoricalQueryService> brokerHistoricalQueryService,
-            Optional<HistoricalAnalyticsService> historicalAnalyticsService
+            Optional<HistoricalAnalyticsService> historicalAnalyticsService,
+            Optional<MarketDataProvider> marketDataProvider
     ) {
         this.marketGateway = marketGateway;
         this.brokerHistoricalQueryService = brokerHistoricalQueryService;
         this.historicalAnalyticsService = historicalAnalyticsService;
+        this.marketDataProvider = marketDataProvider;
     }
 
     public long getLtpPaisa(InstrumentKey instrumentKey) {
-        BrokerHistoricalQueryService broker = brokerHistoricalQueryService.orElseThrow(() ->
-                new IllegalStateException("Broker market data is not configured"));
-        return broker.getLtpPaisa(instrumentKey);
+        return brokerHistoricalQueryService
+                .map(service -> {
+                    try {
+                        return service.getLtpPaisa(instrumentKey);
+                    } catch (Exception e) {
+                        return null;
+                    }
+                })
+                .orElseGet(() -> marketDataProvider.orElseThrow(() ->
+                        new IllegalStateException("No market data source available"))
+                        .getLtpPaisa(instrumentKey));
     }
 
     public List<Candle> queryCandles(
@@ -58,9 +65,17 @@ public class MarketDataApplicationService {
                     new IllegalStateException("Historical analytics service is not configured"));
             return analytics.queryEquityCandles(request);
         }
-        BrokerHistoricalQueryService broker = brokerHistoricalQueryService.orElseThrow(() ->
-                new IllegalStateException("Broker market data is not configured"));
-        return broker.getCandlesChunked(request);
+        return brokerHistoricalQueryService
+                .map(service -> {
+                    try {
+                        return service.getCandlesChunked(request);
+                    } catch (Exception e) {
+                        return null;
+                    }
+                })
+                .orElseGet(() -> marketDataProvider.orElseThrow(() ->
+                        new IllegalStateException("No market data source available"))
+                        .getCandles(request));
     }
 
     public Map<String, Object> supportedIntervals(String interval) {

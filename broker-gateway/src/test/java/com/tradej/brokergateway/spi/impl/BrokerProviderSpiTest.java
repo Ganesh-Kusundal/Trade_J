@@ -1,10 +1,10 @@
 package com.tradej.brokergateway.spi.impl;
 
-import com.tradej.brokergateway.result.BrokerSource;
-import com.tradej.brokergateway.spi.BrokerDescriptor;
-import com.tradej.brokergateway.spi.BrokerProvider;
-import com.tradej.brokergateway.spi.BrokerRegistry;
-import com.tradej.brokergateway.spi.ServiceLoaderBrokerRegistry;
+import com.tradej.broker.api.spi.BrokerDescriptor;
+import com.tradej.broker.api.spi.BrokerProvider;
+import com.tradej.broker.api.spi.BrokerRegistry;
+import com.tradej.broker.api.spi.ServiceLoaderBrokerRegistry;
+import com.tradej.broker.api.spi.BrokerSource;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -112,6 +112,6 @@ class BrokerProviderSpiTest {
         ServiceLoaderBrokerRegistry registry = new ServiceLoaderBrokerRegistry();
         BrokerProvider dhan = registry.provider(BrokerSource.DHAN).orElseThrow();
 
-        assertThrows(NullPointerException.class, () -> dhan.connect(null));
+        assertThrows(NullPointerException.class, () -> dhan.create(null));
     }
 }

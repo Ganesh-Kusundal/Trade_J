@@ -2,10 +2,11 @@ dependencies {
     api project(':core')
     api project(':broker-api')
     implementation project(':broker-core')
-    implementation project(':broker-dhan')
-    implementation project(':broker-upstox')
-    implementation project(':broker-icici')
     implementation project(':composition')
+
+    testImplementation project(':broker-dhan')
+    testImplementation project(':broker-upstox')
+    testImplementation project(':broker-icici')
 
     implementation 'org.slf4j:slf4j-api'
     implementation 'com.fasterxml.jackson.core:jackson-databind'

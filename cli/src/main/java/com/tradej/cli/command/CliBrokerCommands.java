@@ -383,16 +383,14 @@ public final class CliBrokerCommands extends CliCommandSupport {
     }
 
     public void listAlerts() {
-        var alerts = session().connection().getCapability(ConditionalAlertProvider.class);
-        if (alerts.isEmpty()) {
-            out().println("Alerts not supported by this broker");
-            return;
-        }
-        var list = alerts.get().listAlerts();
-        out().println("Alerts: " + list.size());
-        for (var alert : list) {
-            out().println("  " + alert);
-        }
+        session().connection().getCapability(ConditionalAlertProvider.class)
+                .ifPresentOrElse(provider -> {
+                    var list = provider.listAlerts();
+                    out().println("Alerts: " + list.size());
+                    for (var alert : list) {
+                        out().println("  " + alert);
+                    }
+                }, () -> out().println("Alerts not supported by this broker"));
     }
 
     public void cancelAndSquareOff() {
@@ -405,39 +403,42 @@ public final class CliBrokerCommands extends CliCommandSupport {
 
     public void bracketOrder(String symbol, String segmentName, String side, long qty, long price, long target, long sl, long trailing) {
         session().ensureCatalogLoaded();
-        var bracket = session().connection().getCapability(com.tradej.broker.api.port.BracketOrderProvider.class);
-        if (bracket.isEmpty()) { out().println("Bracket orders not supported by this broker"); return; }
         var request = new OrderRequest(symbol, parseSegment(segmentName),
                 Side.valueOf(side.toUpperCase()), qty,
                 OrderType.LIMIT, price, 0L,
                 ProductType.INTRADAY,
                 com.tradej.core.domain.value.Validity.DAY, null);
-        Order order = bracket.get().placeSuperOrder(request, target, sl, trailing);
-        out().println("Bracket order placed: " + order.orderId());
+        session().connection().getCapability(com.tradej.broker.api.port.BracketOrderProvider.class)
+                .ifPresentOrElse(provider -> {
+                    Order order = provider.placeSuperOrder(request, target, sl, trailing);
+                    out().println("Bracket order placed: " + order.orderId());
+                }, () -> out().println("Bracket orders not supported by this broker"));
     }
 
     public void gttOrder(String symbol, String segmentName, String side, long qty, long price, String flag) {
         session().ensureCatalogLoaded();
-        var gtt = session().connection().getCapability(com.tradej.broker.api.port.GttOrderProvider.class);
-        if (gtt.isEmpty()) { out().println("GTT orders not supported by this broker"); return; }
         var request = new OrderRequest(symbol, parseSegment(segmentName),
                 Side.valueOf(side.toUpperCase()), qty,
                 OrderType.LIMIT, price, 0L,
                 ProductType.CNC,
                 com.tradej.core.domain.value.Validity.DAY, null);
-        Order order = gtt.get().placeForeverOrder(request, flag, null, null, null);
-        out().println("GTT order placed: " + order.orderId());
+        session().connection().getCapability(com.tradej.broker.api.port.GttOrderProvider.class)
+                .ifPresentOrElse(provider -> {
+                    Order order = provider.placeForeverOrder(request, flag, null, null, null);
+                    out().println("GTT order placed: " + order.orderId());
+                }, () -> out().println("GTT orders not supported by this broker"));
     }
 
     public void futuresContracts(String underlying, String segmentName) {
         session().ensureCatalogLoaded();
-        var futures = session().connection().getCapability(com.tradej.broker.api.port.FuturesProvider.class);
-        if (futures.isEmpty()) { out().println("Futures not supported by this broker"); return; }
-        var contracts = futures.get().getContracts(underlying, parseSegment(segmentName));
-        out().println("Futures contracts for " + underlying + ": " + contracts.size());
-        for (var c : contracts) {
-            out().println("  " + c.symbol() + " expiry=" + c.expiry());
-        }
+        session().connection().getCapability(com.tradej.broker.api.port.FuturesProvider.class)
+                .ifPresentOrElse(provider -> {
+                    var contracts = provider.getContracts(underlying, parseSegment(segmentName));
+                    out().println("Futures contracts for " + underlying + ": " + contracts.size());
+                    for (var c : contracts) {
+                        out().println("  " + c.symbol() + " expiry=" + c.expiry());
+                    }
+                }, () -> out().println("Futures not supported by this broker"));
     }
 
     public void healthCheck(String brokerName) {

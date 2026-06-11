@@ -8,14 +8,29 @@ public record BrokerTransportProfile(
         boolean analyticsRest,
         boolean upstox,
         boolean icici,
-        boolean gateway
+        boolean gateway,
+        boolean simulation
 ) {
+    public BrokerTransportProfile(
+            boolean expectsWebSocket,
+            boolean analyticsRest,
+            boolean upstox,
+            boolean icici,
+            boolean gateway
+    ) {
+        this(expectsWebSocket, analyticsRest, upstox, icici, gateway, false);
+    }
+
     public boolean isUpstox() {
         return upstox;
     }
 
     public boolean isIcici() {
         return icici;
+    }
+
+    public boolean isSimulation() {
+        return simulation;
     }
 
     public boolean isAnalyticsRest() {
@@ -28,18 +43,19 @@ public record BrokerTransportProfile(
             case "upstox" -> {
                 TradingProperties.UpstoxProperties upstox = properties.upstox();
                 if (upstox != null && upstox.analyticsOnly()) {
-                    yield new BrokerTransportProfile(false, true, true, false, false);
+                    yield new BrokerTransportProfile(false, true, true, false, false, false);
                 }
-                yield new BrokerTransportProfile(true, false, true, false, false);
+                yield new BrokerTransportProfile(true, false, true, false, false, false);
             }
-            case "gateway" -> new BrokerTransportProfile(true, false, false, false, true);
-            case "icici" -> new BrokerTransportProfile(true, false, false, true, false);
+            case "gateway" -> new BrokerTransportProfile(true, false, false, false, true, false);
+            case "icici" -> new BrokerTransportProfile(true, false, false, true, false, false);
+            case "simulation" -> new BrokerTransportProfile(false, false, false, false, false, true);
             default -> {
                 if (properties.broker() != null
                         && properties.broker().environment() == DhanApiEnvironment.SANDBOX) {
-                    yield new BrokerTransportProfile(false, false, false, false, false);
+                    yield new BrokerTransportProfile(false, false, false, false, false, false);
                 }
-                yield new BrokerTransportProfile(true, false, false, false, false);
+                yield new BrokerTransportProfile(true, false, false, false, false, false);
             }
         };
     }

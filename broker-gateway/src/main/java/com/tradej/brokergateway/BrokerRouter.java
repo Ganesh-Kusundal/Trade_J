@@ -3,7 +3,7 @@ package com.tradej.brokergateway;
 import com.tradej.broker.api.exception.UnsupportedIntervalException;
 import com.tradej.broker.api.model.HistoricalDataCapabilities;
 import com.tradej.broker.api.port.MarketDataProvider;
-import com.tradej.brokergateway.result.BrokerSource;
+import com.tradej.broker.api.spi.BrokerSource;
 import com.tradej.brokergateway.result.GatewayResult;
 import com.tradej.core.domain.model.Candle;
 import com.tradej.core.domain.model.CandleHistoryRequest;

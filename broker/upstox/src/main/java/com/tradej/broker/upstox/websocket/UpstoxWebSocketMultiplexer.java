@@ -8,8 +8,11 @@ import com.tradej.broker.core.reconnect.ReconnectListenerRegistry;
 import com.tradej.broker.core.reconnect.ReconnectManager;
 import com.tradej.broker.core.websocket.DefaultWebSocketSupervisor;
 import com.tradej.broker.upstox.instrument.UpstoxInstrumentResolver;
+import com.tradej.broker.upstox.websocket.proto.MarketFeedProto;
 import com.tradej.core.domain.event.EventMetadataFactory;
 import com.tradej.core.domain.event.MarketTickEvent;
+import com.tradej.core.domain.model.Instrument;
+import com.tradej.core.domain.value.ExchangeSegment;
 import com.tradej.core.domain.value.FeedMode;
 import com.tradej.core.domain.value.OrderStatus;
 import com.tradej.core.domain.event.OrderAccepted;
@@ -24,10 +27,12 @@ import com.tradej.core.domain.event.OrderUpdateEvent;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executors;
@@ -213,18 +218,61 @@ public final class UpstoxWebSocketMultiplexer implements WebSocketMultiplexer {
 
     @Override
     public void subscribe(Collection<MarketSubscriptionRequest> instruments, FeedMode feedMode) {
+        List<String> instrumentKeys = new java.util.ArrayList<>();
         for (var req : instruments) {
             subscriptions.put(req, feedMode);
             symbolToRequest.put(req.symbol(), req);
+            try {
+                String upstoxKey = instrumentResolver.requireInstrumentKey(req.key());
+                instrumentKeys.add(upstoxKey);
+            } catch (Exception e) {
+                // Instrument not found in catalog, skip
+            }
+        }
+        if (!instrumentKeys.isEmpty() && marketWs != null && connected) {
+            sendV3Subscription("sub", feedMode, instrumentKeys);
         }
     }
 
     @Override
     public void unsubscribe(Collection<MarketSubscriptionRequest> instruments) {
+        List<String> instrumentKeys = new java.util.ArrayList<>();
         for (var req : instruments) {
             subscriptions.remove(req);
             symbolToRequest.remove(req.symbol());
+            try {
+                String upstoxKey = instrumentResolver.requireInstrumentKey(req.key());
+                instrumentKeys.add(upstoxKey);
+            } catch (Exception e) {
+                // Instrument not found in catalog, skip
+            }
         }
+        if (!instrumentKeys.isEmpty() && marketWs != null && connected) {
+            sendV3Subscription("unsub", FeedMode.TICKER, instrumentKeys);
+        }
+    }
+
+    private void sendV3Subscription(String method, FeedMode feedMode, List<String> instrumentKeys) {
+        String mode = switch (feedMode) {
+            case TICKER -> "ltpc";
+            case QUOTE, FULL -> "full";
+            case DEPTH_20, DEPTH_200 -> "full_d30";
+        };
+        String json = "{\"guid\":\"" + UUID.randomUUID()
+                + "\",\"method\":\"" + method
+                + "\",\"data\":{\"mode\":\"" + mode
+                + "\",\"instrumentKeys\":" + toJsonArray(instrumentKeys) + "}}";
+        byte[] bytes = json.getBytes(StandardCharsets.UTF_8);
+        marketWs.sendBinary(ByteBuffer.wrap(bytes), true);
+    }
+
+    private static String toJsonArray(List<String> items) {
+        var sb = new StringBuilder("[");
+        for (int i = 0; i < items.size(); i++) {
+            if (i > 0) sb.append(",");
+            sb.append("\"").append(items.get(i)).append("\"");
+        }
+        return sb.append("]").toString();
     }
 
     @Override
@@ -244,25 +292,68 @@ public final class UpstoxWebSocketMultiplexer implements WebSocketMultiplexer {
 
     private void handleBinaryFrame(ByteBuffer buffer) {
         try {
-            ParsedFeedFrame frame = UpstoxBinaryParser.parse(buffer);
-            if (frame == null) {
-                return;
-            }
+            byte[] data = new byte[buffer.remaining()];
+            buffer.get(data);
+            var feedResponse = MarketFeedProto.FeedResponse.parseFrom(data);
             supervisor.onMessage(buffer);
-            long sequenceId = sequenceCounter.incrementAndGet();
-            MarketSubscriptionRequest key = findKey(frame.instrumentToken());
-            FeedMode feedMode = key != null ? subscriptions.getOrDefault(key, FeedMode.TICKER) : FeedMode.TICKER;
-            MarketTickEvent event = streamNormalizer.toMarketTick(frame, feedMode, sequenceId);
-            // R7: Drop duplicate ticks from broker retransmission
-            if (key != null && tickDedupFilter.isDuplicate(key.symbol(), key.exchangeSegment().name(), sequenceId)) {
-                com.tradej.broker.core.metrics.BrokerFeedMetrics.INSTANCE.recordTickDropped("upstox", "dedup");
-                return;
+
+            for (var entry : feedResponse.getFeedsMap().entrySet()) {
+                String instrumentKey = entry.getKey();
+                MarketFeedProto.Feed feed = entry.getValue();
+
+                MarketFeedProto.LTPC ltpc = null;
+                if (feed.hasLtpc()) {
+                    ltpc = feed.getLtpc();
+                } else if (feed.hasFf() && feed.getFf().hasMarketFF()) {
+                    ltpc = feed.getFf().getMarketFF().getLtpc();
+                } else if (feed.hasFf() && feed.getFf().hasIndexFF()) {
+                    ltpc = feed.getFf().getIndexFF().getLtpc();
+                }
+
+                if (ltpc == null || ltpc.getLtp() <= 0) continue;
+
+                long ltpPaisa = Math.round(ltpc.getLtp() * 100);
+                long sequenceId = sequenceCounter.incrementAndGet();
+
+                Instrument inst = null;
+                try {
+                    inst = instrumentResolver.resolveBySecurityId(instrumentKey);
+                } catch (Exception e) {
+                    continue;
+                }
+                String symbol = inst.symbol();
+                ExchangeSegment segment = inst.exchangeSegment();
+
+                var subReq = symbolToRequest.get(symbol);
+                if (subReq == null) continue;
+
+                FeedMode feedMode = subscriptions.getOrDefault(subReq, FeedMode.TICKER);
+
+                if (tickDedupFilter.isDuplicate(symbol, segment.name(), sequenceId)) {
+                    com.tradej.broker.core.metrics.BrokerFeedMetrics.INSTANCE.recordTickDropped("upstox", "dedup");
+                    continue;
+                }
+
+                com.tradej.broker.core.metrics.BrokerFeedMetrics.INSTANCE.recordTickReceived("upstox");
+
+                MarketTickEvent event = new MarketTickEvent(
+                        metadataFactory.root(),
+                        sequenceId,
+                        symbol,
+                        segment,
+                        feedMode,
+                        ltpPaisa,
+                        ltpc.getLtq(),
+                        0L,
+                        ltpc.getLtt(),
+                        java.util.Optional.empty(),
+                        0L, 0L);
+
+                for (var listener : marketDataListeners) {
+                    listener.onEvent(event);
+                }
             }
-            com.tradej.broker.core.metrics.BrokerFeedMetrics.INSTANCE.recordTickReceived("upstox");
-            for (var listener : marketDataListeners) {
-                listener.onEvent(event);
-            }
-        } catch (UpstoxBinaryParser.UpstoxParserException e) {
+        } catch (Exception e) {
             com.tradej.broker.core.metrics.BrokerFeedMetrics.INSTANCE.recordParseError("upstox");
         }
     }

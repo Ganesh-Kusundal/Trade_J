@@ -7,6 +7,9 @@ import com.tradej.broker.core.auth.JsonTokenStateStore;
 import com.tradej.broker.core.auth.TokenStateStore;
 import com.tradej.broker.upstox.config.UpstoxConnectionSettings;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.nio.file.Path;
 
 /**
@@ -16,6 +19,8 @@ import java.nio.file.Path;
  * token refresh, and encrypted token persistence.
  */
 public final class UpstoxTokenManager extends DefaultTokenLifecycleService implements UpstoxBearerTokenSource {
+
+    private static final Logger log = LoggerFactory.getLogger(UpstoxTokenManager.class);
 
     private final UpstoxOAuthClient oauthClient;
     private final UpstoxConnectionSettings settings;
@@ -155,6 +160,55 @@ public final class UpstoxTokenManager extends DefaultTokenLifecycleService imple
                 tokenResp.issuedAtMs(),
                 TokenSource.OAUTH
         );
+    }
+
+    /**
+     * Upgrades the token from a webhook-delivered token (Flow 2).
+     * <p>
+     * Only replaces the current state if:
+     * <ul>
+     *   <li>There is no current state, OR</li>
+     *   <li>The incoming token expires later than the current one, OR</li>
+     *   <li>The current token is already expired</li>
+     * </ul>
+     * This prevents a stale/earlier webhook payload from overwriting a newer token.
+     *
+     * @param accessToken the new access token from the notifier webhook
+     * @param expiresAtMs epoch millis when the token expires
+     */
+    public void upgradeFromWebhook(String accessToken, long expiresAtMs) {
+        if (accessToken == null || accessToken.isBlank()) {
+            throw new IllegalArgumentException("accessToken must not be blank");
+        }
+        if (expiresAtMs <= 0) {
+            throw new IllegalArgumentException("expiresAtMs must be positive; use UpstoxTokenExpiry.nextExpiryEpochMs() as fallback");
+        }
+
+        lock.lock();
+        try {
+            TokenState current = currentState;
+            boolean shouldReplace = current == null
+                    || current.expiryEpochMs() <= System.currentTimeMillis()
+                    || expiresAtMs > current.expiryEpochMs();
+
+            if (!shouldReplace) {
+                log.debug("upgradeFromWebhook skipped — incoming token expires at {} which is <= current {}",
+                        expiresAtMs, current.expiryEpochMs());
+                return;
+            }
+
+            TokenState newState = new TokenState(
+                    accessToken,
+                    null, // webhook tokens don't carry refresh_token
+                    expiresAtMs,
+                    System.currentTimeMillis(),
+                    TokenSource.OAUTH
+            );
+            replaceState(newState);
+            log.info("Upstox token upgraded via webhook — expires at {}", expiresAtMs);
+        } finally {
+            lock.unlock();
+        }
     }
 
     /**

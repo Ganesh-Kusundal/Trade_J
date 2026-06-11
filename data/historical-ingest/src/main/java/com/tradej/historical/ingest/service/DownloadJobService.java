@@ -145,6 +145,10 @@ public final class DownloadJobService {
         return warehouse.findJob(jobId);
     }
 
+    public List<DownloadJobRecord> listRecentJobs(int limit) throws Exception {
+        return warehouse.listRecentJobs(limit);
+    }
+
     public DownloadJobStats stats(String jobId) throws Exception {
         return warehouse.jobStats(jobId);
     }

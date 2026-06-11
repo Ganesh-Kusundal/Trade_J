@@ -1,6 +1,8 @@
 syntax = "proto3";
 
 package com.upstox.marketdatafeeder.rpc.proto;
+option java_package = "com.tradej.broker.upstox.websocket.proto";
+option java_outer_classname = "MarketFeedProto";
 
 enum Type {
     initial_feed = 0;

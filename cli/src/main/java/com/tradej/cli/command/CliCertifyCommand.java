@@ -21,7 +21,19 @@ import java.util.concurrent.Callable;
 @Command(name = "certify", description = "Run full broker certification suite and store evidence artifacts",
         subcommands = {
                 CliCertifyCommand.ReplayCertifyCmd.class,
-                CliCertifyCommand.SimulationCertifyCmd.class
+                CliCertifyCommand.SimulationCertifyCmd.class,
+                CliCertifyCommand.BuildCertifyCmd.class,
+                CliCertifyCommand.PlatformCertifyCmd.class,
+                CliCertifyCommand.BrokerCertifyCmd.class,
+                CliCertifyCommand.GatewayCertifyCmd.class,
+                CliCertifyCommand.CredentialsCertifyCmd.class,
+                CliCertifyCommand.DataPlatformCertifyCmd.class,
+                CliCertifyCommand.DataIntegrityCertifyCmd.class,
+                CliCertifyCommand.ReplayDeterminismCertifyCmd.class,
+                CliCertifyCommand.RuntimeCertifyCmd.class,
+                CliCertifyCommand.CapabilitiesCertifyCmd.class,
+                CliCertifyCommand.StrategyCertifyCmd.class,
+                CliCertifyCommand.OperationalCertifyCmd.class
         })
 public final class CliCertifyCommand implements Callable<Integer> {
 
@@ -84,7 +96,7 @@ public final class CliCertifyCommand implements Callable<Integer> {
         public Integer call() {
             System.out.println(Ansi.bold("\n  Replay Certification\n"));
             return runCertificationSuite(
-                    ":replay-engine:test",
+                    ":app:test",
                     "*ReplayEndToEndCertificationTest*",
                     "Replay E2E Certification"
             );
@@ -102,6 +114,178 @@ public final class CliCertifyCommand implements Callable<Integer> {
                     ":trading-simulation:test",
                     "*SimulationEndToEndCertificationTest*",
                     "Simulation E2E Certification"
+            );
+        }
+    }
+
+    @Command(name = "build", description = "Run build certification — compilation, architecture, static analysis")
+    static final class BuildCertifyCmd implements Callable<Integer> {
+        @ParentCommand CliCertifyCommand parent;
+
+        @Override
+        public Integer call() {
+            System.out.println(Ansi.bold("\n  Build Certification (Level -1)\n"));
+            return runScriptCertification(
+                    "scripts/certify-level-minus1.sh",
+                    "Build Certification"
+            );
+        }
+    }
+
+    @Command(name = "platform", description = "Run platform foundation certification — config, storage, events")
+    static final class PlatformCertifyCmd implements Callable<Integer> {
+        @ParentCommand CliCertifyCommand parent;
+
+        @Override
+        public Integer call() {
+            System.out.println(Ansi.bold("\n  Platform Foundation Certification (Level 0)\n"));
+            return runScriptCertification(
+                    "scripts/certify-level-0.sh",
+                    "Platform Foundation Certification"
+            );
+        }
+    }
+
+    @Command(name = "brokers", description = "Run Level 1 broker certification — authentication, market data, WebSocket, orders, resilience")
+    static final class BrokerCertifyCmd implements Callable<Integer> {
+        @ParentCommand CliCertifyCommand parent;
+
+        @Override
+        public Integer call() {
+            System.out.println(Ansi.bold("\n  Level 1: Broker Certification\n"));
+            return runScriptCertification(
+                    "scripts/certify-level-1.sh",
+                    "Broker Certification (Level 1)"
+            );
+        }
+    }
+
+    @Command(name = "gateway", description = "Run Level 2.5 gateway certification — BrokerGateway, BrokerHandle, capabilities, extras")
+    static final class GatewayCertifyCmd implements Callable<Integer> {
+        @ParentCommand CliCertifyCommand parent;
+
+        @Override
+        public Integer call() {
+            System.out.println(Ansi.bold("\n  Level 2.5: Gateway Certification\n"));
+            return runScriptCertification(
+                    "scripts/certify-level-2-5.sh",
+                    "Gateway Certification (Level 2.5)"
+            );
+        }
+    }
+
+    @Command(name = "credentials", description = "Validate all broker credentials — token freshness, config files, sessions")
+    static final class CredentialsCertifyCmd implements Callable<Integer> {
+        @ParentCommand CliCertifyCommand parent;
+
+        @Override
+        public Integer call() {
+            System.out.println(Ansi.bold("\n  Broker Credential Validation\n"));
+            return runScriptCertification(
+                    "scripts/validate-credentials.sh",
+                    "Credential Validation"
+            );
+        }
+    }
+
+    @Command(name = "data", description = "Run Level 2 data platform certification — download, Parquet, DuckDB, analytics")
+    static final class DataPlatformCertifyCmd implements Callable<Integer> {
+        @ParentCommand CliCertifyCommand parent;
+
+        @Override
+        public Integer call() {
+            System.out.println(Ansi.bold("\n  Level 2: Data Platform Certification\n"));
+            return runScriptCertification(
+                    "scripts/certify-level-2.sh",
+                    "Data Platform Certification (Level 2)"
+            );
+        }
+    }
+
+    @Command(name = "data-integrity", description = "Run data integrity certification — verify Broker=Parquet=DuckDB=Replay consistency")
+    static final class DataIntegrityCertifyCmd implements Callable<Integer> {
+        @ParentCommand CliCertifyCommand parent;
+
+        @Override
+        public Integer call() {
+            System.out.println(Ansi.bold("\n  Data Integrity Certification\n"));
+            return runCertificationSuite(
+                    ":data-historical-ingest:test",
+                    "*DataPlatformCertificationTest.dataIntegrityAcrossStorageLayers",
+                    "Data Integrity Certification"
+            );
+        }
+    }
+
+    @Command(name = "replay-determinism", description = "Run replay determinism certification (MOST IMPORTANT) — run twice, verify identical results")
+    static final class ReplayDeterminismCertifyCmd implements Callable<Integer> {
+        @ParentCommand CliCertifyCommand parent;
+
+        @Override
+        public Integer call() {
+            System.out.println(Ansi.bold("\n  Replay Determinism Certification (CRITICAL)\n"));
+            System.out.println(Ansi.yellow("  If this test FAILS, strategy results are NOT trustworthy!"));
+            return runCertificationSuite(
+                    ":app:test",
+                    "*ReplayDeterminismCertificationTest*",
+                    "Replay Determinism Certification"
+            );
+        }
+    }
+
+    @Command(name = "runtime", description = "Run Level 3 runtime certification — replay, simulation, execution, event flow")
+    static final class RuntimeCertifyCmd implements Callable<Integer> {
+        @ParentCommand CliCertifyCommand parent;
+
+        @Override
+        public Integer call() {
+            System.out.println(Ansi.bold("\n  Level 3: Runtime Certification\n"));
+            return runScriptCertification(
+                    "scripts/certify-level-3.sh",
+                    "Runtime Certification (Level 3)"
+            );
+        }
+    }
+
+    @Command(name = "capabilities", description = "Run Level 4 capability certification — scanner, options, paper trading, live trading infra, performance")
+    static final class CapabilitiesCertifyCmd implements Callable<Integer> {
+        @ParentCommand CliCertifyCommand parent;
+
+        @Override
+        public Integer call() {
+            System.out.println(Ansi.bold("\n  Level 4: Capability Certification\n"));
+            return runScriptCertification(
+                    "scripts/certify-level-4.sh",
+                    "Capability Certification (Level 4)"
+            );
+        }
+    }
+
+    @Command(name = "strategy", description = "Run Level 5 strategy certification — Half Trend, scanner strategy, research platform, risk management")
+    static final class StrategyCertifyCmd implements Callable<Integer> {
+        @ParentCommand CliCertifyCommand parent;
+
+        @Override
+        public Integer call() {
+            System.out.println(Ansi.bold("\n  Level 5: Strategy Certification\n"));
+            System.out.println(Ansi.yellow("  ⭐ Strategy Research Platform is CRITICAL"));
+            return runScriptCertification(
+                    "scripts/certify-level-5.sh",
+                    "Strategy Certification (Level 5)"
+            );
+        }
+    }
+
+    @Command(name = "operational", description = "Run Level 6 operational readiness certification — health, metrics, logging, recovery, backup, retention")
+    static final class OperationalCertifyCmd implements Callable<Integer> {
+        @ParentCommand CliCertifyCommand parent;
+
+        @Override
+        public Integer call() {
+            System.out.println(Ansi.bold("\n  Level 6: Operational Readiness Certification\n"));
+            return runScriptCertification(
+                    "scripts/certify-level-6.sh",
+                    "Operational Readiness Certification (Level 6)"
             );
         }
     }
@@ -127,6 +311,33 @@ public final class CliCertifyCommand implements Callable<Integer> {
             } else {
                 System.out.println(Ansi.red("  " + suiteName + ": FAIL (exit code " + exitCode + ")"));
                 System.out.println("  Some certification tests failed. Check output above.");
+            }
+            return exitCode;
+        } catch (Exception e) {
+            System.out.println(Ansi.red("  " + suiteName + ": ERROR"));
+            System.out.println("  " + e.getMessage());
+            return 1;
+        }
+    }
+
+    private static int runScriptCertification(String scriptPath, String suiteName) {
+        String workspaceRoot = System.getProperty("trade.workspace.root", ".");
+        try {
+            System.out.println("  Running: " + scriptPath);
+            System.out.println();
+
+            ProcessBuilder pb = new ProcessBuilder("bash", scriptPath);
+            pb.directory(new java.io.File(workspaceRoot));
+            pb.redirectErrorStream(true);
+            pb.inheritIO();
+            Process process = pb.start();
+            int exitCode = process.waitFor();
+
+            System.out.println();
+            if (exitCode == 0) {
+                System.out.println(Ansi.green("  " + suiteName + ": PASS"));
+            } else {
+                System.out.println(Ansi.red("  " + suiteName + ": FAIL (exit code " + exitCode + ")"));
             }
             return exitCode;
         } catch (Exception e) {

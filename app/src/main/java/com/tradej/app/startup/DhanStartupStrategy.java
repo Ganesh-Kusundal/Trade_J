@@ -22,7 +22,7 @@ public final class DhanStartupStrategy implements BrokerStartupStrategy {
 
     @Override
     public boolean matches(BrokerTransportProfile profile) {
-        return !profile.isUpstox() && !profile.isIcici() && !profile.gateway();
+        return !profile.isUpstox() && !profile.isIcici() && !profile.gateway() && !profile.isSimulation();
     }
 
     @Override

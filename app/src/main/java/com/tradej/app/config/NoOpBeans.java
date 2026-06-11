@@ -10,7 +10,7 @@ class SimpleBusMetrics implements DisruptorBusMetrics {
         this.bus = bus;
     }
 
-    @Override public long ringBufferRemainingCapacity() { return Long.MAX_VALUE; }
+    @Override public long ringBufferRemainingCapacity() { return 0; }
     @Override public int ringBufferSize() { return 0; }
     @Override public int dispatchQueueDepth() { return 0; }
     @Override public long dispatchDroppedEventCount() { return 0; }

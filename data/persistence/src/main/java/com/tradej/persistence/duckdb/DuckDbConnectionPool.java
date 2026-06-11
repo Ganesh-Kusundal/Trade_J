@@ -38,7 +38,7 @@ public final class DuckDbConnectionPool implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(DuckDbConnectionPool.class);
 
-    private final Connection connection;
+    private Connection connection;
     private final Path databasePath;
     private final ReentrantLock writeLock = new ReentrantLock();
     private volatile boolean closed = false;
@@ -133,8 +133,13 @@ public final class DuckDbConnectionPool implements AutoCloseable {
      * Use {@link #withConnection(ConnectionFunction)} for new code.
      */
     public Connection rawConnection() {
-        ensureConnection();
-        return connection;
+        writeLock.lock();
+        try {
+            ensureConnection();
+            return connection;
+        } finally {
+            writeLock.unlock();
+        }
     }
 
     public boolean isClosed() {
@@ -160,16 +165,16 @@ public final class DuckDbConnectionPool implements AutoCloseable {
 
     private void ensureConnection() {
         try {
-            if (connection.isClosed()) {
-                log.warn("DuckDB connection lost — reconnecting");
+            if (connection == null || connection.isClosed()) {
+                log.warn("DuckDB connection lost — reconnecting to {}", databasePath);
                 String url = databasePath != null
                         ? "jdbc:duckdb:" + databasePath.toAbsolutePath()
                         : "jdbc:duckdb:";
-                // Cannot reassign final field — throw to signal reconnection needed
-                throw new DuckDbException("DuckDB connection was closed and cannot be reconnected in-place");
+                this.connection = DriverManager.getConnection(url);
+                log.info("DuckDB reconnected successfully");
             }
         } catch (SQLException e) {
-            throw new DuckDbException("Failed to validate DuckDB connection", e);
+            throw new DuckDbException("Failed to reconnect DuckDB connection", e);
         }
     }
 

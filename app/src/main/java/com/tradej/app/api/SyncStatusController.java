@@ -195,6 +195,16 @@ public class SyncStatusController {
         return ResponseEntity.ok(Map.of("status", "TRIGGERED", "from", from.toString(), "to", to.toString()));
     }
 
+    @PostMapping(value = "/all", produces = MediaType.APPLICATION_JSON_VALUE)
+    ResponseEntity<Map<String, Object>> syncAll() {
+        if (scheduler == null) {
+            return ResponseEntity.ok(Map.of("status", "UNAVAILABLE"));
+        }
+        new Thread(() -> scheduler.syncAll(), "sync-all-worker").start();
+        return ResponseEntity.ok(Map.of("status", "TRIGGERED", "type", "sync-all",
+                "message", "Full sync started: gap scan + bulk equity (90-day windows) + runtime export"));
+    }
+
     @GetMapping(value = "/holidays", produces = MediaType.APPLICATION_JSON_VALUE)
     ResponseEntity<Map<String, Object>> holidays(
             @RequestParam(defaultValue = "2026") int year) {

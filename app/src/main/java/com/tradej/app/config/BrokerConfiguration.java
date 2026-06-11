@@ -34,13 +34,14 @@ import com.tradej.broker.dhan.config.DhanConnectionSettings;
 import com.tradej.broker.dhan.constants.DhanProtocolConstants;
 import com.tradej.broker.upstox.expired.BrokerExpiredOptionQueryService;
 import com.tradej.broker.upstox.expired.UpstoxExpiredOptionService;
-import com.tradej.broker.icici.IciciBrokerConnection;
 import com.tradej.broker.icici.auth.BreezeTokenProvider;
 import com.tradej.broker.icici.config.BreezeConnectionSettings;
 import com.tradej.brokergateway.BrokerGateway;
 import com.tradej.brokergateway.BrokerRouter;
 import com.tradej.brokergateway.MarketGateway;
-import com.tradej.brokergateway.result.BrokerSource;
+import com.tradej.broker.api.spi.BrokerRegistry;
+import com.tradej.broker.api.spi.ServiceLoaderBrokerRegistry;
+import com.tradej.broker.api.spi.BrokerSource;
 import com.tradej.composition.BrokerComposition;
 import com.tradej.composition.config.BrokerProfile;
 import com.tradej.core.domain.port.EventBus;
@@ -98,6 +99,11 @@ import java.util.Map;
  */
 @Configuration
 public class BrokerConfiguration {
+
+    @Bean
+    BrokerRegistry brokerRegistry() {
+        return new ServiceLoaderBrokerRegistry();
+    }
 
     // ── Broker-agnostic beans ──
 
@@ -318,7 +324,7 @@ public class BrokerConfiguration {
         }
 
         @Bean
-        IciciBrokerConnection iciciBrokerConnection(TradingProperties properties) {
+        BrokerComposition iciciBrokerComposition(TradingProperties properties) {
             TradingProperties.IciciProperties cfg = properties.icici();
             BrokerProfile.IciciConfig iciciConfig = new BrokerProfile.IciciConfig(
                     cfg.appKey(),
@@ -337,61 +343,74 @@ public class BrokerConfiguration {
                     cfg.browserHeadless(),
                     cfg.browserLoginTimeoutSeconds()
             );
-            return (IciciBrokerConnection) com.tradej.composition.IciciBrokerFactory.create(iciciConfig);
+            BrokerProfile profile = new BrokerProfile(BrokerProfile.BrokerType.ICICI, null, null, iciciConfig);
+            return BrokerComposition.create(profile);
         }
 
-        @Bean(name = "iciciBrokerConnectionBean")
-        IBrokerConnection brokerConnectionBean(IciciBrokerConnection conn) {
-            return conn;
+        @Bean(name = "iciciBrokerConnection")
+        IBrokerConnection iciciBrokerConnection(BrokerComposition iciciBrokerComposition) {
+            return iciciBrokerComposition.brokerConnection();
         }
 
         @Bean
-        MarketDataProvider iciciMarketDataProvider(IciciBrokerConnection conn, MeterRegistry meterRegistry) {
+        MarketDataProvider iciciMarketDataProvider(
+                @org.springframework.beans.factory.annotation.Qualifier("iciciBrokerConnection") IBrokerConnection conn,
+                MeterRegistry meterRegistry) {
             return new ObservableMarketDataProvider("icici", conn.marketData(), meterRegistry);
         }
 
         @Bean
-        OrderCommand iciciOrderCommand(IciciBrokerConnection conn, MeterRegistry meterRegistry) {
+        OrderCommand iciciOrderCommand(
+                @org.springframework.beans.factory.annotation.Qualifier("iciciBrokerConnection") IBrokerConnection conn,
+                MeterRegistry meterRegistry) {
             return new ObservableOrderCommand("icici", conn.orders(), meterRegistry);
         }
 
         @Bean
-        InstrumentResolver iciciInstrumentResolver(IciciBrokerConnection conn) {
+        InstrumentResolver iciciInstrumentResolver(
+                @org.springframework.beans.factory.annotation.Qualifier("iciciBrokerConnection") IBrokerConnection conn) {
             return conn.instruments();
         }
 
         @Bean
-        OrderQuery iciciOrderQuery(IciciBrokerConnection conn) {
+        OrderQuery iciciOrderQuery(
+                @org.springframework.beans.factory.annotation.Qualifier("iciciBrokerConnection") IBrokerConnection conn) {
             return conn.orderQuery();
         }
 
         @Bean
-        PortfolioProvider iciciPortfolioProvider(IciciBrokerConnection conn) {
+        PortfolioProvider iciciPortfolioProvider(
+                @org.springframework.beans.factory.annotation.Qualifier("iciciBrokerConnection") IBrokerConnection conn) {
             return conn.portfolio();
         }
 
         @Bean
-        MarginProvider iciciMarginProvider(IciciBrokerConnection conn) {
+        MarginProvider iciciMarginProvider(
+                @org.springframework.beans.factory.annotation.Qualifier("iciciBrokerConnection") IBrokerConnection conn) {
             return conn.margin();
         }
 
         @Bean
-        FuturesProvider iciciFuturesProvider(IciciBrokerConnection conn) {
+        FuturesProvider iciciFuturesProvider(
+                @org.springframework.beans.factory.annotation.Qualifier("iciciBrokerConnection") IBrokerConnection conn) {
             return conn.futures();
         }
 
         @Bean
-        OptionsProvider iciciOptionsProvider(IciciBrokerConnection conn) {
+        OptionsProvider iciciOptionsProvider(
+                @org.springframework.beans.factory.annotation.Qualifier("iciciBrokerConnection") IBrokerConnection conn) {
             return conn.options();
         }
 
         @Bean
-        WebSocketMultiplexer iciciWebSocketMultiplexer(IciciBrokerConnection conn) {
+        WebSocketMultiplexer iciciWebSocketMultiplexer(
+                @org.springframework.beans.factory.annotation.Qualifier("iciciBrokerConnection") IBrokerConnection conn) {
             return conn.websocket();
         }
 
         @Bean
-        ConditionalAlertProvider iciciConditionalAlertProvider(IciciBrokerConnection conn) {
+        ConditionalAlertProvider iciciConditionalAlertProvider(
+                @org.springframework.beans.factory.annotation.Qualifier("iciciBrokerConnection") IBrokerConnection conn) {
             return conn.alerts();
         }
 
@@ -414,6 +433,91 @@ public class BrokerConfiguration {
         BrokerTransportCapabilities iciciBrokerTransportCapabilities(BreezeConnectionSettings settings) {
             return new BrokerTransportCapabilities(
                     true, settings.ordersEnabled(), true, true, false);
+        }
+    }
+
+    // ── Simulation broker adapter (paper trading) ──
+
+    @Configuration
+    @ConditionalOnProperty(name = "trade.broker-type", havingValue = "simulation")
+    static class SimulationAdapterConfig {
+
+        @Bean
+        @Primary
+        MultiBucketRateLimiter simulationRateLimiter() {
+            return new MultiBucketRateLimiter(Map.of(
+                    "api", new com.tradej.broker.core.rate.RateLimitConfig("api", 100, 10),
+                    "order", new com.tradej.broker.core.rate.RateLimitConfig("order", 50, 5),
+                    "market-data", new com.tradej.broker.core.rate.RateLimitConfig("market-data", 200, 20)));
+        }
+
+        @Bean
+        BrokerComposition simulationBrokerComposition() {
+            BrokerProfile profile = new BrokerProfile(BrokerProfile.BrokerType.SIMULATION, null, null, null);
+            return BrokerComposition.create(profile);
+        }
+
+        @Bean(name = "brokerConnection")
+        @Primary
+        IBrokerConnection brokerConnection(BrokerComposition composition) {
+            return composition.brokerConnection();
+        }
+
+        @Bean
+        @Primary
+        MarketDataProvider marketDataProvider(IBrokerConnection conn, MeterRegistry meterRegistry) {
+            return new ObservableMarketDataProvider("simulation", conn.marketData(), meterRegistry);
+        }
+
+        @Bean
+        @Primary
+        OrderCommand orderCommand(IBrokerConnection conn, MeterRegistry meterRegistry) {
+            return new ObservableOrderCommand("simulation", conn.orders(), meterRegistry);
+        }
+
+        @Bean
+        InstrumentResolver instrumentResolver(IBrokerConnection conn) {
+            return conn.instruments();
+        }
+
+        @Bean
+        OrderQuery orderQuery(IBrokerConnection conn) {
+            return conn.orderQuery();
+        }
+
+        @Bean
+        PortfolioProvider portfolioProvider(IBrokerConnection conn) {
+            return conn.portfolio();
+        }
+
+        @Bean
+        MarginProvider marginProvider(IBrokerConnection conn) {
+            return conn.margin();
+        }
+
+        @Bean
+        FuturesProvider futuresProvider(IBrokerConnection conn) {
+            return conn.futures();
+        }
+
+        @Bean
+        OptionsProvider optionsProvider(IBrokerConnection conn) {
+            return conn.options();
+        }
+
+        @Bean
+        WebSocketMultiplexer webSocketMultiplexer(IBrokerConnection conn) {
+            return conn.websocket();
+        }
+
+        @Bean
+        SliceOrderCommand sliceOrderCommand(IBrokerConnection conn) {
+            return conn.sliceOrders();
+        }
+
+        @Bean
+        BrokerTransportCapabilities simulationTransportCapabilities() {
+            return new BrokerTransportCapabilities(true, true, true, true, false);
         }
     }
 
@@ -451,13 +555,12 @@ public class BrokerConfiguration {
         ) {
             BrokerComposition composition = compositionProvider.getIfAvailable();
             if (composition != null) {
-                BrokerSource source = toSource(composition.profile().brokerType());
+                BrokerSource source = BrokerSource.parse(composition.profile().brokerType().name());
                 return BrokerGateway.of(source, composition.brokerConnection());
             }
             Map<BrokerSource, IBrokerConnection> connections = new LinkedHashMap<>();
             brokerConnection.orderedStream().forEach(conn -> {
-                BrokerSource source = identifyBroker(conn);
-                connections.putIfAbsent(source, conn);
+                connections.putIfAbsent(conn.source(), conn);
             });
             if (connections.isEmpty()) {
                 throw new IllegalStateException("No IBrokerConnection beans available for gateway");
@@ -479,25 +582,9 @@ public class BrokerConfiguration {
         BrokerSource activeBrokerSource(ObjectProvider<BrokerComposition> compositionProvider) {
             BrokerComposition composition = compositionProvider.getIfAvailable();
             if (composition != null) {
-                return toSource(composition.profile().brokerType());
+                return BrokerSource.parse(composition.profile().brokerType().name());
             }
             return BrokerSource.DHAN;
-        }
-
-        private static BrokerSource toSource(com.tradej.composition.config.BrokerProfile.BrokerType type) {
-            return switch (type) {
-                case DHAN, GATEWAY -> BrokerSource.DHAN;
-                case UPSTOX -> BrokerSource.UPSTOX;
-                case ICICI -> BrokerSource.ICICI;
-            };
-        }
-
-        private static BrokerSource identifyBroker(IBrokerConnection conn) {
-            if (conn instanceof com.tradej.broker.dhan.DhanBrokerConnection) return BrokerSource.DHAN;
-            if (conn instanceof com.tradej.broker.upstox.UpstoxBrokerConnection) return BrokerSource.UPSTOX;
-            if (conn instanceof com.tradej.broker.icici.IciciBrokerConnection) return BrokerSource.ICICI;
-            if (conn instanceof com.tradej.broker.core.routing.LoadBalancedBrokerGateway) return BrokerSource.DHAN;
-            return BrokerSource.SIMULATION;
         }
     }
 

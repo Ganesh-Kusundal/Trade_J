@@ -5,6 +5,9 @@ import com.tradej.core.domain.value.ExchangeSegment;
 import com.tradej.historical.ingest.calendar.CompositeHolidayCalendar;
 import com.tradej.historical.ingest.sync.DataGapScanService;
 import com.tradej.historical.ingest.sync.IncrementalSyncService;
+import com.tradej.historical.ingest.sync.RuntimeParquetExporter;
+import com.tradej.historical.ingest.service.DownloadJobService;
+import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -50,6 +53,8 @@ public class HistoricalSyncScheduler {
     private final Path dataRoot;
     private final IncrementalSyncService syncService;
     private final ExecutorService executor;
+    private final RuntimeParquetExporter runtimeExporter;
+    private final DownloadJobService downloadJobService;
 
     public HistoricalSyncScheduler(
             TradingProperties properties,
@@ -58,7 +63,9 @@ public class HistoricalSyncScheduler {
             SyncStatusStore statusStore,
             @Qualifier("canonicalDataRoot") Path dataRoot,
             @Autowired(required = false) IncrementalSyncService syncService,
-            @Qualifier("historicalDownloadExecutor") ExecutorService executor) {
+            @Qualifier("historicalDownloadExecutor") ExecutorService executor,
+            @Autowired(required = false) RuntimeParquetExporter runtimeExporter,
+            @Autowired(required = false) DownloadJobService downloadJobService) {
         this.config = properties.sync();
         this.calendar = calendar;
         this.gapScanner = gapScanner;
@@ -66,6 +73,25 @@ public class HistoricalSyncScheduler {
         this.dataRoot = dataRoot;
         this.syncService = syncService;
         this.executor = executor;
+        this.runtimeExporter = runtimeExporter;
+        this.downloadJobService = downloadJobService;
+    }
+
+    @PostConstruct
+    void startupCheck() {
+        if (!config.enabled()) {
+            return;
+        }
+        try {
+            var report = gapScanner.scan(config.segment(), "1m", config.lookbackMonths());
+            if (report.daysComplete() == 0 && report.daysMissing() > 0) {
+                log.info("No historical data found — triggering initial sync for last {} months ({} missing dates)",
+                        config.lookbackMonths(), report.daysMissing());
+                syncGapDates(report.allGapDates());
+            }
+        } catch (Exception ex) {
+            log.debug("Startup data check skipped: {}", ex.getMessage());
+        }
     }
 
     @Scheduled(cron = "${trade.sync.cron:0 0 16 * * MON-FRI}", zone = "Asia/Kolkata")
@@ -98,7 +124,10 @@ public class HistoricalSyncScheduler {
         } catch (Exception ex) {
             log.error("Daily sync failed", ex);
             statusStore.failRun(ex.getMessage());
+            return;
         }
+
+        exportRuntimeCandles();
     }
 
     public void triggerSync(LocalDate from, LocalDate to) {
@@ -149,23 +178,14 @@ public class HistoricalSyncScheduler {
             return;
         }
 
-        log.info("Syncing {} symbols × {} dates using {} workers",
-                symbols.size(), missingDates.size(), config.batchSize());
+        log.info("Bulk syncing {} symbols over {} gap dates (90-day windows)", symbols.size(), missingDates.size());
 
-        for (LocalDate date : missingDates) {
-            statusStore.recordDateSyncStart(date);
-            try {
-                int synced = syncDateParallel(segment, symbols, date);
-                statusStore.recordDateSyncComplete(date, synced + " bars synced");
-                log.info("Synced {} for {} ({} symbols, {} bars)", date, segment, symbols.size(), synced);
-            } catch (Exception ex) {
-                log.warn("Sync failed for {}: {}", date, ex.getMessage());
-                statusStore.recordDateSyncFailed(date, ex.getMessage());
-            }
-        }
+        var result = syncService.syncAllRanges(symbols, segment, "1m", missingDates);
 
-        statusStore.completeRun("Completed " + missingDates.size() + " dates");
-        log.info("Sync completed — {} dates processed", missingDates.size());
+        statusStore.completeRun(String.format("Bulk sync: %d symbols, %d bars, %d API calls (%d failed)",
+                result.symbolsSynced(), result.totalBarsWritten(), result.apiCalls(), result.failedCalls()));
+        log.info("Sync completed — {} API calls for {} symbols (was {} calls with day-by-day approach)",
+                result.apiCalls(), symbols.size(), symbols.size() * missingDates.size());
     }
 
     private int syncDateParallel(ExchangeSegment segment, List<String> symbols, LocalDate date) {
@@ -195,5 +215,108 @@ public class HistoricalSyncScheduler {
 
     public SyncStatusStore.SyncStatus getStatus() {
         return statusStore.getStatus();
+    }
+
+    private void exportRuntimeCandles() {
+        if (runtimeExporter == null) {
+            log.debug("RuntimeParquetExporter not available — skipping runtime export");
+            return;
+        }
+        try {
+            LocalDate today = LocalDate.now(IST);
+            var result = runtimeExporter.exportDate(today);
+            log.info("Runtime export for {}: {} symbols, {} bars, status={}",
+                    today, result.symbolsExported(), result.barsExported(), result.status());
+        } catch (Exception ex) {
+            log.warn("Runtime parquet export failed: {}", ex.getMessage());
+        }
+    }
+
+    public void syncAll() {
+        log.info("=== Full sync-all started ===");
+        statusStore.startNewRun("sync-all");
+
+        try {
+            if (config.refreshHolidays()) {
+                calendar.refreshFromData(dataRoot);
+                statusStore.recordHolidayRefresh();
+            }
+
+            var report = gapScanner.scan(config.segment(), "1m", config.lookbackMonths());
+            statusStore.recordGapScan(report);
+
+            if (!report.isFullyComplete()) {
+                syncGapDates(report.allGapDates());
+            } else {
+                log.info("No equity gaps found");
+            }
+
+            exportRuntimeCandles();
+
+            syncOptions();
+
+            statusStore.completeRun("sync-all complete");
+            log.info("=== Full sync-all completed ===");
+        } catch (Exception ex) {
+            log.error("sync-all failed", ex);
+            statusStore.failRun(ex.getMessage());
+        }
+    }
+
+    private void syncOptions() {
+        if (downloadJobService == null) {
+            log.debug("DownloadJobService not available — skipping options sync (no broker with OptionsProvider connected)");
+            return;
+        }
+        try {
+            log.info("Checking option download jobs...");
+            var recentJobs = downloadJobService.listRecentJobs(5);
+
+            var pendingJobs = recentJobs.stream()
+                    .filter(j -> j.status() == com.tradej.historical.ingest.model.DownloadJobStatus.PENDING
+                            || j.status() == com.tradej.historical.ingest.model.DownloadJobStatus.FAILED)
+                    .toList();
+
+            if (!pendingJobs.isEmpty()) {
+                String jobId = pendingJobs.getFirst().jobId();
+                log.info("Resuming option download job: {}", jobId);
+                downloadJobService.resumeJob(jobId);
+                return;
+            }
+
+            boolean hasRecentCompleted = recentJobs.stream()
+                    .anyMatch(j -> j.status() == com.tradej.historical.ingest.model.DownloadJobStatus.COMPLETED
+                            && j.finishedAtMs() != null
+                            && j.finishedAtMs() > System.currentTimeMillis() - 7L * 24 * 60 * 60 * 1000);
+
+            if (!hasRecentCompleted) {
+                log.info("No recent completed option job — creating fresh 30-day rolling option download");
+                var config = new com.tradej.historical.ingest.model.RollingOptionDownloadConfig(
+                        List.of("NIFTY", "BANKNIFTY", "FINNIFTY"),
+                        com.tradej.core.domain.value.ExchangeSegment.IDX_I,
+                        LocalDate.now(IST).minusDays(30),
+                        LocalDate.now(IST),
+                        List.of(5),
+                        List.of(
+                                new com.tradej.core.domain.instrument.RollingExpiryRoll(
+                                        com.tradej.core.domain.instrument.RollingExpiryKind.MONTH, 1),
+                                new com.tradej.core.domain.instrument.RollingExpiryRoll(
+                                        com.tradej.core.domain.instrument.RollingExpiryKind.WEEK, 1)
+                        ),
+                        com.tradej.core.domain.instrument.StrikeOffset.atmPlusMinus(2),
+                        List.of(com.tradej.core.domain.value.OptionType.CALL,
+                                com.tradej.core.domain.value.OptionType.PUT),
+                        350L,
+                        true
+                );
+                String jobId = downloadJobService.startRollingOptionJob(config);
+                log.info("Created and running option download job: {}", jobId);
+                downloadJobService.runJob(jobId);
+            } else {
+                log.info("Recent completed option job found — skipping fresh download");
+            }
+        } catch (Exception ex) {
+            log.warn("Options sync failed: {}", ex.getMessage());
+        }
     }
 }

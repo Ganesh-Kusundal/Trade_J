@@ -1,7 +1,7 @@
 package com.tradej.brokergateway;
 
 import com.tradej.broker.api.IBrokerConnection;
-import com.tradej.brokergateway.result.BrokerSource;
+import com.tradej.broker.api.spi.BrokerSource;
 import com.tradej.brokergateway.result.GatewayResult;
 import com.tradej.core.domain.model.ModifyOrderRequest;
 import com.tradej.core.domain.model.Order;

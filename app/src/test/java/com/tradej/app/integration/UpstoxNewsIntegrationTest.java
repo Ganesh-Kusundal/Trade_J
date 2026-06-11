@@ -4,7 +4,7 @@ import com.tradej.broker.api.IBrokerConnection;
 import com.tradej.broker.api.port.NewsProvider;
 import com.tradej.broker.upstox.UpstoxBrokerConnection;
 import com.tradej.broker.upstox.adapter.UpstoxNewsProvider;
-import com.tradej.broker.upstox.auth.UpstoxAnalyticsTokenHolder;
+import com.tradej.broker.upstox.auth.UpstoxStaticTokenHolder;
 import com.tradej.broker.upstox.config.UpstoxConnectionSettings;
 import com.tradej.broker.upstox.http.UpstoxHttpClient;
 import com.tradej.broker.upstox.http.UpstoxJsonHttpClient;
@@ -40,11 +40,11 @@ class UpstoxNewsIntegrationTest {
 
     @Test
     void fetchesNewsByInstrumentKeys() throws Exception {
-        Assumptions.assumeTrue(LiveUpstoxTestSupport.analyticsIntegrationEnabled(),
-                "Upstox analytics integration is not enabled. Skip test.");
+        Assumptions.assumeTrue(LiveUpstoxTestSupport.integrationEnabled(),
+                "Upstox integration is not enabled. Skip test.");
 
-        UpstoxConnectionSettings settings = LiveUpstoxTestSupport.analyticsConnectionSettingsOrSkip();
-        UpstoxAnalyticsTokenHolder tokenHolder = new UpstoxAnalyticsTokenHolder(settings);
+        UpstoxConnectionSettings settings = LiveUpstoxTestSupport.plusExpiredConnectionSettingsOrSkip();
+        UpstoxStaticTokenHolder tokenHolder = new UpstoxStaticTokenHolder(settings.accessToken());
         HttpClient httpClient = HttpClient.newHttpClient();
         String baseUrl = "https://api.upstox.com/v2";
 
@@ -107,11 +107,11 @@ class UpstoxNewsIntegrationTest {
 
     @Test
     void fetchesNewsForPositions() throws Exception {
-        Assumptions.assumeTrue(LiveUpstoxTestSupport.analyticsIntegrationEnabled(),
-                "Upstox analytics integration is not enabled. Skip test.");
+        Assumptions.assumeTrue(LiveUpstoxTestSupport.integrationEnabled(),
+                "Upstox integration is not enabled. Skip test.");
 
-        UpstoxConnectionSettings settings = LiveUpstoxTestSupport.analyticsConnectionSettingsOrSkip();
-        UpstoxAnalyticsTokenHolder tokenHolder = new UpstoxAnalyticsTokenHolder(settings);
+        UpstoxConnectionSettings settings = LiveUpstoxTestSupport.plusExpiredConnectionSettingsOrSkip();
+        UpstoxStaticTokenHolder tokenHolder = new UpstoxStaticTokenHolder(settings.accessToken());
         HttpClient httpClient = HttpClient.newHttpClient();
         String baseUrl = "https://api.upstox.com/v2";
 
@@ -142,11 +142,11 @@ class UpstoxNewsIntegrationTest {
 
     @Test
     void fetchesNewsForHoldings() throws Exception {
-        Assumptions.assumeTrue(LiveUpstoxTestSupport.analyticsIntegrationEnabled(),
-                "Upstox analytics integration is not enabled. Skip test.");
+        Assumptions.assumeTrue(LiveUpstoxTestSupport.integrationEnabled(),
+                "Upstox integration is not enabled. Skip test.");
 
-        UpstoxConnectionSettings settings = LiveUpstoxTestSupport.analyticsConnectionSettingsOrSkip();
-        UpstoxAnalyticsTokenHolder tokenHolder = new UpstoxAnalyticsTokenHolder(settings);
+        UpstoxConnectionSettings settings = LiveUpstoxTestSupport.plusExpiredConnectionSettingsOrSkip();
+        UpstoxStaticTokenHolder tokenHolder = new UpstoxStaticTokenHolder(settings.accessToken());
         HttpClient httpClient = HttpClient.newHttpClient();
         String baseUrl = "https://api.upstox.com/v2";
 
@@ -177,11 +177,11 @@ class UpstoxNewsIntegrationTest {
 
     @Test
     void fetchesNewsViaGateway() throws Exception {
-        Assumptions.assumeTrue(LiveUpstoxTestSupport.analyticsIntegrationEnabled(),
-                "Upstox analytics integration is not enabled. Skip test.");
+        Assumptions.assumeTrue(LiveUpstoxTestSupport.integrationEnabled(),
+                "Upstox integration is not enabled. Skip test.");
 
-        UpstoxConnectionSettings settings = LiveUpstoxTestSupport.analyticsConnectionSettingsOrSkip();
-        UpstoxAnalyticsTokenHolder tokenHolder = new UpstoxAnalyticsTokenHolder(settings);
+        UpstoxConnectionSettings settings = LiveUpstoxTestSupport.plusExpiredConnectionSettingsOrSkip();
+        UpstoxStaticTokenHolder tokenHolder = new UpstoxStaticTokenHolder(settings.accessToken());
         HttpClient httpClient = HttpClient.newHttpClient();
         String baseUrl = "https://api.upstox.com/v2";
 

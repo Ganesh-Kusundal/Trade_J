@@ -8,7 +8,7 @@ import com.tradej.broker.api.port.OrderQuery;
 import com.tradej.broker.api.port.PortfolioProvider;
 import com.tradej.brokergateway.explorer.BrokerExplorer;
 import com.tradej.brokergateway.explorer.BrokerInspectionReport;
-import com.tradej.brokergateway.result.BrokerSource;
+import com.tradej.broker.api.spi.BrokerSource;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;

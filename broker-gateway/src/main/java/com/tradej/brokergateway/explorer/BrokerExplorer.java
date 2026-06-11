@@ -19,8 +19,8 @@ import com.tradej.broker.api.port.SessionRiskProvider;
 import com.tradej.broker.api.port.SliceOrderCommand;
 import com.tradej.broker.api.port.WebSocketMultiplexer;
 import com.tradej.brokergateway.BrokerHandle;
-import com.tradej.brokergateway.result.BrokerSource;
-import com.tradej.brokergateway.spi.BrokerDescriptor;
+import com.tradej.broker.api.spi.BrokerDescriptor;
+import com.tradej.broker.api.spi.BrokerSource;
 
 import java.util.LinkedHashMap;
 import java.util.Map;

@@ -27,14 +27,21 @@ public final class ReplayClock implements AutoCloseable {
      * Advance the replay clock to the given timestamp and publish the change event.
      */
     public void advanceTo(long timestampMs) {
-        long prev = currentTimeMs.getAndSet(timestampMs);
-        if (timestampMs != prev) {
-            eventBus.publish(new ReplayTimeChangedEvent(
-                    EventMetadata.root(),
-                    timestampMs,
-                    replaySpeedNanos.get()
-            ));
+        long previous;
+        long current;
+        synchronized (this) {
+            previous = currentTimeMs.get();
+            if (timestampMs <= previous) {
+                return;
+            }
+            currentTimeMs.set(timestampMs);
+            current = timestampMs;
         }
+        eventBus.publish(new ReplayTimeChangedEvent(
+                EventMetadata.root(),
+                current,
+                replaySpeedNanos.get()
+        ));
     }
 
     /**

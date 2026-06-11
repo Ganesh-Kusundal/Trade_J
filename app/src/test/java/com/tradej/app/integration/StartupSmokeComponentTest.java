@@ -2,11 +2,13 @@ package com.tradej.app.integration;
 
 import com.tradej.broker.core.depth.OrderBookEngine;
 import com.tradej.broker.dhan.depth.DhanMarketDepthProvider;
+import com.tradej.broker.api.spi.BrokerRegistry;
 import com.tradej.execution.service.ExecutionHandler;
 import com.tradej.gateway.router.GatewayTopicRouter;
 import com.tradej.gateway.websocket.GatewayWebSocketHandler;
 import com.tradej.replay.engine.ReplayOrchestrator;
 import com.tradej.app.TradingApplication;
+import com.tradej.app.health.PlatformHealthIndicator;
 import com.tradej.app.startup.BrokerStartupOrchestrator;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -40,6 +42,8 @@ import static org.junit.jupiter.api.Assertions.*;
                 "trade.broker.token-state-file=build/smoke-test-token-state.json",
                 "trade.storage.chroniclePath=build/smoke-chronicle",
                 "trade.storage.duckdbPath=build/smoke-duckdb.duckdb",
+                "trade.storage.historicalWarehousePath=build/smoke-historical.duckdb",
+                "trade.historical-equity.root-path=build/smoke-historical-equity",
                 "trade.instruments.cache-directory=build/smoke-instruments",
                 "trade.subscriptions[0].symbol=NIFTY",
                 "trade.subscriptions[0].exchangeSegment=IDX_I",
@@ -50,6 +54,12 @@ class StartupSmokeComponentTest {
 
     @MockitoBean
     private BrokerStartupOrchestrator brokerStartupOrchestrator;
+
+    @MockitoBean
+    private BrokerRegistry brokerRegistry;
+
+    @MockitoBean
+    private PlatformHealthIndicator platformHealthIndicator;
 
     @Autowired
     private ApplicationContext context;

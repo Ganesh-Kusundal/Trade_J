@@ -1,6 +1,7 @@
 dependencies {
     implementation project(':core')
     implementation project(':research-core')
+    implementation project(':data-persistence')
     implementation project(':data-analytics')
     implementation project(':trading-strategy')
     implementation project(':trading-execution')

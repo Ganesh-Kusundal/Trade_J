@@ -24,24 +24,21 @@ public final class DuckDbScanStore implements AutoCloseable {
 
     private final DuckDbConnectionPool pool;
     private final boolean ownsPool;
-    private Connection rawConnection;
 
     public DuckDbScanStore(Path databasePath) {
         this.pool = DuckDbConnectionPool.create(databasePath);
         this.ownsPool = true;
-        this.rawConnection = pool.rawConnection();
-        bootstrap(rawConnection);
+        pool.withConnectionVoid(this::bootstrap);
     }
 
     public DuckDbScanStore(DuckDbConnectionPool pool) {
         this.pool = pool;
         this.ownsPool = false;
-        this.rawConnection = pool.rawConnection();
-        bootstrap(rawConnection);
+        pool.withConnectionVoid(this::bootstrap);
     }
 
     private Connection connection() {
-        return pool != null ? pool.rawConnection() : rawConnection;
+        return pool.rawConnection();
     }
 
     private void bootstrap(Connection conn) {
@@ -214,14 +211,8 @@ public final class DuckDbScanStore implements AutoCloseable {
 
     @Override
     public synchronized void close() {
-        if (ownsPool && pool != null) {
+        if (ownsPool) {
             pool.close();
-        } else if (pool == null && rawConnection != null) {
-            try {
-                rawConnection.close();
-            } catch (SQLException e) {
-                log.warn("Failed to close DuckDB scan store: {}", e.getMessage());
-            }
         }
     }
 

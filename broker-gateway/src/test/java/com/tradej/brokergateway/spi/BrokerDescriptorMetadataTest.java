@@ -1,9 +1,12 @@
 package com.tradej.brokergateway.spi;
 
-import com.tradej.brokergateway.result.BrokerSource;
-import com.tradej.brokergateway.spi.impl.DhanBrokerProvider;
-import com.tradej.brokergateway.spi.impl.IciciBrokerProvider;
-import com.tradej.brokergateway.spi.impl.UpstoxBrokerProvider;
+import com.tradej.broker.api.spi.BrokerDescriptor;
+import com.tradej.broker.api.spi.BrokerProvider;
+import com.tradej.broker.api.spi.BrokerSource;
+import com.tradej.broker.api.spi.CapabilityMetadata;
+import com.tradej.broker.dhan.DhanBrokerProvider;
+import com.tradej.broker.icici.IciciBrokerProvider;
+import com.tradej.broker.upstox.UpstoxBrokerProvider;
 import com.tradej.brokergateway.simulation.SimulationBrokerProvider;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;

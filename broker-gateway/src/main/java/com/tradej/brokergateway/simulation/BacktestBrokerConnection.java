@@ -62,6 +62,11 @@ public final class BacktestBrokerConnection implements IBrokerConnection {
     }
 
     @Override
+    public com.tradej.broker.api.spi.BrokerSource source() {
+        return com.tradej.broker.api.spi.BrokerSource.SIMULATION;
+    }
+
+    @Override
     @SuppressWarnings("unchecked")
     public <T> Optional<T> getCapability(Class<T> capabilityClass) {
         if (capabilityClass == null) {

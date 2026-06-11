@@ -1,9 +1,7 @@
 package com.tradej.brokergateway;
 
 import com.tradej.broker.api.IBrokerConnection;
-import com.tradej.brokergateway.result.BrokerSource;
-import com.tradej.brokergateway.spi.BrokerProvider;
-import com.tradej.brokergateway.spi.BrokerRegistry;
+import com.tradej.broker.api.spi.BrokerSource;
 import com.tradej.composition.BrokerComposition;
 import com.tradej.composition.config.BrokerProfile;
 
@@ -38,23 +36,6 @@ public final class DefaultBrokerGateway implements BrokerGateway {
 
     static BrokerGateway of(BrokerSource source, IBrokerConnection connection) {
         return new DefaultBrokerGateway(Map.of(source, new BrokerHandle(source, connection)));
-    }
-
-    static BrokerGateway dhan(BrokerProfile.DhanConfig config) {
-        BrokerProfile profile = new BrokerProfile(BrokerProfile.BrokerType.DHAN, config, null, null);
-        return create(BrokerComposition.create(profile));
-    }
-
-    static BrokerGateway fromRegistry(BrokerRegistry registry, BrokerProfile... profiles) {
-        Map<BrokerSource, BrokerHandle> handles = new LinkedHashMap<>();
-        for (BrokerProfile profile : profiles) {
-            BrokerSource source = toSource(profile.brokerType());
-            registry.provider(source).ifPresent(provider -> {
-                IBrokerConnection conn = provider.connect(profile);
-                handles.put(source, new BrokerHandle(source, conn));
-            });
-        }
-        return new DefaultBrokerGateway(handles);
     }
 
     // ── Instance Methods ────────────────────────────────────────────
@@ -101,7 +82,7 @@ public final class DefaultBrokerGateway implements BrokerGateway {
             case DHAN -> BrokerSource.DHAN;
             case UPSTOX -> BrokerSource.UPSTOX;
             case ICICI -> BrokerSource.ICICI;
-            case GATEWAY -> BrokerSource.DHAN;
+            case GATEWAY, SIMULATION -> BrokerSource.DHAN;
         };
     }
 }

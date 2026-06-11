@@ -2,6 +2,7 @@ package com.tradej.app.admin;
 
 import com.tradej.app.service.AdminApplicationService;
 import com.tradej.core.domain.port.EventBus;
+import com.tradej.core.domain.runtime.RuntimeBusHolder;
 import com.tradej.core.domain.runtime.RuntimeMode;
 import com.tradej.core.domain.runtime.RuntimeModeHolder;
 import com.tradej.disruptor.DisruptorBusMetrics;
@@ -42,6 +43,7 @@ public class AdminController {
     private final GraphStrategySandbox graphStrategySandbox;
     private final HistoricalRangeService historicalRangeService;
     private final RuntimeModeHolder runtimeModeHolder;
+    private final RuntimeBusHolder runtimeBusHolder;
     private final ReplayOrchestrator replayOrchestrator;
 
     public AdminController(
@@ -57,6 +59,7 @@ public class AdminController {
             GraphStrategySandbox graphStrategySandbox,
             @Qualifier("localHistoricalRangeService") HistoricalRangeService historicalRangeService,
             RuntimeModeHolder runtimeModeHolder,
+            RuntimeBusHolder runtimeBusHolder,
             ReplayOrchestrator replayOrchestrator
     ) {
         this.adminService = adminService;
@@ -71,6 +74,7 @@ public class AdminController {
         this.graphStrategySandbox = graphStrategySandbox;
         this.historicalRangeService = historicalRangeService;
         this.runtimeModeHolder = runtimeModeHolder;
+        this.runtimeBusHolder = runtimeBusHolder;
         this.replayOrchestrator = replayOrchestrator;
     }
 
@@ -90,7 +94,9 @@ public class AdminController {
                 runtimeHealthState.catalogLoaded(),
                 runtimeHealthState.catalogSize(),
                 runtimeHealthState.brokerPreflightPassed(),
-                runtimeHealthState.startupCompleted()
+                runtimeHealthState.startupCompleted(),
+                runtimeModeHolder.mode(),
+                runtimeBusHolder.mode()
         ));
     }
 
@@ -105,10 +111,14 @@ public class AdminController {
 
         var dis = disruptorBusMetrics;
         result.put("shardCount", dis.shardCount());
+        int ringBufferSize = dis.ringBufferSize();
+        result.put("eventBusMode", runtimeBusHolder.mode().name());
         result.put("ringBufferRemainingCapacity", dis.ringBufferRemainingCapacity());
-        result.put("ringBufferSize", dis.ringBufferSize());
+        result.put("ringBufferSize", ringBufferSize);
         result.put("ringBufferUtilization",
-                (double) (dis.ringBufferSize() - dis.ringBufferRemainingCapacity()) / dis.ringBufferSize() * 100.0);
+                ringBufferSize > 0
+                        ? (double) (ringBufferSize - dis.ringBufferRemainingCapacity()) / ringBufferSize * 100.0
+                        : 0.0);
         result.put("dispatchQueueDepth", dis.dispatchQueueDepth());
         result.put("dispatchDroppedEventCount", dis.dispatchDroppedEventCount());
         result.put("subscriberCount", dis.subscriberCount());
@@ -150,16 +160,20 @@ public class AdminController {
         result.put("catalogSize", runtimeHealthState.catalogSize());
 
         // Broker
-        Map<String, Object> brokerStatus = adminService.getRuntimeStatus(false, 0, false, false);
+        Map<String, Object> brokerStatus = adminService.getRuntimeStatus(false, 0, false, false, runtimeModeHolder.mode(), runtimeBusHolder.mode());
         result.put("websocketConnected", brokerStatus.get("websocketConnected"));
         result.put("subscriptions", brokerStatus.get("subscriptions"));
         result.put("circuitBreakerOpen", brokerStatus.get("circuitBreakerOpen"));
 
         // Pipeline
         var dis = disruptorBusMetrics;
+        int ringBufferSize = dis.ringBufferSize();
         result.put("shardCount", dis.shardCount());
+        result.put("runtimeBus", runtimeBusHolder.mode().name());
         result.put("ringBufferUtilizationPct",
-                Math.round((double) (dis.ringBufferSize() - dis.ringBufferRemainingCapacity()) / dis.ringBufferSize() * 1000.0) / 10.0);
+                ringBufferSize > 0
+                        ? Math.round((double) (ringBufferSize - dis.ringBufferRemainingCapacity()) / ringBufferSize * 1000.0) / 10.0
+                        : 0.0);
         result.put("dispatchQueueDepth", dis.dispatchQueueDepth());
         result.put("dispatchDroppedEvents", dis.dispatchDroppedEventCount());
         result.put("executionQueueDepth", executionHandler.queueDepth());

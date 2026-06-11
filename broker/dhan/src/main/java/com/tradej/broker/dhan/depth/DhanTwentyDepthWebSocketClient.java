@@ -64,7 +64,7 @@ public final class DhanTwentyDepthWebSocketClient implements AutoCloseable {
     private volatile int reconnectAttempts;
     private volatile boolean manuallyDisconnected;
     private volatile long lastDepthMessageTimestamp = 0L;
-    private static final long STALE_THRESHOLD_MS = 30_000L;
+    private static final long STALE_THRESHOLD_MS = 60_000L;
     private static final long HEALTH_CHECK_INTERVAL_MS = 5_000L;
     private final java.util.concurrent.ScheduledExecutorService healthExecutor =
             java.util.concurrent.Executors.newSingleThreadScheduledExecutor(r -> {
@@ -93,6 +93,8 @@ public final class DhanTwentyDepthWebSocketClient implements AutoCloseable {
         return connected;
     }
 
+    private static final long CONNECT_TIMEOUT_MS = 15_000L;
+
     public void connect() {
         manuallyDisconnected = false;
         if (settings.isSandbox() && !settings.killSwitchTestEnabled()) {
@@ -103,10 +105,16 @@ public final class DhanTwentyDepthWebSocketClient implements AutoCloseable {
                 + "?token=" + URLEncoder.encode(tokenProvider.getAccessToken(), StandardCharsets.UTF_8)
                 + "&clientId=" + URLEncoder.encode(settings.clientId(), StandardCharsets.UTF_8)
                 + "&authType=2";
+        log.info("Connecting Dhan depth feed to {}", settings.depthWsUrl());
         CompletableFuture<java.net.http.WebSocket> future = httpClient.newWebSocketBuilder()
+                .connectTimeout(java.time.Duration.ofMillis(CONNECT_TIMEOUT_MS))
                 .header("Origin", "https://dhanhq.co")
                 .buildAsync(URI.create(url), new DepthFeedHandler());
-        webSocket = future.join();
+        try {
+            webSocket = future.orTimeout(CONNECT_TIMEOUT_MS, java.util.concurrent.TimeUnit.MILLISECONDS).join();
+        } catch (java.util.concurrent.CompletionException e) {
+            throw new IllegalStateException("Dhan depth WebSocket handshake timed out after " + CONNECT_TIMEOUT_MS + "ms", e);
+        }
         lastDepthMessageTimestamp = System.currentTimeMillis();
         healthExecutor.scheduleAtFixedRate(this::checkStaleness,
                 HEALTH_CHECK_INTERVAL_MS, HEALTH_CHECK_INTERVAL_MS, java.util.concurrent.TimeUnit.MILLISECONDS);

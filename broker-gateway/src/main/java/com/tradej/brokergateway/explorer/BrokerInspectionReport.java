@@ -1,6 +1,6 @@
 package com.tradej.brokergateway.explorer;
 
-import com.tradej.brokergateway.result.BrokerSource;
+import com.tradej.broker.api.spi.BrokerSource;
 
 import java.util.List;
 import java.util.Map;

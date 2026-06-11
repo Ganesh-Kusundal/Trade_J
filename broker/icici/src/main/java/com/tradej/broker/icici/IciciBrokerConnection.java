@@ -169,6 +169,11 @@ public final class IciciBrokerConnection implements IBrokerConnection {
     }
 
     @Override
+    public com.tradej.broker.api.spi.BrokerSource source() {
+        return com.tradej.broker.api.spi.BrokerSource.ICICI;
+    }
+
+    @Override
     public <T> Optional<T> getCapability(Class<T> capabilityClass) {
         if (capabilityClass == null) {
             return Optional.empty();

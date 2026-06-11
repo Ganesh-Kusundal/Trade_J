@@ -7,11 +7,7 @@ import com.tradej.pipeline.graph.PipelineNodeDef;
  * Extensible base class for pipeline nodes.
  * Centralizes state management, thread-safe performance metrics tracking,
  * and high-precision execution latency measurement.
- *
- * @deprecated Prefer direct implementation of {@link PipelineNode} with composition
- *             using {@link NodeMetricsTracker}.
  */
-@Deprecated
 public abstract class BasePipelineNode implements PipelineNode {
 
     protected PipelineNodeDef definition;

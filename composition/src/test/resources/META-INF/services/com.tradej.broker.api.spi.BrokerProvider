@@ -1,0 +1,3 @@
+com.tradej.broker.dhan.DhanBrokerProvider
+com.tradej.broker.upstox.UpstoxBrokerProvider
+com.tradej.broker.icici.IciciBrokerProvider

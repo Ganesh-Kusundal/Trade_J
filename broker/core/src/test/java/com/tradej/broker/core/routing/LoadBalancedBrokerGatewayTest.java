@@ -259,6 +259,11 @@ class LoadBalancedBrokerGatewayTest {
             public void loadInstrumentCatalog(Path catalogPath) {}
 
             @Override
+            public com.tradej.broker.api.spi.BrokerSource source() {
+                return com.tradej.broker.api.spi.BrokerSource.SIMULATION;
+            }
+
+            @Override
             public <T> Optional<T> getCapability(Class<T> capabilityClass) {
                 if (OptionsProvider.class.equals(capabilityClass)) {
                     return Optional.of(capabilityClass.cast(mock(OptionsProvider.class)));

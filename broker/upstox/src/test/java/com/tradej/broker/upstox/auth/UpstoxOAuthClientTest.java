@@ -102,4 +102,37 @@ class UpstoxOAuthClientTest {
         long result = client.fetchProfile("invalid_token");
         assertEquals(-1L, result);
     }
+
+    @Test
+    void triggerTokenRequestReturnsSuccess() throws Exception {
+        mockServer.createContext("/login/auth/token/request/test-client", exchange -> {
+            byte[] body = """
+                    {"status":"success","data":{"authorization_expiry":"1732226400000","notifier_url":"https://example.com/webhook"}}
+                    """.getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().add("Content-Type", "application/json");
+            exchange.sendResponseHeaders(200, body.length);
+            try (OutputStream os = exchange.getResponseBody()) { os.write(body); }
+        });
+
+        // The client base URL is "http://localhost:{port}" (no /v2), so triggerTokenRequest
+        // constructs "http://localhost:{port}/login/auth/token/request/test-client"
+        var result = client.triggerTokenRequest("test-client", "test-secret");
+        assertEquals("success", result.get("status"));
+        assertEquals("1732226400000", result.get("authorizationExpiry"));
+        assertEquals("https://example.com/webhook", result.get("notifierUrl"));
+    }
+
+    @Test
+    void triggerTokenRequestThrowsOnError() throws Exception {
+        mockServer.createContext("/login/auth/token/request/bad-client", exchange -> {
+            byte[] body = """
+                    {"status":"error","errors":[{"errorCode":"UDAPI1000","message":"Invalid client"}]}
+                    """.getBytes(StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(400, body.length);
+            try (OutputStream os = exchange.getResponseBody()) { os.write(body); }
+        });
+
+        assertThrows(UpstoxAuthException.class, () ->
+                client.triggerTokenRequest("bad-client", "bad-secret"));
+    }
 }

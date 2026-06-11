@@ -79,7 +79,11 @@ project(':trade-analytics').projectDir = file('pipeline/analytics/trade-analytic
 include 'replay-engine'
 project(':replay-engine').projectDir = file('replay/engine')
 
-// Research / MCP modules — excluded by default for faster builds.
+// MCP server — always included
+include 'mcp-server'
+project(':mcp-server').projectDir = file('mcp-server')
+
+// Research modules — excluded by default for faster builds.
 // Enable with:  ./gradlew build -Presearch
 if (settings.startParameter.projectProperties.containsKey('research')) {
     include 'research-core'
@@ -88,9 +92,13 @@ if (settings.startParameter.projectProperties.containsKey('research')) {
     include 'research-lab'
     project(':research-lab').projectDir = file('research/lab')
 
-    include 'mcp-server'
-    project(':mcp-server').projectDir = file('mcp-server')
-
     include 'research-api'
     project(':research-api').projectDir = file('research/api')
+}
+
+// Binance Market Data POC — excluded by default
+// Enable with:  ./gradlew build -Pbinance
+if (settings.startParameter.projectProperties.containsKey('binance')) {
+    include 'binance-market-data-poc'
+    project(':binance-market-data-poc').projectDir = file('poc/binance-market-data')
 }

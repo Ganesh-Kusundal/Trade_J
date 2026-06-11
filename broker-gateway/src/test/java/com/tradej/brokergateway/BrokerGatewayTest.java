@@ -2,7 +2,7 @@ package com.tradej.brokergateway;
 
 import com.tradej.broker.api.IBrokerConnection;
 import com.tradej.broker.api.port.InstrumentResolver;
-import com.tradej.brokergateway.result.BrokerSource;
+import com.tradej.broker.api.spi.BrokerSource;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;

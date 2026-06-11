@@ -1,10 +1,8 @@
 package com.tradej.brokergateway;
 
 import com.tradej.broker.api.IBrokerConnection;
-import com.tradej.brokergateway.result.BrokerSource;
-import com.tradej.brokergateway.spi.BrokerRegistry;
+import com.tradej.broker.api.spi.BrokerSource;
 import com.tradej.composition.BrokerComposition;
-import com.tradej.composition.config.BrokerProfile;
 
 import java.util.Set;
 
@@ -78,18 +76,4 @@ public interface BrokerGateway {
         return new DefaultBrokerGateway(handles);
     }
 
-    /**
-     * Convenience: create a Dhan-only gateway from config.
-     */
-    static BrokerGateway dhan(BrokerProfile.DhanConfig config) {
-        return DefaultBrokerGateway.dhan(config);
-    }
-
-    /**
-     * Create a gateway from a BrokerRegistry using the given profiles.
-     * Each profile's broker type is matched to a registered BrokerProvider.
-     */
-    static BrokerGateway fromRegistry(BrokerRegistry registry, BrokerProfile... profiles) {
-        return DefaultBrokerGateway.fromRegistry(registry, profiles);
-    }
 }

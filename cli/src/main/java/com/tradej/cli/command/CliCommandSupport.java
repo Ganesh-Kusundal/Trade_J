@@ -40,10 +40,16 @@ public class CliCommandSupport {
 
     private final CliContext context;
     private final OutputFormatter out;
+    private final OrderQuery orderQuery;
 
     public CliCommandSupport(CliContext context, OutputFormatter out) {
+        this(context, out, null);
+    }
+
+    CliCommandSupport(CliContext context, OutputFormatter out, OrderQuery orderQuery) {
         this.context = context;
         this.out = out;
+        this.orderQuery = orderQuery;
     }
 
     public CliContext context() {
@@ -96,6 +102,9 @@ public class CliCommandSupport {
     }
 
     public OrderQuery orderQuery() {
+        if (orderQuery != null) {
+            return orderQuery;
+        }
         return session().connection().orderQuery();
     }
 

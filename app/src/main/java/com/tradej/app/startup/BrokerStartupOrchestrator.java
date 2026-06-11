@@ -76,6 +76,7 @@ public final class BrokerStartupOrchestrator {
                 new UpstoxStartupStrategy(),
                 new IciciStartupStrategy(),
                 new GatewayStartupStrategy(),
+                new SimulationStartupStrategy(),
                 new DhanStartupStrategy()
         );
     }
@@ -87,78 +88,131 @@ public final class BrokerStartupOrchestrator {
             ObjectProvider<RuntimeSubscriptionManager> subscriptionManagerProvider,
             ObjectProvider<SubscriptionCoordinator> subscriptionCoordinatorProvider
     ) {
-        TradingProperties properties = deps.properties();
-        IBrokerConnection brokerConnection = deps.brokerConnection();
-        BrokerCapabilities brokerCapabilities = deps.brokerCapabilities();
-        RuntimeHealthState runtimeHealthState = deps.runtimeHealthState();
-        EventBus eventBus = deps.eventBus();
-        MarketDataPipeline marketDataPipeline = deps.marketDataPipeline();
-        OrderPipeline orderPipeline = deps.orderPipeline();
-        AsyncDuckDbWriter asyncDuckDbWriter = deps.asyncDuckDbWriter();
-        ChronicleAuditLogWriter chronicleAuditLogWriter = deps.chronicleAuditLogWriter();
-        AsyncDuckDbEventStore asyncDuckDbEventStore = deps.asyncDuckDbEventStore();
-        ReconciliationAlertLogger reconciliationAlertLogger = deps.reconciliationAlertLogger();
-        BrokerErrorTracker brokerErrorTracker = deps.brokerErrorTracker();
-        ReadModelStore readModelStore = deps.readModelStore();
-        EventSourcedNetPositionProvider netPositionProvider = deps.netPositionProvider();
-        DagPipelineIngressBridge dagPipelineIngressBridge = deps.dagPipelineIngressBridge();
-        PositionStateRebuilder positionStateRebuilder = deps.positionStateRebuilder();
-        OrderManagementService orderManagementService = deps.orderManagementService();
-        OrderReconciler orderReconciler = deps.orderReconciler();
-
         BrokerTransportProfile profile = BrokerTransportProfile.resolve(environment, tradingProperties);
         BrokerStartupStrategy strategy = resolveStrategy(profile);
+        List<MarketSubscriptionRequest> subscriptions = loadCatalogAndValidateSubscriptions(deps, profile, strategy);
 
+        ensureBrokerTokens(deps, profile, dhanTokenProvider, breezeTokenProvider);
+        runBrokerPreflight(deps, subscriptions, profile, strategy);
+        wireRuntimeSubscribers(deps);
+        wireWebSocketHandlers(deps, profile);
+        startRuntimeAndRecover(deps);
+        connectBrokerAndSubscribe(deps, profile, subscriptionManagerProvider, subscriptionCoordinatorProvider);
+        markStartupCompleted(deps);
+    }
+
+    private List<MarketSubscriptionRequest> loadCatalogAndValidateSubscriptions(
+            StartupDependencies deps,
+            BrokerTransportProfile profile,
+            BrokerStartupStrategy strategy
+    ) {
+        TradingProperties properties = deps.properties();
+        IBrokerConnection brokerConnection = deps.brokerConnection();
+        RuntimeHealthState runtimeHealthState = deps.runtimeHealthState();
         loadCatalog(properties, brokerConnection, runtimeHealthState, profile, strategy);
         boolean scanEnabled = deps.scanProperties() != null && deps.scanProperties().enabled();
-        List<MarketSubscriptionRequest> subscriptions = validateSubscriptions(
-                properties, brokerConnection, brokerCapabilities, scanEnabled, profile, strategy);
+        return validateSubscriptions(
+                properties,
+                brokerConnection,
+                deps.brokerCapabilities(),
+                scanEnabled,
+                profile,
+                strategy
+        );
+    }
 
+    private void ensureBrokerTokens(
+            StartupDependencies deps,
+            BrokerTransportProfile profile,
+            ObjectProvider<DhanTokenProvider> dhanTokenProvider,
+            ObjectProvider<BreezeTokenProvider> breezeTokenProvider
+    ) {
         if (!profile.isAnalyticsRest()) {
             dhanTokenProvider.ifAvailable(DhanTokenProvider::ensureValid);
             breezeTokenProvider.ifAvailable(BreezeTokenProvider::ensureValid);
         }
+    }
 
+    private void runBrokerPreflight(
+            StartupDependencies deps,
+            List<MarketSubscriptionRequest> subscriptions,
+            BrokerTransportProfile profile,
+            BrokerStartupStrategy strategy
+    ) {
         if (!subscriptions.isEmpty()) {
-            verifyBrokerPreflight(brokerConnection, subscriptions, profile, strategy);
+            verifyBrokerPreflight(deps.brokerConnection(), subscriptions, profile, strategy);
         } else if (profile.isAnalyticsRest()) {
-            verifyAnalyticsRestPreflight(brokerConnection, properties, strategy);
+            verifyAnalyticsRestPreflight(deps.brokerConnection(), deps.properties(), strategy);
         }
-        runtimeHealthState.markBrokerPreflightPassed();
+        deps.runtimeHealthState().markBrokerPreflightPassed();
+    }
 
-        subscribeEventHandlers(eventBus, asyncDuckDbWriter, chronicleAuditLogWriter,
-                asyncDuckDbEventStore, brokerErrorTracker, readModelStore,
-                netPositionProvider, reconciliationAlertLogger, dagPipelineIngressBridge);
+    private void wireRuntimeSubscribers(StartupDependencies deps) {
+        subscribeEventHandlers(
+                deps.eventBus(),
+                deps.asyncDuckDbWriter(),
+                deps.chronicleAuditLogWriter(),
+                deps.asyncDuckDbEventStore(),
+                deps.brokerErrorTracker(),
+                deps.readModelStore(),
+                deps.netPositionProvider(),
+                deps.reconciliationAlertLogger(),
+                deps.dagPipelineIngressBridge()
+        );
+    }
+
+    private void wireWebSocketHandlers(StartupDependencies deps, BrokerTransportProfile profile) {
         if (profile.expectsWebSocket()) {
-            setupWebSocketHandlers(brokerConnection, marketDataPipeline, orderPipeline, eventBus);
+            setupWebSocketHandlers(deps.brokerConnection(), deps.marketDataPipeline(), deps.orderPipeline(), deps.eventBus());
         } else {
             log.info("Skipping WebSocket handler wiring in REST-only mode.");
         }
+    }
 
-        eventBus.start();
-        orderManagementService.replayAll();
+    private void startRuntimeAndRecover(StartupDependencies deps) {
+        deps.eventBus().start();
+        deps.orderManagementService().replayAll();
         try {
-            orderReconciler.reconcileAll(eventBus::publish);
+            deps.orderReconciler().reconcileAll(deps.eventBus()::publish);
             log.info("OMS crash recovery reconciliation completed");
         } catch (Exception e) {
             log.error("OMS reconciliation failed during startup — manual intervention may be required", e);
         }
-        positionStateRebuilder.rebuild(eventBus);
+        deps.positionStateRebuilder().rebuild(deps.eventBus());
+    }
 
+    private void connectBrokerAndSubscribe(
+            StartupDependencies deps,
+            BrokerTransportProfile profile,
+            ObjectProvider<RuntimeSubscriptionManager> subscriptionManagerProvider,
+            ObjectProvider<SubscriptionCoordinator> subscriptionCoordinatorProvider
+    ) {
         if (!profile.expectsWebSocket()) {
             log.warn("Skipping broker WebSocket connect. REST APIs remain available.");
-        } else {
-            brokerConnection.connect();
-            RuntimeSubscriptionManager subscriptionManager = subscriptionManagerProvider.getIfAvailable();
-            if (subscriptionManager != null) {
-                subscriptionManager.subscribeStaticAtStartup();
-            } else {
-                SubscriptionCoordinator coordinator = subscriptionCoordinatorProvider.getIfAvailable();
-                subscribeExplicitly(brokerConnection, properties, subscriptions, coordinator);
-            }
+            return;
         }
-        runtimeHealthState.markStartupCompleted();
-        if (brokerConnection instanceof LoadBalancedBrokerGateway gateway) {
+        deps.brokerConnection().connect();
+        RuntimeSubscriptionManager subscriptionManager = subscriptionManagerProvider.getIfAvailable();
+        if (subscriptionManager != null) {
+            subscriptionManager.subscribeStaticAtStartup();
+        } else {
+            SubscriptionCoordinator coordinator = subscriptionCoordinatorProvider.getIfAvailable();
+            subscribeExplicitly(deps.brokerConnection(), deps.properties(),
+                    validateSubscriptions(
+                            deps.properties(),
+                            deps.brokerConnection(),
+                            deps.brokerCapabilities(),
+                            deps.scanProperties() != null && deps.scanProperties().enabled(),
+                            profile,
+                            resolveStrategy(profile)
+                    ),
+                    coordinator);
+        }
+    }
+
+    private void markStartupCompleted(StartupDependencies deps) {
+        deps.runtimeHealthState().markStartupCompleted();
+        if (deps.brokerConnection() instanceof LoadBalancedBrokerGateway gateway) {
             log.info("Load-balanced broker gateway active with {} node(s)", gateway.connectionCount());
         }
     }

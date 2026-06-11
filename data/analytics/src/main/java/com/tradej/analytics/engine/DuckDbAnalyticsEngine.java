@@ -133,6 +133,7 @@ public final class DuckDbAnalyticsEngine implements AutoCloseable {
 
     private boolean attachOptionsWarehouse() throws SQLException {
         Path warehouse = config.optionsWarehousePath().toAbsolutePath();
+        log.info("Checking options warehouse at: {}", warehouse);
         if (!Files.isRegularFile(warehouse)) {
             connection.createStatement().execute("""
                     create or replace view %s as
@@ -159,6 +160,7 @@ public final class DuckDbAnalyticsEngine implements AutoCloseable {
             log.warn("Options warehouse not found at {} — rolling_option_bars view is empty", warehouse);
             return false;
         }
+        log.info("Attaching options warehouse: {}", warehouse);
         connection.createStatement().execute(
                 "attach '" + escapeSqlPath(warehouse) + "' as options_wh (read_only)");
         connection.createStatement().execute("""
@@ -182,7 +184,7 @@ public final class DuckDbAnalyticsEngine implements AutoCloseable {
         return true;
     }
 
-    public List<Map<String, Object>> queryEquityCandles(
+    public synchronized List<Map<String, Object>> queryEquityCandles(
             String symbol,
             long fromMs,
             long toMs,
@@ -191,7 +193,7 @@ public final class DuckDbAnalyticsEngine implements AutoCloseable {
         return queryEquityCandlesForSymbols(List.of(symbol), fromMs, toMs, limit);
     }
 
-    public List<Map<String, Object>> queryEquityCandlesForSymbols(
+    public synchronized List<Map<String, Object>> queryEquityCandlesForSymbols(
             List<String> symbols,
             long fromMs,
             long toMs,
@@ -213,7 +215,7 @@ public final class DuckDbAnalyticsEngine implements AutoCloseable {
         return executeEquitySymbolRangeQuery(symbols, fromMs, toMs, limit, VIEW_EQUITY_BARS_1M);
     }
 
-    public List<Map<String, Object>> queryEquityUniverse() throws SQLException {
+    public synchronized List<Map<String, Object>> queryEquityUniverse() throws SQLException {
         ensureConnection();
         try (ResultSet rs = connection.createStatement().executeQuery("""
                 select symbol, company_name, isin, industry, macro_sector, as_of_date
@@ -224,7 +226,7 @@ public final class DuckDbAnalyticsEngine implements AutoCloseable {
         }
     }
 
-    public Optional<LocalDate> latestEquityTradingDay(int lookbackDays) throws SQLException {
+    public synchronized Optional<LocalDate> latestEquityTradingDay(int lookbackDays) throws SQLException {
         ensureConnection();
         Optional<String> latestPartition = HistoricalEquityPaths.latestHivePartitionFile(equityRoot, INTERVAL_FOLDER);
         if (latestPartition.isEmpty()) {
@@ -252,7 +254,7 @@ public final class DuckDbAnalyticsEngine implements AutoCloseable {
         return Optional.empty();
     }
 
-    public List<String> queryEquitySymbolsWithDataOn(LocalDate date, int limit) throws SQLException {
+    public synchronized List<String> queryEquitySymbolsWithDataOn(LocalDate date, int limit) throws SQLException {
         ensureConnection();
         if (date == null || limit <= 0) {
             return List.of();
@@ -282,7 +284,7 @@ public final class DuckDbAnalyticsEngine implements AutoCloseable {
         }
     }
 
-    public List<RollingOptionBar> queryRollingOptionBars(
+    public synchronized List<RollingOptionBar> queryRollingOptionBars(
             String underlying,
             String expiryKind,
             int expiryCode,
@@ -337,7 +339,7 @@ public final class DuckDbAnalyticsEngine implements AutoCloseable {
         }
     }
 
-    public List<String> availableOptionUnderlyings() throws SQLException {
+    public synchronized List<String> availableOptionUnderlyings() throws SQLException {
         ensureConnection();
         if (!optionsAttached) {
             return List.of();
@@ -353,7 +355,7 @@ public final class DuckDbAnalyticsEngine implements AutoCloseable {
         }
     }
 
-    public Optional<LocalDate> latestOptionTradingDay(String underlying, int lookbackDays) throws SQLException {
+    public synchronized Optional<LocalDate> latestOptionTradingDay(String underlying, int lookbackDays) throws SQLException {
         ensureConnection();
         if (!optionsAttached) {
             return Optional.empty();
@@ -383,7 +385,7 @@ public final class DuckDbAnalyticsEngine implements AutoCloseable {
         return Optional.empty();
     }
 
-    public AnalyticsCatalogSnapshot catalogSnapshot() throws SQLException {
+    public synchronized AnalyticsCatalogSnapshot catalogSnapshot() throws SQLException {
         ensureConnection();
         long equitySymbols = scalarLong("""
                 select count(distinct symbol) from %s
@@ -428,7 +430,7 @@ public final class DuckDbAnalyticsEngine implements AutoCloseable {
         );
     }
 
-    public AnalyticsQueryResult executeReadOnlySql(String sql, int rowLimit) throws SQLException {
+    public synchronized AnalyticsQueryResult executeReadOnlySql(String sql, int rowLimit) throws SQLException {
         if (!config.sqlEnabled()) {
             throw new IllegalStateException("Ad-hoc analytics SQL is disabled");
         }

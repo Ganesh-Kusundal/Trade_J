@@ -9,7 +9,7 @@ import com.tradej.broker.api.port.NewsProvider;
 import com.tradej.broker.api.port.OrderBookSnapshotProvider;
 import com.tradej.broker.api.port.SliceOrderCommand;
 import com.tradej.brokergateway.explorer.BrokerExplorer;
-import com.tradej.brokergateway.result.BrokerSource;
+import com.tradej.broker.api.spi.BrokerSource;
 import com.tradej.brokergateway.result.GatewayResult;
 import com.tradej.core.domain.model.Balance;
 import com.tradej.core.domain.model.Candle;

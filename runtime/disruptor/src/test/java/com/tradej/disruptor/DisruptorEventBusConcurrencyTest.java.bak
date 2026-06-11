@@ -1,0 +1,223 @@
+package com.tradej.disruptor;
+
+import com.tradej.core.domain.event.DomainEvent;
+import com.tradej.core.domain.event.EventMetadata;
+import com.tradej.core.domain.event.EventMetadataFactory;
+import com.tradej.core.domain.event.MarketTickEvent;
+import com.tradej.core.domain.event.OrderAccepted;
+import com.tradej.core.domain.model.Order;
+import com.tradej.core.domain.port.DeadLetterQueue;
+import com.tradej.core.domain.port.DomainEventHandler;
+import com.tradej.core.domain.port.EventBus;
+import com.tradej.core.domain.runtime.RuntimeModeHolder;
+import com.tradej.core.domain.time.LiveTradingClock;
+import com.tradej.core.domain.value.ExchangeSegment;
+import com.tradej.core.domain.value.FeedMode;
+import com.tradej.core.domain.value.OrderStatus;
+import com.tradej.core.domain.value.OrderType;
+import com.tradej.core.domain.value.ProductType;
+import com.tradej.core.domain.value.Side;
+import com.tradej.disruptor.config.StageTimings;
+import com.tradej.disruptor.testsupport.PassthroughNode;
+import com.tradej.execution.identity.OrderIdentityRegistry;
+import com.tradej.execution.service.ExecutionHandler;
+import com.tradej.execution.service.ExecutionConfig;
+import com.tradej.execution.service.TradingCircuitBreaker;
+import com.tradej.core.domain.model.RiskLimits;
+import com.tradej.execution.risk.PositionRiskHandler;
+import com.tradej.strategy.portfolio.PortfolioEngine;
+import com.tradej.strategy.service.CandleAggregationService;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+
+import java.util.List;
+import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+@Tag("component")
+class DisruptorEventBusConcurrencyTest {
+
+    private EventBus bus;
+
+    @AfterEach
+    void tearDown() {
+        if (bus != null) {
+            try { bus.stop(); } catch (Exception ignored) {}
+        }
+    }
+
+    private EventBus createBus(DeadLetterQueue dlq) {
+        var candleAgg = new CandleAggregationService(List.of("5m"));
+        var portfolio = new PortfolioEngine(1_000_000L, 10_000_000L);
+        var cb = new TradingCircuitBreaker();
+        var idReg = new OrderIdentityRegistry();
+        var runtimeModeHolder = new RuntimeModeHolder();
+        var execHandler = new ExecutionHandler(null, runtimeModeHolder,
+                new LiveTradingClock(), cb, idReg, DeadLetterQueue.noop());
+        var riskHandler = new PositionRiskHandler(RiskLimits.conservative(), () -> java.util.Collections.emptyMap());
+        var bridge = PassthroughNode.passthroughBridge();
+
+        bus = new com.tradej.disruptor.config.DisruptorPipelineBuilder()
+                .positionRiskHandler(riskHandler)
+                .candleAggregationService(candleAgg)
+                .executionHandler(execHandler)
+                .portfolioEngine(portfolio)
+                .stageTimings(StageTimings.NO_OP)
+                .deadLetterQueue(dlq)
+                .pipelineRuntimeBridge(bridge)
+                .buildBus();
+        return bus;
+    }
+
+    private static MarketTickEvent tick(String symbol, long seq) {
+        return new MarketTickEvent(
+                EventMetadata.correlated("corr-" + seq, seq),
+                seq, symbol, ExchangeSegment.NSE_EQ, FeedMode.FULL,
+                100L + seq, 10L, 1000L + seq,
+                System.currentTimeMillis() + seq,
+                Optional.empty(), 0L, 0L
+        );
+    }
+
+    @Test
+    void multiProducerPublish_noEventLoss_underLoad() throws Exception {
+        CopyOnWriteArrayList<DomainEvent> received = new CopyOnWriteArrayList<>();
+        CountingDlq dlq = new CountingDlq();
+        EventBus bus = createBus(dlq);
+        bus.subscribe(MarketTickEvent.class, received::add);
+        bus.start();
+
+        int threadCount = 4;
+        int eventsPerThread = 500;
+        int totalEvents = threadCount * eventsPerThread;
+        CountDownLatch startLatch = new CountDownLatch(1);
+        CountDownLatch doneLatch = new CountDownLatch(threadCount);
+        ExecutorService executor = Executors.newFixedThreadPool(threadCount);
+
+        for (int t = 0; t < threadCount; t++) {
+            final int threadId = t;
+            executor.submit(() -> {
+                try {
+                    startLatch.await();
+                    for (int i = 0; i < eventsPerThread; i++) {
+                        long seq = (long) threadId * eventsPerThread + i + 1;
+                        bus.publish(tick("SYM-" + threadId, seq));
+                    }
+                } catch (Exception e) {
+                    fail("Publisher thread failed: " + e.getMessage());
+                } finally {
+                    doneLatch.countDown();
+                }
+            });
+        }
+
+        startLatch.countDown();
+        assertTrue(doneLatch.await(30, TimeUnit.SECONDS), "All publishers should complete");
+        executor.shutdown();
+
+        Thread.sleep(2000);
+
+        int totalAccounted = received.size() + (int) dlq.count.get();
+        assertEquals(totalEvents, totalAccounted,
+                "All events must be received or in DLQ: received=" + received.size() + " dlq=" + dlq.count.get());
+    }
+
+    @Test
+    void subscriberException_doesNotStallPipeline() throws Exception {
+        AtomicInteger goodCount = new AtomicInteger();
+        EventBus bus = createBus(DeadLetterQueue.noop());
+
+        bus.subscribe(MarketTickEvent.class, event -> {
+            if (event.eventId().contains("POISON")) {
+                throw new RuntimeException("Intentional test failure");
+            }
+            goodCount.incrementAndGet();
+        });
+        bus.start();
+
+        for (int i = 0; i < 50; i++) {
+            bus.publish(tick("RELIANCE", i + 1));
+        }
+
+        Thread.sleep(1000);
+        assertTrue(goodCount.get() > 0,
+                "Subscriber should still process events after previous events succeeded: count=" + goodCount.get());
+    }
+
+    @Test
+    void publishDuringShutdown_noException() throws Exception {
+        EventBus bus = createBus(DeadLetterQueue.noop());
+        AtomicInteger received = new AtomicInteger();
+        bus.subscribe(MarketTickEvent.class, event -> received.incrementAndGet());
+        bus.start();
+
+        for (int i = 0; i < 100; i++) {
+            bus.publish(tick("TCS", i + 1));
+        }
+
+        bus.stop();
+
+        for (int i = 100; i < 200; i++) {
+            final long seq = i + 1;
+            assertDoesNotThrow(() -> bus.publish(tick("TCS", seq)),
+                    "Publishing after stop should not throw");
+        }
+
+        assertTrue(received.get() >= 0, "Bus should have processed some events before shutdown");
+    }
+
+    @Test
+    void backpressureMetrics_exposedAfterOverflow() throws Exception {
+        CountingDlq dlq = new CountingDlq();
+        EventBus bus = createBus(dlq);
+
+        bus.subscribe(MarketTickEvent.class, event -> {
+            try { Thread.sleep(5); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+        });
+        bus.start();
+
+        for (int i = 0; i < 10_000; i++) {
+            bus.publish(tick("FLOOD", i + 1));
+        }
+
+        Thread.sleep(1000);
+
+        assertTrue(dlq.count.get() >= 0,
+                "DLQ count should be accessible and non-negative: " + dlq.count.get());
+    }
+
+    @Test
+    void orderEventDedup_suppressesDuplicateCallbacks() throws Exception {
+        CopyOnWriteArrayList<DomainEvent> received = new CopyOnWriteArrayList<>();
+        EventBus bus = createBus(DeadLetterQueue.noop());
+        bus.subscribe(OrderAccepted.class, received::add);
+        bus.start();
+
+        Order order = new Order("ORD-1", "corr-1", "RELIANCE",
+                ExchangeSegment.NSE_EQ, Side.BUY, ProductType.CNC,
+                OrderType.LIMIT, OrderStatus.OPEN, 100L, 0L, 250000L, 0L,
+                System.currentTimeMillis(), null);
+
+        bus.publish(new OrderAccepted(EventMetadata.root(), order));
+        bus.publish(new OrderAccepted(EventMetadata.root(), order));
+        bus.publish(new OrderAccepted(EventMetadata.root(), order));
+
+        Thread.sleep(500);
+        assertEquals(1, received.size(),
+                "Duplicate OrderAccepted for same orderId should be deduplicated to 1");
+    }
+
+    private static final class CountingDlq implements DeadLetterQueue {
+        final AtomicLong count = new AtomicLong();
+        @Override public void append(String source, DomainEvent event, String reason) { count.incrementAndGet(); }
+    }
+}

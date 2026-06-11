@@ -204,6 +204,11 @@ public final class UpstoxBrokerConnection implements IBrokerConnection {
     }
 
     @Override
+    public com.tradej.broker.api.spi.BrokerSource source() {
+        return com.tradej.broker.api.spi.BrokerSource.UPSTOX;
+    }
+
+    @Override
     public <T> Optional<T> getCapability(Class<T> capabilityClass) {
         if (capabilityClass == null) {
             return Optional.empty();

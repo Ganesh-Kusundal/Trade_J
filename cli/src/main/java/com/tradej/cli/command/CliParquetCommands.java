@@ -8,6 +8,9 @@ import com.tradej.historical.ingest.canonical.ParquetHistoricalDataStore;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
+import picocli.CommandLine.ParentCommand;
+
+import com.tradej.cli.TradeCli;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -28,6 +31,8 @@ import java.util.concurrent.Callable;
                 CliParquetCommands.SyncCmd.class
         })
 public final class CliParquetCommands implements Callable<Integer> {
+
+    @ParentCommand TradeCli root;
 
     private static final Path DEFAULT_DATA_ROOT = Path.of("data");
 
@@ -277,10 +282,11 @@ public final class CliParquetCommands implements Callable<Integer> {
 
     @Command(name = "sync", description = "Sync missing equity data from broker API (requires Dhan credentials)")
     static final class SyncCmd implements Callable<Integer> {
+        @ParentCommand CliParquetCommands parent;
         @Option(names = "--from", required = true) LocalDate from;
         @Option(names = "--to", required = true) LocalDate to;
         @Option(names = "--segment", defaultValue = "NSE_EQ") String segment;
-        @Option(names = "--data-root", defaultValue = "data") Path dataRoot;
+        @Option(names = "--data-root", defaultValue = "data/historical-equity") Path dataRoot;
         @Option(names = "--dry-run", description = "Show sync plan without executing") boolean dryRun;
 
         @Override
@@ -288,47 +294,58 @@ public final class CliParquetCommands implements Callable<Integer> {
             TradingCalendarStore calendar = new TradingCalendarStore();
             var exchangeSegment = com.tradej.core.domain.value.ExchangeSegment.valueOf(segment);
             List<LocalDate> tradingDays = calendar.tradingDays(exchangeSegment, from, to);
-            Path barsRoot = CanonicalPaths.barsRoot(dataRoot);
 
             System.out.println("=== Sync Plan ===");
             System.out.println("  Segment:       " + segment);
             System.out.println("  Range:         " + from + " → " + to);
             System.out.println("  Trading days:  " + tradingDays.size());
 
-            try (CanonicalBarQuery query = new CanonicalBarQuery(barsRoot)) {
-                List<String> symbols = query.availableSymbols(segment, "1m");
-                System.out.println("  Symbols:       " + symbols.size());
+            List<String> symbols;
+            try {
+                symbols = listSymbolsFromDisk(dataRoot.resolve("bars"));
+            } catch (Exception ex) {
+                System.out.println("ERROR: " + ex.getMessage());
+                return 1;
+            }
+            System.out.println("  Symbols:       " + symbols.size());
+            System.out.println("  API calls:     " + symbols.size() + " (90-day bulk windows)");
+            System.out.println("  Est. time:     ~" + (symbols.size() / 5) + "s");
 
-                List<LocalDate> missingDays = new java.util.ArrayList<>();
-                for (LocalDate day : tradingDays) {
-                    long fromMs = day.atStartOfDay(java.time.ZoneId.of("Asia/Kolkata")).toInstant().toEpochMilli();
-                    long toMs = day.plusDays(1).atStartOfDay(java.time.ZoneId.of("Asia/Kolkata")).toInstant().toEpochMilli() - 1;
-                    var rows = query.queryBars(symbols.getFirst(), segment, "1m", fromMs, toMs, 1);
-                    if (rows.isEmpty()) {
-                        missingDays.add(day);
-                    }
-                }
+            if (dryRun) {
+                System.out.println("\nDry run — no data fetched. Remove --dry-run to execute.");
+                return 0;
+            }
 
-                System.out.println("  Missing days:  " + missingDays.size());
-                if (!missingDays.isEmpty()) {
-                    System.out.println("  Dates:");
-                    for (LocalDate d : missingDays) {
-                        System.out.println("    " + d + " (" + d.getDayOfWeek() + ")");
-                    }
-                }
-                System.out.println("  Total fetches: " + (symbols.size() * missingDays.size()) + " API calls");
-                System.out.println("  Est. time:     ~" + (symbols.size() * missingDays.size() / 10) + " min (rate limited)");
-
-                if (dryRun) {
-                    System.out.println("\nDry run — no data fetched. Remove --dry-run to execute.");
-                    return 0;
-                }
-
-                System.out.println("\nTo execute sync, start the app with broker credentials and use:");
-                System.out.println("  POST /api/v1/admin/sync/sync?from=" + from + "&to=" + to);
-                System.out.println("Or run the IncrementalSyncService from the app context.");
+            System.out.println("\nStarting live sync via broker connection...");
+            try {
+                var brokerSession = parent.root.ops().context().broker();
+                brokerSession.ensureCatalogLoaded();
+                var marketData = brokerSession.connection().marketData();
+                var resolver = brokerSession.connection().instruments();
+                CliSyncRunner.run(marketData, resolver, dataRoot, from, to);
+            } catch (Exception ex) {
+                System.out.println("ERROR: Live sync requires a broker connection.");
+                System.out.println("  Run with: --broker dhan --profile local");
+                System.out.println("  Error: " + ex.getMessage());
+                return 1;
             }
             return 0;
+        }
+
+        private static List<String> listSymbolsFromDisk(Path barsRoot) throws Exception {
+            Path intervalDir = barsRoot.resolve("interval=1m");
+            if (!Files.isDirectory(intervalDir)) {
+                return List.of();
+            }
+            try (var stream = Files.list(intervalDir)) {
+                return stream
+                        .filter(Files::isDirectory)
+                        .map(p -> p.getFileName().toString())
+                        .filter(name -> name.startsWith("symbol="))
+                        .map(name -> name.substring("symbol=".length()))
+                        .sorted()
+                        .toList();
+            }
         }
     }
 }

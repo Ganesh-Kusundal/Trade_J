@@ -157,9 +157,10 @@ class DesignPatternArchitectureTest {
 
     @Test
     void brokerPluginRegistryExists() {
+        // After Phase 1 SPI migration, BrokerPluginRegistry moved to broker-api.spi
         classes()
                 .that().haveSimpleName("BrokerPluginRegistry")
-                .should().resideInAPackage("com.tradej.brokergateway.spi..")
+                .should().resideInAPackage("com.tradej.broker.api.spi..")
                 .allowEmptyShould(false)
                 .check(allClasses);
     }

@@ -74,7 +74,7 @@ public final class DuckDbQueryEngine implements AutoCloseable {
      * {@code register()} call fails, any partial DDL changes are rolled back
      * and the engine remains usable for further operations.
      */
-    public void registerDatasource(String name, MarketDatasource ds) {
+    public synchronized void registerDatasource(String name, MarketDatasource ds) {
         try {
             ds.register(connection, name);
             datasources.put(name, ds);
@@ -87,7 +87,7 @@ public final class DuckDbQueryEngine implements AutoCloseable {
     /**
      * Execute a SQL query and return the result as a {@link QueryResult}.
      */
-    public QueryResult execute(String sql) {
+    public synchronized QueryResult execute(String sql) {
         long start = System.currentTimeMillis();
         try (Statement stmt = connection.createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
@@ -122,7 +122,7 @@ public final class DuckDbQueryEngine implements AutoCloseable {
     /**
      * Execute a DDL or DML statement (CREATE, INSERT, DROP, etc.) that does not return a result set.
      */
-    public void executeUpdate(String sql) {
+    public synchronized void executeUpdate(String sql) {
         try (Statement stmt = connection.createStatement()) {
             stmt.executeUpdate(sql);
         } catch (SQLException e) {

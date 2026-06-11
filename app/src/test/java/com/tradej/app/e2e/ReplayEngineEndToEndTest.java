@@ -140,37 +140,41 @@ class ReplayEngineEndToEndTest {
 
     @Test
     void replayClockAdvancesToNewTimestamp() {
-        replayClock.advanceTo(1000000L);
+        long start = System.currentTimeMillis() + 1_000_000L;
+        replayClock.advanceTo(start);
 
-        assertThat(replayClock.currentTimeMs()).isEqualTo(1000000L);
+        assertThat(replayClock.currentTimeMs()).isEqualTo(start);
         assertThat(clockEvents).hasSize(1);
-        assertThat(clockEvents.get(0).currentTimeMs()).isEqualTo(1000000L);
+        assertThat(clockEvents.get(0).currentTimeMs()).isEqualTo(start);
     }
 
     @Test
     void replayClockAdvancesToHigherTimestamp() {
-        replayClock.advanceTo(1000000L);
-        replayClock.advanceTo(1005000L);
+        long start = System.currentTimeMillis() + 1_000_000L;
+        replayClock.advanceTo(start);
+        replayClock.advanceTo(start + 5_000L);
 
-        assertThat(replayClock.currentTimeMs()).isEqualTo(1005000L);
+        assertThat(replayClock.currentTimeMs()).isEqualTo(start + 5_000L);
         assertThat(clockEvents).hasSize(2);
-        assertThat(clockEvents.get(1).currentTimeMs()).isEqualTo(1005000L);
+        assertThat(clockEvents.get(1).currentTimeMs()).isEqualTo(start + 5_000L);
     }
 
     @Test
     void replayClockDoesNotAdvanceBackward() {
-        replayClock.advanceTo(1000000L);
-        replayClock.advanceTo(999000L);
+        long start = System.currentTimeMillis() + 1_000_000L;
+        replayClock.advanceTo(start);
+        replayClock.advanceTo(start - 1_000L);
 
-        assertThat(replayClock.currentTimeMs()).isEqualTo(1000000L);
+        assertThat(replayClock.currentTimeMs()).isEqualTo(start);
         assertThat(clockEvents).hasSize(1);
-        assertThat(clockEvents.get(0).currentTimeMs()).isEqualTo(1000000L);
+        assertThat(clockEvents.get(0).currentTimeMs()).isEqualTo(start);
     }
 
     @Test
     void replayClockSameTimestampDoesNotPublishDuplicate() {
-        replayClock.advanceTo(1000000L);
-        replayClock.advanceTo(1000000L);
+        long start = System.currentTimeMillis() + 1_000_000L;
+        replayClock.advanceTo(start);
+        replayClock.advanceTo(start);
 
         assertThat(clockEvents).hasSize(1);
     }
@@ -193,10 +197,12 @@ class ReplayEngineEndToEndTest {
 
     @Test
     void replayClockTimeChangedEventContainsSpeedNanos() {
+        long start = System.currentTimeMillis() + 2_000_000L;
         replayClock.setReplaySpeedNanos(3_000_000L);
-        replayClock.advanceTo(2000000L);
+        replayClock.advanceTo(start);
 
         assertThat(clockEvents).hasSize(1);
+        assertThat(clockEvents.get(0).currentTimeMs()).isEqualTo(start);
         assertThat(clockEvents.get(0).replaySpeedNanos()).isEqualTo(3_000_000L);
     }
 
@@ -262,9 +268,10 @@ class ReplayEngineEndToEndTest {
 
     @Test
     void replayClockMultipleAdvancesAreMonotonic() {
+        long start = System.currentTimeMillis() + 1_000_000L;
         List<Long> timestamps = new ArrayList<>();
-        for (long ts = 1000000L; ts <= 1004000L; ts += 1000L) {
-            replayClock.advanceTo(ts);
+        for (int i = 0; i < 5; i++) {
+            replayClock.advanceTo(start + i * 1_000L);
             timestamps.add(replayClock.currentTimeMs());
         }
 

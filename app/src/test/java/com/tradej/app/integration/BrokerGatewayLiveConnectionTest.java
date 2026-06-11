@@ -6,7 +6,7 @@ import com.tradej.brokergateway.BrokerGateway;
 import com.tradej.brokergateway.BrokerHandle;
 import com.tradej.brokergateway.explorer.BrokerExplorer;
 import com.tradej.brokergateway.explorer.BrokerInspectionReport;
-import com.tradej.brokergateway.result.BrokerSource;
+import com.tradej.broker.api.spi.BrokerSource;
 import com.tradej.brokergateway.result.GatewayResult;
 import com.tradej.core.domain.instrument.IndexSymbols;
 import com.tradej.core.domain.instrument.Instruments;

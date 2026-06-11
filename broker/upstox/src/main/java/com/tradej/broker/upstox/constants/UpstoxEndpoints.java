@@ -10,6 +10,7 @@ public final class UpstoxEndpoints {
     // ─── Auth ────────────────────────────────────────────────────────────────
     public static final String AUTH_DIALOG_PATH     = "/login/authorization/dialog";
     public static final String AUTH_TOKEN_PATH       = "/login/authorization/token";
+    public static final String TOKEN_REQUEST_V3_PATH = "/login/auth/token/request/";
     public static final String LOGOUT_PATH           = "/logout";
     public static final String USER_PROFILE_PATH     = "/user/profile";
 
@@ -23,6 +24,7 @@ public final class UpstoxEndpoints {
 
     // ─── WebSocket ─────────────────────────────────────────────────────────
     public static final String FEED_AUTHORIZE_PATH   = "/feed/market-data-feed/authorize";
+    public static final String FEED_AUTHORIZE_V3_FULL_URL = "https://api.upstox.com/v3/feed/market-data-feed/authorize";
     public static final String PORTFOLIO_STREAM_AUTHORIZE_PATH = "/feed/portfolio-stream-feed/authorize";
 
     // ─── Orders ──────────────────────────────────────────────────────────────

@@ -1,6 +1,6 @@
 package com.tradej.brokergateway.certification;
 
-import com.tradej.brokergateway.result.BrokerSource;
+import com.tradej.broker.api.spi.BrokerSource;
 
 import java.time.Duration;
 import java.util.List;

@@ -81,13 +81,6 @@ public final class DuckDbHistoricalWarehouse implements AutoCloseable {
         }
     }
 
-    private void dropLegacyTables(Connection conn) throws SQLException {
-        conn.createStatement().execute("drop view if exists rolling_option_bars_15m");
-        conn.createStatement().execute("drop table if exists download_tasks");
-        conn.createStatement().execute("drop table if exists download_jobs");
-        conn.createStatement().execute("drop table if exists rolling_option_bars");
-    }
-
     private void createCanonicalTables(Connection conn) throws SQLException {
         conn.createStatement().execute("""
                 create table if not exists rolling_option_bars (

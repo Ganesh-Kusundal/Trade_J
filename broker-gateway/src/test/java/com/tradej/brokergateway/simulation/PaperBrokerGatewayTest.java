@@ -4,7 +4,7 @@ import com.tradej.broker.api.IBrokerConnection;
 import com.tradej.brokergateway.BrokerGateway;
 import com.tradej.brokergateway.BrokerHandle;
 import com.tradej.brokergateway.MarketGateway;
-import com.tradej.brokergateway.result.BrokerSource;
+import com.tradej.broker.api.spi.BrokerSource;
 import com.tradej.brokergateway.result.GatewayResult;
 import com.tradej.core.domain.model.Candle;
 import com.tradej.core.domain.model.MarginEstimate;
@@ -158,7 +158,7 @@ class PaperBrokerGatewayTest {
     @Test
     void spiProviderCreatesWorkingConnection() {
         SimulationBrokerProvider provider = new SimulationBrokerProvider();
-        IBrokerConnection conn = provider.connect(null);
+        IBrokerConnection conn = provider.create(null);
         assertNotNull(conn);
         assertEquals(BrokerSource.SIMULATION, provider.source());
 

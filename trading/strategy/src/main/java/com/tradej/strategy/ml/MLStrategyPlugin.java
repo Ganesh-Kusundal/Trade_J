@@ -96,22 +96,12 @@ public final class MLStrategyPlugin implements GraphStrategyPlugin {
         String symbol = event.candle().symbol();
 
         // 1. Retrieve features for this symbol at the configured interval
-        Optional<FeatureVector> featuresOpt = featureStore.getFeatures(symbol, interval, lookback);
-        if (featuresOpt.isEmpty()) {
-            log.trace("Insufficient data for ML inference symbol={} interval={}", symbol, interval);
-            return Optional.empty();
-        }
-        FeatureVector features = featuresOpt.get();
+        return featureStore.getFeatures(symbol, interval, lookback)
+                .flatMap(features -> inferenceEngine.evaluate(features)
+                        .map(result -> toSignal(event, features, result)));
+    }
 
-        // 2. Run inference
-        Optional<InferenceResult> resultOpt = inferenceEngine.evaluate(features);
-        if (resultOpt.isEmpty()) {
-            log.trace("No ML signal for symbol={} interval={}", symbol, interval);
-            return Optional.empty();
-        }
-        InferenceResult result = resultOpt.get();
-
-        // 3. Convert InferenceResult → SignalGenerated
+    private SignalGenerated toSignal(CandleClosed event, FeatureVector features, InferenceResult result) {
         String signalId = UUID.randomUUID().toString();
         Map<String, Object> attrs = Map.of(
                 "confidence", result.confidence(),
@@ -133,8 +123,8 @@ public final class MLStrategyPlugin implements GraphStrategyPlugin {
         );
 
         log.info("ML signal generated plugin={} symbol={} side={} qty={} confidence={} setup={}",
-                name, symbol, result.side(), attrs.get("quantity"), result.confidence(), result.setup());
+                name, features.symbol(), result.side(), attrs.get("quantity"), result.confidence(), result.setup());
 
-        return Optional.of(signal);
+        return signal;
     }
 }

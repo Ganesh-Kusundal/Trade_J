@@ -7,6 +7,9 @@ import com.tradej.app.health.PagerDutyAlertChannel;
 import com.tradej.app.health.SlackAlertChannel;
 import com.tradej.app.health.WebhookAlertChannel;
 import com.tradej.broker.api.IBrokerConnection;
+import com.tradej.core.domain.port.EventBus;
+import com.tradej.core.domain.runtime.RuntimeBus;
+import com.tradej.core.domain.runtime.RuntimeBusHolder;
 import com.tradej.core.tracing.SpanFactory;
 import com.tradej.disruptor.DisruptorBusMetrics;
 import com.tradej.disruptor.config.StageTiming;
@@ -150,6 +153,8 @@ public class ObservabilityConfiguration {
             IBrokerConnection brokerConnection,
             ExecutionHandler executionHandler,
             DisruptorBusMetrics disruptorBusMetrics,
+            RuntimeBusHolder runtimeBusHolder,
+            EventBus eventBus,
             MarketDataPipeline marketDataPipeline,
             OrderPipeline orderPipeline,
             MeterRegistry meterRegistry,
@@ -172,6 +177,46 @@ public class ObservabilityConfiguration {
         Gauge.builder("instruments.catalog.size",
                         brokerConnection, conn -> conn.instruments().allInstruments().size())
                 .description("Number of instruments in the loaded catalog")
+                .register(meterRegistry);
+
+        Gauge.builder("event.bus.started",
+                        disruptorBusMetrics, metrics -> metrics.isStarted() ? 1.0 : 0.0)
+                .description("Whether the configured event bus is started")
+                .register(meterRegistry);
+
+        Gauge.builder("event.bus.runtime",
+                        runtimeBusHolder, holder -> holder.mode() == RuntimeBus.DISRUPTOR ? 1.0 : 0.0)
+                .description("Configured event bus runtime (1 = disruptor, 0 = simple)")
+                .register(meterRegistry);
+
+        Gauge.builder("event.bus.subscribers",
+                        disruptorBusMetrics, DisruptorBusMetrics::subscriberCount)
+                .description("Number of registered event subscribers")
+                .register(meterRegistry);
+
+        Gauge.builder("event.bus.dispatch.queue.depth",
+                        disruptorBusMetrics, DisruptorBusMetrics::dispatchQueueDepth)
+                .description("Configured event bus async dispatch queue depth")
+                .register(meterRegistry);
+
+        Gauge.builder("event.bus.dispatch.dropped_events",
+                        disruptorBusMetrics, DisruptorBusMetrics::dispatchDroppedEventCount)
+                .description("Configured event bus dispatch dropped events")
+                .register(meterRegistry);
+
+        Gauge.builder("event.bus.ring.buffer.remaining_capacity",
+                        disruptorBusMetrics, DisruptorBusMetrics::ringBufferRemainingCapacity)
+                .description("Configured event bus ring-buffer remaining capacity; zero for SimpleEventBus")
+                .register(meterRegistry);
+
+        Gauge.builder("event.bus.ring.buffer.size",
+                        disruptorBusMetrics, DisruptorBusMetrics::ringBufferSize)
+                .description("Configured event bus ring-buffer size; zero for SimpleEventBus")
+                .register(meterRegistry);
+
+        Gauge.builder("event.bus.instance",
+                        eventBus, bus -> bus instanceof com.tradej.core.domain.event.SimpleEventBus ? 1.0 : 2.0)
+                .description("Configured event bus implementation (1 = SimpleEventBus, 2 = DisruptorEventBus)")
                 .register(meterRegistry);
 
         // ── Execution queue ──

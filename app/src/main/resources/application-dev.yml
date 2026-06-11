@@ -6,7 +6,9 @@ spring:
 
 # ─── Dhan SANDBOX (default dev) ───────────────────────────────────────────────
 trade:
-  broker-type: dhan
+  broker-type: simulation
+  runtime:
+    bus: SIMPLE
 
   broker:
     client-id: ${dhan.sandbox.clientId}

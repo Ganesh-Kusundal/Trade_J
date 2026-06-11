@@ -19,6 +19,7 @@ import com.tradej.execution.identity.OrderIdentityRegistry;
 import com.tradej.execution.node.RiskNode;
 import com.tradej.execution.risk.PositionRiskHandler;
 import com.tradej.execution.service.ExecutionHandler;
+import com.tradej.execution.service.ExecutionConfig;
 import com.tradej.execution.service.TradingCircuitBreaker;
 import com.tradej.pipeline.clock.VirtualClock;
 import com.tradej.pipeline.graph.PipelineEdgeDef;
@@ -219,7 +220,8 @@ class DisruptorGraphReplayParityTest {
                 new com.tradej.core.domain.time.LiveTradingClock(),
                 new TradingCircuitBreaker(),
                 new OrderIdentityRegistry(),
-                DeadLetterQueue.noop()
+                DeadLetterQueue.noop(),
+                ExecutionConfig.DEFAULTS
         );
     }
 

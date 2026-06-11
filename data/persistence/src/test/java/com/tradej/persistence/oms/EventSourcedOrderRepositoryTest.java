@@ -96,8 +96,9 @@ class EventSourcedOrderRepositoryTest {
 
         OrderStateMachine sm = repo.rebuildStateMachine("ORD-3");
         assertNotNull(sm);
-        assertEquals(com.tradej.core.domain.oms.LifecycleState.PARTIALLY_FILLED, sm.currentStatus());
-        assertEquals(30, sm.filledQuantity());
+        var projection = sm.toProjection();
+        assertEquals(com.tradej.core.domain.oms.LifecycleState.PARTIALLY_FILLED, projection.status());
+        assertEquals(30, projection.filledQuantity());
         assertEquals(2_500_00L, sm.averagePricePaisa());
     }
 

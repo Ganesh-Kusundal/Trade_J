@@ -14,18 +14,25 @@ import com.tradej.composition.config.ScanProperties;
 import com.tradej.core.domain.event.DomainEvent;
 import com.tradej.core.domain.event.EventMetadataFactory;
 import com.tradej.core.domain.event.SimpleEventBus;
+import com.tradej.core.domain.port.DeadLetterQueue;
 import com.tradej.core.domain.port.EventBus;
+import com.tradej.core.domain.port.FeatureStore;
+import com.tradej.core.domain.runtime.RuntimeBus;
+import com.tradej.core.domain.runtime.RuntimeBusHolder;
 import com.tradej.core.domain.runtime.RuntimeModeHolder;
 import com.tradej.core.domain.time.LiveTradingClock;
 import com.tradej.core.domain.time.ReplayTradingClock;
 import com.tradej.core.domain.time.TradingClock;
 import com.tradej.disruptor.DisruptorBusMetrics;
+import com.tradej.disruptor.DisruptorEventBus;
 import com.tradej.disruptor.config.BrokerScopedEventBus;
 import com.tradej.execution.position.EventSourcedNetPositionProvider;
 import com.tradej.execution.readmodel.ReadModelStore;
 import com.tradej.execution.reconcile.OrderReconciler;
 import com.tradej.execution.reconcile.ReconciliationAlertLogger;
 import com.tradej.execution.service.OrderManagementService;
+import com.tradej.execution.service.ExecutionHandler;
+import com.tradej.execution.risk.PositionRiskHandler;
 import com.tradej.execution.subscription.SubscriptionCoordinator;
 import com.tradej.app.scanner.RuntimeSubscriptionManager;
 import com.tradej.feature.store.AsyncDuckDbWriter;
@@ -34,7 +41,12 @@ import com.tradej.hotpath.OrderPipeline;
 import com.tradej.persistence.chronicle.ChronicleAuditLogWriter;
 import com.tradej.persistence.duckdb.AsyncDuckDbEventStore;
 import com.tradej.pipeline.service.DagPipelineIngressBridge;
+import com.tradej.pipeline.runtime.PipelineRuntimeBridge;
 import com.tradej.replay.engine.PositionStateRebuilder;
+import com.tradej.strategy.portfolio.PortfolioEngine;
+import com.tradej.strategy.service.CandleAggregationService;
+import com.tradej.strategy.service.GraphStrategySandbox;
+import com.tradej.disruptor.config.StageTimings;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.Bean;
@@ -92,12 +104,54 @@ public class RuntimeAndStartupConfiguration {
         return holder;
     }
 
+    @Bean
+    RuntimeBusHolder runtimeBusHolder(TradingProperties properties) {
+        RuntimeBusHolder holder = new RuntimeBusHolder();
+        if (properties.runtime() != null) {
+            holder.setMode(properties.runtime().bus());
+        }
+        return holder;
+    }
+
     // ── Event bus ──
 
     @Lazy
     @Bean
     @Primary
-    EventBus eventBus() {
+    EventBus eventBus(
+            TradingProperties properties,
+            RuntimeBusHolder runtimeBusHolder,
+            PositionRiskHandler positionRiskHandler,
+            CandleAggregationService candleAggregationService,
+            GraphStrategySandbox graphStrategySandbox,
+            ExecutionHandler executionHandler,
+            PortfolioEngine portfolioEngine,
+            StageTimings stageTimings,
+            FeatureStore featureStore,
+            DeadLetterQueue deadLetterQueue,
+            PipelineRuntimeBridge pipelineRuntimeBridge
+    ) {
+        RuntimeBus bus = properties.runtime() == null ? RuntimeBus.SIMPLE : properties.runtime().bus();
+        runtimeBusHolder.setMode(bus);
+        if (bus == RuntimeBus.DISRUPTOR) {
+            DisruptorEventBus disruptorEventBus = new DisruptorEventBus(
+                    new com.tradej.disruptor.config.DisruptorPipelineConfig(
+                            positionRiskHandler,
+                            candleAggregationService,
+                            graphStrategySandbox,
+                            executionHandler,
+                            portfolioEngine,
+                            stageTimings,
+                            featureStore,
+                            deadLetterQueue,
+                            pipelineRuntimeBridge,
+                            true,
+                            properties.runtime() == null ? com.tradej.core.domain.runtime.RuntimeMode.LIVE : properties.runtime().mode(),
+                            com.tradej.core.domain.port.EventWriteAheadLog.noop()
+                    )
+            );
+            return disruptorEventBus;
+        }
         return new SimpleEventBus();
     }
 
@@ -122,6 +176,9 @@ public class RuntimeAndStartupConfiguration {
     @Lazy
     @Bean
     DisruptorBusMetrics disruptorBusMetrics(EventBus eventBus) {
+        if (eventBus instanceof DisruptorBusMetrics metrics) {
+            return metrics;
+        }
         if (eventBus instanceof SimpleEventBus simple) {
             return new SimpleBusMetrics(simple);
         }

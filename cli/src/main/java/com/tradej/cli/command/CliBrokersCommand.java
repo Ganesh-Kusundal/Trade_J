@@ -1,7 +1,7 @@
 package com.tradej.cli.command;
 
-import com.tradej.brokergateway.spi.BrokerDescriptor;
-import com.tradej.brokergateway.spi.BrokerProvider;
+import com.tradej.broker.api.spi.BrokerDescriptor;
+import com.tradej.broker.api.spi.BrokerProvider;
 import com.tradej.cli.TradeCli;
 import com.tradej.cli.output.Ansi;
 import com.tradej.cli.output.RichTable;

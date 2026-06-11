@@ -4,7 +4,7 @@ import com.tradej.brokergateway.certification.BrokerCertification;
 import com.tradej.brokergateway.certification.CertificationCheck;
 import com.tradej.brokergateway.certification.CertificationReport;
 import com.tradej.brokergateway.certification.CertificationStatus;
-import com.tradej.brokergateway.result.BrokerSource;
+import com.tradej.broker.api.spi.BrokerSource;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;

@@ -1,0 +1,48 @@
+{
+  "level": 2.5,
+  "name": "Gateway Certification",
+  "timestamp": "2026-06-10T07:02:12Z",
+  "overall": "PASS",
+  "components": {
+    "BrokerGateway": {
+      "status": "PASS",
+      "detail": "All gateway tests passed",
+      "tests": [
+        "BrokerGatewayTest",
+        "DefaultBrokerGatewayTest"
+      ]
+    },
+    "BrokerHandle": {
+      "status": "PASS",
+      "detail": "All handle tests passed",
+      "tests": [
+        "BrokerHandleTest",
+        "BrokerHandleInvokeTest",
+        "BrokerHandleAdvancedTest"
+      ]
+    },
+    "Capabilities": {
+      "status": "PASS",
+      "detail": "All capability tests passed",
+      "tests": [
+        "BrokerExplorerTest"
+      ]
+    },
+    "Extras": {
+      "status": "PASS",
+      "detail": "All extras tests passed",
+      "tests": [
+        "BrokerExtrasTest",
+        "BrokerHealthCheckTest",
+        "BrokerDescriptorTest"
+      ]
+    },
+    "Routing": {
+      "status": "PASS",
+      "detail": "All routing tests passed",
+      "tests": [
+        "BrokerRouterTest"
+      ]
+    }
+  }
+}

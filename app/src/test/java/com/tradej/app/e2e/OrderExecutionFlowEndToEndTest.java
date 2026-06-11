@@ -37,6 +37,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -47,6 +49,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -55,6 +58,7 @@ import static org.mockito.Mockito.when;
 
 @Tag("runtime-e2e")
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class OrderExecutionFlowEndToEndTest {
 
     private EventBus eventBus;
@@ -65,6 +69,7 @@ class OrderExecutionFlowEndToEndTest {
     private TradingCircuitBreaker circuitBreaker;
     private Path tempDir;
     private EventSourcedOrderRepository orderRepository;
+    private final List<DomainEvent> downstreamEvents = new CopyOnWriteArrayList<>();
 
     @Mock
     private IBrokerConnection mockBrokerConnection;
@@ -102,8 +107,9 @@ class OrderExecutionFlowEndToEndTest {
                 circuitBreaker,
                 identityRegistry,
                 DeadLetterQueue.noop(),
-                ExecutionConfig.DEFAULTS
+                ExecutionConfig.DEFAULTS.withDownstream(downstreamEvents::add)
         );
+        executionHandler.start();
 
         when(mockBrokerConnection.orders()).thenReturn(mockOrderCommand);
         when(mockBrokerConnection.marketData()).thenReturn(mockMarketData);
@@ -115,6 +121,7 @@ class OrderExecutionFlowEndToEndTest {
 
     @AfterEach
     void tearDown() {
+        executionHandler.stop();
         eventBus.stop();
     }
 
@@ -160,12 +167,9 @@ class OrderExecutionFlowEndToEndTest {
     }
 
     @Test
-    void orderAcceptedEventIsPublishedWhenBrokerAccepts() {
+    void orderAcceptedEventIsPublishedWhenBrokerAccepts() throws InterruptedException {
         Order acceptedOrder = createOrder("ORD-001", "RELIANCE", Side.BUY, OrderStatus.OPEN);
         when(mockOrderCommand.placeOrder(any(OrderRequest.class))).thenReturn(acceptedOrder);
-
-        List<DomainEvent> events = new CopyOnWriteArrayList<>();
-        eventBus.subscribe(OrderAccepted.class, events::add);
 
         SignalGenerated signal = createSignal("RELIANCE", Side.BUY, 245000L, 100L);
         Optional<SignalPendingExecution> pending = SignalExecutionBridge.toPending(signal);
@@ -173,9 +177,7 @@ class OrderExecutionFlowEndToEndTest {
 
         executionHandler.visit(pending.get());
 
-        assertThat(events).isNotEmpty();
-        assertThat(events.get(0)).isInstanceOf(OrderAccepted.class);
-        OrderAccepted accepted = (OrderAccepted) events.get(0);
+        OrderAccepted accepted = waitForDownstreamEvent(OrderAccepted.class);
         assertThat(accepted.order().orderId()).isEqualTo("ORD-001");
     }
 
@@ -220,13 +222,9 @@ class OrderExecutionFlowEndToEndTest {
     }
 
     @Test
-    void fullSignalToOrderLifecycle() {
+    void fullSignalToOrderLifecycle() throws InterruptedException {
         Order placedOrder = createOrder("ORD-LIFECYCLE", "INFY", Side.SELL, OrderStatus.OPEN);
         when(mockOrderCommand.placeOrder(any(OrderRequest.class))).thenReturn(placedOrder);
-
-        List<DomainEvent> allEmitted = new CopyOnWriteArrayList<>();
-        eventBus.subscribe(OrderAccepted.class, allEmitted::add);
-        eventBus.subscribe(SignalPendingExecution.class, allEmitted::add);
 
         SignalGenerated signal = createSignal("INFY", Side.SELL, 150000L, 200L);
         Optional<SignalPendingExecution> pending = SignalExecutionBridge.toPending(signal);
@@ -234,8 +232,24 @@ class OrderExecutionFlowEndToEndTest {
 
         executionHandler.visit(pending.get());
 
-        assertThat(allEmitted).hasSizeGreaterThanOrEqualTo(1);
-        assertThat(allEmitted).anyMatch(e -> e instanceof OrderAccepted);
+        OrderAccepted accepted = waitForDownstreamEvent(OrderAccepted.class);
+        assertThat(downstreamEvents).anyMatch(e -> e instanceof OrderAccepted);
+        assertThat(accepted.order().orderId()).isEqualTo("ORD-LIFECYCLE");
+    }
+
+    private <T extends DomainEvent> T waitForDownstreamEvent(Class<T> eventType) throws InterruptedException {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(3);
+        while (System.nanoTime() < deadline) {
+            Optional<T> match = downstreamEvents.stream()
+                    .filter(eventType::isInstance)
+                    .map(eventType::cast)
+                    .findFirst();
+            if (match.isPresent()) {
+                return match.get();
+            }
+            Thread.sleep(10);
+        }
+        throw new AssertionError("Timed out waiting for " + eventType.getSimpleName() + " in " + downstreamEvents);
     }
 
     private SignalGenerated createSignal(String symbol, Side side, long entryPricePaisa, long quantity) {

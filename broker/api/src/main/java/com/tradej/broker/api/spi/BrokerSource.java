@@ -9,7 +9,8 @@ public enum BrokerSource {
     DHAN,
     UPSTOX,
     ICICI,
-    SIMULATION;
+    SIMULATION,
+    BINANCE;
 
     public static BrokerSource parse(String name) {
         if (name == null || name.isBlank()) {

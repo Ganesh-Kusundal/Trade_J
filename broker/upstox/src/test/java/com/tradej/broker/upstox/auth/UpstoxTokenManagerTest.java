@@ -157,6 +157,80 @@ class UpstoxTokenManagerTest {
     }
 
     @Test
+    void upgradeFromWebhookReplacesToken() throws Exception {
+        Path tempFile = Files.createTempFile("token-state", ".json");
+        tempFile.toFile().deleteOnExit();
+
+        when(settings.accessToken()).thenReturn("old-token");
+        when(settings.refreshToken()).thenReturn("old-refresh");
+        when(settings.refreshBufferMs()).thenReturn(1_800_000L);
+        when(oauthClient.fetchProfile(anyString())).thenReturn(-1L);
+
+        UpstoxTokenManager manager = new UpstoxTokenManager(
+                oauthClient, settings,
+                new com.tradej.broker.core.auth.JsonTokenStateStore(tempFile)
+        );
+
+        // Bootstrap with old token
+        assertEquals("old-token", manager.bearerToken());
+
+        // Upgrade via webhook — expiry must be later than 3:30 AM IST fallback (~22h)
+        long futureExpiry = System.currentTimeMillis() + 86_400_000L;
+        manager.upgradeFromWebhook("new-webhook-token", futureExpiry);
+
+        assertEquals("new-webhook-token", manager.bearerToken());
+        TokenState state = manager.currentState();
+        assertNotNull(state);
+        assertEquals(TokenSource.OAUTH, state.source());
+        assertEquals(futureExpiry, state.expiryEpochMs());
+    }
+
+    @Test
+    void upgradeFromWebhookSkipsStaleToken() throws Exception {
+        Path tempFile = Files.createTempFile("token-state", ".json");
+        tempFile.toFile().deleteOnExit();
+
+        when(settings.accessToken()).thenReturn("current-token");
+        when(settings.refreshToken()).thenReturn("current-refresh");
+        when(settings.refreshBufferMs()).thenReturn(1_800_000L);
+        long farFuture = System.currentTimeMillis() + 72_000_000L;
+        when(oauthClient.fetchProfile(anyString())).thenReturn(farFuture);
+
+        UpstoxTokenManager manager = new UpstoxTokenManager(
+                oauthClient, settings,
+                new com.tradej.broker.core.auth.JsonTokenStateStore(tempFile)
+        );
+
+        // Bootstrap with current token that expires far in the future
+        assertEquals("current-token", manager.bearerToken());
+
+        // Try to upgrade with a token that expires sooner — should be skipped
+        long nearExpiry = System.currentTimeMillis() + 36_000_000L;
+        manager.upgradeFromWebhook("stale-webhook-token", nearExpiry);
+
+        // Original token should remain
+        assertEquals("current-token", manager.bearerToken());
+    }
+
+    @Test
+    void upgradeFromWebhookRejectsBlankToken() throws Exception {
+        Path tempFile = Files.createTempFile("token-state", ".json");
+        tempFile.toFile().deleteOnExit();
+
+        when(settings.refreshBufferMs()).thenReturn(1_800_000L);
+
+        UpstoxTokenManager manager = new UpstoxTokenManager(
+                oauthClient, settings,
+                new com.tradej.broker.core.auth.JsonTokenStateStore(tempFile)
+        );
+
+        assertThrows(IllegalArgumentException.class,
+                () -> manager.upgradeFromWebhook("", System.currentTimeMillis() + 3600_000L));
+        assertThrows(IllegalArgumentException.class,
+                () -> manager.upgradeFromWebhook("token", 0L));
+    }
+
+    @Test
     void performInteractiveOAuthReturnsTokenState() throws Exception {
         Path tempFile = Files.createTempFile("token-state", ".json");
         tempFile.toFile().deleteOnExit();

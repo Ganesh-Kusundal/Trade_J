@@ -1,6 +1,6 @@
 package com.tradej.cli.command;
 
-import com.tradej.brokergateway.spi.BrokerProvider;
+import com.tradej.broker.api.spi.BrokerProvider;
 import com.tradej.indicators.spi.IndicatorRegistry;
 
 import java.io.File;

@@ -94,6 +94,7 @@ public class LoadBalancedGatewayBenchmark {
         @Override public void disconnect() { }
         @Override public void loadInstrumentCatalog(Path catalogPath) { }
         @Override public OptionsProvider options() { return options; }
+        @Override public com.tradej.broker.api.spi.BrokerSource source() { return com.tradej.broker.api.spi.BrokerSource.SIMULATION; }
         @Override public <T> Optional<T> getCapability(Class<T> capabilityClass) {
             if (capabilityClass == OptionsProvider.class) return Optional.of(capabilityClass.cast(options));
             return Optional.empty();

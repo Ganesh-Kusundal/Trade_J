@@ -1,8 +1,19 @@
+plugins {
+    id 'com.google.protobuf' version '0.9.4'
+}
+
+protobuf {
+    protoc {
+        artifact = 'com.google.protobuf:protoc:4.31.1'
+    }
+}
+
 dependencies {
     api project(':broker-api')
     api project(':broker-core')
 
     implementation 'com.fasterxml.jackson.core:jackson-databind'
+    implementation 'com.google.protobuf:protobuf-java:4.31.1'
     implementation 'org.slf4j:slf4j-api'
     implementation 'org.springframework.boot:spring-boot-autoconfigure'
 

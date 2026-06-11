@@ -3,6 +3,7 @@ package com.tradej.cli.command;
 import com.tradej.cli.CliContext;
 import com.tradej.cli.config.CliConfig;
 import com.tradej.cli.output.OutputFormatter;
+import com.tradej.broker.api.port.OrderQuery;
 import com.tradej.core.domain.model.ModifyOrderRequest;
 import com.tradej.core.domain.model.Order;
 import com.tradej.core.domain.model.OrderRequest;
@@ -24,6 +25,10 @@ public final class CliTradingCommands extends CliCommandSupport {
 
     public CliTradingCommands(CliContext context, OutputFormatter out) {
         super(context, out);
+    }
+
+    CliTradingCommands(CliContext context, OutputFormatter out, OrderQuery orderQuery) {
+        super(context, out, orderQuery);
     }
 
     /** Place an order via the broker session (sandbox or live). */

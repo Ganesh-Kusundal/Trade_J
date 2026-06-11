@@ -23,7 +23,7 @@ public final class CliPluginsCommand implements Callable<Integer> {
     TradeCli root;
 
     private static final String[] KNOWN_SPIS = {
-            "com.tradej.brokergateway.spi.BrokerProvider",
+            "com.tradej.broker.api.spi.BrokerProvider",
             "com.tradej.indicators.spi.IndicatorProvider",
             "com.tradej.indicators.spi.TransformationProvider"
     };

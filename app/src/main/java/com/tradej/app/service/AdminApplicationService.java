@@ -1,6 +1,8 @@
 package com.tradej.app.service;
 
 import com.tradej.broker.api.IBrokerConnection;
+import com.tradej.core.domain.runtime.RuntimeBus;
+import com.tradej.core.domain.runtime.RuntimeMode;
 import com.tradej.execution.service.TradingCircuitBreaker;
 import org.springframework.stereotype.Service;
 
@@ -23,7 +25,8 @@ public class AdminApplicationService {
     }
 
     public Map<String, Object> getRuntimeStatus(boolean catalogLoaded, int catalogSize,
-                                                 boolean brokerPreflightPassed, boolean startupCompleted) {
+                                                 boolean brokerPreflightPassed, boolean startupCompleted,
+                                                 RuntimeMode runtimeMode, RuntimeBus runtimeBus) {
         Map<String, Object> status = new LinkedHashMap<>();
         status.put("websocketConnected", brokerConnection.websocket().isConnected());
         status.put("circuitBreakerOpen", tradingCircuitBreaker.isOpen());
@@ -32,6 +35,8 @@ public class AdminApplicationService {
         status.put("catalogSize", catalogSize);
         status.put("brokerPreflightPassed", brokerPreflightPassed);
         status.put("startupCompleted", startupCompleted);
+        status.put("runtimeMode", runtimeMode.name());
+        status.put("runtimeBus", runtimeBus.name());
         return status;
     }
 

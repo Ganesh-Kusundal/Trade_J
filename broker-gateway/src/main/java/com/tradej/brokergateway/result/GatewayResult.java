@@ -1,5 +1,7 @@
 package com.tradej.brokergateway.result;
 
+import com.tradej.broker.api.spi.BrokerSource;
+
 import java.time.Duration;
 import java.time.Instant;
 

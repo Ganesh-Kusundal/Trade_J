@@ -5,20 +5,16 @@ import com.tradej.core.domain.event.CandleDeveloping;
 import com.tradej.core.domain.event.DomainEvent;
 import com.tradej.core.domain.event.EventMetadata;
 import com.tradej.core.domain.event.MarketTickEvent;
-import com.tradej.core.domain.port.DeadLetterQueue;
+import com.tradej.core.domain.event.SimpleEventBus;
 import com.tradej.core.domain.port.DomainEventHandler;
 import com.tradej.core.domain.port.EventBus;
 import com.tradej.core.domain.value.ExchangeSegment;
 import com.tradej.core.domain.value.FeedMode;
-import com.tradej.core.domain.event.SimpleEventBus;
 import com.tradej.strategy.service.CandleAggregationService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
 import java.util.Optional;
@@ -29,14 +25,10 @@ import java.util.concurrent.TimeUnit;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @Tag("runtime-e2e")
-@ExtendWith(MockitoExtension.class)
 class MarketDataFlowEndToEndTest {
 
     private SimpleEventBus eventBus;
     private CandleAggregationService candleService;
-
-    @Mock
-    private DeadLetterQueue deadLetterQueue;
 
     private final List<MarketTickEvent> tickEvents = new CopyOnWriteArrayList<>();
     private final List<CandleDeveloping> candleDevelopingEvents = new CopyOnWriteArrayList<>();
@@ -148,12 +140,16 @@ class MarketDataFlowEndToEndTest {
         MarketTickEvent tick1 = createTick("WIPRO", 45000L, 100L, 100L, 1L);
         MarketTickEvent tick2 = createTick("WIPRO", 46000L, 200L, 300L, 2L);
 
+        eventBus.publish(tick1);
         candleService.onDomainEvent(tick1, eventBus::publish);
+        eventBus.publish(tick2);
         candleService.onDomainEvent(tick2, eventBus::publish);
 
-        assertThat(orderedEvents).hasSizeGreaterThanOrEqualTo(2);
-        assertThat(orderedEvents.get(0)).isInstanceOf(MarketTickEvent.class);
+        assertThat(orderedEvents).hasSize(4);
+        assertThat(orderedEvents.get(0)).isSameAs(tick1);
         assertThat(orderedEvents.get(1)).isInstanceOf(CandleDeveloping.class);
+        assertThat(orderedEvents.get(2)).isSameAs(tick2);
+        assertThat(orderedEvents.get(3)).isInstanceOf(CandleDeveloping.class);
     }
 
     @Test

@@ -65,6 +65,37 @@ public final class CanonicalBarQuery implements AutoCloseable {
         }
     }
 
+    public java.util.Set<Long> queryBarTimestamps(String symbol, String segment, String interval,
+                                                    long fromMs, long toMs) throws SQLException {
+        Path intervalDir = barsRoot
+                .resolve(CanonicalPaths.SEGMENT_HIVE + "=" + segment)
+                .resolve(CanonicalPaths.SYMBOL_HIVE + "=" + symbol)
+                .resolve(CanonicalPaths.INTERVAL_HIVE + "=" + interval);
+
+        if (!Files.isDirectory(intervalDir)) {
+            return java.util.Set.of();
+        }
+
+        String glob = intervalDir.toAbsolutePath().resolve("**").resolve("*.parquet")
+                .toString().replace("'", "''");
+
+        try (PreparedStatement ps = connection.prepareStatement("""
+                select distinct bar_time_ms
+                from read_parquet('%s', hive_partitioning=true)
+                where bar_time_ms >= ? and bar_time_ms <= ?
+                """.formatted(glob))) {
+            ps.setLong(1, fromMs);
+            ps.setLong(2, toMs);
+            try (ResultSet rs = ps.executeQuery()) {
+                java.util.Set<Long> timestamps = new java.util.HashSet<>();
+                while (rs.next()) {
+                    timestamps.add(rs.getLong(1));
+                }
+                return timestamps;
+            }
+        }
+    }
+
     public long countBars(String symbol, String segment, String interval) throws SQLException {
         Path intervalDir = barsRoot
                 .resolve(CanonicalPaths.SEGMENT_HIVE + "=" + segment)

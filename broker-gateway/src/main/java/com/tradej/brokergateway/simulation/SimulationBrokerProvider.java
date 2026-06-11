@@ -2,11 +2,10 @@ package com.tradej.brokergateway.simulation;
 
 import com.tradej.broker.api.IBrokerConnection;
 import com.tradej.broker.api.port.InstrumentResolver;
-import com.tradej.brokergateway.result.BrokerSource;
-import com.tradej.brokergateway.spi.BrokerDescriptor;
-import com.tradej.brokergateway.spi.BrokerProvider;
-import com.tradej.brokergateway.spi.CapabilityMetadata;
-import com.tradej.composition.config.BrokerProfile;
+import com.tradej.broker.api.spi.BrokerDescriptor;
+import com.tradej.broker.api.spi.BrokerProvider;
+import com.tradej.broker.api.spi.BrokerSource;
+import com.tradej.broker.api.spi.CapabilityMetadata;
 
 import java.util.List;
 import java.util.Map;
@@ -75,7 +74,7 @@ public final class SimulationBrokerProvider implements BrokerProvider {
     }
 
     @Override
-    public IBrokerConnection connect(BrokerProfile profile) {
+    public IBrokerConnection create(Map<String, Object> configuration) {
         return new PaperBrokerConnection();
     }
 }

@@ -2,7 +2,7 @@ package com.tradej.brokergateway;
 
 import com.tradej.broker.api.IBrokerConnection;
 import com.tradej.broker.api.port.InstrumentResolver;
-import com.tradej.brokergateway.result.BrokerSource;
+import com.tradej.broker.api.spi.BrokerSource;
 import com.tradej.brokergateway.result.GatewayResult;
 import com.tradej.brokergateway.result.ResultMetadata;
 import com.tradej.core.domain.instrument.IndexSymbols;

@@ -1,6 +1,6 @@
 package com.tradej.cli.command;
 
-import com.tradej.brokergateway.spi.BrokerProvider;
+import com.tradej.broker.api.spi.BrokerProvider;
 import com.tradej.cli.TradeCli;
 import com.tradej.cli.output.Ansi;
 import com.tradej.core.domain.event.EventCatalogEntry;

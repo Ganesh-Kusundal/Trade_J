@@ -1,11 +1,20 @@
 dependencies {
     implementation project(':core')
-    implementation project(':research-core')
-    implementation project(':research-lab')
     implementation project(':replay-engine')
     implementation project(':data-analytics')
+    implementation project(':data-persistence')
+    implementation project(':data-historical-ingest')
+    implementation 'org.springframework.ai:spring-ai-starter-mcp-server-webmvc:1.1.7'
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.slf4j:slf4j-api'
 
+    // Research modules are optional — enabled with -Presearch
+    if (hasProperty('research')) {
+        compileOnly project(':research-core')
+        compileOnly project(':research-lab')
+    }
+
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.mockito:mockito-core'
+    testImplementation 'org.mockito:mockito-junit-jupiter'
 }

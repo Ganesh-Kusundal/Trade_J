@@ -1,8 +1,11 @@
 package com.tradej.pipeline.runtime;
 
 import com.tradej.core.domain.event.DomainEvent;
+import com.tradej.core.domain.port.DeadLetterQueue;
 import com.tradej.pipeline.graph.PipelineGraph;
 import com.tradej.pipeline.graph.PipelineNodeDef;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -17,11 +20,19 @@ import java.util.Set;
  */
 public final class GraphRuntime {
 
+    private static final Logger log = LoggerFactory.getLogger(GraphRuntime.class);
+
     private final ExecutionPlan executionPlan;
     private final List<PipelineNode> ingressNodes;
+    private final DeadLetterQueue deadLetterQueue;
 
     public GraphRuntime(ExecutionPlan executionPlan, PipelineGraph originalGraph) {
+        this(executionPlan, originalGraph, DeadLetterQueue.noop());
+    }
+
+    public GraphRuntime(ExecutionPlan executionPlan, PipelineGraph originalGraph, DeadLetterQueue deadLetterQueue) {
         this.executionPlan = Objects.requireNonNull(executionPlan, "executionPlan cannot be null");
+        this.deadLetterQueue = deadLetterQueue == null ? DeadLetterQueue.noop() : deadLetterQueue;
         
         // Find ingress nodes (nodes with 0 in-degree: present in graph but not as edge targets)
         Set<String> targetIds = new HashSet<>();
@@ -56,7 +67,7 @@ public final class GraphRuntime {
             try {
                 ingressNode.onEvent(event);
             } catch (Exception e) {
-                // Robust logging to prevent pipeline crashes from external exceptions
+                handleNodeFailure("ingress", ingressNode, event, e);
             }
         }
     }
@@ -74,8 +85,18 @@ public final class GraphRuntime {
             try {
                 node.onEvent(event);
             } catch (Exception e) {
-                // Node-level errors are counted inside BasePipelineNode; continue pipeline.
+                handleNodeFailure("sequential", node, event, e);
             }
+        }
+    }
+
+    private void handleNodeFailure(String phase, PipelineNode node, DomainEvent event, Exception e) {
+        String nodeName = node.getClass().getSimpleName();
+        String reason = phase + " node failed: " + e.getMessage();
+        log.warn("Pipeline node failed phase={} node={} eventType={} reason={}",
+                phase, nodeName, event == null ? "null" : event.getClass().getSimpleName(), e.getMessage(), e);
+        if (event != null) {
+            deadLetterQueue.append("graph-runtime", event, reason);
         }
     }
 
@@ -95,7 +116,7 @@ public final class GraphRuntime {
             try {
                 node.destroy();
             } catch (Exception e) {
-                // ignore or log
+                log.warn("Pipeline node destroy failed node={}", node.getClass().getSimpleName(), e);
             }
         }
     }

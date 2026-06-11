@@ -26,14 +26,15 @@ public abstract class DefaultTokenLifecycleService implements TokenLifecycleServ
 
     private static final long FAILED_REFRESH_COOLDOWN_MS = 30_000L;
 
-    private final ReentrantLock lock = new ReentrantLock();
+    protected final ReentrantLock lock = new ReentrantLock();
     private final TokenStateStore stateStore;
     private final long refreshBufferMs;
     private final List<Runnable> expiryCallbacks = new CopyOnWriteArrayList<>();
     private final List<Runnable> refreshCallbacks = new CopyOnWriteArrayList<>();
-    private final AtomicLong lastFailedRefreshMs = new AtomicLong(0L);
+ private final AtomicLong lastFailedRefreshMs = new AtomicLong(0L);
+ private final AtomicLong tokenGeneration = new AtomicLong(0L);
 
-    private volatile TokenState currentState;
+    protected volatile TokenState currentState;
 
     protected DefaultTokenLifecycleService(TokenStateStore stateStore, long refreshBufferMs) {
         this.stateStore = stateStore;
@@ -145,6 +146,17 @@ public abstract class DefaultTokenLifecycleService implements TokenLifecycleServ
     protected void doRevoke(TokenState state) {
         // override if the broker supports token revocation
     }
+
+    /**
+     * Replaces the current token state atomically (used by webhook injection).
+     * Called under the write lock by subclasses.
+     */
+    protected void replaceState(TokenState newState) {
+        this.currentState = newState;
+        stateStore.save(newState);
+        notifyRefresh();
+    }
+
 
     private void notifyRefresh() {
         refreshCallbacks.forEach(Runnable::run);

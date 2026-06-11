@@ -2,16 +2,16 @@ package com.tradej.composition;
 
 import com.tradej.broker.api.IBrokerConnection;
 import com.tradej.broker.api.port.IdempotencyCachePort;
+import com.tradej.broker.api.spi.BrokerProvider;
+import com.tradej.broker.api.spi.BrokerRegistry;
+import com.tradej.broker.api.spi.BrokerSource;
+import com.tradej.broker.api.spi.ServiceLoaderBrokerRegistry;
 import com.tradej.broker.core.startup.BrokerLifecycleManager;
-import com.tradej.broker.dhan.DhanBrokerConnection;
-import com.tradej.broker.dhan.config.DhanConnectionSettings;
-import com.tradej.broker.upstox.config.UpstoxConnectionSettings;
 import com.tradej.composition.config.BrokerProfile;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.nio.file.Path;
-import java.util.Optional;
+import java.util.Map;
 
 public final class BrokerComposition {
 
@@ -35,57 +35,20 @@ public final class BrokerComposition {
         // Validate configuration before creating broker
         profile.validate();
         
-        IBrokerConnection connection = switch (profile.brokerType()) {
-            case DHAN, GATEWAY -> createDhan(profile.dhan(), idempotencyCache);
-            case UPSTOX -> createUpstox(profile.upstox());
-            case ICICI -> IciciBrokerFactory.create(profile.icici());
-        };
-        log.info("Created {} broker composition", profile.brokerType());
+        // Use SPI-based broker discovery via BrokerRegistry
+        BrokerRegistry registry = new ServiceLoaderBrokerRegistry();
+        BrokerSource source = BrokerSource.parse(profile.brokerType().name());
+        
+        BrokerProvider provider = registry.provider(source)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "No BrokerProvider found for broker type: " + profile.brokerType()));
+        
+        // Convert BrokerProfile to generic configuration map for SPI provider
+        Map<String, Object> config = profile.toGenericConfig();
+        
+        IBrokerConnection connection = provider.create(config);
+        log.info("Created {} broker composition via SPI provider: {}", profile.brokerType(), provider.displayName());
         return new BrokerComposition(profile, connection);
-    }
-
-    private static IBrokerConnection createDhan(
-            BrokerProfile.DhanConfig dhan,
-            IdempotencyCachePort idempotencyCache
-    ) {
-        DhanConnectionSettings settings = new DhanConnectionSettings(
-                dhan.clientId(),
-                dhan.accessToken(),
-                dhan.environment(),
-                dhan.restBaseUrl(),
-                false,
-                3,
-                5,
-                true,
-                true,
-                dhan.authMode(),
-                dhan.pinFile(),
-                dhan.totpSecretFile(),
-                dhan.tokenStateFile(),
-                dhan.refreshBufferMinutes(),
-                null,
-                false
-        );
-        IdempotencyCachePort cache = idempotencyCache != null ? idempotencyCache : new NoOpIdempotencyCache();
-        return new DhanBrokerConnection(settings, com.tradej.broker.dhan.constants.DhanProtocolConstants.defaultRateLimiter(), cache);
-    }
-
-    private static IBrokerConnection createUpstox(BrokerProfile.UpstoxConfig upstox) {
-        UpstoxConnectionSettings settings = new UpstoxConnectionSettings(
-                upstox.clientId(),
-                upstox.clientSecret(),
-                upstox.redirectUri(),
-                upstox.accessToken(),
-                upstox.refreshToken(),
-                upstox.analyticsToken(),
-                upstox.extendedToken(),
-                upstox.analyticsOnly(),
-                upstox.isSandbox(),
-                upstox.redirectServerPort(),
-                upstox.refreshBufferMs(),
-                upstox.tokenExpiryBufferMs()
-        );
-        return UpstoxBrokerFactory.create(settings, Path.of("runtime/upstox-token-state.json"));
     }
 
     public BrokerProfile profile() {
@@ -98,20 +61,5 @@ public final class BrokerComposition {
 
     public BrokerLifecycleManager lifecycleManager() {
         return lifecycleManager;
-    }
-
-    private static final class NoOpIdempotencyCache implements IdempotencyCachePort {
-        @Override
-        public Optional<com.tradej.core.domain.model.Order> get(String clientOrderId) {
-            return Optional.empty();
-        }
-
-        @Override
-        public void put(String clientOrderId, com.tradej.core.domain.model.Order order) {
-        }
-
-        @Override
-        public void remove(String clientOrderId) {
-        }
     }
 }

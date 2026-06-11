@@ -18,6 +18,11 @@ import com.tradej.broker.api.port.WebSocketMultiplexer;
 import com.tradej.broker.core.observability.ObservableMarketDataProvider;
 import com.tradej.broker.core.observability.ObservableOrderCommand;
 import com.tradej.broker.upstox.UpstoxBrokerConnection;
+import com.tradej.broker.upstox.auth.UpstoxBearerTokenSource;
+import com.tradej.broker.upstox.auth.UpstoxOAuthClient;
+import com.tradej.broker.upstox.auth.UpstoxTokenManager;
+import com.tradej.broker.upstox.config.UpstoxApiEnvironment;
+import com.tradej.broker.upstox.config.UpstoxBrokerConnectionFactory;
 import com.tradej.broker.upstox.config.UpstoxConnectionSettings;
 import com.tradej.broker.upstox.expired.UpstoxExpiredOptionMapper;
 import com.tradej.broker.upstox.expired.UpstoxExpiredOptionService;
@@ -80,7 +85,26 @@ public class UpstoxBrokerConfiguration {
     }
 
     @Bean
-    UpstoxBrokerConnection upstoxBrokerConnection(BrokerComposition upstoxBrokerComposition) {
+    UpstoxTokenManager upstoxTokenManager(UpstoxConnectionSettings settings) {
+        String baseUrl = settings.isSandbox()
+                ? UpstoxApiEnvironment.SANDBOX.baseUrl()
+                : UpstoxApiEnvironment.LIVE.baseUrl();
+        return UpstoxTokenManager.create(
+                new UpstoxOAuthClient(java.net.http.HttpClient.newHttpClient(), baseUrl),
+                settings,
+                java.nio.file.Path.of("runtime/upstox-token-state.json")
+        );
+    }
+
+    @Bean
+    UpstoxBrokerConnection upstoxBrokerConnection(
+            BrokerComposition upstoxBrokerComposition,
+            UpstoxConnectionSettings settings,
+            UpstoxTokenManager tokenManager
+    ) {
+        if (!settings.analyticsOnly()) {
+            return UpstoxBrokerConnectionFactory.create(settings, tokenManager);
+        }
         return (UpstoxBrokerConnection) upstoxBrokerComposition.brokerConnection();
     }
 

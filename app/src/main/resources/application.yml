@@ -1,6 +1,13 @@
 spring:
   application:
     name: trade-j
+  ai:
+    mcp:
+      server:
+        type: SYNC
+        protocol: SSE
+        annotation-scanner:
+          enabled: true
   profiles:
     default: dev
     # Active profiles:
@@ -11,8 +18,9 @@ spring:
     #   replay       — Offline replay mode, no live broker (application-replay.yml)
     #   test         — Integration tests with sandbox (application-test.yml)
     #
-    # To switch broker type, set trade.broker-type=upstox|icici|gateway
+    # To switch broker type, set trade.broker-type=dhan|upstox|icici|gateway|simulation
     # and provide the corresponding env vars (see application-prod.yml comments)
+    # simulation = paper trading mode, no broker credentials needed
 
 management:
   endpoints:
@@ -31,6 +39,7 @@ management:
       enabled: true
 
 trade:
+  broker-type: simulation
   broker:
     logging-enabled: false
     rate-limit-retries: 3
@@ -66,6 +75,7 @@ trade:
     max-net-exposure-paisa: 5000000
   runtime:
     mode: LIVE
+    bus: SIMPLE
   hot-path:
     shard-count: ${TRADE_HOTPATH_SHARD_COUNT:0}
   virtual-threads:
@@ -104,7 +114,7 @@ trade:
     equity-root: ${TRADE_HISTORICAL_EQUITY_ROOT:data/historical-equity}
     options-warehouse: ${TRADE_HISTORICAL_WAREHOUSE:runtime-dev/historical.duckdb}
     runtime-db-path: ${TRADE_STORAGE_DUCKDB:runtime-dev/trade.duckdb}
-    attach-runtime-db: ${TRADE_ANALYTICS_ATTACH_RUNTIME:false}
+    attach-runtime-db: ${TRADE_ANALYTICS_ATTACH_RUNTIME:true}
     sql-enabled: ${TRADE_ANALYTICS_SQL_ENABLED:true}
     sql-max-rows: ${TRADE_ANALYTICS_SQL_MAX_ROWS:10000}
     sql-max-runtime-ms: ${TRADE_ANALYTICS_SQL_MAX_RUNTIME_MS:30000}

@@ -21,6 +21,7 @@ import com.tradej.disruptor.config.StageTimings;
 import com.tradej.disruptor.testsupport.PassthroughNode;
 import com.tradej.execution.identity.OrderIdentityRegistry;
 import com.tradej.execution.service.ExecutionHandler;
+import com.tradej.execution.service.ExecutionConfig;
 import com.tradej.execution.service.TradingCircuitBreaker;
 import com.tradej.core.domain.model.RiskLimits;
 import com.tradej.execution.risk.PositionRiskHandler;
@@ -55,13 +56,17 @@ class DisruptorEventBusConcurrencyTest {
     }
 
     private EventBus createBus(DeadLetterQueue dlq) {
+        return createBus(dlq, ExecutionConfig.DEFAULTS);
+    }
+
+    private EventBus createBus(DeadLetterQueue dlq, ExecutionConfig config) {
         var candleAgg = new CandleAggregationService(List.of("5m"));
         var portfolio = new PortfolioEngine(1_000_000L, 10_000_000L);
         var cb = new TradingCircuitBreaker();
         var idReg = new OrderIdentityRegistry();
         var runtimeModeHolder = new RuntimeModeHolder();
         var execHandler = new ExecutionHandler(null, runtimeModeHolder,
-                new LiveTradingClock(), cb, idReg, DeadLetterQueue.noop());
+                new LiveTradingClock(), cb, idReg, DeadLetterQueue.noop(), config);
         var riskHandler = new PositionRiskHandler(RiskLimits.conservative(), () -> java.util.Collections.emptyMap());
         var bridge = PassthroughNode.passthroughBridge();
 
@@ -133,7 +138,7 @@ class DisruptorEventBusConcurrencyTest {
     @Test
     void subscriberException_doesNotStallPipeline() throws Exception {
         AtomicInteger goodCount = new AtomicInteger();
-        EventBus bus = createBus(DeadLetterQueue.noop());
+        EventBus bus = createBus(DeadLetterQueue.noop(), ExecutionConfig.DEFAULTS);
 
         bus.subscribe(MarketTickEvent.class, event -> {
             if (event.eventId().contains("POISON")) {
@@ -154,7 +159,7 @@ class DisruptorEventBusConcurrencyTest {
 
     @Test
     void publishDuringShutdown_noException() throws Exception {
-        EventBus bus = createBus(DeadLetterQueue.noop());
+        EventBus bus = createBus(DeadLetterQueue.noop(), ExecutionConfig.DEFAULTS);
         AtomicInteger received = new AtomicInteger();
         bus.subscribe(MarketTickEvent.class, event -> received.incrementAndGet());
         bus.start();
@@ -197,7 +202,7 @@ class DisruptorEventBusConcurrencyTest {
     @Test
     void orderEventDedup_suppressesDuplicateCallbacks() throws Exception {
         CopyOnWriteArrayList<DomainEvent> received = new CopyOnWriteArrayList<>();
-        EventBus bus = createBus(DeadLetterQueue.noop());
+        EventBus bus = createBus(DeadLetterQueue.noop(), ExecutionConfig.DEFAULTS);
         bus.subscribe(OrderAccepted.class, received::add);
         bus.start();
 
