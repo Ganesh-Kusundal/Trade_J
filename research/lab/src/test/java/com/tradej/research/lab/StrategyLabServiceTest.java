@@ -96,7 +96,7 @@ public class StrategyLabServiceTest {
         };
 
         // 4. Create StrategyLabService and execute backtest
-        StrategyLabService labService = new StrategyLabService(mockEngine, researchStore);
+        StrategyLabService labService = new StrategyLabService(mockEngine, researchStore, new com.tradej.core.domain.service.PositionService());
         StrategyConfig config = StrategyConfig.create("SimpleBuy", "1.0", Map.of("param1", 10));
         UUID sessionId = UUID.randomUUID();
 

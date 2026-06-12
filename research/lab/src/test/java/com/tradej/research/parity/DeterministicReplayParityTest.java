@@ -98,7 +98,7 @@ public class DeterministicReplayParityTest {
         };
 
         // 5. Execute Run A ("Live Simulation")
-        StrategyLabService liveLabService = new StrategyLabService(mockEngine, researchStore);
+        StrategyLabService liveLabService = new StrategyLabService(mockEngine, researchStore, new com.tradej.core.domain.service.PositionService());
         StrategyConfig config = StrategyConfig.create("ParityStrategy", "1.0", Map.of("threshold", 0.05));
         UUID sessionA = UUID.randomUUID();
 
