@@ -11,6 +11,7 @@ import com.tradej.core.domain.event.TradeOpened;
 import com.tradej.core.domain.model.OrderRequest;
 import com.tradej.core.domain.model.RiskLimits;
 import com.tradej.core.domain.port.NetPositionProvider;
+import com.tradej.core.domain.service.PositionService;
 import com.tradej.core.domain.value.Side;
 import com.tradej.execution.bridge.SignalExecutionBridge;
 import com.tradej.strategy.portfolio.PortfolioEngine;
@@ -62,6 +63,31 @@ public final class PositionRiskHandler implements DomainEventVisitor {
             PortfolioEngine portfolioEngine
     ) {
         this(limits, netPositionProvider, portfolioEngine, null, null);
+    }
+
+    /**
+     * P3.3: primary constructor that takes the canonical {@link PositionService}
+     * (the event-sourced position source from {@code FullComposition}). The
+     * {@code PositionService} is also a {@link NetPositionProvider} so all existing
+     * risk-check code continues to work unchanged.
+     */
+    public PositionRiskHandler(
+            RiskLimits limits,
+            PositionService positionService,
+            PortfolioEngine portfolioEngine,
+            MarginEnforcementHandler marginEnforcement,
+            KillSwitchCoordinator killSwitchCoordinator
+    ) {
+        this.riskLimits = Objects.requireNonNull(limits, "limits");
+        this.netPositionProvider = Objects.requireNonNull(positionService, "positionService");
+        this.portfolioEngine = portfolioEngine;
+        this.marginEnforcement = marginEnforcement;
+        this.killSwitchCoordinator = killSwitchCoordinator;
+        this.riskCheckChain = new RiskCheckChain(java.util.List.of(
+                new KillSwitchRiskCheck(),
+                new DailyLossRiskCheck(),
+                new PositionLimitRiskCheck()
+        ));
     }
 
     public PositionRiskHandler(

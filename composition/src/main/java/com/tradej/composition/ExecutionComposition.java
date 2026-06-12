@@ -5,7 +5,6 @@ import com.tradej.broker.api.port.MarginProvider;
 import com.tradej.broker.api.port.PortfolioProvider;
 import com.tradej.composition.config.RiskProfile;
 import com.tradej.core.domain.service.PositionService;
-import com.tradej.execution.position.EventSourcedNetPositionProvider;
 import com.tradej.execution.risk.KillSwitchCoordinator;
 import com.tradej.execution.risk.MarginEnforcementHandler;
 import com.tradej.execution.risk.PositionRiskHandler;
@@ -32,7 +31,6 @@ public final class ExecutionComposition {
 
     private final RiskProfile profile;
     private final PositionService positionService;
-    private final EventSourcedNetPositionProvider netPositionProvider;
     private final CaffeineIdempotencyCache idempotencyCache;
     private final MarginEnforcementHandler marginEnforcementHandler;
     private final KillSwitchCoordinator killSwitchCoordinator;
@@ -41,7 +39,6 @@ public final class ExecutionComposition {
     private ExecutionComposition(
             RiskProfile profile,
             PositionService positionService,
-            EventSourcedNetPositionProvider netPositionProvider,
             CaffeineIdempotencyCache idempotencyCache,
             MarginEnforcementHandler marginEnforcementHandler,
             KillSwitchCoordinator killSwitchCoordinator,
@@ -49,7 +46,6 @@ public final class ExecutionComposition {
     ) {
         this.profile = profile;
         this.positionService = positionService;
-        this.netPositionProvider = netPositionProvider;
         this.idempotencyCache = idempotencyCache;
         this.marginEnforcementHandler = marginEnforcementHandler;
         this.killSwitchCoordinator = killSwitchCoordinator;
@@ -80,7 +76,11 @@ public final class ExecutionComposition {
         Objects.requireNonNull(portfolioEngine, "portfolioEngine");
         Objects.requireNonNull(orderManagementService, "orderManagementService");
 
-        EventSourcedNetPositionProvider netPositionProvider = new EventSourcedNetPositionProvider();
+        // P3.3: PositionService is the canonical event-sourced position source.
+        // The legacy EventSourcedNetPositionProvider is no longer wired into
+        // the composition path — PositionRiskHandler now takes PositionService
+        // directly. The legacy class is still used by replay engine and
+        // broker startup orchestrator (separate consumers, not migrated yet).
         CaffeineIdempotencyCache idempotencyCache = new CaffeineIdempotencyCache();
 
         boolean enforceMargin = profile.enforceMargin();
@@ -97,9 +97,10 @@ public final class ExecutionComposition {
 
         KillSwitchCoordinator killSwitchCoordinator = new KillSwitchCoordinator(brokerConnection, orderManagementService);
 
+        // P3.3: pass PositionService (the canonical source) to PositionRiskHandler.
         PositionRiskHandler positionRiskHandler = new PositionRiskHandler(
                 profile.limits(),
-                netPositionProvider,
+                positionService,
                 portfolioEngine,
                 marginEnforcementHandler,
                 killSwitchCoordinator
@@ -111,7 +112,6 @@ public final class ExecutionComposition {
         return new ExecutionComposition(
                 profile,
                 positionService,
-                netPositionProvider,
                 idempotencyCache,
                 marginEnforcementHandler,
                 killSwitchCoordinator,
@@ -125,10 +125,6 @@ public final class ExecutionComposition {
 
     public PositionService positionService() {
         return positionService;
-    }
-
-    public EventSourcedNetPositionProvider netPositionProvider() {
-        return netPositionProvider;
     }
 
     public CaffeineIdempotencyCache idempotencyCache() {
