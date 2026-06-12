@@ -7,7 +7,7 @@ import com.tradej.broker.api.model.BrokerCapabilities;
 import com.tradej.composition.config.ScanProperties;
 import com.tradej.app.config.TradingProperties;
 import com.tradej.core.domain.port.EventBus;
-import com.tradej.execution.position.EventSourcedNetPositionProvider;
+import com.tradej.core.domain.service.PositionService;
 import com.tradej.execution.reconcile.OrderReconciler;
 import com.tradej.execution.reconcile.ReconciliationAlertLogger;
 import com.tradej.execution.readmodel.ReadModelStore;
@@ -23,6 +23,12 @@ import com.tradej.replay.engine.PositionStateRebuilder;
 /**
  * Aggregates all dependencies needed by {@link BrokerStartupOrchestrator}.
  * Replaces the previous 21-parameter method signature.
+ *
+ * <p>P3.4: the {@code netPositionProvider} field was renamed to {@code positionService}
+ * and retyped from {@code EventSourcedNetPositionProvider} to the canonical
+ * {@link PositionService}. Callers that need position state should use
+ * {@code PositionService} (which is a {@code NetPositionProvider} subtype
+ * for backward compat).
  */
 public record StartupDependencies(
         TradingProperties properties,
@@ -39,7 +45,7 @@ public record StartupDependencies(
         ReconciliationAlertLogger reconciliationAlertLogger,
         BrokerErrorTracker brokerErrorTracker,
         ReadModelStore readModelStore,
-        EventSourcedNetPositionProvider netPositionProvider,
+        PositionService positionService,
         DagPipelineIngressBridge dagPipelineIngressBridge,
         PositionStateRebuilder positionStateRebuilder,
         OrderManagementService orderManagementService,

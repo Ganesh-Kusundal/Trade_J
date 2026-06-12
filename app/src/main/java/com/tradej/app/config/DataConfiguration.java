@@ -176,7 +176,7 @@ public class DataConfiguration {
     ) {
         return new IsolatedReplayStateManager(
                 portfolioEngine,
-                fullComposition.executionComposition().netPositionProvider(),
+                fullComposition.executionComposition().positionService(),
                 fullComposition.executionComposition().positionRiskHandler(),
                 candleAggregationService,
                 readModelStore,

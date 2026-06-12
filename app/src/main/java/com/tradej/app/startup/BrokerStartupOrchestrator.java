@@ -35,7 +35,7 @@ import com.tradej.core.domain.event.TradeClosed;
 import com.tradej.core.domain.event.TradeOpened;
 import com.tradej.core.domain.model.InstrumentKey;
 import com.tradej.core.domain.port.EventBus;
-import com.tradej.execution.position.EventSourcedNetPositionProvider;
+import com.tradej.core.domain.service.PositionService;
 import com.tradej.execution.reconcile.OrderReconciler;
 import com.tradej.execution.reconcile.ReconciliationAlertLogger;
 import com.tradej.execution.service.OrderManagementService;
@@ -155,7 +155,7 @@ public final class BrokerStartupOrchestrator {
                 deps.asyncDuckDbEventStore(),
                 deps.brokerErrorTracker(),
                 deps.readModelStore(),
-                deps.netPositionProvider(),
+                deps.positionService(),
                 deps.reconciliationAlertLogger(),
                 deps.dagPipelineIngressBridge()
         );
@@ -311,7 +311,7 @@ public final class BrokerStartupOrchestrator {
             AsyncDuckDbEventStore asyncDuckDbEventStore,
             BrokerErrorTracker brokerErrorTracker,
             ReadModelStore readModelStore,
-            EventSourcedNetPositionProvider netPositionProvider,
+            PositionService positionService,
             ReconciliationAlertLogger reconciliationAlertLogger,
             DagPipelineIngressBridge dagPipelineIngressBridge
     ) {
@@ -332,8 +332,9 @@ public final class BrokerStartupOrchestrator {
         eventBus.subscribe(SignalGenerated.class, readModelStore::onDomainEvent);
         eventBus.subscribe(PnlUpdatedEvent.class, readModelStore::onDomainEvent);
 
-        eventBus.subscribe(TradeOpened.class, netPositionProvider::onDomainEvent);
-        eventBus.subscribe(TradeClosed.class, netPositionProvider::onDomainEvent);
+        // P3.4: PositionService is the canonical event-sourced position source.
+        eventBus.subscribe(TradeOpened.class, positionService::onDomainEvent);
+        eventBus.subscribe(TradeClosed.class, positionService::onDomainEvent);
 
         eventBus.subscribe(PositionMismatch.class, reconciliationAlertLogger::onEvent);
 

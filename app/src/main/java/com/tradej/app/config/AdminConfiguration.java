@@ -81,7 +81,7 @@ public class AdminConfiguration {
             EventBus eventBus,
             com.tradej.composition.FullComposition fullComposition
     ) {
-        return new ReconciliationScheduler(orderReconciler, eventBus, fullComposition.executionComposition().netPositionProvider());
+        return new ReconciliationScheduler(orderReconciler, eventBus, fullComposition.executionComposition().positionService());
     }
 
     @Bean

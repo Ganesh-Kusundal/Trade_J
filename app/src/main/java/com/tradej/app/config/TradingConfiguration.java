@@ -70,7 +70,7 @@ public class TradingConfiguration {
     ) {
         return new MarkToMarketRiskMonitor(
                 properties.risk().enforceUnrealizedLoss(),
-                fullComposition.executionComposition().netPositionProvider(),
+                fullComposition.executionComposition().positionService(),
                 properties.risk().maxDailyLossPaisa());
     }
 

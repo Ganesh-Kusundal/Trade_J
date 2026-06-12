@@ -8,7 +8,7 @@ import com.tradej.broker.api.model.BrokerCapabilities;
 import com.tradej.broker.api.port.InstrumentResolver;
 import com.tradej.broker.core.startup.BrokerLifecycleManager;
 import com.tradej.core.domain.port.EventBus;
-import com.tradej.execution.position.EventSourcedNetPositionProvider;
+import com.tradej.core.domain.service.PositionService;
 import com.tradej.execution.reconcile.OrderReconciler;
 import com.tradej.execution.reconcile.ReconciliationAlertLogger;
 import com.tradej.execution.readmodel.ReadModelStore;
@@ -102,7 +102,7 @@ class BrokerStartupOrchestratorTest {
                 mock(ReconciliationAlertLogger.class),
                 mock(BrokerErrorTracker.class),
                 mock(ReadModelStore.class),
-                mock(EventSourcedNetPositionProvider.class),
+                mock(PositionService.class),
                 mock(DagPipelineIngressBridge.class),
                 positionStateRebuilder,
                 orderManagementService,

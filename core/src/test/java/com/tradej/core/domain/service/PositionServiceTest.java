@@ -135,6 +135,55 @@ class PositionServiceTest {
         assertEquals(10_000L, svc.getRealizedPnlPaisa("SBIN"));
     }
 
+    // ── Snapshot / restore (P3.4) ───────────────────────────────────
+
+    @Test
+    void snapshotCapturesCurrentState() {
+        PositionService svc = new PositionService();
+        svc.onDomainEvent(open("t-1", "SBIN", Side.BUY, 10L, 100_000L));
+        svc.onDomainEvent(close("t-1", "SBIN", 110_000L, 10_000L, 5L));
+
+        var snap = svc.snapshot();
+        assertEquals(5L, snap.positions().get("SBIN").quantity());
+        assertEquals(100_000L, snap.positions().get("SBIN").averagePricePaisa());
+        assertEquals(10_000L, snap.realizedPnls().get("SBIN"));
+        assertEquals(5L, snap.openSizes().get("t-1"));
+    }
+
+    @Test
+    void restoreOverwritesCurrentState() {
+        PositionService svc = new PositionService();
+        svc.onDomainEvent(open("t-1", "SBIN", Side.BUY, 10L, 100_000L));
+        var snap = svc.snapshot();
+
+        // Corrupt the state
+        svc.onDomainEvent(open("t-2", "RELIANCE", Side.BUY, 5L, 200_000L));
+        assertEquals(2, svc.getPositions().size());
+
+        // Restore
+        svc.restore(snap);
+        assertEquals(1, svc.getPositions().size());
+        assertEquals(10L, svc.getNetPosition("SBIN"));
+        assertEquals(0L, svc.getNetPosition("RELIANCE"));
+    }
+
+    @Test
+    void snapshotAndRestorePreservesBufferedCloses() {
+        PositionService svc = new PositionService();
+
+        // Out-of-order: close arrives before open
+        svc.onDomainEvent(close("t-1", "SBIN", 110_000L, 10_000L, 10L));
+        var snap = svc.snapshot();
+
+        PositionService svc2 = new PositionService();
+        svc2.restore(snap);
+
+        // The buffered close is preserved across restore
+        svc2.onDomainEvent(open("t-1", "SBIN", Side.BUY, 10L, 100_000L));
+        assertEquals(0L, svc2.getNetPosition("SBIN"));
+        assertEquals(10_000L, svc2.getRealizedPnlPaisa("SBIN"));
+    }
+
     // ── Factories ──────────────────────────────────────────────────────
 
     private static TradeOpened open(String tradeId, String symbol, Side side,

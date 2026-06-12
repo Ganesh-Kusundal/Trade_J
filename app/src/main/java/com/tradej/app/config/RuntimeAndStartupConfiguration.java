@@ -235,7 +235,7 @@ public class RuntimeAndStartupConfiguration {
                 reconciliationAlertLogger,
                 brokerErrorTracker,
                 readModelStore,
-                fullComposition.executionComposition().netPositionProvider(),
+                fullComposition.executionComposition().positionService(),
                 dagPipelineIngressBridge,
                 positionStateRebuilder,
                 orderManagementService,

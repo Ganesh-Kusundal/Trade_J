@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -200,7 +201,46 @@ public final class PositionService implements NetPositionProvider {
                 getNetPosition(contribution.symbol()));
     }
 
-    // ── Internal state records ──────────────────────────────────────
+    // ── Snapshot / restore (for replay and persistence) ──────────────────
+
+    /**
+     * Captures a snapshot of all position state (per-symbol positions, open
+     * trade contributions, realized PnL, buffered closes). Used for replay
+     * boundary marking and persistence — P3.4 migrates DuckDB position
+     * persistence to use this snapshot via {@code PositionService}.
+     */
+    public StateSnapshot snapshot() {
+        return new StateSnapshot(
+                new java.util.HashMap<>(positions),
+                new java.util.HashMap<>(openContributions),
+                new java.util.HashMap<>(realizedPnls),
+                new java.util.HashMap<>(openSizes),
+                new java.util.HashMap<>(pendingCloses),
+                Set.copyOf(closedTradeIds)
+        );
+    }
+
+    /**
+     * Restores position state from a previously captured snapshot. Overwrites
+     * current state. Idempotent — safe to call multiple times.
+     */
+    public void restore(StateSnapshot state) {
+        if (state == null) {
+            return;
+        }
+        positions.clear();
+        positions.putAll(state.positions());
+        openContributions.clear();
+        openContributions.putAll(state.openContributions());
+        realizedPnls.clear();
+        realizedPnls.putAll(state.realizedPnls());
+        openSizes.clear();
+        openSizes.putAll(state.openSizes());
+        pendingCloses.clear();
+        pendingCloses.putAll(state.pendingCloses());
+        closedTradeIds.clear();
+        closedTradeIds.addAll(state.closedTradeIds());
+    }
 
     public record PositionState(long quantity, long averagePricePaisa) {}
 
@@ -209,5 +249,28 @@ public final class PositionService implements NetPositionProvider {
             com.tradej.core.domain.value.Side side,
             long size,
             long price) {
+    }
+
+    /**
+     * Serializable snapshot of all position state. P3.4 makes this the
+     * canonical persistence boundary for DuckDB position snapshots (replacing
+     * the per-trade event reconstruction in {@code EventSourcedNetPositionProvider}).
+     */
+    public record StateSnapshot(
+            Map<String, PositionState> positions,
+            Map<String, TradeContribution> openContributions,
+            Map<String, Long> realizedPnls,
+            Map<String, Long> openSizes,
+            Map<String, TradeClosed> pendingCloses,
+            Set<String> closedTradeIds
+    ) {
+        public StateSnapshot {
+            positions = Collections.unmodifiableMap(positions);
+            openContributions = Collections.unmodifiableMap(openContributions);
+            realizedPnls = Collections.unmodifiableMap(realizedPnls);
+            openSizes = Collections.unmodifiableMap(openSizes);
+            pendingCloses = Collections.unmodifiableMap(pendingCloses);
+            closedTradeIds = Set.copyOf(closedTradeIds);
+        }
     }
 }
