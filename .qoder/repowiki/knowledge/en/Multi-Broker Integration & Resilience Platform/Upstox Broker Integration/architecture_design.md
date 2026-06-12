@@ -1,0 +1,5 @@
+- Entry point: `UpstoxBrokerProvider` implements the `BrokerProvider` SPI, registered via `META-INF/services` for ServiceLoader discovery.
+- Connection facade: `UpstoxBrokerConnection` aggregates all capability providers (MarketData, Orders, Portfolio, etc.) and exposes them via `getCapability()`.
+- Factory pattern: `UpstoxBrokerConnectionFactory` wires internal adapters, REST clients, and WebSocket multiplexers into the connection object.
+- Layered structure: `rest` package contains low-level HTTP clients; `adapter` package maps domain models to Upstox API payloads; `auth` manages OAuth2/PKCE token lifecycle; `websocket` handles binary feed parsing and reconnection logic.
+- Dependency direction: Adapters depend on REST clients and mappers; REST clients depend on `UpstoxJsonHttpClient` which wraps authenticated HTTP calls.

@@ -39,6 +39,19 @@ public final class TickPriceChangeStrategy implements GraphStrategyPlugin {
     private final ConcurrentHashMap<String, TickState> symbolStates = new ConcurrentHashMap<>();
 
     /**
+     * No-arg constructor required by the {@link java.util.ServiceLoader} SPI
+     * so this plugin can be discovered via
+     * {@code META-INF/services/com.tradej.strategy.api.GraphStrategyPlugin}.
+     * The instance is a placeholder — the Spring container replaces it
+     * with a fully-wired one through {@code TradingConfiguration}.
+     */
+    public TickPriceChangeStrategy() {
+        this.name = "tick-price-change-placeholder";
+        this.thresholdPaisa = 0L;
+        this.cooldownMs = 0L;
+    }
+
+    /**
      * @param name           unique plugin name
      * @param thresholdPaisa minimum price change in paisa to trigger a signal
      * @param cooldownMs     minimum interval between signals for the same symbol

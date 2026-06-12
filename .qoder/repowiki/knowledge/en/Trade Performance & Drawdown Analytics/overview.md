@@ -1,0 +1,1 @@
+Computes performance statistics (Sharpe, Sortino, win rate) and drawdown metrics from trade records or equity curves.

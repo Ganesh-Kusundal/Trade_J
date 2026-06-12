@@ -1,0 +1,1 @@
+Spring Boot entry point and composition root for a multi-broker algorithmic trading platform, orchestrating startup, runtime event buses, and API exposure.

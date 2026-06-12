@@ -1,0 +1,4 @@
+- Command handlers extend `CliCommandSupport` to access shared context, output formatters, and broker sessions via protected methods.
+- Nested commands use the `@ParentCommand` annotation to access the root `TradeCli` instance and its `CliOperations`.
+- Standalone broker operations are guarded by `requireStandalone*()` checks in `CliCommandSupport` to prevent accidental execution in attach mode.
+- Output is handled via `OutputFormatter` which switches between pretty-printed tables and raw JSON based on the `--json` flag in `CliContext`.

@@ -221,7 +221,7 @@ class GatewayEventBridgeContractTest {
         OptionGreeks greeks = new OptionGreeks(0.55, -0.02, 0.01, 25.0, 0.18);
         GreeksComputed event = new GreeksComputed(EventMetadata.root(),
                 new com.tradej.core.domain.model.InstrumentKey("NIFTY25JUN24000CE", ExchangeSegment.IDX_I), greeks);
-        JsonNode json = publishAndCapture(event, GatewayTopic.STRATEGY_SIGNAL);
+        JsonNode json = publishAndCapture(event, GatewayTopic.GREEKS_UPDATE);
         assertEquals(0.55, json.get("delta").asDouble(), 0.001);
         assertEquals(0.01, json.get("gamma").asDouble(), 0.001);
     }
@@ -230,17 +230,14 @@ class GatewayEventBridgeContractTest {
     void maxPainPayload_containsStrike() throws Exception {
         MaxPainComputed event = new MaxPainComputed(EventMetadata.root(), "NIFTY",
                 LocalDate.of(2026, 6, 25), 2400000L, 50000000L);
-        JsonNode json = publishAndCapture(event, GatewayTopic.STRATEGY_SIGNAL);
+        JsonNode json = publishAndCapture(event, GatewayTopic.MAX_PAIN_UPDATE);
         assertEquals("NIFTY", json.get("underlying").asText());
         assertEquals(2400000L, json.get("maxPainStrikePaisa").asLong());
     }
 
     @Test
     void unknownEventType_silentlyIgnored() {
-        com.tradej.core.domain.event.DomainEvent unknown = new com.tradej.core.domain.event.DomainEvent() {
-            @Override public EventMetadata metadata() { return EventMetadata.root(); }
-            @Override public void accept(com.tradej.core.domain.event.DomainEventVisitor visitor) {}
-        };
+        com.tradej.core.domain.event.DomainEvent unknown = new com.tradej.core.domain.event.TestEvent();
         assertDoesNotThrow(() -> bridge.onDomainEvent(unknown));
     }
 }

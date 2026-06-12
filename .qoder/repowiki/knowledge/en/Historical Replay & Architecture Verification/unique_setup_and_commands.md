@@ -1,0 +1,1 @@
+Architecture tests are executed via the custom `architectureTest` Gradle task in `architecture-test/build.gradle`, which aggregates class outputs from all scanned modules and runs tests tagged with 'architecture'.

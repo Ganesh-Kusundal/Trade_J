@@ -46,6 +46,8 @@ public final class GraphStrategySandbox {
     private final long timeoutMs;
     private final PositionSizer positionSizer;
     private final EventMetadataFactory eventMetadataFactory;
+    private final com.tradej.strategy.observability.StrategyMetrics metrics =
+            new com.tradej.strategy.observability.StrategyMetrics();
 
     public GraphStrategySandbox(List<GraphStrategyPlugin> plugins, EventMetadataFactory eventMetadataFactory) {
         this(plugins, DEFAULT_TIMEOUT_MS, new DefaultPositionSizer(), eventMetadataFactory);
@@ -66,6 +68,11 @@ public final class GraphStrategySandbox {
         this.positionSizer = positionSizer != null ? positionSizer : new DefaultPositionSizer();
         this.eventMetadataFactory = eventMetadataFactory;
         this.plugins.forEach(GraphStrategyPlugin::onStart);
+    }
+
+    /** Per-strategy observability counters. */
+    public com.tradej.strategy.observability.StrategyMetrics metrics() {
+        return metrics;
     }
 
     /**
@@ -103,6 +110,7 @@ public final class GraphStrategySandbox {
                                         enrichedAttrs.put(ATTR_QUANTITY, computedQty);
                                     }
                                 }
+                                metrics.recordOk(pluginName, event.getClass().getSimpleName());
                                 downstream.accept(new SignalGenerated(
                                         signal.metadata(),
                                         signal.signalId(),
@@ -126,11 +134,13 @@ public final class GraphStrategySandbox {
                             if (cause instanceof TimeoutException) {
                                 detail = "Timed out after " + timeoutMs + "ms";
                                 log.warn("Graph strategy plugin {} timed out", pluginName);
+                                metrics.recordTimeout(pluginName, event.getClass().getSimpleName());
                             } else {
                                 detail = cause.getMessage() != null
                                         ? cause.getMessage()
                                         : cause.getClass().getSimpleName();
                                 log.error("Graph strategy plugin {} failed: {}", pluginName, detail, cause);
+                                metrics.recordError(pluginName, event.getClass().getSimpleName());
                             }
                             downstream.accept(new StrategyError(
                                     eventMetadataFactory.correlated(correlationId, correlationSeq),

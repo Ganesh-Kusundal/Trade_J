@@ -1,0 +1,8 @@
+schema_version: 1
+module_path: pipeline_system/pipeline_core
+title: Declarative Pipeline Execution Engine
+scope:
+    - pipeline/core/
+source_files: []
+depends_on: []
+related_to: []

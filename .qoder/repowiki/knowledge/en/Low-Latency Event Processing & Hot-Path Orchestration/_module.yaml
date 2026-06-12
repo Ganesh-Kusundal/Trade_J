@@ -1,0 +1,9 @@
+schema_version: 1
+module_path: runtime_infrastructure
+title: Low-Latency Event Processing & Hot-Path Orchestration
+scope:
+    - runtime/disruptor/
+    - runtime/hotpath/
+source_files: []
+depends_on: []
+related_to: []

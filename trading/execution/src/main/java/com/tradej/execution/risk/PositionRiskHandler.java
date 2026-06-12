@@ -83,6 +83,50 @@ public final class PositionRiskHandler implements DomainEventVisitor {
         ));
     }
 
+    /**
+     * Creates a new builder for {@link PositionRiskHandler}. Replaces constructor
+     * telescoping — required dependencies are non-null, optional ones are explicit.
+     */
+    public static Builder builder(RiskLimits limits, NetPositionProvider netPositionProvider) {
+        return new Builder(limits, netPositionProvider);
+    }
+
+    /**
+     * Fluent builder for {@link PositionRiskHandler}.
+     */
+    public static final class Builder {
+        private final RiskLimits limits;
+        private final NetPositionProvider netPositionProvider;
+        private PortfolioEngine portfolioEngine;
+        private MarginEnforcementHandler marginEnforcement;
+        private KillSwitchCoordinator killSwitchCoordinator;
+
+        private Builder(RiskLimits limits, NetPositionProvider netPositionProvider) {
+            this.limits = Objects.requireNonNull(limits, "limits");
+            this.netPositionProvider = Objects.requireNonNull(netPositionProvider, "netPositionProvider");
+        }
+
+        public Builder withPortfolioEngine(PortfolioEngine engine) {
+            this.portfolioEngine = engine;
+            return this;
+        }
+
+        public Builder withMarginEnforcement(MarginEnforcementHandler enforcement) {
+            this.marginEnforcement = enforcement;
+            return this;
+        }
+
+        public Builder withKillSwitchCoordinator(KillSwitchCoordinator coordinator) {
+            this.killSwitchCoordinator = coordinator;
+            return this;
+        }
+
+        public PositionRiskHandler build() {
+            return new PositionRiskHandler(limits, netPositionProvider, portfolioEngine,
+                    marginEnforcement, killSwitchCoordinator);
+        }
+    }
+
     public void onDomainEvent(DomainEvent event, Consumer<DomainEvent> publisher) {
         currentPublisher.set(publisher);
         try {

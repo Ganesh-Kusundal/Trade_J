@@ -1,23 +1,18 @@
-import { fetchJson } from "./client";
+import { orderApi } from "../generated/api";
 import type {
   PlaceOrderRequest,
   OrderResponse,
   OrderProjectionResponse,
-} from "./backend-contracts";
+} from "../generated/models";
 
 export function placeOrder(request: PlaceOrderRequest) {
-  return fetchJson<OrderResponse>("/orders", {
-    method: "POST",
-    body: JSON.stringify(request),
-  });
+  return orderApi.place(request) as Promise<OrderResponse>;
 }
 
-export function listOrders(status = "active") {
-  return fetchJson<OrderProjectionResponse[]>(`/orders?status=${status}`);
+export function listOrders(status: "active" | "all" = "active") {
+  return orderApi.list(status) as Promise<OrderProjectionResponse[]>;
 }
 
 export function cancelOrder(orderId: string) {
-  return fetchJson<{ orderId: string; cancelled: boolean }>(`/orders/${orderId}/cancel`, {
-    method: "POST",
-  });
+  return orderApi.cancel(orderId) as Promise<OrderResponse>;
 }

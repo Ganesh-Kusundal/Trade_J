@@ -1,0 +1,1 @@
+Scans historical intraday data to identify and rank institutional-quality stock candidates using multi-factor scoring, sector momentum, and candidate selection logic.

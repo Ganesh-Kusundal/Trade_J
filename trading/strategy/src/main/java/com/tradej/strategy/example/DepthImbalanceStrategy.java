@@ -42,6 +42,19 @@ public final class DepthImbalanceStrategy implements GraphStrategyPlugin {
     private final ConcurrentHashMap<String, DepthState> symbolStates = new ConcurrentHashMap<>();
 
     /**
+     * No-arg constructor required by the {@link java.util.ServiceLoader} SPI
+     * so this plugin can be discovered via
+     * {@code META-INF/services/com.tradej.strategy.api.GraphStrategyPlugin}.
+     * The instance is a placeholder — the Spring container replaces it
+     * with a fully-wired one through {@code TradingConfiguration}.
+     */
+    public DepthImbalanceStrategy() {
+        this.name = "depth-imbalance-placeholder";
+        this.imbalanceThreshold = 0.0;
+        this.cooldownMs = 0L;
+    }
+
+    /**
      * @param name               unique plugin name
      * @param imbalanceThreshold minimum bid/ask volume ratio to trigger a signal
      *                           (e.g., 2.0 means bids are 2x asks for BUY, or vice versa for SELL)

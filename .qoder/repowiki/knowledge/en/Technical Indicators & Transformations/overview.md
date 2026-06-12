@@ -1,0 +1,1 @@
+Provides a pluggable SPI for technical indicators and candle transformations, alongside a high-level engine for complex chart enrichment.

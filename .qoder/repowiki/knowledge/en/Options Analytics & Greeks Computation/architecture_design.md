@@ -1,0 +1,4 @@
+- **Entry Point**: `GreeksCalcNode` extends `BasePipelineNode`, consuming `OptionChainUpdated` domain events to trigger calculations.
+- **Core Logic**: Stateless utility classes (`BlackScholesCalculator`, `IVSolver`, `MaxPainCalculator`) perform numerical computations using Newton-Raphson methods and standard normal distributions.
+- **State Management**: `OptionsAnalyticsCache` uses Caffeine for short-lived (30s TTL) storage of computed Greeks and volatility surfaces, keyed by symbol, expiry, and strike.
+- **Integration**: Depends on `:core` for domain models (`OptionGreeks`, `OptionChainSnapshot`) and `:pipeline-core` for the event processing runtime. The module is currently excluded from the production build (`settings.gradle`) pending event wire-up.

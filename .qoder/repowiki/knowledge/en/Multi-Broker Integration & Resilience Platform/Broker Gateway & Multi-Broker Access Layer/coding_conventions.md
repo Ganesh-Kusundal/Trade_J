@@ -1,0 +1,4 @@
+- All broker operations in `BrokerHandle` return `GatewayResult<T>` to encapsulate data, latency, and source metadata.
+- Capability-gated features (e.g., Futures, Bracket Orders) are accessed via `support.requireCapability(Class, String)` which throws if unsupported.
+- Lazy initialization with double-checked locking is used for per-port handles (`MarketDataHandle`, `OrderHandle`, etc.) within `BrokerHandle`.
+- Broker-specific SPI implementations (e.g., `SimulationBrokerProvider`) are registered via Java `META-INF/services` files.

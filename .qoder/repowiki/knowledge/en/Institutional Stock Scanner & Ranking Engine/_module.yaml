@@ -1,0 +1,8 @@
+schema_version: 1
+module_path: trading_engine/institutional_scanner
+title: Institutional Stock Scanner & Ranking Engine
+scope:
+    - trading/institutional-scanner/
+source_files: []
+depends_on: []
+related_to: []

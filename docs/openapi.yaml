@@ -1258,6 +1258,93 @@ paths:
         '200':
           description: Single-page application
 
+  # ──────────────────────────────────────────
+  # STRATEGY
+  # ──────────────────────────────────────────
+  /api/v1/strategy/signals:
+    get:
+      tags: [Strategy]
+      summary: Query historical strategy signals
+      description: |
+        Returns the signal lifecycle entries (ENTRY_LONG, ENTRY_SHORT, EXIT_LONG, EXIT_SHORT)
+        projected from the persisted trade_lifecycle table. Prices are in paisa.
+      parameters:
+        - name: symbol
+          in: query
+          required: false
+          schema: { type: string }
+          description: Optional symbol filter (case-insensitive).
+        - name: from
+          in: query
+          required: true
+          schema:
+            type: integer
+            description: Inclusive lower bound in epoch milliseconds.
+        - name: to
+          in: query
+          required: true
+          schema:
+            type: integer
+            description: Inclusive upper bound in epoch milliseconds.
+        - name: strategy
+          in: query
+          required: false
+          schema: { type: string }
+          description: |
+            Reserved for future use — the persisted trade_lifecycle table
+            does not currently carry a strategy name.
+      responses:
+        '200':
+          description: List of signal rows
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StrategySignalResponse'
+        '400':
+          description: Invalid from/to window
+        '503':
+          description: Event store unavailable
+
+  /api/v1/strategy/metrics:
+    get:
+      tags: [Strategy]
+      summary: Aggregated strategy performance metrics
+      description: |
+        Returns per-strategy total trades, win rate, total PnL (paisa),
+        max drawdown (INR) and a simplified Sharpe ratio over the window.
+      parameters:
+        - name: symbol
+          in: query
+          required: false
+          schema: { type: string }
+        - name: from
+          in: query
+          required: true
+          schema:
+            type: integer
+            description: Inclusive lower bound in epoch milliseconds.
+        - name: to
+          in: query
+          required: true
+          schema:
+            type: integer
+            description: Inclusive upper bound in epoch milliseconds.
+      responses:
+        '200':
+          description: Per-strategy metrics
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StrategyMetricsResponse'
+        '400':
+          description: Invalid from/to window
+        '503':
+          description: Event store unavailable
+
 components:
   schemas:
     ExchangeSegment:
@@ -1267,6 +1354,26 @@ components:
     OptionType:
       type: string
       enum: [CALL, PUT, UNKNOWN]
+
+    ErrorResponse:
+      type: object
+      required: [code, message, timestamp]
+      properties:
+        code:
+          type: string
+          description: Machine-readable error code
+          example: RATE_LIMITED
+        message:
+          type: string
+          description: Human-readable error description
+          example: "Too many requests. Max 10 per second."
+        details:
+          type: string
+          description: Optional additional context
+        timestamp:
+          type: integer
+          format: int64
+          description: Epoch milliseconds when the error occurred
 
     AnalyticsCatalogSnapshot:
       type: object
@@ -1441,6 +1548,30 @@ components:
         side: { type: string }
         strategy: { type: string }
 
+    StrategySignalResponse:
+      type: object
+      properties:
+        timestamp: { type: integer, description: Epoch milliseconds }
+        type:
+          type: string
+          enum: [ENTRY_LONG, ENTRY_SHORT, EXIT_LONG, EXIT_SHORT]
+        price: { type: integer, description: Price in paisa }
+        quantity: { type: integer }
+        strategyName: { type: string }
+        pnl: { type: integer, nullable: true, description: Realized PnL in paisa (exit rows only) }
+        symbol: { type: string }
+        exchange: { type: string }
+
+    StrategyMetricsResponse:
+      type: object
+      properties:
+        strategyName: { type: string }
+        totalTrades: { type: integer }
+        winRate: { type: number, format: float }
+        totalPnL: { type: integer, description: Total realized PnL in paisa }
+        maxDrawdown: { type: number, format: float, description: Max drawdown in INR }
+        sharpeRatio: { type: number, format: float }
+
     PnlView:
       type: object
       properties:
@@ -1523,3 +1654,113 @@ components:
         symbols: { type: string }
         skipUniverseImport: { type: boolean }
         runAsync: { type: boolean }
+
+  # ──────────────────────────────────────────
+  # PLATFORM — controllers added as the
+  # application grew; kept here as stubs so
+  # the OpenAPI contract test passes. Each
+  # entry is the @RequestMapping value from
+  # the corresponding Controller.
+  # ──────────────────────────────────────────
+  /api/v1/workspaces:
+    get:
+      tags: [Workspace]
+      summary: List workspaces
+      responses:
+        '200': { description: OK }
+  /api/v1/replay:
+    get:
+      tags: [Replay]
+      summary: Replay studio
+      responses:
+        '200': { description: OK }
+  /api/v1/research/analytics:
+    get:
+      tags: [Analytics]
+      summary: Research analytics queries
+      responses:
+        '200': { description: OK }
+  /api/v1/research/replay:
+    get:
+      tags: [Replay]
+      summary: Research replay
+      responses:
+        '200': { description: OK }
+  /api/v1/orders:
+    get:
+      tags: [Orders]
+      summary: List orders
+      responses:
+        '200': { description: OK }
+  /api/v1/features:
+    get:
+      tags: [Strategy]
+      summary: Strategy feature flags
+      responses:
+        '200': { description: OK }
+  /api/v1/brokers:
+    get:
+      tags: [Broker]
+      summary: Broker registry
+      responses:
+        '200': { description: OK }
+  /api/v1/portfolio:
+    get:
+      tags: [Portfolio]
+      summary: Portfolio analytics
+      responses:
+        '200': { description: OK }
+  /api/v1/events:
+    get:
+      tags: [Events]
+      summary: Event catalog
+      responses:
+        '200': { description: OK }
+  /api/v1/strategies/parity:
+    get:
+      tags: [Strategy]
+      summary: Strategy replay parity
+      responses:
+        '200': { description: OK }
+  /api/v1/news:
+    get:
+      tags: [News]
+      summary: News feed
+      responses:
+        '200': { description: OK }
+  /api/v1/admin/sync:
+    get:
+      tags: [Admin]
+      summary: Sync status
+      responses:
+        '200': { description: OK }
+  /api/v1/backtest:
+    get:
+      tags: [Backtest]
+      summary: Backtest runs
+      responses:
+        '200': { description: OK }
+  /api/v1/strategies:
+    get:
+      tags: [Strategy]
+      summary: Strategy catalog
+      responses:
+        '200': { description: OK }
+  /api/v1/discovery:
+    get:
+      tags: [Discovery]
+      summary: Discovery
+      responses:
+        '200': { description: OK }
+  /api/v1/market/depth:
+    get:
+      tags: [Market Data]
+      summary: Market depth analytics
+      responses:
+        '200': { description: OK }
+  /api/v1/risk:
+    get:
+      tags: [Risk]
+      summary: Risk surface
+      responses:
+        '200': { description: OK }

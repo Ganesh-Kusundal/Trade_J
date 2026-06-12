@@ -1,0 +1,2 @@
+com.tradej.indicators.spi.builtin.VolumeProfileNonCandleProvider
+com.tradej.indicators.spi.builtin.TickLevelCVDNonCandleProvider

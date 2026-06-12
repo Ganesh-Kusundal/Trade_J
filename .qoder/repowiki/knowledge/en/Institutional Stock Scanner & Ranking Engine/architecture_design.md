@@ -1,0 +1,6 @@
+- Entry point: `InstitutionalScanEngine` orchestrates the scan by fetching data via `HistoricalBarRepository`, computing features, applying sector adjustments, and selecting candidates.
+- Feature computation: `FeaturePipeline` calculates raw metrics (RS, volume expansion, trend efficiency, opening drive, etc.) and normalizes them into a `masterScore` using configurable weights from `InstitutionalScanConfig`.
+- Sector adjustment: `SectorRankingEngine` computes sector-level momentum and applies penalties to underperforming sectors before final ranking.
+- Ranking & Selection: `RankingEngine` performs dense ranking with sector diversification constraints (`maxPerSector`), while `CandidateSelection` handles time-based cutoffs and fallback logic for scan times.
+- Data models: Immutable records (`InstitutionalScanResult`, `ScoredBar`, `BarFeatures`) carry data through the pipeline.
+- Dependency direction: Core domain ports (`HistoricalBarRepository`) are injected; the module depends on `:core` and `:data-historical-ingest` for data access.

@@ -1,0 +1,3 @@
+- Capability interfaces in the `port` package are accessed through default methods in `IBrokerConnection` that delegate to `requireCapability`, throwing `UnsupportedOperationException` if unavailable.
+- SPI contracts in the `spi` package rely on Java interfaces with default methods for optional metadata (e.g., `version()`, `isEnabled()`) to minimize implementation boilerplate.
+- Lifecycle management interfaces (e.g., `TokenLifecycleService`, `WebSocketSupervisor`) define state-aware contracts with explicit methods for asynchronous operations and state listeners.

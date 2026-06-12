@@ -1,0 +1,1 @@
+Uses Java ServiceLoader for plugin discovery and JUnit 5 for golden-file based testing.

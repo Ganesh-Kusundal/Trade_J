@@ -1,0 +1,1 @@
+Uses Java `ServiceLoader` for runtime plugin discovery of `BrokerProvider` implementations, configured via `META-INF/services`.

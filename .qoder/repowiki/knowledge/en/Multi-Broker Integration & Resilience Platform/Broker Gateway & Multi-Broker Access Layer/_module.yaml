@@ -1,0 +1,8 @@
+schema_version: 1
+module_path: broker_platform/broker_gateway_app
+title: Broker Gateway & Multi-Broker Access Layer
+scope:
+    - broker-gateway/
+source_files: []
+depends_on: []
+related_to: []

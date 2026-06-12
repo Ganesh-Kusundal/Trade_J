@@ -1,0 +1,1 @@
+Provides a comprehensive SPI-compliant integration with the DhanHQ trading platform, supporting market data, order management, and real-time streaming.

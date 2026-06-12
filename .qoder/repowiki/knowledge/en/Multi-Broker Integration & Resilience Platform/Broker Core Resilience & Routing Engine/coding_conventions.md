@@ -1,0 +1,3 @@
+- Nested static classes are used for routing strategies (e.g., `LoadBalancedMarketDataProvider`, `FailoverOrderCommand`) within `LoadBalancedBrokerGateway` to encapsulate single-responsibility logic without spreading across multiple files.
+- Thread-safety is achieved using `ConcurrentHashMap` for state storage and `ReentrantLock` or `AtomicInteger` for mutable counters, avoiding synchronized blocks where possible.
+- Failover mechanisms consistently iterate through available connections or providers, catching `RuntimeException` to attempt the next node before throwing a final `IllegalStateException`.

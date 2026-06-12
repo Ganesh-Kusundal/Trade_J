@@ -4,20 +4,13 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Declares a broker's capabilities, supported segments, and metadata.
+ * Declares a broker's capabilities, supported segments, metadata, and credential requirements.
  *
  * <p>Capabilities are keyed by port interface name (e.g., "MarketDataProvider", "BracketOrderProvider")
  * with boolean values indicating support.
  *
- * <p>Example for Dhan:
- * <pre>
- *   capabilities = {
- *     "MarketDataProvider": true,
- *     "BracketOrderProvider": true,
- *     "NewsProvider": false,
- *     ...
- *   }
- * </pre>
+ * <p>Credential fields declare what authentication inputs the broker requires,
+ * enabling the frontend to dynamically render credential forms.
  */
 public record BrokerDescriptor(
         BrokerSource source,
@@ -26,10 +19,11 @@ public record BrokerDescriptor(
         Map<String, String> metadata,
         List<String> supportedSegments,
         String rateLimitInfo,
-        Map<String, CapabilityMetadata> capabilityMetadata
+        Map<String, CapabilityMetadata> capabilityMetadata,
+        List<CredentialField> credentialFields
 ) {
     /**
-     * Backward-compatible constructor without capabilityMetadata.
+     * Backward-compatible constructor without capabilityMetadata or credentialFields.
      */
     public BrokerDescriptor(
             BrokerSource source,
@@ -39,7 +33,22 @@ public record BrokerDescriptor(
             List<String> supportedSegments,
             String rateLimitInfo
     ) {
-        this(source, displayName, capabilities, metadata, supportedSegments, rateLimitInfo, Map.of());
+        this(source, displayName, capabilities, metadata, supportedSegments, rateLimitInfo, Map.of(), List.of());
+    }
+
+    /**
+     * Backward-compatible constructor without credentialFields.
+     */
+    public BrokerDescriptor(
+            BrokerSource source,
+            String displayName,
+            Map<String, Boolean> capabilities,
+            Map<String, String> metadata,
+            List<String> supportedSegments,
+            String rateLimitInfo,
+            Map<String, CapabilityMetadata> capabilityMetadata
+    ) {
+        this(source, displayName, capabilities, metadata, supportedSegments, rateLimitInfo, capabilityMetadata, List.of());
     }
 
     public BrokerDescriptor {
@@ -47,33 +56,21 @@ public record BrokerDescriptor(
         metadata = metadata == null ? Map.of() : Map.copyOf(metadata);
         supportedSegments = supportedSegments == null ? List.of() : List.copyOf(supportedSegments);
         capabilityMetadata = capabilityMetadata == null ? Map.of() : Map.copyOf(capabilityMetadata);
+        credentialFields = credentialFields == null ? List.of() : List.copyOf(credentialFields);
     }
 
-    /**
-     * Check if a specific capability is supported.
-     */
     public boolean supports(String capability) {
         return Boolean.TRUE.equals(capabilities.get(capability));
     }
 
-    /**
-     * Count of supported capabilities.
-     */
     public int supportedCount() {
         return (int) capabilities.values().stream().filter(Boolean::booleanValue).count();
     }
 
-    /**
-     * Total number of capabilities checked.
-     */
     public int totalCount() {
         return capabilities.size();
     }
 
-    /**
-     * Returns the {@link CapabilityMetadata} for the given capability key,
-     * or a default empty metadata if none is registered.
-     */
     public CapabilityMetadata metadataFor(String capability) {
         return capabilityMetadata.getOrDefault(capability, new CapabilityMetadata("", "other", "1.0"));
     }

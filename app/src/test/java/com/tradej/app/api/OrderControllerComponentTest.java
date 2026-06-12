@@ -2,6 +2,8 @@ package com.tradej.app.api;
 
 import com.tradej.app.api.dto.OrderProjectionResponse;
 import com.tradej.app.service.OrderApplicationService;
+import com.tradej.composition.ExecutionComposition;
+import com.tradej.composition.FullComposition;
 import com.tradej.core.domain.oms.LifecycleState;
 import com.tradej.core.domain.oms.OrderSubmitted;
 import com.tradej.core.domain.runtime.RuntimeMode;
@@ -22,6 +24,8 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 @Tag("component")
 class OrderControllerComponentTest {
@@ -45,9 +49,15 @@ class OrderControllerComponentTest {
                 com.tradej.core.domain.model.RiskLimits.withOpenPositionQuantity(1_000_000L, 3, 5_000_000L, 3),
                 com.tradej.core.domain.port.NetPositionProvider.empty()
         );
+        // Mock FullComposition: OrderApplicationService only consults
+        // fullComposition.executionComposition().positionRiskHandler().
+        FullComposition fullComposition = mock(FullComposition.class);
+        ExecutionComposition executionComposition = mock(ExecutionComposition.class);
+        when(fullComposition.executionComposition()).thenReturn(executionComposition);
+        when(executionComposition.positionRiskHandler()).thenReturn(riskHandler);
         CommandHandler commandHandler = new CommandHandler(orderManagementService);
         OrderApplicationService orderApplicationService = new OrderApplicationService(
-                commandHandler, runtimeModeHolder, riskHandler);
+                commandHandler, runtimeModeHolder, fullComposition);
         controller = new OrderController(orderManagementService, orderApplicationService);
         orderManagementService.onBrokerEvent(OrderSubmitted.create("ORD-1", "SIG-1", "SBIN", 10));
         orderManagementService.replayAll();

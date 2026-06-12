@@ -12,6 +12,7 @@ import com.tradej.cli.command.CliCommandsCommand;
 import com.tradej.cli.command.CliComputeCommand;
 import com.tradej.cli.command.CliDataSourcesCommand;
 import com.tradej.cli.command.CliDashboardCommand;
+import com.tradej.cli.command.CliDevCommand;
 import com.tradej.cli.command.CliDoctorCommand;
 import com.tradej.cli.command.CliDocsCommand;
 import com.tradej.cli.command.CliEventsCommand;
@@ -123,7 +124,9 @@ import java.util.concurrent.Callable;
                 CliCoverageCommand.class,
                 CliReadinessCommand.class,
                 CliRegressionCommand.class,
-                CliApiCommand.class
+                CliApiCommand.class,
+                CliDevCommand.class,
+                TradeCli.ParityCmd.class
         }
 )
 public class TradeCli implements Callable<Integer> {
@@ -244,6 +247,31 @@ public class TradeCli implements Callable<Integer> {
         @Override
         void run(CliOperations ops) {
             ops.strategies();
+        }
+    }
+
+    @Command(
+            name = "parity",
+            subcommands = { TradeCli.ParityCmd.class }
+    )
+    static class ParityGroup {
+    }
+
+    @Command(name = "parity", description = "Per-strategy replay-vs-live parity check")
+    static final class ParityCmd extends BaseCmd {
+        @Parameters(index = "0") String pluginId;
+        @Option(names = "--symbol", defaultValue = "SBIN") String symbol;
+        @Option(names = "--from", required = true) String from;
+        @Option(names = "--to", required = true) String to;
+
+        @Override
+        void run(CliOperations ops) {
+            long fromMs = java.time.Instant.parse(from).toEpochMilli();
+            long toMs = java.time.Instant.parse(to).toEpochMilli();
+            int exit = ops.parity(pluginId, symbol, fromMs, toMs);
+            if (exit != 0) {
+                System.exit(exit);
+            }
         }
     }
 

@@ -3,14 +3,13 @@ package com.tradej.app.config;
 import com.tradej.broker.api.IBrokerConnection;
 import com.tradej.core.domain.event.EventMetadataFactory;
 import com.tradej.core.domain.port.EventBus;
-import com.tradej.core.domain.port.NetPositionProvider;
 import com.tradej.core.domain.runtime.RuntimeMode;
 import com.tradej.core.domain.runtime.RuntimeModeHolder;
+import com.tradej.core.domain.time.TradingClock;
 import com.tradej.execution.reconcile.OrderReconciler;
 import com.tradej.execution.reconcile.ReconciliationAlertLogger;
 import com.tradej.execution.reconcile.ReconciliationScheduler;
 import com.tradej.execution.risk.DailyRiskResetScheduler;
-import com.tradej.execution.risk.PositionRiskHandler;
 import com.tradej.persistence.oms.EventSourcedOrderRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -80,14 +79,14 @@ public class AdminConfiguration {
     ReconciliationScheduler reconciliationScheduler(
             OrderReconciler orderReconciler,
             EventBus eventBus,
-            NetPositionProvider netPositionProvider
+            com.tradej.composition.FullComposition fullComposition
     ) {
-        return new ReconciliationScheduler(orderReconciler, eventBus, netPositionProvider);
+        return new ReconciliationScheduler(orderReconciler, eventBus, fullComposition.executionComposition().netPositionProvider());
     }
 
     @Bean
-    DailyRiskResetScheduler dailyRiskResetScheduler(PositionRiskHandler positionRiskHandler) {
-        return new DailyRiskResetScheduler(positionRiskHandler);
+    DailyRiskResetScheduler dailyRiskResetScheduler(com.tradej.composition.FullComposition fullComposition) {
+        return new DailyRiskResetScheduler(fullComposition.executionComposition().positionRiskHandler());
     }
 
     // ── Scheduled triggers ──

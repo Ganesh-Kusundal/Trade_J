@@ -1,86 +1,125 @@
 package com.tradej.composition;
 
-import com.tradej.core.domain.model.RiskLimits;
-import com.tradej.core.domain.port.NetPositionProvider;
+import com.tradej.broker.api.IBrokerConnection;
+import com.tradej.broker.api.port.MarginProvider;
+import com.tradej.broker.api.port.PortfolioProvider;
+import com.tradej.composition.config.RiskProfile;
 import com.tradej.execution.position.EventSourcedNetPositionProvider;
 import com.tradej.execution.risk.KillSwitchCoordinator;
 import com.tradej.execution.risk.MarginEnforcementHandler;
 import com.tradej.execution.risk.PositionRiskHandler;
 import com.tradej.execution.service.CaffeineIdempotencyCache;
 import com.tradej.execution.service.OrderManagementService;
-import com.tradej.broker.api.IBrokerConnection;
-import com.tradej.broker.api.port.IdempotencyCachePort;
-import com.tradej.broker.api.port.MarginProvider;
-import com.tradej.broker.api.port.PortfolioProvider;
-import com.tradej.composition.config.RiskProfile;
 import com.tradej.strategy.portfolio.PortfolioEngine;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
+import java.util.Objects;
+import java.util.Optional;
 
+/**
+ * Execution composition root — owns the canonical position, risk, and idempotency beans
+ * for both the Spring app path and the CLI / replay path.
+ *
+ * <p>Mirrors the bean wiring that {@code app/.../config/TradingConfiguration.java:140-235}
+ * historically performed.
+ */
 public final class ExecutionComposition {
 
+    private static final Logger log = LoggerFactory.getLogger(ExecutionComposition.class);
+
+    private final RiskProfile profile;
     private final EventSourcedNetPositionProvider netPositionProvider;
-    private final PositionRiskHandler positionRiskHandler;
+    private final CaffeineIdempotencyCache idempotencyCache;
     private final MarginEnforcementHandler marginEnforcementHandler;
     private final KillSwitchCoordinator killSwitchCoordinator;
-    private final IdempotencyCachePort idempotencyCache;
+    private final PositionRiskHandler positionRiskHandler;
 
     private ExecutionComposition(
+            RiskProfile profile,
             EventSourcedNetPositionProvider netPositionProvider,
-            PositionRiskHandler positionRiskHandler,
+            CaffeineIdempotencyCache idempotencyCache,
             MarginEnforcementHandler marginEnforcementHandler,
             KillSwitchCoordinator killSwitchCoordinator,
-            IdempotencyCachePort idempotencyCache
+            PositionRiskHandler positionRiskHandler
     ) {
+        this.profile = profile;
         this.netPositionProvider = netPositionProvider;
-        this.positionRiskHandler = positionRiskHandler;
+        this.idempotencyCache = idempotencyCache;
         this.marginEnforcementHandler = marginEnforcementHandler;
         this.killSwitchCoordinator = killSwitchCoordinator;
-        this.idempotencyCache = idempotencyCache;
+        this.positionRiskHandler = positionRiskHandler;
     }
 
+    /**
+     * Build the execution composition from a {@link RiskProfile} and its runtime dependencies.
+     *
+     * @param profile            risk profile (limits, enforce flags, margin cache TTL)
+     * @param portfolioEngine    non-null portfolio engine
+     * @param brokerConnection   broker connection (used to resolve margin + portfolio providers; may be null if no broker)
+     * @param orderManagementService non-null order management service
+     * @return fully-wired {@link ExecutionComposition}
+     * @throws NullPointerException if any required argument is null
+     */
     public static ExecutionComposition create(
-            RiskProfile riskProfile,
+            RiskProfile profile,
             PortfolioEngine portfolioEngine,
             IBrokerConnection brokerConnection,
             OrderManagementService orderManagementService
     ) {
+        Objects.requireNonNull(profile, "profile");
+        Objects.requireNonNull(portfolioEngine, "portfolioEngine");
+        Objects.requireNonNull(orderManagementService, "orderManagementService");
+
         EventSourcedNetPositionProvider netPositionProvider = new EventSourcedNetPositionProvider();
-        IdempotencyCachePort idempotencyCache = new CaffeineIdempotencyCache();
+        CaffeineIdempotencyCache idempotencyCache = new CaffeineIdempotencyCache();
 
-        MarginProvider margin = brokerConnection == null ? null
+        boolean enforceMargin = profile.enforceMargin();
+        Duration marginCacheTtl = Duration.ofMinutes(Math.max(1, profile.marginCacheTtlMinutes()));
+        MarginProvider marginProvider = brokerConnection == null
+                ? null
                 : brokerConnection.getCapability(MarginProvider.class).orElse(null);
-        PortfolioProvider portfolio = brokerConnection == null ? null
+        PortfolioProvider portfolioProvider = brokerConnection == null
+                ? null
                 : brokerConnection.getCapability(PortfolioProvider.class).orElse(null);
-
-        MarginEnforcementHandler marginHandler = new MarginEnforcementHandler(
-                riskProfile.enforceMargin(),
-                margin,
-                portfolio,
-                Duration.ofMinutes(Math.max(1, riskProfile.marginCacheTtlMinutes()))
+        MarginEnforcementHandler marginEnforcementHandler = new MarginEnforcementHandler(
+                enforceMargin, marginProvider, portfolioProvider, marginCacheTtl
         );
 
-        KillSwitchCoordinator killSwitch = new KillSwitchCoordinator(
-                brokerConnection, orderManagementService);
+        KillSwitchCoordinator killSwitchCoordinator = new KillSwitchCoordinator(brokerConnection, orderManagementService);
 
-        PositionRiskHandler riskHandler = new PositionRiskHandler(
-                riskProfile.limits(),
+        PositionRiskHandler positionRiskHandler = new PositionRiskHandler(
+                profile.limits(),
                 netPositionProvider,
                 portfolioEngine,
-                marginHandler,
-                killSwitch
+                marginEnforcementHandler,
+                killSwitchCoordinator
         );
 
+        log.info("ExecutionComposition created (enforceMargin={}, marginCacheTtlMinutes={})",
+                enforceMargin, profile.marginCacheTtlMinutes());
+
         return new ExecutionComposition(
-                netPositionProvider, riskHandler, marginHandler, killSwitch, idempotencyCache);
+                profile,
+                netPositionProvider,
+                idempotencyCache,
+                marginEnforcementHandler,
+                killSwitchCoordinator,
+                positionRiskHandler
+        );
+    }
+
+    public RiskProfile profile() {
+        return profile;
     }
 
     public EventSourcedNetPositionProvider netPositionProvider() {
         return netPositionProvider;
     }
 
-    public PositionRiskHandler positionRiskHandler() {
-        return positionRiskHandler;
+    public CaffeineIdempotencyCache idempotencyCache() {
+        return idempotencyCache;
     }
 
     public MarginEnforcementHandler marginEnforcementHandler() {
@@ -91,7 +130,15 @@ public final class ExecutionComposition {
         return killSwitchCoordinator;
     }
 
-    public IdempotencyCachePort idempotencyCache() {
-        return idempotencyCache;
+    public PositionRiskHandler positionRiskHandler() {
+        return positionRiskHandler;
+    }
+
+    /**
+     * Helper for callers that need a {@link java.util.Optional} view of the broker connection's
+     * margin provider — useful for the Spring path that uses {@code ObjectProvider}.
+     */
+    public static Optional<MarginProvider> resolveMarginProvider(IBrokerConnection connection) {
+        return connection == null ? Optional.empty() : connection.getCapability(MarginProvider.class);
     }
 }

@@ -1,0 +1,4 @@
+- **Build & Runtime**: Vite + React 19 with TypeScript, using `tsx` for server-side execution of the Express proxy (`server.ts`).
+- **Visualization**: `lightweight-charts` for high-performance candlestick rendering.
+- **Styling**: Tailwind CSS v4 with `@tailwindcss/vite` plugin.
+- **State Management**: Custom React hooks backed by an in-memory event bus instead of global state libraries.

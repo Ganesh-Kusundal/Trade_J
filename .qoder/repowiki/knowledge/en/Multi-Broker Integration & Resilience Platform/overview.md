@@ -1,0 +1,1 @@
+Orchestrates heterogeneous broker integrations through a unified SPI, providing resilient routing, capability-aware access, and standardized simulation support.

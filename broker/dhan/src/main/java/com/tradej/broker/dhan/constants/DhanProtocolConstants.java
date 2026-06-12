@@ -28,6 +28,16 @@ public final class DhanProtocolConstants {
     /** Interval (ms) between periodic token state checks. */
     public static final long TOKEN_CHECK_INTERVAL_MS = 60_000L;
 
+    /**
+     * Interval (ms) between out-of-band {@code /v2/profile} revalidations
+     * of the cached Dhan access token. Keeps {@code expiryEpochMs} in sync
+     * with the broker's authoritative view (CRITICAL-1 mitigation).
+     *
+     * <p>Default: 5 minutes. Aligned to be much larger than
+     * {@link #TOKEN_CHECK_INTERVAL_MS} to avoid duplicate profile calls.
+     */
+    public static final long TOKEN_REVALIDATION_INTERVAL_MS = 5L * 60_000L;
+
     /** Interval (ms) between feed liveness checks in the health monitor. */
     public static final long FEED_HEALTH_CHECK_INTERVAL_MS = 5_000L;
 

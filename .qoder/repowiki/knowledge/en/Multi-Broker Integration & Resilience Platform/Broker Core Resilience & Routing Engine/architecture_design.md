@@ -1,0 +1,6 @@
+- Entry point: `LoadBalancedBrokerGateway` aggregates multiple `IBrokerConnection` instances, implementing round-robin and failover strategies for market data and order execution.
+- Resilience layer: `CircuitBreaker`, `RetryExecutor`, and `BackoffStrategy` in `resilience/` protect against downstream broker failures, integrated with `Micrometer` metrics.
+- Market Data Processing: `OrderBookEngine` and `EventBusDepthBridge` manage real-time depth updates, while `MarketTickDedupFilter` ensures data integrity.
+- Authentication: `TokenStateStore` interface with `JsonTokenStateStore` and `EnvTokenStateStore` implementations handles secure token persistence.
+- Rate Limiting: `TokenBucketRateLimiter` and `MultiBucketRateLimiter` enforce API quotas using thread-safe blocking algorithms.
+- Dependency direction: Core services depend on `broker-api` for port definitions and `core` for domain models, keeping implementation agnostic to specific broker adapters.

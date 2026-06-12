@@ -18,6 +18,7 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.function.BiConsumer;
 import java.util.function.LongSupplier;
 
 import org.slf4j.Logger;
@@ -393,6 +394,100 @@ public final class DuckDbEventStore implements DomainEventHandler<DomainEvent>, 
 
     private long ingestTimestamp() {
         return ingestedAtMs.getAsLong();
+    }
+
+    /**
+     * Query {@code trade_lifecycle} rows (the persisted form of
+     * {@code TRADE_OPENED} and {@code TRADE_CLOSED} events) in a
+     * given epoch-ms window, optionally filtered by symbol.
+     *
+     * <p>Each row in {@code trade_lifecycle} represents one of the two
+     * lifecycle transitions and carries the fields the
+     * {@code /api/v1/strategy/signals} endpoint needs: timestamp, side,
+     * entry/exit price, size, and realized PnL.
+     *
+     * @param fromMs inclusive lower bound on {@code event_time_ms}
+     * @param toMs   inclusive upper bound on {@code event_time_ms}
+     * @param symbol optional symbol filter ({@code null} or blank ⇒ no filter)
+     * @return immutable list of trade-lifecycle rows in ascending timestamp order
+     */
+    public List<TradeLifecycleRow> queryTradeLifecycle(long fromMs, long toMs, String symbol) {
+        List<TradeLifecycleRow> out = new java.util.ArrayList<>();
+        StringBuilder sql = new StringBuilder("""
+                select event_type, event_time_ms, symbol, side, size,
+                       entry_price_paisa, exit_price_paisa, realized_pnl_paisa,
+                       signal_id, close_reason
+                  from trade_lifecycle
+                 where event_time_ms between ? and ?
+                """);
+        if (symbol != null && !symbol.isBlank()) {
+            sql.append(" and symbol = ?");
+        }
+        sql.append(" order by event_time_ms asc");
+        final String finalSql = sql.toString();
+
+        BiConsumer<Connection, Void> runner = (conn, unused) -> {
+            try (PreparedStatement statement = conn.prepareStatement(finalSql)) {
+                statement.setLong(1, fromMs);
+                statement.setLong(2, toMs);
+                if (symbol != null && !symbol.isBlank()) {
+                    statement.setString(3, symbol);
+                }
+                try (java.sql.ResultSet rs = statement.executeQuery()) {
+                    while (rs.next()) {
+                        out.add(new TradeLifecycleRow(
+                                rs.getString("event_type"),
+                                rs.getLong("event_time_ms"),
+                                rs.getString("symbol"),
+                                rs.getString("side"),
+                                rs.getLong("size"),
+                                rs.getLong("entry_price_paisa"),
+                                rs.getLong("exit_price_paisa"),
+                                rs.getLong("realized_pnl_paisa"),
+                                rs.getString("signal_id"),
+                                rs.getString("close_reason")
+                        ));
+                    }
+                }
+            } catch (SQLException e) {
+                throw new IllegalStateException("trade_lifecycle query failed", e);
+            }
+        };
+
+        if (pool != null) {
+            pool.withConnectionVoid(conn -> {
+                try {
+                    runner.accept(conn, null);
+                } catch (Exception ex) {
+                    throw new DuckDbConnectionPool.DuckDbException("trade_lifecycle query failed", ex);
+                }
+            });
+        } else {
+            synchronized (this) {
+                try {
+                    ensureConnection();
+                    runner.accept(connection, null);
+                } catch (SQLException e) {
+                    throw new IllegalStateException("trade_lifecycle query failed", e);
+                }
+            }
+        }
+        return java.util.Collections.unmodifiableList(out);
+    }
+
+    /** Immutable row read out of the {@code trade_lifecycle} table. */
+    public record TradeLifecycleRow(
+            String eventType,
+            long eventTimeMs,
+            String symbol,
+            String side,
+            long size,
+            long entryPricePaisa,
+            long exitPricePaisa,
+            long realizedPnlPaisa,
+            String signalId,
+            String closeReason
+    ) {
     }
 
     @Override

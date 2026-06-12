@@ -1,0 +1,1 @@
+Manages the lifecycle, versioning, and cataloging of immutable pipeline definitions, including publishing, archiving, rollback, and template instantiation.

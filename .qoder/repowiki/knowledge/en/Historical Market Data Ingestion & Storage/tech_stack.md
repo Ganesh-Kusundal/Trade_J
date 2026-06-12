@@ -1,0 +1,1 @@
+Uses DuckDB via JDBC for both analytical queries on Parquet files and transactional job/task state management; Jackson for JSON serialization of job configurations.

@@ -72,6 +72,10 @@ public final class CliOperations {
     public void runtime() { attach.runtime(); }
     public void pipeline() { attach.pipeline(); }
     public void strategies() { attach.strategies(); }
+
+    public int parity(String pluginId, String symbol, long fromMs, long toMs) {
+        return attach.parity(pluginId, symbol, fromMs, toMs);
+    }
     public void summary() { attach.summary(); }
     public void orders() { attach.orders(); }
     public void positions() { attach.positions(); }

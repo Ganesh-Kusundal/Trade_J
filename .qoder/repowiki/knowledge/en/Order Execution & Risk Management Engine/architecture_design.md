@@ -1,0 +1,6 @@
+- Entry Point: `ExecutionHandler` acts as the primary event-driven controller, consuming `SignalPendingExecution` events and routing them through partitioned queues for thread-safe processing.
+- Command Layer: `CommandHandler` provides a synchronous API for administrative actions (e.g., kill switch, catalog refresh), decoupling callers from service internals.
+- Core Service: `OrderManagementService` manages the order state machine (`OrderStateMachine`), persisting events via `EventSourcedOrderRepository` and bridging to `IBrokerConnection` or simulation engines.
+- Risk Framework: A Chain-of-Responsibility pattern (`RiskCheckChain`) evaluates `RiskContext` against modular checks (e.g., `KillSwitchRiskCheck`, `PositionLimitRiskCheck`) before execution.
+- Bridge & Identity: `SignalExecutionBridge` normalizes strategy signals into executable `OrderRequest`s, while `OrderIdentityRegistry` maintains the mapping between internal order IDs and broker-specific identifiers.
+- Analytics & Reconciliation: `DepthAnalyticsPipeline` processes market depth for microstructure signals (icebergs, absorption), and `OrderReconciler` periodically validates internal state against broker positions.

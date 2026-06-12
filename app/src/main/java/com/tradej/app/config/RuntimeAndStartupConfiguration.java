@@ -25,14 +25,11 @@ import com.tradej.core.domain.time.ReplayTradingClock;
 import com.tradej.core.domain.time.TradingClock;
 import com.tradej.disruptor.DisruptorBusMetrics;
 import com.tradej.disruptor.DisruptorEventBus;
-import com.tradej.disruptor.config.BrokerScopedEventBus;
-import com.tradej.execution.position.EventSourcedNetPositionProvider;
 import com.tradej.execution.readmodel.ReadModelStore;
 import com.tradej.execution.reconcile.OrderReconciler;
 import com.tradej.execution.reconcile.ReconciliationAlertLogger;
 import com.tradej.execution.service.OrderManagementService;
 import com.tradej.execution.service.ExecutionHandler;
-import com.tradej.execution.risk.PositionRiskHandler;
 import com.tradej.execution.subscription.SubscriptionCoordinator;
 import com.tradej.app.scanner.RuntimeSubscriptionManager;
 import com.tradej.feature.store.AsyncDuckDbWriter;
@@ -121,7 +118,7 @@ public class RuntimeAndStartupConfiguration {
     EventBus eventBus(
             TradingProperties properties,
             RuntimeBusHolder runtimeBusHolder,
-            PositionRiskHandler positionRiskHandler,
+            com.tradej.composition.FullComposition fullComposition,
             CandleAggregationService candleAggregationService,
             GraphStrategySandbox graphStrategySandbox,
             ExecutionHandler executionHandler,
@@ -136,7 +133,7 @@ public class RuntimeAndStartupConfiguration {
         if (bus == RuntimeBus.DISRUPTOR) {
             DisruptorEventBus disruptorEventBus = new DisruptorEventBus(
                     new com.tradej.disruptor.config.DisruptorPipelineConfig(
-                            positionRiskHandler,
+                            fullComposition.executionComposition().positionRiskHandler(),
                             candleAggregationService,
                             graphStrategySandbox,
                             executionHandler,
@@ -153,24 +150,6 @@ public class RuntimeAndStartupConfiguration {
             return disruptorEventBus;
         }
         return new SimpleEventBus();
-    }
-
-    @Lazy
-    @Bean("dhanEventBus")
-    BrokerScopedEventBus dhanEventBus(EventBus eventBus) {
-        return new BrokerScopedEventBus(eventBus, "dhan");
-    }
-
-    @Lazy
-    @Bean("upstoxEventBus")
-    BrokerScopedEventBus upstoxEventBus(EventBus eventBus) {
-        return new BrokerScopedEventBus(eventBus, "upstox");
-    }
-
-    @Lazy
-    @Bean("iciciEventBus")
-    BrokerScopedEventBus iciciEventBus(EventBus eventBus) {
-        return new BrokerScopedEventBus(eventBus, "icici");
     }
 
     @Lazy
@@ -235,7 +214,7 @@ public class RuntimeAndStartupConfiguration {
             ReconciliationAlertLogger reconciliationAlertLogger,
             BrokerErrorTracker brokerErrorTracker,
             ReadModelStore readModelStore,
-            EventSourcedNetPositionProvider netPositionProvider,
+            com.tradej.composition.FullComposition fullComposition,
             DagPipelineIngressBridge dagPipelineIngressBridge,
             PositionStateRebuilder positionStateRebuilder,
             OrderManagementService orderManagementService,
@@ -256,7 +235,7 @@ public class RuntimeAndStartupConfiguration {
                 reconciliationAlertLogger,
                 brokerErrorTracker,
                 readModelStore,
-                netPositionProvider,
+                fullComposition.executionComposition().netPositionProvider(),
                 dagPipelineIngressBridge,
                 positionStateRebuilder,
                 orderManagementService,

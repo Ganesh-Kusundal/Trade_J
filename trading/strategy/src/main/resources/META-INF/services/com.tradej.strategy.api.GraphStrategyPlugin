@@ -1,0 +1,4 @@
+com.tradej.strategy.plugin.OptionsContextStrategyPlugin
+com.tradej.strategy.ml.MLStrategyPlugin
+com.tradej.strategy.example.TickPriceChangeStrategy
+com.tradej.strategy.example.DepthImbalanceStrategy

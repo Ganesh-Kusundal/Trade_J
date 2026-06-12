@@ -1,7 +1,5 @@
 package com.tradej.app.integration;
 
-import com.tradej.broker.icici.auth.BreezeSessionExchange;
-import com.tradej.broker.icici.auth.BreezeTokenManager;
 import com.tradej.broker.icici.auth.BreezeTotpGenerator;
 import com.tradej.broker.icici.config.BreezeConnectionSettings;
 import com.tradej.broker.icici.config.IciciAuthMode;
@@ -80,21 +78,16 @@ final class LiveIciciTestSupport {
     }
 
     static void preflightSessionOrSkip(BreezeConnectionSettings settings) {
-        try {
-            if (settings.authMode() == IciciAuthMode.BROWSER_AUTOMATED) {
-                BreezeTokenManager tokenManager = new BreezeTokenManager(settings);
-                tokenManager.ensureValid();
-                Assumptions.assumeTrue(tokenManager.session().base64SessionToken() != null,
-                        "ICICI browser session exchange failed");
-                return;
-            }
-            BreezeSessionExchange exchange = new BreezeSessionExchange();
-            var session = exchange.exchange(settings.appKey(), totpSessionInput(settings));
-            Assumptions.assumeTrue(session.base64SessionToken() != null && !session.base64SessionToken().isBlank(),
-                    "ICICI session exchange failed");
-        } catch (Exception ex) {
-            Assumptions.assumeTrue(false, "ICICI preflight failed: " + ex.getMessage());
-        }
+        // Delegate to the JVM-wide cache. This previously called
+        // BreezeSessionExchange.exchange() directly on every test method,
+        // which meant N ICICI tests = N fresh sessions per CI run, hitting
+        // the broker's rate limiter and burning the daily session quota.
+        // The cache mints once per JVM (or once per persisted state file)
+        // and reuses the resulting session across every test method.
+        var session = LiveIciciAuthSession.resolveOrSkip(settings);
+        Assumptions.assumeTrue(session.base64SessionToken() != null
+                        && !session.base64SessionToken().isBlank(),
+                "ICICI session preflight produced an empty token");
     }
 
     private static boolean isEnabled() {

@@ -21,6 +21,19 @@ public final class OptionsContextStrategyPlugin implements GraphStrategyPlugin {
 
     private final OptionsAwareFeatureStore featureStore;
 
+    /**
+     * No-arg constructor required by the {@link java.util.ServiceLoader} SPI
+     * so this plugin can be discovered via
+     * {@code META-INF/services/com.tradej.strategy.api.GraphStrategyPlugin}.
+     * The {@link #featureStore} is null and {@link #onEvent(DomainEvent)} will
+     * short-circuit returning {@link Optional#empty()} until the Spring
+     * container replaces this instance with a fully-wired one through
+     * {@code TradingConfiguration#optionsContextStrategyPlugin}.
+     */
+    public OptionsContextStrategyPlugin() {
+        this(null);
+    }
+
     public OptionsContextStrategyPlugin(OptionsAwareFeatureStore featureStore) {
         this.featureStore = featureStore;
     }
@@ -37,6 +50,11 @@ public final class OptionsContextStrategyPlugin implements GraphStrategyPlugin {
 
     @Override
     public Optional<SignalGenerated> onEvent(DomainEvent event) {
+        if (featureStore == null) {
+            // SPI-instantiated placeholder — the Spring-managed bean
+            // (with a fully-wired featureStore) is the active one.
+            return Optional.empty();
+        }
         if (!(event instanceof CandleClosed closed)) {
             return Optional.empty();
         }

@@ -1,0 +1,1 @@
+Uses Java records for immutable configuration (`SlippageConfig`) and data transfer (`MatchResult`), and `ConcurrentHashMap`/`AtomicLong` for thread-safe state management in `MatchingEngine` and `SimulationMetrics`.

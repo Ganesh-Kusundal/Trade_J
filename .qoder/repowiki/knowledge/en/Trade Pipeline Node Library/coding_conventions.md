@@ -1,0 +1,3 @@
+- Node implementations implement the `NodeExecutor` interface and define a public static `NODE_TYPE` constant for identification.
+- Node descriptors are constructed using immutable records (`NodeDescriptor`, `PortDescriptor`) with defensive copying of collections in their compact constructors.
+- Execution results are standardized using static factory methods `NodeResult.ok()` and `NodeResult.fail()` to ensure consistent state reporting.

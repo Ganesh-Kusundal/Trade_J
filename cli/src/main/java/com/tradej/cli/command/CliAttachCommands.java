@@ -50,6 +50,23 @@ public final class CliAttachCommands extends CliCommandSupport {
         out().print(context().attach().strategies());
     }
 
+    /**
+     * Per-strategy replay-parity check. Calls
+     * {@code GET /api/v1/strategies/parity/{pluginId}} on the attached
+     * app and prints the JSON report. Exits with code 0 if the report
+     * contains at least one trade, 1 otherwise.
+     */
+    public int parity(String pluginId, String symbol, long fromMs, long toMs) {
+        requireAttach();
+        com.fasterxml.jackson.databind.JsonNode report =
+                context().attach().parity(pluginId, symbol, fromMs, toMs);
+        out().print(report);
+        if (report != null && report.has("trades") && report.get("trades").asLong() > 0) {
+            return 0;
+        }
+        return 1;
+    }
+
     public void summary() {
         requireAttach();
         out().print(context().attach().summary());

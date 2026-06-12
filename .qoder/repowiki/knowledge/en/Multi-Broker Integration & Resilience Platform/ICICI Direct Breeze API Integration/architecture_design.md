@@ -1,0 +1,6 @@
+- Entry Point: `IciciBrokerProvider` implements the `BrokerProvider` SPI, registered via `META-INF/services` for discovery by the core broker framework.
+- Connection Factory: `IciciConnectionFactory` assembles the `IciciBrokerConnection`, wiring together adapters, REST clients, and authentication components.
+- Adapter Layer: A set of `Icici*Adapter` and `Icici*Provider` classes (e.g., `IciciMarketDataProvider`, `IciciOrderCommandAdapter`) implement the generic `broker-api` port interfaces, translating between domain models and ICICI-specific payloads.
+- REST Client Layer: Thin `Breeze*RestClient` classes (e.g., `BreezeOrderRestClient`) encapsulate HTTP endpoint details, relying on `BreezeAuthenticatedHttpClient` for signed requests and session management.
+- Authentication: `BreezeTokenManager` handles multi-mode authentication (Static, TOTP, Browser Automation) and session lifecycle, including auto-refresh before midnight expiry.
+- Streaming: `BreezeWebSocketMultiplexer` manages Socket.IO connections for market ticks and order updates, featuring automatic reconnection with exponential backoff and circuit breaking.

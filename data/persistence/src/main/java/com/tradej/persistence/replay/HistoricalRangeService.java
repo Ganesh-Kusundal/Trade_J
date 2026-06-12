@@ -19,6 +19,7 @@ import com.tradej.core.domain.value.OrderStatus;
 import com.tradej.core.domain.value.OrderType;
 import com.tradej.core.domain.value.ProductType;
 import com.tradej.core.domain.value.Side;
+import com.tradej.persistence.duckdb.DuckDbConnectionPool;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -43,6 +44,7 @@ public final class HistoricalRangeService implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(HistoricalRangeService.class);
 
+    private final DuckDbConnectionPool pool;
     private final Connection connection;
     private final HistoricalQueryService queryService;
     private final HistoricalEventReplayService replayService;
@@ -53,69 +55,87 @@ public final class HistoricalRangeService implements AutoCloseable {
         } catch (SQLException e) {
             throw new IllegalStateException("Unable to connect to DuckDB at " + databasePath, e);
         }
+        this.pool = null;
         this.queryService = new HistoricalQueryService(connection);
         this.replayService = new HistoricalEventReplayService(connection);
+    }
+
+    public HistoricalRangeService(DuckDbConnectionPool pool) {
+        this.pool = pool;
+        this.connection = pool.rawConnection();
+        this.queryService = new HistoricalQueryService(connection);
+        this.replayService = new HistoricalEventReplayService(connection);
+    }
+
+    private <T> T execute(java.util.function.Supplier<T> action) {
+        if (pool != null) {
+            return pool.withConnection(conn -> action.get());
+        } else {
+            return action.get();
+        }
     }
 
     // ── Query delegation ──
 
     public List<Candle> queryCandles(String symbol, String interval, long fromMs, long toMs, int limit) {
-        return queryService.queryCandles(symbol, interval, fromMs, toMs, limit);
+        return execute(() -> queryService.queryCandles(symbol, interval, fromMs, toMs, limit));
     }
 
     public List<Candle> queryCandles(String symbol, String interval, long fromMs, long toMs) {
-        return queryService.queryCandles(symbol, interval, fromMs, toMs);
+        return execute(() -> queryService.queryCandles(symbol, interval, fromMs, toMs));
     }
 
     public List<MarketTickEvent> queryTicks(String symbol, long fromMs, long toMs, int limit) {
-        return queryService.queryTicks(symbol, fromMs, toMs, limit);
+        return execute(() -> queryService.queryTicks(symbol, fromMs, toMs, limit));
     }
 
     public List<MarketTickEvent> queryTicks(String symbol, long fromMs, long toMs) {
-        return queryService.queryTicks(symbol, fromMs, toMs);
+        return execute(() -> queryService.queryTicks(symbol, fromMs, toMs));
     }
 
     public List<HistoricalOrder> queryOrders(String symbol, long fromMs, long toMs, int limit) {
-        return queryService.queryOrders(symbol, fromMs, toMs, limit);
+        return execute(() -> queryService.queryOrders(symbol, fromMs, toMs, limit));
     }
 
     public List<HistoricalOrder> queryOrders(String symbol, long fromMs, long toMs) {
-        return queryService.queryOrders(symbol, fromMs, toMs);
+        return execute(() -> queryService.queryOrders(symbol, fromMs, toMs));
     }
 
     public List<HistoricalFill> queryFills(String symbol, long fromMs, long toMs, int limit) {
-        return queryService.queryFills(symbol, fromMs, toMs, limit);
+        return execute(() -> queryService.queryFills(symbol, fromMs, toMs, limit));
     }
 
     public List<HistoricalFill> queryFills(String symbol, long fromMs, long toMs) {
-        return queryService.queryFills(symbol, fromMs, toMs);
+        return execute(() -> queryService.queryFills(symbol, fromMs, toMs));
     }
 
     public List<HistoricalFillEvent> queryFillEvents(String symbol, long fromMs, long toMs, int limit) {
-        return queryService.queryFillEvents(symbol, fromMs, toMs, limit);
+        return execute(() -> queryService.queryFillEvents(symbol, fromMs, toMs, limit));
     }
 
     public List<HistoricalFillEvent> queryFillEvents(String symbol, long fromMs, long toMs) {
-        return queryService.queryFillEvents(symbol, fromMs, toMs);
+        return execute(() -> queryService.queryFillEvents(symbol, fromMs, toMs));
     }
 
     public List<HistoricalTradeEvent> queryTradeLifecycle(String symbol, long fromMs, long toMs, int limit) {
-        return queryService.queryTradeLifecycle(symbol, fromMs, toMs, limit);
+        return execute(() -> queryService.queryTradeLifecycle(symbol, fromMs, toMs, limit));
     }
 
     public List<HistoricalTradeEvent> queryTradeLifecycle(long fromMs, long toMs) {
-        return queryService.queryTradeLifecycle(fromMs, toMs);
+        return execute(() -> queryService.queryTradeLifecycle(fromMs, toMs));
     }
 
     public RangeStats rangeStats(String symbol, long fromMs, long toMs) {
-        return queryService.rangeStats(symbol, fromMs, toMs);
+        return execute(() -> queryService.rangeStats(symbol, fromMs, toMs));
     }
 
     // ── Replay delegation ──
 
     public ReplayResult replayTradeLifecycle(String symbol, long fromMs, long toMs, EventBus eventBus) {
-        List<HistoricalTradeEvent> events = queryService.queryTradeLifecycle(symbol, fromMs, toMs, 50_000);
-        return replayService.replayTradeLifecycle(events, eventBus);
+        return execute(() -> {
+            List<HistoricalTradeEvent> events = queryService.queryTradeLifecycle(symbol, fromMs, toMs, 50_000);
+            return replayService.replayTradeLifecycle(events, eventBus);
+        });
     }
 
     public ReplayResult replayTradeLifecycle(EventBus eventBus) {
@@ -123,29 +143,33 @@ public final class HistoricalRangeService implements AutoCloseable {
     }
 
     public ReplayResult replayMarketTicks(String symbol, long fromMs, long toMs, EventBus eventBus) {
-        return replayService.replayMarketTicks(symbol, fromMs, toMs, eventBus, 0, 50_000);
+        return execute(() -> replayService.replayMarketTicks(symbol, fromMs, toMs, eventBus, 0, 50_000));
     }
 
     public ReplayResult replayMarketTicks(String symbol, long fromMs, long toMs, EventBus eventBus, int offset, int batchSize) {
-        return replayService.replayMarketTicks(symbol, fromMs, toMs, eventBus, offset, batchSize);
+        return execute(() -> replayService.replayMarketTicks(symbol, fromMs, toMs, eventBus, offset, batchSize));
     }
 
     public ReplayResult replayTicks(String symbol, long fromMs, long toMs, EventBus eventBus) {
-        List<MarketTickEvent> ticks = queryService.queryTicks(symbol, fromMs, toMs, 50_000);
-        return replayService.replayTicks(ticks, symbol, eventBus);
+        return execute(() -> {
+            List<MarketTickEvent> ticks = queryService.queryTicks(symbol, fromMs, toMs, 50_000);
+            return replayService.replayTicks(ticks, symbol, eventBus);
+        });
     }
 
     public ReplayResult replayCandles(String symbol, String interval, long fromMs, long toMs, EventBus eventBus) {
-        List<Candle> candles = queryService.queryCandles(symbol, interval, fromMs, toMs, 10_000);
-        return replayService.replayCandles(candles, symbol, interval, eventBus);
+        return execute(() -> {
+            List<Candle> candles = queryService.queryCandles(symbol, interval, fromMs, toMs, 10_000);
+            return replayService.replayCandles(candles, symbol, interval, eventBus);
+        });
     }
 
     public ReplayResult replayOrders(String symbol, long fromMs, long toMs, EventBus eventBus) {
-        return replayService.replayOrders(symbol, fromMs, toMs, eventBus);
+        return execute(() -> replayService.replayOrders(symbol, fromMs, toMs, eventBus));
     }
 
     public ReplayResult replayFillEvents(String symbol, long fromMs, long toMs, EventBus eventBus) {
-        return replayService.replayFillEvents(symbol, fromMs, toMs, eventBus);
+        return execute(() -> replayService.replayFillEvents(symbol, fromMs, toMs, eventBus));
     }
 
     // ── Accessors ──
@@ -160,7 +184,9 @@ public final class HistoricalRangeService implements AutoCloseable {
 
     @Override
     public void close() throws Exception {
-        connection.close();
+        if (pool == null) {
+            connection.close();
+        }
     }
 
     // ── Result types ──

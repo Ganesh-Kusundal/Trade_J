@@ -1,6 +1,6 @@
 package com.tradej.app.admin;
 
-import com.tradej.execution.risk.PositionRiskHandler;
+import com.tradej.composition.FullComposition;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -12,18 +12,18 @@ import java.util.Map;
 @RequestMapping("/admin/reconciliation")
 public class ReconciliationController {
 
-    private final PositionRiskHandler positionRiskHandler;
+    private final FullComposition fullComposition;
 
-    public ReconciliationController(PositionRiskHandler positionRiskHandler) {
-        this.positionRiskHandler = positionRiskHandler;
+    public ReconciliationController(FullComposition fullComposition) {
+        this.fullComposition = fullComposition;
     }
 
     @PostMapping("/acknowledge")
     public ResponseEntity<Map<String, Object>> acknowledgeHalt() {
-        positionRiskHandler.acknowledgeReconciliationHalt();
+        fullComposition.executionComposition().positionRiskHandler().acknowledgeReconciliationHalt();
         return ResponseEntity.ok(Map.of(
                 "acknowledged", true,
-                "reconciliationHalt", positionRiskHandler.isReconciliationHaltActive(),
-                "killSwitch", positionRiskHandler.isKillSwitchActive()));
+                "reconciliationHalt", fullComposition.executionComposition().positionRiskHandler().isReconciliationHaltActive(),
+                "killSwitch", fullComposition.executionComposition().positionRiskHandler().isKillSwitchActive()));
     }
 }

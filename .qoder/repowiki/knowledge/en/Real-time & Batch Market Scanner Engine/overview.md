@@ -1,0 +1,1 @@
+Executes configurable scanning profiles against market universes using batch snapshots or real-time event streams to identify trading opportunities.

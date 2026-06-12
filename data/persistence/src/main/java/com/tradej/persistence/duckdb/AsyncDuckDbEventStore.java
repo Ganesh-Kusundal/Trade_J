@@ -1,6 +1,7 @@
 package com.tradej.persistence.duckdb;
 
 import com.tradej.core.domain.event.DomainEvent;
+import com.tradej.core.domain.event.PoisonPillEvent;
 import com.tradej.core.domain.port.DomainEventHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,18 +35,7 @@ public final class AsyncDuckDbEventStore implements DomainEventHandler<DomainEve
     private final AtomicLong droppedEventCount = new AtomicLong();
     private volatile Thread workerThread;
 
-    private static final class PoisonPill implements DomainEvent {
-        @Override
-        public com.tradej.core.domain.event.EventMetadata metadata() {
-            return com.tradej.core.domain.event.EventMetadata.root();
-        }
-
-        @Override
-        public void accept(com.tradej.core.domain.event.DomainEventVisitor visitor) {
-            // PoisonPill is internal and doesn't need to be visited by risk/engine
-        }
-    }
-    private static final PoisonPill POISON_PILL = new PoisonPill();
+    private static final PoisonPillEvent POISON_PILL = new PoisonPillEvent();
 
     public AsyncDuckDbEventStore(DuckDbEventStore delegate) {
         this(delegate, DEFAULT_QUEUE_CAPACITY, DEFAULT_BATCH_SIZE, DEFAULT_BATCH_WAIT_MS);
@@ -98,7 +88,7 @@ public final class AsyncDuckDbEventStore implements DomainEventHandler<DomainEve
             batch.clear();
             try {
                 DomainEvent first = queue.poll(batchWaitMs, TimeUnit.MILLISECONDS);
-                if (first == null || first instanceof PoisonPill) {
+                if (first == null || first instanceof PoisonPillEvent) {
                     continue;
                 }
                 batch.add(first);
@@ -122,7 +112,7 @@ public final class AsyncDuckDbEventStore implements DomainEventHandler<DomainEve
         List<DomainEvent> remaining = new ArrayList<>();
         queue.drainTo(remaining);
         for (DomainEvent event : remaining) {
-            if (event instanceof PoisonPill) continue;
+            if (event instanceof PoisonPillEvent) continue;
             try {
                 delegate.onEvent(event);
             } catch (Exception e) {

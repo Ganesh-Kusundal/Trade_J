@@ -1,0 +1,4 @@
+- REST clients are thin wrappers around `BreezeAuthenticatedHttpClient`, delegating signing and session validation while focusing only on endpoint paths and payload construction.
+- Adapter classes translate between generic domain models (from `broker-api`) and ICICI-specific JSON structures, keeping API-specific mapping logic isolated from business logic.
+- Authentication modes are handled polymorphically via `IciciAuthMode` enum and `BreezeTokenManager`, allowing seamless switching between Static, TOTP, and Browser-based sessions without changing client code.
+- WebSocket subscriptions are batched and rate-limited in `BreezeWebSocketMultiplexer` to respect API limits and avoid message size errors, using a fixed batch size and delay.

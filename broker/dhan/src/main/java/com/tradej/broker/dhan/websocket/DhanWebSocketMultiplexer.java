@@ -362,6 +362,21 @@ public final class DhanWebSocketMultiplexer implements WebSocketMultiplexer {
                 if (code == INVALID_TOKEN_CODE) {
                     publishMarket(brokerError("market-auth",
                             "Dhan websocket token is invalid or expired"));
+                    // CRITICAL-2 fix: force a fresh TOTP mint and propagate
+                    // the rotation to the multiplexer via its rotation listener.
+                    // The call is async so the disconnect callback returns
+                    // immediately and the new token is bound on the next
+                    // reconnect attempt.
+                    long failedGen = clientHolder.tokenProvider().tokenGenerationId();
+                    clientHolder.tokenProvider().invalidate(failedGen);
+                    Thread.ofVirtual().name("dhan-rotate-market").start(() -> {
+                        try {
+                            clientHolder.ensureValidToken();
+                        } catch (RuntimeException re) {
+                            log.warn("Dhan market token rotation after invalid disconnect failed: {}",
+                                    re.getMessage());
+                        }
+                    });
                 }
                 publishMarket(healthEvent("dhan", "DISCONNECTED", code));
             }
@@ -390,6 +405,18 @@ public final class DhanWebSocketMultiplexer implements WebSocketMultiplexer {
                 if (code == INVALID_TOKEN_CODE) {
                     publishOrder(brokerError("order-auth",
                             "Dhan order stream token is invalid or expired"));
+                    // Mirror the market feed's invalidation flow
+                    // (CRITICAL-2 fix).
+                    long failedGen = clientHolder.tokenProvider().tokenGenerationId();
+                    clientHolder.tokenProvider().invalidate(failedGen);
+                    Thread.ofVirtual().name("dhan-rotate-order").start(() -> {
+                        try {
+                            clientHolder.ensureValidToken();
+                        } catch (RuntimeException re) {
+                            log.warn("Dhan order-stream token rotation after invalid disconnect failed: {}",
+                                    re.getMessage());
+                        }
+                    });
                 }
                 publishOrder(healthEvent("dhan-order", "DISCONNECTED", code));
             }

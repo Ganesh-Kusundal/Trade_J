@@ -1,0 +1,8 @@
+schema_version: 1
+module_path: pipeline_system/pipeline_analytics
+title: Trade Performance & Drawdown Analytics
+scope:
+    - pipeline/analytics/trade-analytics/
+source_files: []
+depends_on: []
+related_to: []

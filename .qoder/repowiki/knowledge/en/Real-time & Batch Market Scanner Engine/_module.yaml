@@ -1,0 +1,8 @@
+schema_version: 1
+module_path: trading_engine/scanner
+title: Real-time & Batch Market Scanner Engine
+scope:
+    - trading/scanner/
+source_files: []
+depends_on: []
+related_to: []

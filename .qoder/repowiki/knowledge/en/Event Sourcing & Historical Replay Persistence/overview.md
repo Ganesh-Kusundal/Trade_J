@@ -1,0 +1,1 @@
+Provides event-sourced storage for trading domain events using Chronicle Queue and DuckDB, with support for historical data replay and backtesting.

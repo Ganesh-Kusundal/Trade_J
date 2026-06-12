@@ -1,0 +1,1 @@
+Spring Boot autoconfiguration with conditional bean registration (`@ConditionalOnProperty`, `@ConditionalOnMissingBean`); Jackson `ObjectMapper` for JSON serialization of domain events; Micrometer gauges for runtime metrics; binary wire protocol with custom `GatewayBinaryCodec` (9-byte header: topic byte + big-endian long sequence).

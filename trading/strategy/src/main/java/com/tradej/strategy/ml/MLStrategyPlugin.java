@@ -50,6 +50,21 @@ public final class MLStrategyPlugin implements GraphStrategyPlugin {
      * @param interval         candle interval to query (e.g. "5m", "1d")
      * @param lookback         number of historical candles for feature computation
      */
+    /**
+     * No-arg constructor required by the {@link java.util.ServiceLoader} SPI
+     * so this plugin can be discovered via
+     * {@code META-INF/services/com.tradej.strategy.api.GraphStrategyPlugin}.
+     * The instance is a placeholder — the Spring container replaces it
+     * with a fully-wired one through {@code TradingConfiguration}.
+     */
+    public MLStrategyPlugin() {
+        this.name = "ml-placeholder";
+        this.featureStore = null;
+        this.inferenceEngine = null;
+        this.interval = "1m";
+        this.lookback = 0;
+    }
+
     public MLStrategyPlugin(
             String name,
             FeatureStore featureStore,
@@ -76,6 +91,12 @@ public final class MLStrategyPlugin implements GraphStrategyPlugin {
 
     @Override
     public Optional<SignalGenerated> onEvent(DomainEvent event) {
+        if (featureStore == null || inferenceEngine == null) {
+            // SPI-instantiated placeholder — the Spring-managed bean
+            // (with a fully-wired featureStore + inferenceEngine) is
+            // the active one.
+            return Optional.empty();
+        }
         if (event instanceof CandleClosed candleClosed) {
             return evaluateCandle(candleClosed);
         }

@@ -54,11 +54,11 @@ public final class DhanAuthenticatedHttpClient {
 
     private DhanJsonResponse sendJson(String url, String method, String body) {
         try {
-            tokenProvider.ensureValid();
+            String accessToken = tokenProvider.ensureValidAndGet();
             HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create(url))
                     .header("Accept", DhanApiEndpoints.HEADER_ACCEPT_JSON)
                     .header("Content-Type", DhanApiEndpoints.HEADER_CONTENT_TYPE_JSON)
-                    .header(DhanApiEndpoints.HEADER_ACCESS_TOKEN, tokenProvider.getAccessToken())
+                    .header(DhanApiEndpoints.HEADER_ACCESS_TOKEN, accessToken)
                     .header(DhanApiEndpoints.HEADER_CLIENT_ID, settings.clientId());
             HttpRequest request;
             if ("POST".equals(method)) {

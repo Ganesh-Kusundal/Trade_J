@@ -1,0 +1,1 @@
+Picocli 4.7.6 for command parsing and JLine 3.26.3 for interactive terminal handling; Jackson 2.18.2 for JSON serialization.

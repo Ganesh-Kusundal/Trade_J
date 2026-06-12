@@ -1,0 +1,1 @@
+Uses DuckDB via `org.duckdb:duckdb_jdbc` for embedded analytical querying in `DuckDbQueryEngine`.

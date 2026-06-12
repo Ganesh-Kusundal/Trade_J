@@ -1,9 +1,9 @@
-import { fetchJson } from "./client";
+import { marketApi } from "../generated/api";
 import type { SessionResponse } from "../domain/instrument";
 import { MarketState } from "../domain/instrument";
 
 export function fetchSession(exchange: string) {
-  return fetchJson<SessionResponse>(`/market/session?exchange=${exchange}`);
+  return marketApi.session(exchange) as Promise<SessionResponse>;
 }
 
 export function isMarketOpen(state: MarketState): boolean {

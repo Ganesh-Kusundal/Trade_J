@@ -1,7 +1,6 @@
 package com.tradej.composition;
 
 import com.tradej.broker.api.IBrokerConnection;
-import com.tradej.broker.api.port.IdempotencyCachePort;
 import com.tradej.broker.api.spi.BrokerProvider;
 import com.tradej.broker.api.spi.BrokerRegistry;
 import com.tradej.broker.api.spi.BrokerSource;
@@ -13,6 +12,10 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Map;
 
+/**
+ * Broker composition root — the only composition class used by both the Spring app path
+ * and the CLI standalone path.
+ */
 public final class BrokerComposition {
 
     private static final Logger log = LoggerFactory.getLogger(BrokerComposition.class);
@@ -28,10 +31,6 @@ public final class BrokerComposition {
     }
 
     public static BrokerComposition create(BrokerProfile profile) {
-        return create(profile, null);
-    }
-
-    public static BrokerComposition create(BrokerProfile profile, IdempotencyCachePort idempotencyCache) {
         // Validate configuration before creating broker
         profile.validate();
         

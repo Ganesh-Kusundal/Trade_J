@@ -83,18 +83,20 @@ project(':replay-engine').projectDir = file('replay/engine')
 include 'mcp-server'
 project(':mcp-server').projectDir = file('mcp-server')
 
-// Research modules — excluded by default for faster builds.
-// Enable with:  ./gradlew build -Presearch
-if (settings.startParameter.projectProperties.containsKey('research')) {
-    include 'research-core'
-    project(':research-core').projectDir = file('research/core')
-
-    include 'research-lab'
-    project(':research-lab').projectDir = file('research/lab')
-
-    include 'research-api'
-    project(':research-api').projectDir = file('research/api')
+// JMH benchmarks — opt-in for faster builds
+// Enable with: ./gradlew :benchmark:jmh -Pbenchmarks
+if (settings.startParameter.projectProperties.containsKey('benchmarks')) {
+    include 'benchmark'
+    project(':benchmark').projectDir = file('benchmark')
 }
+
+// Research modules — `research-core` and `research-lab` are always on;
+// `research-api` was deleted (controllers merged into `app`).
+include 'research-core'
+project(':research-core').projectDir = file('research/core')
+
+include 'research-lab'
+project(':research-lab').projectDir = file('research/lab')
 
 // Binance Market Data POC — excluded by default
 // Enable with:  ./gradlew build -Pbinance

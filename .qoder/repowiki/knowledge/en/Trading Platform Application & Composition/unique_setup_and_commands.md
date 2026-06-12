@@ -1,0 +1,2 @@
+- Frontend Integration: The `app/build.gradle` includes custom Gradle tasks (`installFrontend`, `buildFrontend`, `syncFrontend`) that trigger `npm install` and `vite build` in the `trade_j_frontend` directory, syncing artifacts to `src/main/resources/static/console` during `processResources`.
+- Broker Profiles: Startup behavior is driven by `trade.broker-type` (dhan/upstox/icici/gateway/simulation) and Spring profiles (dev/prod/gateway/replay), requiring specific environment variables for broker credentials (e.g., Dhan PIN/TOTP files).

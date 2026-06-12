@@ -3,7 +3,7 @@ package com.tradej.cli.standalone;
 import com.tradej.broker.api.IBrokerConnection;
 import com.tradej.broker.dhan.DhanBrokerConnection;
 import com.tradej.broker.dhan.config.DhanConfigPaths;
-import com.tradej.composition.FullComposition;
+import com.tradej.composition.BrokerComposition;
 import com.tradej.composition.config.BrokerProfile;
 import com.tradej.cli.config.CliConfig;
 
@@ -16,7 +16,7 @@ public final class DhanBrokerSession implements BrokerSession {
 
     private final CliConfig.Profile profile;
     private final com.tradej.broker.dhan.config.DhanConnectionSettings settings;
-    private FullComposition composition;
+    private BrokerComposition composition;
     private boolean catalogLoaded;
     private Path lastCatalogPath;
 
@@ -40,7 +40,7 @@ public final class DhanBrokerSession implements BrokerSession {
     }
 
     @Override
-    public FullComposition fullComposition() {
+    public BrokerComposition fullComposition() {
         if (composition == null) {
             BrokerProfile.DhanConfig dhanConfig = new BrokerProfile.DhanConfig(
                     settings.clientId(),
@@ -57,7 +57,7 @@ public final class DhanBrokerSession implements BrokerSession {
             );
             BrokerProfile brokerProfile = new BrokerProfile(
                     BrokerProfile.BrokerType.DHAN, dhanConfig, null, null);
-            composition = FullComposition.brokerOnly(brokerProfile);
+            composition = BrokerComposition.create(brokerProfile);
         }
         return composition;
     }

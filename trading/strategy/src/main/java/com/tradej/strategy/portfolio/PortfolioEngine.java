@@ -11,6 +11,8 @@ import com.tradej.core.domain.event.TradeClosed;
 import com.tradej.core.domain.event.TradeOpened;
 import com.tradej.core.domain.value.Side;
 
+import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -54,6 +56,12 @@ public final class PortfolioEngine {
 
     // Trade → trade info: tradeId → TradeInfo (for TradeClosed cleanup)
     private final ConcurrentHashMap<String, TradeInfo> openTrades = new ConcurrentHashMap<>();
+
+    // Running realized PnL: every TradeClosed event appends a new point
+    // whose realizedPnlPaisa is the cumulative sum across all closed trades.
+    private final java.util.List<EquityPoint> equityCurve =
+            java.util.Collections.synchronizedList(new ArrayList<>());
+    private final AtomicLong cumulativeRealizedPnlPaisa = new AtomicLong();
 
     // P0-7: Dedicated thread infrastructure to move processing off the ring buffer thread
     private static final int DEFAULT_QUEUE_CAPACITY = 1024;
@@ -197,10 +205,21 @@ public final class PortfolioEngine {
         return capitalService.allocationsSnapshot();
     }
 
+    /**
+     * Snapshot of the running equity curve as (timestampMs, realizedPnlPaisa)
+     * pairs. The curve is fed by every {@link TradeClosed} event processed
+     * since the engine was constructed. Callers should treat the returned
+     * list as immutable.
+     */
+    public java.util.List<EquityPoint> equityCurveSnapshot() {
+        return java.util.List.copyOf(equityCurve);
+    }
+
     public void reset() {
         capitalService.reset();
         exposureTracker.reset();
         openTrades.clear();
+        equityCurve.clear();
     }
 
     // ── Replay state isolation ──
@@ -243,6 +262,12 @@ public final class PortfolioEngine {
             Map<String, String> orderIdToSignalId,
             Map<String, TradeInfo> openTrades
     ) {}
+
+    /**
+     * Single point on the realized-PnL equity curve. The curve is appended
+     * to on every {@link com.tradej.core.domain.event.TradeClosed} event.
+     */
+    public record EquityPoint(long timestampMs, long realizedPnlPaisa) {}
 
     // ── Signal pass-through ──
 
@@ -361,6 +386,14 @@ public final class PortfolioEngine {
 
         capitalService.freeTradeCapital(info.strategyName(), info.capitalPaisa());
         exposureTracker.onTradeClosed(trade, info.symbol(), info.netDelta());
+
+        // Append to running realized-PnL equity curve.
+        long pnl = trade.realizedPnlPaisa();
+        long total = cumulativeRealizedPnlPaisa.addAndGet(pnl);
+        long ts = trade.metadata() != null
+                ? trade.metadata().timestampMs()
+                : System.currentTimeMillis();
+        equityCurve.add(new EquityPoint(ts, total));
 
         log.info("Portfolio freed trade strategy={} symbol={} pnl={} reason={}",
                 info.strategyName(), trade.symbol(), trade.realizedPnlPaisa(), trade.reason());

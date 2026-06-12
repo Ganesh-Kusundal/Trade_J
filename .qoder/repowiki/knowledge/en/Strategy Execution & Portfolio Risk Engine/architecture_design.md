@@ -1,0 +1,4 @@
+- **Plugin Architecture**: Defines two primary interfaces, `StrategyPluginProvider` (candle-based) and `GraphStrategyPlugin` (multi-event), discovered via `ServiceLoader` for extensibility.
+- **Isolated Execution**: `GraphStrategySandbox` executes plugins in virtual threads with bounded timeouts to prevent hot-path blocking, routing events based on plugin subscriptions.
+- **Portfolio Risk Management**: `PortfolioEngine` acts as the central gatekeeper, delegating capital reservation to `CapitalReservationService` and net exposure tracking to `ExposureTracker` to enforce per-strategy and per-symbol limits.
+- **Pipeline Integration**: `StrategyNode` wraps the sandbox for integration into the broader event-processing pipeline, while `MLStrategyPlugin` adapts ML inference results into standard trading signals.

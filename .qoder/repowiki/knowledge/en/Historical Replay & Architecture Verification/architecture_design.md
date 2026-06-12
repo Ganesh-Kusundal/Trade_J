@@ -1,0 +1,3 @@
+- The `replay/engine` sub-package implements a framework-agnostic replay loop using `ReplayController` and `CandleReplaySession` to drive `EventBus` publications with variable speed and multi-timeframe aggregation.
+- `ReplayOrchestrator` coordinates bulk replays by wrapping `VirtualClock` and `ReplayStateManager` (implemented by `IsolatedReplayStateManager`) to snapshot and restore pipeline state, ensuring isolation between live and simulated trading contexts.
+- The `architecture-test` sub-package acts as a cross-cutting verification layer using ArchUnit and Spring Modulith Test to validate module dependencies, broker isolation, and the absence of Spring Framework coupling in core business logic via a dedicated Gradle test suite.

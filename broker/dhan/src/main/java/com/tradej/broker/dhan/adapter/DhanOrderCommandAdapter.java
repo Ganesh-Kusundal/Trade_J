@@ -28,6 +28,15 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public final class DhanOrderCommandAdapter implements OrderCommand {
     private static final int MAX_MODIFICATIONS_PER_ORDER = 25;
+    /**
+     * Soft cap on the {@code modificationCounts} map. Once the number of
+     * tracked order IDs exceeds this, we log a warning and prune the
+     * smallest entry. Orders tracked beyond this point will still get
+     * accurate counts because we re-create the counter on first use, but
+     * the map is bounded to prevent long-running processes from leaking
+     * memory (HIGH-5 in the broker review).
+     */
+    private static final int MAX_TRACKED_MODIFICATION_ORDERS = 10_000;
 
     private final DhanAdapterContext context;
     private final DhanInstrumentResolver resolver;
@@ -103,6 +112,7 @@ public final class DhanOrderCommandAdapter implements OrderCommand {
     @Override
     public Order modifyOrder(ModifyOrderRequest request) {
         String orderId = request.orderId();
+        ensureBoundedModificationCounts();
         AtomicInteger counter = modificationCounts.computeIfAbsent(orderId, k -> new AtomicInteger(0));
         int count = counter.incrementAndGet();
         if (count > MAX_MODIFICATIONS_PER_ORDER) {
@@ -125,14 +135,39 @@ public final class DhanOrderCommandAdapter implements OrderCommand {
         }
     }
 
+    /**
+     * Soft-bounds the {@code modificationCounts} map (HIGH-5). On overflow,
+     * removes the lowest-count entries first — these are least likely to
+     * matter and will simply re-initialize on next modify, which is safe
+     * because we re-validate against {@link #MAX_MODIFICATIONS_PER_ORDER}
+     * each time.
+     */
+    private void ensureBoundedModificationCounts() {
+        if (modificationCounts.size() <= MAX_TRACKED_MODIFICATION_ORDERS) {
+            return;
+        }
+        int overflow = modificationCounts.size() - MAX_TRACKED_MODIFICATION_ORDERS;
+        modificationCounts.entrySet().stream()
+                .sorted((a, b) -> Integer.compare(a.getValue().get(), b.getValue().get()))
+                .limit(overflow)
+                .map(java.util.Map.Entry::getKey)
+                .forEach(modificationCounts::remove);
+    }
+
     @Override
     public List<String> cancelAllOpenOrders() {
         List<String> cancelled = new ArrayList<>();
         List<Order> openOrders = restOrderClient.getOrders();
         for (Order order : openOrders) {
             if (order.status().isActive()) {
-                DhanInstrumentDefinition definition = context.resolveDef(order.symbol(), order.exchangeSegment());
-                if (restOrderClient.cancelOrderViaApi(order.orderId(), settings)) {
+                // MED-3: route the cancel through the rate limiter. The
+                // previous direct call bypassed the ORDER bucket and could
+                // starve concurrent place-order activity. In sandbox mode,
+                // context.execute() is a no-op pass-through.
+                final String orderId = order.orderId();
+                boolean cancelledOk = context.execute(ApiCategory.ORDER, "cancel-order", () ->
+                        restOrderClient.cancelOrderViaApi(orderId, settings));
+                if (cancelledOk) {
                     cancelled.add(order.orderId());
                 }
             }

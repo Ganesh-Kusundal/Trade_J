@@ -1,9 +1,9 @@
-import { DhanFeedManager } from "./DhanFeedManager";
-import { fetchCandles, fetchDepth, fetchLtp } from "./marketData";
-import { fetchSession } from "./marketSession";
-import type { OHLCVBar, L2Level, TradeTick, SessionResponse, Instrument } from "../domain/instrument";
+import { GatewayFeedManager, GatewayTopic } from "./GatewayFeedManager";
+import { fetchCandles } from "./marketData";
+import { marketBus } from "./MarketDataBus";
+import type { OHLCVBar, Instrument } from "../domain/instrument";
 import { MarketState } from "../domain/instrument";
-import type { DhanQuotePacket, DhanDepthPacket } from "./dhanPacketParser";
+import { marketApi } from "../generated/api";
 
 export enum DataMode {
   LIVE = "LIVE",
@@ -13,23 +13,19 @@ export enum DataMode {
 
 export interface BrokerConfig {
   isConfigured: boolean;
-  accessToken?: string;
-  clientId?: string;
 }
 
 export interface OrchestratorCallbacks {
   onBars?: (bars: OHLCVBar[]) => void;
   onLtp?: (ltp: number) => void;
-  onDepth?: (bids: L2Level[], asks: L2Level[]) => void;
-  onTrade?: (trade: TradeTick) => void;
+  onDepth?: (bids: { price: number; quantity: number; orders: number }[], asks: { price: number; quantity: number; orders: number }[]) => void;
   onModeChange?: (mode: DataMode, marketState: MarketState) => void;
   onFeedHealth?: (health: "healthy" | "delayed" | "stale" | "disconnected") => void;
 }
 
 export class TerminalDataOrchestrator {
   private currentMode: DataMode | null = null;
-  private feedManager: DhanFeedManager | null = null;
-  private pollTimers: ReturnType<typeof setInterval>[] = [];
+  private gatewayFeed: GatewayFeedManager | null = null;
   private sessionTimer: ReturnType<typeof setInterval> | null = null;
   private feedHealthTimer: ReturnType<typeof setInterval> | null = null;
   private lastUpdateMs = Date.now();
@@ -39,9 +35,8 @@ export class TerminalDataOrchestrator {
   private currentSymbol = "";
   private currentSegment = "";
   private currentInstrument: Instrument | null = null;
-  private currentInterval = "1d";
-  private currentDays = 365;
-  private securityIdToSymbol: Map<number, string> = new Map();
+  private lastKnownMarketState: MarketState = MarketState.UNKNOWN;
+  private unsubscribeBus: (() => void) | null = null;
 
   constructor(brokerConfig: BrokerConfig, callbacks: OrchestratorCallbacks) {
     this.brokerConfig = brokerConfig;
@@ -54,18 +49,14 @@ export class TerminalDataOrchestrator {
     this.currentSegment = segment;
     this.currentInstrument = instrument;
 
-    // Always load historical bars first
     await this.loadHistoricalBars(instrument, segment, interval, days);
 
-    // Determine mode
-    const mode = this.resolveMode(exchange, instrument);
+    const mode = this.resolveMode();
     if (mode === this.currentMode) return;
     this.currentMode = mode;
 
-    // Stop any existing feeds
     this.stopAllFeeds();
 
-    // Branch on mode
     switch (mode) {
       case DataMode.LIVE:
         this.startLiveFeed(instrument);
@@ -78,31 +69,14 @@ export class TerminalDataOrchestrator {
         break;
     }
 
-    // Start session polling (every 60s)
     this.startSessionPolling(exchange, instrument);
-
-    // Start feed health monitoring
     this.startFeedHealthMonitoring();
-
-    this.callbacks.onModeChange?.(mode, MarketState.UNKNOWN);
+    this.callbacks.onModeChange?.(mode, this.lastKnownMarketState);
   }
 
-  private resolveMode(exchange: string, instrument: Instrument): DataMode {
-    const hasCreds = this.brokerConfig.isConfigured &&
-      (this.brokerConfig.accessToken?.length ?? 0) > 0;
-
-    if (!hasCreds) return DataMode.SIMULATION;
-
-    // Check market state from last known session
-    const marketState = this.getLastKnownMarketState();
-    if (marketState === MarketState.OPEN) return DataMode.LIVE;
+  private resolveMode(): DataMode {
+    if (this.lastKnownMarketState === MarketState.OPEN) return DataMode.LIVE;
     return DataMode.HISTORICAL;
-  }
-
-  private lastKnownMarketState: MarketState = MarketState.UNKNOWN;
-
-  private getLastKnownMarketState(): MarketState {
-    return this.lastKnownMarketState;
   }
 
   private async loadHistoricalBars(instrument: Instrument, segment: string, interval = "1d", days = 365): Promise<void> {
@@ -125,37 +99,12 @@ export class TerminalDataOrchestrator {
   }
 
   private startLiveFeed(instrument: Instrument): void {
-    if (!this.brokerConfig.accessToken || !this.brokerConfig.clientId) return;
-
-    // Map security IDs for reverse lookup
-    const { resolveDhanInstrument: resolve } = require("./dhanSecurityIds");
-    const resolved = resolve(instrument.symbol);
-    if (resolved) {
-      this.securityIdToSymbol.set(parseInt(resolved.securityId), instrument.symbol);
-    }
-
-    this.feedManager = new DhanFeedManager({
-      accessToken: this.brokerConfig.accessToken,
-      clientId: this.brokerConfig.clientId,
-      onTick: (_secId, ltp) => {
-        this.lastUpdateMs = Date.now();
-        this.callbacks.onLtp?.(ltp);
-      },
-      onQuote: (_secId, packet) => {
-        this.lastUpdateMs = Date.now();
-        this.callbacks.onLtp?.(packet.ltp);
-      },
-      onDepth: (_secId, packet) => {
-        this.lastUpdateMs = Date.now();
-        const bids: L2Level[] = packet.bids.map(b => ({
-          price: b.price, quantity: b.quantity, orders: b.orders,
-        }));
-        const asks: L2Level[] = packet.asks.map(a => ({
-          price: a.price, quantity: a.quantity, orders: a.orders,
-        }));
-        this.callbacks.onDepth?.(bids, asks);
-      },
+    this.gatewayFeed = new GatewayFeedManager({
+      gatewayUrl: `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}/ws/gateway`,
+      symbol: instrument.symbol,
+      exchange: this.currentExchange,
       onConnect: () => {
+        this.lastUpdateMs = Date.now();
         this.callbacks.onFeedHealth?.("healthy");
       },
       onDisconnect: () => {
@@ -166,57 +115,64 @@ export class TerminalDataOrchestrator {
       },
     });
 
-    this.feedManager.connect([instrument.symbol]);
+    this.gatewayFeed.connect([
+      GatewayTopic.MARKET_TICK,
+      GatewayTopic.MARKET_DEPTH,
+      GatewayTopic.CANDLE_DEVELOPING,
+      GatewayTopic.CANDLE_CLOSED,
+    ]);
+
+    this.unsubscribeBus = marketBus.subscribe((event) => {
+      this.lastUpdateMs = Date.now();
+      if (event.type === "TICK") {
+        this.callbacks.onLtp?.(event.ltp);
+      } else if (event.type === "DEPTH") {
+        this.callbacks.onDepth?.(event.bids, event.asks);
+      }
+    });
   }
 
   private startHistoricalFreeze(): void {
-    // In historical mode, we already loaded bars. Just freeze everything.
-    // Load one final depth snapshot and freeze
-    if (this.currentInstrument) {
-      fetchDepth(this.currentInstrument.symbol).then(data => {
-        const bids: L2Level[] = (data.bids || []).map((b: any) => ({
-          price: b.pricePaisa != null ? b.pricePaisa / 100 : (b.price ?? 0),
-          quantity: b.quantity ?? b.amount ?? 0,
-          orders: b.orderCount ?? b.orders ?? 1,
-        }));
-        const asks: L2Level[] = (data.asks || []).map((a: any) => ({
-          price: a.pricePaisa != null ? a.pricePaisa / 100 : (a.price ?? 0),
-          quantity: a.quantity ?? a.amount ?? 0,
-          orders: a.orderCount ?? a.orders ?? 1,
-        }));
-        this.callbacks.onDepth?.(bids, asks);
-      }).catch(() => {});
+    if (!this.currentInstrument) return;
+    marketApi.depth(this.currentInstrument.symbol).then(data => {
+      const bids = (data.bids || []).map((b: any) => ({
+        price: b.pricePaisa != null ? b.pricePaisa / 100 : (b.price ?? 0),
+        quantity: b.quantity ?? b.amount ?? 0,
+        orders: b.orderCount ?? b.orders ?? 1,
+      }));
+      const asks = (data.asks || []).map((a: any) => ({
+        price: a.pricePaisa != null ? a.pricePaisa / 100 : (a.price ?? 0),
+        quantity: a.quantity ?? a.amount ?? 0,
+        orders: a.orderCount ?? a.orders ?? 1,
+      }));
+      this.callbacks.onDepth?.(bids, asks);
+    }).catch(() => {});
 
-      fetchLtp(this.currentInstrument.symbol, this.currentSegment).then(data => {
-        this.callbacks.onLtp?.(data.ltpPaisa / 100);
-      }).catch(() => {});
-    }
+    marketApi.ltp(this.currentInstrument.symbol, this.currentSegment).then(data => {
+      this.callbacks.onLtp?.(data.ltpPaisa / 100);
+    }).catch(() => {});
   }
 
   private startSimulation(instrument: Instrument, segment: string): void {
-    // Poll LTP and depth from backend simulation endpoints
     const loadLtp = () => {
-      fetchLtp(instrument.symbol, segment).then(data => {
-        const newPrice = data.ltpPaisa / 100;
+      marketApi.ltp(instrument.symbol, segment).then(data => {
         this.lastUpdateMs = Date.now();
-        this.callbacks.onLtp?.(newPrice);
+        this.callbacks.onLtp?.(data.ltpPaisa / 100);
       }).catch(() => {});
     };
 
     const loadDepth = () => {
-      fetchDepth(instrument.symbol).then(data => {
-        const bids: L2Level[] = (data.bids || []).map((b: any) => ({
+      marketApi.depth(instrument.symbol).then(data => {
+        const bids = (data.bids || []).map((b: any) => ({
           price: b.pricePaisa != null ? b.pricePaisa / 100 : (b.price ?? 0),
           quantity: b.quantity ?? b.amount ?? 0,
           orders: b.orderCount ?? b.orders ?? 1,
-        })).sort((a: L2Level, b: L2Level) => b.price - a.price);
-
-        const asks: L2Level[] = (data.asks || []).map((a: any) => ({
+        })).sort((a: any, b: any) => b.price - a.price);
+        const asks = (data.asks || []).map((a: any) => ({
           price: a.pricePaisa != null ? a.pricePaisa / 100 : (a.price ?? 0),
           quantity: a.quantity ?? a.amount ?? 0,
           orders: a.orderCount ?? a.orders ?? 1,
-        })).sort((a: L2Level, b: L2Level) => a.price - b.price);
-
+        })).sort((a: any, b: any) => a.price - b.price);
         this.lastUpdateMs = Date.now();
         this.callbacks.onDepth?.(bids, asks);
       }).catch(() => {});
@@ -224,16 +180,18 @@ export class TerminalDataOrchestrator {
 
     loadLtp();
     loadDepth();
-    this.pollTimers.push(setInterval(loadLtp, 2000));
-    this.pollTimers.push(setInterval(loadDepth, 3000));
+    const ltpTimer = setInterval(loadLtp, 2000);
+    const depthTimer = setInterval(loadDepth, 3000);
+    this.sessionTimer = ltpTimer;
+    this.feedHealthTimer = depthTimer;
   }
 
   private startSessionPolling(exchange: string, instrument: Instrument): void {
-    const poll = () => {
-      fetchSession(exchange).then(session => {
+    const poll = async () => {
+      try {
+        const session = await marketApi.session(exchange) as any;
         this.lastKnownMarketState = session.state;
-        // Check if mode should change
-        const newMode = this.resolveMode(exchange, instrument);
+        const newMode = this.resolveMode();
         if (newMode !== this.currentMode) {
           this.currentMode = newMode;
           this.stopAllFeeds();
@@ -244,7 +202,7 @@ export class TerminalDataOrchestrator {
           }
           this.callbacks.onModeChange?.(newMode, session.state);
         }
-      }).catch(() => {});
+      } catch { /* ignore */ }
     };
     poll();
     this.sessionTimer = setInterval(poll, 60000);
@@ -254,7 +212,6 @@ export class TerminalDataOrchestrator {
     this.feedHealthTimer = setInterval(() => {
       const age = Date.now() - this.lastUpdateMs;
       if (this.currentMode === DataMode.HISTORICAL) {
-        // Historical mode - feed is intentionally frozen
         this.callbacks.onFeedHealth?.("healthy");
       } else if (age > 30000) {
         this.callbacks.onFeedHealth?.("stale");
@@ -267,19 +224,22 @@ export class TerminalDataOrchestrator {
   }
 
   private stopAllFeeds(): void {
-    if (this.feedManager) {
-      this.feedManager.disconnect();
-      this.feedManager = null;
+    if (this.gatewayFeed) {
+      this.gatewayFeed.disconnect();
+      this.gatewayFeed = null;
     }
-    this.pollTimers.forEach(t => clearInterval(t));
-    this.pollTimers = [];
+    if (this.unsubscribeBus) {
+      this.unsubscribeBus();
+      this.unsubscribeBus = null;
+    }
+    if (this.sessionTimer) clearInterval(this.sessionTimer);
+    if (this.feedHealthTimer) clearInterval(this.feedHealthTimer);
+    this.sessionTimer = null;
+    this.feedHealthTimer = null;
   }
 
   destroy(): void {
     this.stopAllFeeds();
-    if (this.sessionTimer) clearInterval(this.sessionTimer);
-    if (this.feedHealthTimer) clearInterval(this.feedHealthTimer);
-    this.securityIdToSymbol.clear();
   }
 
   getCurrentMode(): DataMode | null {

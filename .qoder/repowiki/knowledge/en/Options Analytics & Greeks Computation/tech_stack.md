@@ -1,0 +1,1 @@
+Uses Caffeine for high-performance local caching with expiration policies; implements Newton-Raphson iteration for implied volatility solving in pure Java.

@@ -135,17 +135,7 @@ class GatewayEventBridgeIntegrationTest {
         router.subscribe(transport, GatewayTopic.PNL_UPDATE);
         router.start();
 
-        var unhandled = new DomainEvent() {
-            @Override
-            public EventMetadata metadata() {
-                return EventMetadata.root();
-            }
-
-            @Override
-            public void accept(DomainEventVisitor visitor) {
-                // No-op for test event
-            }
-        };
+        var unhandled = new com.tradej.core.domain.event.TestEvent();
         bridge.onDomainEvent(unhandled);
 
         Thread.sleep(200);

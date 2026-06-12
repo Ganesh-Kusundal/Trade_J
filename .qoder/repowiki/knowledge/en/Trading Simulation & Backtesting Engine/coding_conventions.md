@@ -1,0 +1,3 @@
+- Price values are consistently represented in 'paisa' (integer cents) to avoid floating-point precision issues, as seen in `MatchingEngine`, `PnLLedger`, and `BacktestServiceImpl`.
+- Configuration objects like `SlippageConfig` use the Builder pattern with static presets (DEFAULT, CONSERVATIVE) to simplify complex parameter setup.
+- Domain events and results are modeled as Java records (e.g., `MatchResult`, `SlippageConfig`) to ensure immutability and concise data carrier semantics.

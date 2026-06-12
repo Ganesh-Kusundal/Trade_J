@@ -1,0 +1,1 @@
+Orchestrates the lifecycle of trading orders from signal ingestion to broker placement, enforcing risk limits and maintaining state consistency through event sourcing.

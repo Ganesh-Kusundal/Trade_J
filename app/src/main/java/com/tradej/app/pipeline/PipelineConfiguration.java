@@ -2,7 +2,6 @@ package com.tradej.app.pipeline;
 
 import com.tradej.core.domain.port.FeatureStore;
 import com.tradej.core.domain.time.TradingClock;
-import com.tradej.execution.risk.PositionRiskHandler;
 import com.tradej.execution.service.ExecutionHandler;
 import com.tradej.feature.store.OptionsAwareFeatureStore;
 import com.tradej.persistence.oms.EventSourcedOrderRepository;
@@ -19,6 +18,8 @@ import com.tradej.pipeline.service.reactor.ReactorBridgeMetrics;
 import com.tradej.pipeline.service.DagPipelineRuntimeService;
 import com.tradej.pipeline.service.PipelineNodeFactory;
 import com.tradej.pipeline.service.PipelineRuntimeService;
+import com.tradej.pipeline.spi.PipelineNodeProvider;
+import com.tradej.pipeline.spi.PipelineNodeRegistry;
 import com.tradej.scanner.engine.ScanEngine;
 import com.tradej.scanner.model.ScanProfile;
 import com.tradej.composition.config.ScanProperties;
@@ -64,9 +65,27 @@ public class PipelineConfiguration {
     }
 
     @Bean
-    NodeRegistry nodeRegistry() {
+    PipelineNodeRegistry pipelineNodeRegistry() {
+        return new PipelineNodeRegistry();
+    }
+
+    @Bean
+    NodeRegistry nodeRegistry(PipelineNodeRegistry pipelineNodeRegistry) {
         NodeRegistry registry = new NodeRegistry();
 
+        // SPI-driven registration: each PipelineNodeProvider in the registry
+        // registers its metadata-only descriptor (with a stub factory). This
+        // is the preferred path. New node types should be added by
+        // implementing PipelineNodeProvider and listing it in META-INF/services.
+        if (pipelineNodeRegistry != null && !pipelineNodeRegistry.all().isEmpty()) {
+            for (PipelineNodeProvider provider : pipelineNodeRegistry.all()) {
+                provider.registerMetadata(registry);
+            }
+            log.info("Registered {} node descriptors via PipelineNodeProvider SPI (nodeRegistry)",
+                    pipelineNodeRegistry.all().size());
+        }
+
+        // Legacy fallback: prefer PipelineNodeProvider SPI
         // Register metadata-only descriptors for the frontend palette.
         // Factory functions are null here; PipelineNodeFactory populates them
         // with real wiring after the registry is created.
@@ -174,7 +193,8 @@ public class PipelineConfiguration {
     @Bean
     PipelineNodeFactory pipelineNodeFactory(
             NodeRegistry nodeRegistry,
-            PositionRiskHandler positionRiskHandler,
+            PipelineNodeRegistry pipelineNodeRegistry,
+            com.tradej.composition.FullComposition fullComposition,
             CandleAggregationService candleAggregationService,
             GraphStrategySandbox graphStrategySandbox,
             ExecutionHandler executionHandler,
@@ -191,7 +211,8 @@ public class PipelineConfiguration {
                 : Map.of());
         return new PipelineNodeFactory(
                 nodeRegistry,
-                positionRiskHandler,
+                pipelineNodeRegistry,
+                fullComposition.executionComposition().positionRiskHandler(),
                 candleAggregationService,
                 graphStrategySandbox,
                 executionHandler,

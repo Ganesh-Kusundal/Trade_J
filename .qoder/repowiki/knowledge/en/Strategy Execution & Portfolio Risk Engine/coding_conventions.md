@@ -1,0 +1,3 @@
+- Strategy plugins implement either `StrategyPluginProvider` or `GraphStrategyPlugin` and are registered via `META-INF/services` for runtime discovery.
+- Portfolio state changes are driven by domain events (`SignalGenerated`, `TradeOpened`, `TradeClosed`) processed through a dedicated single-threaded executor in `PortfolioEngine`.
+- Capital and exposure checks are performed atomically during signal reservation, with automatic reversion if subsequent exposure checks fail.

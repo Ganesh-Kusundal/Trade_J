@@ -1,0 +1,8 @@
+schema_version: 1
+module_path: broker_platform/broker_core
+title: Broker Core Resilience & Routing Engine
+scope:
+    - broker/core/
+source_files: []
+depends_on: []
+related_to: []

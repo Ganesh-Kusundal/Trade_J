@@ -1,0 +1,1 @@
+Defines the core domain model, event-driven architecture, and order management state machine for a high-frequency trading platform.

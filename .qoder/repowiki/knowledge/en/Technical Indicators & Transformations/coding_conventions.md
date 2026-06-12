@@ -1,0 +1,2 @@
+- Indicator implementations follow a two-class pattern: a pure algorithm class (e.g., RSI.java) and a corresponding SPI adapter (e.g., RSIProvider.java) that implements the IndicatorProvider interface.
+- All indicator calculation methods return a List<Double> of the same size as the input candle list, using Double.NaN for periods where the indicator is not yet valid.

@@ -1,0 +1,5 @@
+- The module is structured around a service-store pattern: `PipelineCatalogService` orchestrates lifecycle operations (create, publish, archive, rollback) while delegating persistence to the `PipelineStore` interface.
+- `PipelineStore` is implemented in-memory (`InMemoryPipelineStore`) for testing/shim purposes, with an intended migration to a DuckDB-backed store.
+- Core domain models (`PipelineDefinition`, `PipelineSnapshot`, `PipelineVersion`, `PipelineStatus`) are implemented as immutable Java records with defensive copying in canonical constructors.
+- A separate `PipelineTemplateService` handles template management and instantiation, using an internal `ConcurrentHashMap` and a listener pattern for updates.
+- Dependencies on `:core` and `:pipeline-core` provide shared graph structures (`PipelineGraph`) and base pipeline logic.

@@ -3,6 +3,7 @@ package com.tradej.core.testing;
 import com.tradej.core.domain.event.DomainEvent;
 import com.tradej.core.domain.event.DomainEventVisitor;
 import com.tradej.core.domain.event.EventMetadata;
+import com.tradej.core.domain.event.TestEvent;
 import com.tradej.core.domain.event.MarketTickEvent;
 import com.tradej.core.domain.value.ExchangeSegment;
 import com.tradej.core.domain.value.FeedMode;
@@ -36,7 +37,7 @@ class ParityVerifierTest {
         // Force different types by using different class
         var result = ParityVerifier.compare(
                 List.of(tick),
-                List.of(new DifferentEvent(EventMetadata.root()))
+                List.of(new TestEvent(EventMetadata.root()))
         );
         assertFalse(result.isMatch());
         assertTrue(result.message().contains("Type mismatch"));
@@ -129,10 +130,5 @@ class ParityVerifierTest {
         );
     }
 
-    private record DifferentEvent(EventMetadata metadata) implements DomainEvent {
-        @Override
-        public void accept(DomainEventVisitor visitor) {
-            // No-op for test event
-        }
-    }
+
 }

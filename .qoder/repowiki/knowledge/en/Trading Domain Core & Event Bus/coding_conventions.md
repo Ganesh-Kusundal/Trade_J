@@ -1,0 +1,4 @@
+- Domain events implement the `DomainEvent` interface and provide metadata accessors (eventId, timestamp, correlationId) via delegation to an `EventMetadata` record.
+- Financial prices are normalized to `long` values in 'paisa' (cents) using `PriceMath` to avoid floating-point precision errors in core calculations.
+- State transitions in the `OrderStateMachine` are defined declaratively in a static `Map` of `(currentState, eventType)` pairs, throwing `IllegalStateException` for invalid moves.
+- Port interfaces (e.g., `EventBus`, `MarketDataIngressPort`) are defined in the `domain.port` package to invert dependencies, allowing infrastructure implementations to be injected at runtime.

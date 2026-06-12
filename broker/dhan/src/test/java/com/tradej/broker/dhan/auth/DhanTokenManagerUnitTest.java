@@ -49,6 +49,64 @@ class DhanTokenManagerUnitTest {
     }
 
     @Test
+    void ensureValidNeverRegeneratesWhenCachedTokenIsValid() {
+        // The "5 minutes → multiple mints" regression guard. With a
+        // cached token 1h from expiry and the shared throttle armed
+        // at a 5-min base cooldown, 100 ensureValid() calls in quick
+        // succession must not trigger a single TOTP mint.
+        RecordingAuthClient authClient = new RecordingAuthClient();
+        authClient.generatedState = new DhanTokenState("fresh-token", NOW.plusSeconds(3600).toEpochMilli(), NOW.toEpochMilli(), "TOTP_GENERATED");
+        Path tokenFile = tempDir.resolve("valid-cached-state.json");
+        DhanTokenStateStore stateStore = new DhanTokenStateStore(tokenFile);
+        stateStore.save(new DhanTokenState("valid-cached", NOW.plusSeconds(3600).toEpochMilli(), NOW.toEpochMilli(), "TOTP_GENERATED"));
+
+        DhanTokenManager manager = new DhanTokenManager(
+                settings("bootstrap-token", tokenFile),
+                authClient,
+                new FixedTotpGenerator("123456"),
+                stateStore,
+                fixedClock()
+        );
+
+        for (int i = 0; i < 100; i++) {
+            manager.ensureValid();
+            assertEquals("valid-cached", manager.getAccessToken(),
+                    "ensureValid() must not change the cached token at iteration " + i);
+        }
+
+        assertEquals(0, authClient.generateCalls,
+                "ensureValid() 100x with a valid cached token must not trigger any TOTP mint");
+        assertEquals(0, authClient.profileCalls,
+                "ensureValid() 100x with a valid cached token must not call /v2/profile");
+    }
+
+    @Test
+    void getAccessTokenIsAlsoNonRegenerating() {
+        // bearerToken() (here getAccessToken) is called on every WebSocket
+        // frame in production. It must be cheap, lock-free, and mint-free.
+        RecordingAuthClient authClient = new RecordingAuthClient();
+        authClient.generatedState = new DhanTokenState("fresh-token", NOW.plusSeconds(3600).toEpochMilli(), NOW.toEpochMilli(), "TOTP_GENERATED");
+        Path tokenFile = tempDir.resolve("getAccessToken-state.json");
+        DhanTokenStateStore stateStore = new DhanTokenStateStore(tokenFile);
+        stateStore.save(new DhanTokenState("valid-cached", NOW.plusSeconds(3600).toEpochMilli(), NOW.toEpochMilli(), "TOTP_GENERATED"));
+
+        DhanTokenManager manager = new DhanTokenManager(
+                settings("bootstrap-token", tokenFile),
+                authClient,
+                new FixedTotpGenerator("123456"),
+                stateStore,
+                fixedClock()
+        );
+
+        for (int i = 0; i < 200; i++) {
+            assertEquals("valid-cached", manager.getAccessToken());
+        }
+
+        assertEquals(0, authClient.generateCalls,
+                "getAccessToken() 200x with a valid cached token must not trigger any TOTP mint");
+    }
+
+    @Test
     void adoptsValidBootstrapTokenBeforeGenerating() {
         RecordingAuthClient authClient = new RecordingAuthClient();
         authClient.profileInfo = new DhanTokenInfo(true, NOW.plusSeconds(3600).toEpochMilli(), false);

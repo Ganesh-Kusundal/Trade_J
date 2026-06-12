@@ -12,4 +12,5 @@ public interface SystemVisitor {
     default void visit(ScanHitProduced event) {}
     default void visit(ScanResultsPublished event) {}
     default void visit(ReplayTimeChangedEvent event) {}
+    default void visit(StrategyMetricsSnapshot event) {}
 }

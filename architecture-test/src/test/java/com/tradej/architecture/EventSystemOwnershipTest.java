@@ -89,8 +89,6 @@ class EventSystemOwnershipTest {
                 .should().dependOnClassesThat()
                 .haveSimpleName("DisruptorEventBus")
                 .orShould().dependOnClassesThat()
-                .haveSimpleName("ShardedDisruptorEventBus")
-                .orShould().dependOnClassesThat()
                 .haveSimpleName("ReactorBridge")
                 .allowEmptyShould(true)
                 .check(allClasses);

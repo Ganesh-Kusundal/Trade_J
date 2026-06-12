@@ -1,0 +1,3 @@
+- Controllers delegate business logic and runtime-mode/risk checks to dedicated Application Services (e.g., `OrderController` -> `OrderApplicationService`).
+- Startup logic is encapsulated in strategy classes implementing `BrokerStartupStrategy`, selected by `BrokerTransportProfile`.
+- Domain events are subscribed to by multiple infrastructure components (persistence, read models, risk handlers) via a centralized `EventBus` in `RuntimeAndStartupConfiguration`.

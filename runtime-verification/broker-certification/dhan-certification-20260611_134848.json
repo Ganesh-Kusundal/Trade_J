@@ -1,0 +1,82 @@
+{
+  "broker": "dhan",
+  "certification_date": "2026-06-11T08:24:29Z",
+  "capabilities": [
+    {
+      "name": "Authentication",
+      "status": "FAIL",
+      "latency_ms": 0,
+      "errors": [""]
+    }
+    ,
+    {
+      "name": "Connection",
+      "status": "FAIL",
+      "latency_ms": 0,
+      "errors": ["./scripts/certify-broker-runtime.sh: line 46: timeout: command not found"]
+    }
+    ,
+    {
+      "name": "Market Data - Quote",
+      "status": "PASS",
+      "latency_ms": 14,
+      "errors": [""]
+    }
+    ,
+    {
+      "name": "Historical Data",
+      "status": "PASS",
+      "latency_ms": 21,
+      "errors": [""]
+    }
+    ,
+    {
+      "name": "Option Chain",
+      "status": "PASS",
+      "latency_ms": 17,
+      "errors": [""]
+    }
+    ,
+    {
+      "name": "Positions",
+      "status": "PASS",
+      "latency_ms": 14,
+      "errors": [""]
+    }
+    ,
+    {
+      "name": "Holdings",
+      "status": "PASS",
+      "latency_ms": 15,
+      "errors": [""]
+    }
+    ,
+    {
+      "name": "Order Placement (Dry Run)",
+      "status": "PASS",
+      "latency_ms": 15,
+      "errors": [""]
+    }
+    ,
+    {
+      "name": "WebSocket Connection",
+      "status": "PASS",
+      "latency_ms": 15,
+      "errors": [""]
+    }
+    ,
+    {
+      "name": "Instrument Search",
+      "status": "PASS",
+      "latency_ms": 17,
+      "errors": [""]
+    }
+  ],
+  "summary": {
+    "total_capabilities": 10,
+    "passed": 8,
+    "failed": 2,
+    "not_tested": 0,
+    "pass_rate": 80.00
+  }
+}

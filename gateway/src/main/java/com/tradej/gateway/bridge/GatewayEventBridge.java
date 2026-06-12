@@ -17,6 +17,7 @@ import com.tradej.core.domain.event.PnlUpdatedEvent;
 import com.tradej.core.domain.event.ReplayTimeChangedEvent;
 import com.tradej.core.domain.event.ScanResultsPublished;
 import com.tradej.core.domain.event.SignalGenerated;
+import com.tradej.core.domain.event.StrategyMetricsSnapshot;
 import com.tradej.core.domain.event.TradeClosed;
 import com.tradej.core.domain.event.TradeOpened;
 import com.tradej.core.domain.model.Candle;
@@ -69,30 +70,35 @@ public final class GatewayEventBridge implements AutoCloseable {
     private record SerializerEntry(GatewayTopic topic, Function<DomainEvent, ObjectNode> serializer) {}
 
     private Map<Class<? extends DomainEvent>, SerializerEntry> buildSerializerMap() {
-        // Immutable map is safe — serializers are registered once at construction time
-        return Map.ofEntries(
-                Map.entry(MarketTickEvent.class,          entry(GatewayTopic.MARKET_TICK,       e -> marketTickPayload((MarketTickEvent) e))),
-                Map.entry(DepthUpdateEvent.class,         entry(GatewayTopic.MARKET_DEPTH,      e -> depthPayload((DepthUpdateEvent) e))),
-                Map.entry(CandleDeveloping.class,         entry(GatewayTopic.CANDLE_DEVELOPING, e -> candlePayload(((CandleDeveloping) e).candle()))),
-                Map.entry(CandleClosed.class,             entry(GatewayTopic.CANDLE_CLOSED,     e -> candlePayload(((CandleClosed) e).candle()))),
-                Map.entry(OrderAccepted.class,            entry(GatewayTopic.ORDER_UPDATE,      e -> orderAckPayload((OrderAccepted) e))),
-                Map.entry(OrderRejected.class,            entry(GatewayTopic.ORDER_UPDATE,      e -> orderRejectPayload((OrderRejected) e))),
-                Map.entry(OrderFilled.class,              entry(GatewayTopic.ORDER_UPDATE,      e -> orderPayload(e))),
-                Map.entry(TradeOpened.class,              entry(GatewayTopic.POSITION_UPDATE,   e -> positionPayload(
-                        ((TradeOpened) e).symbol(), resolveSegment(((TradeOpened) e).symbol()),
-                        ((TradeOpened) e).size(), ((TradeOpened) e).entryPricePaisa(), "OPEN"))),
-                Map.entry(TradeClosed.class,              entry(GatewayTopic.POSITION_UPDATE,   e -> positionPayload(
-                        ((TradeClosed) e).symbol(), resolveSegment(((TradeClosed) e).symbol()),
-                        0L, 0L, "CLOSED"))),
-                Map.entry(SignalGenerated.class,          entry(GatewayTopic.STRATEGY_SIGNAL,   e -> signalPayload((SignalGenerated) e))),
-                Map.entry(ReplayTimeChangedEvent.class,   entry(GatewayTopic.REPLAY_CONTROL,   e -> replayPayload((ReplayTimeChangedEvent) e))),
-                Map.entry(PnlUpdatedEvent.class,          entry(GatewayTopic.PNL_UPDATE,       e -> pnlPayload((PnlUpdatedEvent) e))),
-                Map.entry(ScanResultsPublished.class,     entry(GatewayTopic.SCAN_COMPLETED,   e -> scanPayload((ScanResultsPublished) e))),
-                Map.entry(OptionChainUpdated.class,       entry(GatewayTopic.STRATEGY_SIGNAL,  e -> optionChainPayload((OptionChainUpdated) e))),
-                Map.entry(GreeksComputed.class,           entry(GatewayTopic.STRATEGY_SIGNAL,  e -> greeksPayload((GreeksComputed) e))),
-                Map.entry(MaxPainComputed.class,          entry(GatewayTopic.STRATEGY_SIGNAL,  e -> maxPainPayload((MaxPainComputed) e))),
-                Map.entry(GammaExposureComputed.class,    entry(GatewayTopic.STRATEGY_SIGNAL,  e -> gammaPayload((GammaExposureComputed) e)))
-        );
+        // Topic mapping is owned by BridgeTopics (single source of truth).
+        // This map is keyed by the same class, but each entry is built
+        // here because the per-event serializers are bespoke (they know
+        // the JSON shape). Asserting the two stay in sync is the job of
+        // BridgeTopicsTest.
+        Map<Class<? extends DomainEvent>, SerializerEntry> m = new java.util.LinkedHashMap<>();
+        m.put(MarketTickEvent.class,        entry(BridgeTopics.MAP.get(MarketTickEvent.class),        e -> marketTickPayload((MarketTickEvent) e)));
+        m.put(DepthUpdateEvent.class,       entry(BridgeTopics.MAP.get(DepthUpdateEvent.class),       e -> depthPayload((DepthUpdateEvent) e)));
+        m.put(CandleDeveloping.class,       entry(BridgeTopics.MAP.get(CandleDeveloping.class),       e -> candlePayload(((CandleDeveloping) e).candle())));
+        m.put(CandleClosed.class,           entry(BridgeTopics.MAP.get(CandleClosed.class),           e -> candlePayload(((CandleClosed) e).candle())));
+        m.put(OrderAccepted.class,          entry(BridgeTopics.MAP.get(OrderAccepted.class),          e -> orderAckPayload((OrderAccepted) e)));
+        m.put(OrderRejected.class,          entry(BridgeTopics.MAP.get(OrderRejected.class),          e -> orderRejectPayload((OrderRejected) e)));
+        m.put(OrderFilled.class,            entry(BridgeTopics.MAP.get(OrderFilled.class),            e -> orderPayload(e)));
+        m.put(TradeOpened.class,            entry(BridgeTopics.MAP.get(TradeOpened.class),            e -> positionPayload(
+                ((TradeOpened) e).symbol(), resolveSegment(((TradeOpened) e).symbol()),
+                ((TradeOpened) e).size(), ((TradeOpened) e).entryPricePaisa(), "OPEN")));
+        m.put(TradeClosed.class,            entry(BridgeTopics.MAP.get(TradeClosed.class),            e -> positionPayload(
+                ((TradeClosed) e).symbol(), resolveSegment(((TradeClosed) e).symbol()),
+                0L, 0L, "CLOSED")));
+        m.put(SignalGenerated.class,        entry(BridgeTopics.MAP.get(SignalGenerated.class),        e -> signalPayload((SignalGenerated) e)));
+        m.put(ReplayTimeChangedEvent.class, entry(BridgeTopics.MAP.get(ReplayTimeChangedEvent.class), e -> replayPayload((ReplayTimeChangedEvent) e)));
+        m.put(PnlUpdatedEvent.class,        entry(BridgeTopics.MAP.get(PnlUpdatedEvent.class),        e -> pnlPayload((PnlUpdatedEvent) e)));
+        m.put(ScanResultsPublished.class,   entry(BridgeTopics.MAP.get(ScanResultsPublished.class),   e -> scanPayload((ScanResultsPublished) e)));
+        m.put(OptionChainUpdated.class,     entry(BridgeTopics.MAP.get(OptionChainUpdated.class),     e -> optionChainPayload((OptionChainUpdated) e)));
+        m.put(GreeksComputed.class,         entry(BridgeTopics.MAP.get(GreeksComputed.class),         e -> greeksPayload((GreeksComputed) e)));
+        m.put(MaxPainComputed.class,        entry(BridgeTopics.MAP.get(MaxPainComputed.class),        e -> maxPainPayload((MaxPainComputed) e)));
+        m.put(GammaExposureComputed.class,  entry(BridgeTopics.MAP.get(GammaExposureComputed.class),  e -> gammaPayload((GammaExposureComputed) e)));
+        m.put(StrategyMetricsSnapshot.class, entry(BridgeTopics.MAP.get(StrategyMetricsSnapshot.class), e -> strategyMetricsPayload((StrategyMetricsSnapshot) e)));
+        return Map.copyOf(m);
     }
 
     private static SerializerEntry entry(GatewayTopic topic, Function<DomainEvent, ObjectNode> serializer) {
@@ -133,7 +139,13 @@ public final class GatewayEventBridge implements AutoCloseable {
         try {
             SerializerEntry entry = serializers.get(event.getClass());
             if (entry != null) {
-                router.publish(entry.topic(), writeJson(entry.serializer().apply(event)));
+                ObjectNode payload = entry.serializer().apply(event);
+                // Inject correlation ID for end-to-end tracing
+                String correlationId = event.correlationId();
+                if (correlationId != null && !correlationId.isEmpty()) {
+                    payload.put("correlationId", correlationId);
+                }
+                router.publish(entry.topic(), writeJson(payload));
             }
             eventCount.incrementAndGet();
         } catch (Exception e) {
@@ -369,6 +381,17 @@ public final class GatewayEventBridge implements AutoCloseable {
         node.put("realizedPnlPaisa", pnl.realizedPnlPaisa());
         node.put("unrealizedPnlPaisa", pnl.unrealizedPnlPaisa());
         node.put("netExposurePaisa", pnl.netExposurePaisa());
+        return node;
+    }
+
+    private ObjectNode strategyMetricsPayload(StrategyMetricsSnapshot snap) {
+        ObjectNode node = objectMapper.createObjectNode();
+        ArrayNode counters = node.putArray("counters");
+        for (var e : snap.counters().entrySet()) {
+            ObjectNode entry = counters.addObject();
+            entry.put("key", e.getKey());
+            entry.put("count", e.getValue());
+        }
         return node;
     }
 

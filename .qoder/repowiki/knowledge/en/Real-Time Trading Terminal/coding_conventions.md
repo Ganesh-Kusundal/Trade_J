@@ -1,0 +1,3 @@
+- Custom hooks (e.g., `useLastTick`, `useDepth`) initialize state from the bus's last known event to prevent UI flicker on mount.
+- Data modes (LIVE, SIMULATION, HISTORICAL) are resolved dynamically by `DataModeResolver` based on feed health and market hours rather than static configuration.
+- Instrument metadata is resolved via `resolveInstrument` which provides fallback defaults for unknown symbols while maintaining strict typing for known assets.

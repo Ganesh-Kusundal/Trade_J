@@ -1,0 +1,8 @@
+schema_version: 1
+module_path: trading_engine/strategy
+title: Strategy Execution & Portfolio Risk Engine
+scope:
+    - trading/strategy/
+source_files: []
+depends_on: []
+related_to: []

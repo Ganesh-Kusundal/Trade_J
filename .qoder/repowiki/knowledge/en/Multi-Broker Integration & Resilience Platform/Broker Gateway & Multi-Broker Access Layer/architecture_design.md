@@ -1,0 +1,10 @@
+- Entry point: `BrokerGateway` interface with static factories (`create`, `of`, `fromConnections`) delegating to `DefaultBrokerGateway`.
+- Core handle: `BrokerHandle` wraps `IBrokerConnection` via `BrokerCallSupport`, exposing fluent methods for market data, orders, portfolio, and options, all returning `GatewayResult`.
+- Sub-packages:
+  - `certification`: Defines `CertificationCheck` and status enums for broker compliance testing.
+  - `explorer`: `BrokerExplorer` inspects live connections or descriptors to produce `BrokerInspectionReport` of supported port interfaces and capabilities.
+  - `query`: `QueryEngine` and `DuckDbQueryEngine` provide high-level option analytics (PCR, Max Pain) and SQL-based querying over market data.
+  - `simulation`: Implements `PaperBrokerConnection` and `SimulationBrokerProvider` (registered via `META-INF/services`) for paper trading without real broker APIs.
+  - `spi`: Defines `BrokerHealthCheck` implementations for specific brokers (Dhan, ICICI, Upstox).
+  - `result`: `GatewayResult` and `ResultMetadata` standardize response envelopes with latency and source tracking.
+- Dependency direction: Depends on `broker-api` (SPI definitions), `core` (domain models), and `broker-core` (internal depth/order book structures).

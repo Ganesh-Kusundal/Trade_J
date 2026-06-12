@@ -10,6 +10,7 @@ import SettingsPanel from "./components/SettingsPanel";
 import RiskCalculator from "./components/RiskCalculator";
 import NewsFeed from "./components/NewsFeed";
 import ErrorBoundary from "./components/ErrorBoundary";
+import StrategyStudio from "./components/StrategyStudio";
 import type { OHLCVBar, L2Level, TradeTick, SessionResponse, Instrument } from "./domain/instrument";
 import { MarketState, MARKET_STATE_COLORS, resolveInstrument } from "./domain/instrument";
 import { filterValidBars, validateOrderBook } from "./domain/validators";
@@ -21,9 +22,11 @@ import type { BrokerConfig, OrchestratorCallbacks } from "./api/TerminalDataOrch
 import { placeOrder } from "./api/orders";
 import { subscribeReadModel } from "./api/stream";
 import { fetchSession, isMarketOpen } from "./api/marketSession";
-import type { ExchangeSegment, Side, OrderType, ProductType, Validity } from "./api/backend-contracts";
+import type { ExchangeSegment, Side, OrderType, ProductType, Validity } from "./generated/models";
 import { fetchBrokers } from "./api/brokerRegistry";
 import type { BrokerInfo } from "./api/brokerRegistry";
+import { DASHBOARD_LAYOUTS, DASHBOARD_LAYOUT_IDS, type DashboardLayoutId } from "./components/TerminalLayout";
+import TerminalLayout from "./components/TerminalLayout";
 
 const EXCHANGE_MAP: Record<string, ExchangeSegment> = {
   NSE: "NSE_EQ" as ExchangeSegment, BSE: "BSE_EQ" as ExchangeSegment,
@@ -91,7 +94,31 @@ export default function App() {
   const [orderType, setOrderType] = useState<"LIMIT" | "MARKET">("LIMIT");
   const [orderPrice, setOrderPrice] = useState("");
   const [orderStatus, setOrderStatus] = useState("");
-  const [bottomTab, setBottomTab] = useState<"watchlist" | "orders" | "alerts" | "risk" | "news">("watchlist");
+  const [bottomTab, setBottomTab] = useState<"watchlist" | "orders" | "alerts" | "risk" | "news" | "studio">("watchlist");
+
+  // Dashboard layout switcher: persists in localStorage and renders the
+  // chosen TerminalLayout as an *additional* panel below the legacy
+  // chart. The user can flip between Trading / Research / Scanner /
+  // Options layouts. All five are driven by the widget registry, so
+  // every widget is reachable.
+  const [activeLayout, setActiveLayout] = useState<DashboardLayoutId>(() => {
+    try {
+      const stored = localStorage.getItem("tj_layout");
+      if (stored && (DASHBOARD_LAYOUT_IDS as string[]).includes(stored)) {
+        return stored as DashboardLayoutId;
+      }
+    } catch { /* ignore */ }
+    return "trading";
+  });
+  const [showLayout, setShowLayout] = useState<boolean>(() => {
+    try { return localStorage.getItem("tj_show_layout") === "1"; } catch { return false; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem("tj_layout", activeLayout); } catch { /* ignore */ }
+  }, [activeLayout]);
+  useEffect(() => {
+    try { localStorage.setItem("tj_show_layout", showLayout ? "1" : "0"); } catch { /* ignore */ }
+  }, [showLayout]);
 
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const sseCleanupRef = useRef<(() => void) | null>(null);
@@ -500,7 +527,7 @@ export default function App() {
             )}
           </div>
           <div className="flex items-center bg-[#161b22] border border-[#21262d] rounded p-0.5 gap-0.5">
-            {(["watchlist", "orders", "alerts", "risk", "news"] as const).map(tab => (
+            {(["watchlist", "orders", "alerts", "risk", "news", "studio"] as const).map(tab => (
               <button key={tab} onClick={() => setBottomTab(tab)}
                 className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase cursor-pointer transition ${
                   bottomTab === tab ? "bg-[#f0b429] text-[#0d1117]" : "text-slate-400 hover:text-slate-200 hover:bg-[#21262d]"
@@ -510,6 +537,23 @@ export default function App() {
             ))}
           </div>
           <div className="flex-1" />
+          <div className="flex items-center bg-[#161b22] border border-[#21262d] rounded p-0.5 gap-0.5">
+            {DASHBOARD_LAYOUT_IDS.map(id => (
+              <button key={id} onClick={() => setActiveLayout(id)}
+                className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase cursor-pointer transition ${
+                  activeLayout === id ? "bg-[#26a69a] text-[#0d1117]" : "text-slate-400 hover:text-slate-200 hover:bg-[#21262d]"
+                }`}>
+                {id}
+              </button>
+            ))}
+            <button onClick={() => setShowLayout(v => !v)}
+              className={`ml-1 px-2 py-0.5 rounded text-[9px] font-bold uppercase cursor-pointer transition ${
+                showLayout ? "bg-[#f0b429] text-[#0d1117]" : "text-slate-400 hover:text-slate-200 hover:bg-[#21262d]"
+              }`}
+              title="Toggle the dashboard layout panel">
+              {showLayout ? "HIDE PANEL" : "SHOW PANEL"}
+            </button>
+          </div>
           <button onClick={() => setShowOrderPanel(!showOrderPanel)}
             className="flex items-center gap-1 px-3 py-1 rounded font-black text-[10px] bg-[#f0b429]/15 text-[#f0b429] border border-[#f0b429]/30 hover:border-[#f0b429]/60 cursor-pointer">
             <Activity className="w-3 h-3" /> TRADE
@@ -573,6 +617,9 @@ export default function App() {
           {bottomTab === "news" && (
             <NewsFeed symbol={symbol} />
           )}
+          {bottomTab === "studio" && (
+            <StrategyStudio />
+          )}
           <div className="bg-[#0d1117] border border-[#21262d] rounded-lg overflow-hidden flex flex-col h-full">
             <OrderBook bids={bids} asks={asks} lastPrice={lastPrice} priceChange={priceChange}
               symbol={symbol} onSelectPrice={p => setOrderPrice(safeNum(p).toFixed(2))}
@@ -585,6 +632,26 @@ export default function App() {
           </div>
         </section>
       </main>
+
+      {showLayout && (
+        <section
+          data-testid="dashboard-layout-panel"
+          aria-label="Dashboard layout panel"
+          className="bg-[#0d1117] border-t border-[#21262d] shrink-0 h-[55vh] min-h-[420px] overflow-hidden p-1.5"
+        >
+          <div className="flex items-center justify-between px-2 py-1">
+            <span className="text-[10px] font-bold text-slate-200 uppercase">
+              Dashboard · {DASHBOARD_LAYOUTS[activeLayout]?.name ?? activeLayout}
+            </span>
+            <span className="text-[9px] text-slate-500">
+              Layout is registry-driven; every widget in widgetRegistry.ts is reachable.
+            </span>
+          </div>
+          <div className="h-[calc(100%-32px)]">
+            <TerminalLayout layoutId={activeLayout} />
+          </div>
+        </section>
+      )}
 
       <footer className="bg-[#0d1117] border-t border-[#21262d] py-0.5 px-3 shrink-0 text-[9px] text-slate-500">
         <div className="flex justify-between items-center">

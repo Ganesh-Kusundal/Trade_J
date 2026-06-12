@@ -1,6 +1,14 @@
 spring:
   application:
     name: trade-j
+  main:
+    # The platform deliberately registers beans in multiple
+    # configuration classes (e.g. GatewayReplayCommandProcessor is
+    # defined in both GatewayBrokerConfiguration and
+    # BrokerConfiguration depending on the active profile). Spring
+    # Boot 2.1+ disallows override by default; the platform opts
+    # back in.
+    allow-bean-definition-overriding: true
   ai:
     mcp:
       server:

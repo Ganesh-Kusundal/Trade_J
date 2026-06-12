@@ -1,0 +1,9 @@
+schema_version: 1
+module_path: main_application
+title: Trading Platform Application & Composition
+scope:
+    - app/
+    - composition/
+source_files: []
+depends_on: []
+related_to: []

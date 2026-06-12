@@ -1,0 +1,1 @@
+Chronicle Queue for append-only event logs (`net.openhft:chronicle-queue`); DuckDB embedded analytical engine via JDBC (`org.duckdb:duckdb_jdbc`); Jackson for JSON serialization of domain events.

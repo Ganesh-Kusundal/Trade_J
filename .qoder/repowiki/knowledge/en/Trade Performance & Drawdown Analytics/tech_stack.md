@@ -1,0 +1,1 @@
+Java records for immutable DTOs; `BigDecimal` with `MathContext` for financial precision; JUnit 5 for testing.

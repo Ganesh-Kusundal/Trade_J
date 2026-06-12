@@ -1,5 +1,7 @@
 package com.tradej.broker.dhan.auth;
 
+import com.tradej.broker.api.auth.BrokerTokenSource;
+import com.tradej.broker.api.auth.TokenAcquisitionThrottle;
 import com.tradej.broker.api.auth.TokenLifecycleService;
 import com.tradej.broker.api.auth.TokenSource;
 import com.tradej.broker.api.auth.TokenState;
@@ -18,9 +20,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantLock;
 
-public class DhanTokenManager implements DhanTokenProvider, TokenLifecycleService {
+public class DhanTokenManager implements DhanTokenProvider, TokenLifecycleService, BrokerTokenSource {
     private static final Logger log = LoggerFactory.getLogger(DhanTokenManager.class);
-    private static final long TOKEN_ACQUISITION_COOLDOWN_MS = 130_000L;
+    /** Base cooldown between token mints. 5 minutes. */
+    private static final long TOKEN_ACQUISITION_COOLDOWN_MS = 5L * 60_000L;
     /** Clock skew tolerance in milliseconds (30 seconds) */
     private static final long CLOCK_SKEW_TOLERANCE_MS = 30_000L;
 
@@ -30,8 +33,10 @@ public class DhanTokenManager implements DhanTokenProvider, TokenLifecycleServic
     private final DhanTokenStateStore stateStore;
     private final Clock clock;
     private final ReentrantLock refreshLock = new ReentrantLock();
+    private final TokenAcquisitionThrottle throttle = new TokenAcquisitionThrottle();
     private final AtomicLong lastAcquisitionAttemptMs = new AtomicLong(0L);
     private final AtomicLong tokenGeneration = new AtomicLong(0);
+    private final BrokerTokenSource.CallbackRegistry callbackRegistry = new BrokerTokenSource.CallbackRegistry();
 
     private volatile DhanTokenState currentState;
 
@@ -122,12 +127,111 @@ public class DhanTokenManager implements DhanTokenProvider, TokenLifecycleServic
     public void invalidate() {
         refreshLock.lock();
         try {
+            DhanTokenState previous = currentState;
             currentState = null;
             stateStore.save(null);
+            tokenGeneration.incrementAndGet();
             log.info("Dhan token invalidated — next ensureValid() will generate a fresh token");
+            if (previous != null) {
+                callbackRegistry.fireInvalidate();
+            }
         } finally {
             refreshLock.unlock();
         }
+    }
+
+    // ── BrokerTokenSource SPI Implementation ────────────────────────
+
+    @Override
+    public String bearerToken() {
+        return getAccessToken();
+    }
+
+    @Override
+    public long expiryEpochMs() {
+        DhanTokenState state = currentState;
+        return state == null ? -1L : state.expiryEpochMs();
+    }
+
+    @Override
+    public void onInvalidate(Runnable callback) {
+        callbackRegistry.onInvalidate(callback);
+        log.debug("onInvalidate callback registered ({} total)", callbackRegistry.invalidateListenerCount());
+    }
+
+    /**
+     * Atomic "ensure valid and return the access token" — closes the
+     * time-of-check / time-of-use window in callers that previously did
+     * {@code ensureValid(); getAccessToken();} on separate calls.
+     */
+    public String ensureValidAndGet() {
+        if (settings.authMode() == DhanAuthMode.STATIC) {
+            return requireBootstrapToken();
+        }
+        ensureValid();
+        DhanTokenState state = currentState;
+        if (state == null || state.accessToken() == null || state.accessToken().isBlank()) {
+            throw new IllegalStateException("Dhan token manager did not resolve an access token");
+        }
+        return state.accessToken();
+    }
+
+    /**
+     * Returns the raw {@link DhanTokenState} snapshot, or {@code null} if
+     * the cache is empty. Used by the background revalidator to read the
+     * current access token without forcing a mint.
+     */
+    public DhanTokenState currentSnapshot() {
+        return currentState;
+    }
+
+    /**
+     * Updates only the {@code expiryEpochMs} of the cached token, preserving
+     * the access token. Used by the scheduled revalidation task to keep the
+     * cached expiry in sync with the broker's authoritative view without
+     * triggering a full re-mint.
+     *
+     * @param brokerExpiryEpochMs the new expiry as reported by the broker
+     * @return {@code true} if the cached expiry was updated
+     */
+    public boolean updateCachedExpiry(long brokerExpiryEpochMs) {
+        DhanTokenState snapshot = this.currentState;
+        if (snapshot == null || snapshot.accessToken() == null || snapshot.accessToken().isBlank()) {
+            return false;
+        }
+        if (brokerExpiryEpochMs == snapshot.expiryEpochMs()) {
+            return true;
+        }
+        refreshLock.lock();
+        try {
+            snapshot = this.currentState;
+            if (snapshot == null) {
+                return false;
+            }
+            DhanTokenState updated = new DhanTokenState(
+                    snapshot.accessToken(),
+                    brokerExpiryEpochMs,
+                    snapshot.issuedAtEpochMs(),
+                    snapshot.source()
+            );
+            this.currentState = updated;
+            stateStore.save(updated);
+            log.info("Dhan token cached expiry updated to {} (source={})",
+                    Instant.ofEpochMilli(brokerExpiryEpochMs), updated.source());
+            callbackRegistry.fireRefresh();
+            return true;
+        } finally {
+            refreshLock.unlock();
+        }
+    }
+
+    /**
+     * Constructs a {@link DhanTokenRevalidator} bound to this manager.
+     * The revalidator uses this manager's own {@link DhanAuthClient},
+     * so the lifecycle is shared.
+     */
+    public DhanTokenRevalidator newRevalidator() {
+        return new DhanTokenRevalidator(this, authClient, settings);
     }
 
     // ── TokenLifecycleService SPI Implementation ──────────────────────
@@ -168,8 +272,9 @@ public class DhanTokenManager implements DhanTokenProvider, TokenLifecycleServic
     @Override
     public void onRefresh(Runnable callback) {
         // Dhan token manager auto-refreshes via ensureValid()
-        // Callback notification is not currently supported
-        log.debug("onRefresh callback registered (no-op for Dhan auto-refresh model)");
+        // Callback notification is supported via BrokerTokenSource registry.
+        callbackRegistry.onRefresh(callback);
+        log.debug("onRefresh callback registered ({} total)", callbackRegistry.refreshListenerCount());
     }
 
     private TokenState toTokenState(DhanTokenState dhanState) {
@@ -263,14 +368,27 @@ public class DhanTokenManager implements DhanTokenProvider, TokenLifecycleServic
     }
 
     private DhanTokenState generateFreshToken(long now) {
-        long lastAttempt = lastAcquisitionAttemptMs.get();
-        if (lastAttempt > 0 && now - lastAttempt < TOKEN_ACQUISITION_COOLDOWN_MS) {
+        // Use the shared throttle — 5 min base cooldown, doubles on
+        // each consecutive failure, capped at 30 min. Stops the
+        // "5 minutes → 3 mints" failure mode where the revalidator
+        // repeatedly invalidates and ensureValid() repeatedly mints.
+        TokenAcquisitionThrottle.AcquireResult r = throttle.tryAcquire("dhan-totp");
+        if (!r.allowed()) {
+            throttle.recordFailure();
             throw new DhanAuthRejectedException(
-                    "Dhan token generation cooldown active; retry after "
-                            + ((TOKEN_ACQUISITION_COOLDOWN_MS - (now - lastAttempt)) / 1000) + "s",
+                    "Dhan token generation cooldown active ("
+                            + r.currentCooldownMs() / 1000L + "s, "
+                            + "consecutive failures=" + throttle.consecutiveFailures() + "); "
+                            + "retry in " + (r.retryAfterMs() / 1000L) + "s",
                     true);
         }
         lastAcquisitionAttemptMs.set(now);
+        log.warn(
+                "Dhan token MINT #{} — source={}, throttle-failures={}, cooldown-remaining={}ms",
+                tokenGeneration.get() + 1,
+                settings.authMode(),
+                throttle.consecutiveFailures(),
+                0L);
         return switch (settings.authMode()) {
             case TOTP_GENERATED -> authClient.generateViaTotp(
                     settings.clientId(),
@@ -295,6 +413,7 @@ public class DhanTokenManager implements DhanTokenProvider, TokenLifecycleServic
                 Instant.ofEpochMilli(state.expiryEpochMs()),
                 settings.tokenStateFile()
         );
+        callbackRegistry.fireRefresh();
         return state;
     }
 

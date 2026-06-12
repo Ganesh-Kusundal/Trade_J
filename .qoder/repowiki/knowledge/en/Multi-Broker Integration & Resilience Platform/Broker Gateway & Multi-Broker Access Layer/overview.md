@@ -1,0 +1,1 @@
+Provides a unified, fluent API for accessing multiple broker connections with standardized result wrapping, capability inspection, and simulation support.

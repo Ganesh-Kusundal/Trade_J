@@ -1,0 +1,1 @@
+Java 21, Gradle, Micrometer (for cross-module resilience and WebSocket metrics), ServiceLoader (SPI discovery)

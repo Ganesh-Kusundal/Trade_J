@@ -1,0 +1,1 @@
+Project Reactor (`reactor-core`) for reactive stream bridging via `ReactorBridge`; SLF4J for logging; JUnit 5 and Mockito for testing.

@@ -60,6 +60,17 @@ public final class AttachClient {
         return getJson("/admin/strategies");
     }
 
+    /**
+     * Calls the per-strategy replay-parity endpoint.
+     */
+    public JsonNode parity(String pluginId, String symbol, long fromMs, long toMs) {
+        return getJson("/api/v1/strategies/parity/" + pluginId, Map.of(
+                "symbol", symbol,
+                "fromMs", Long.toString(fromMs),
+                "toMs", Long.toString(toMs)
+        ));
+    }
+
     public JsonNode summary() {
         return getJson("/admin/summary");
     }

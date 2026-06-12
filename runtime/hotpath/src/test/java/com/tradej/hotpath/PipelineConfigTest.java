@@ -107,7 +107,6 @@ class PipelineConfigTest {
             PortfolioEngine portfolioEngine
     ) {
         return PipelineConfig.create(
-                1,
                 riskHandler,
                 candleService,
                 executionHandler,

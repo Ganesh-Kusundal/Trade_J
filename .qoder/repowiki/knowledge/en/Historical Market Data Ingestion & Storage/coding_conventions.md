@@ -1,0 +1,3 @@
+- Immutable records are used for all data transfer objects and configuration models (e.g., `DownloadJobRecord`, `SyncResult`).
+- Services accept dependencies via constructor injection and are marked `final` to ensure immutability.
+- Time-series data is stored using millisecond-precision timestamps (`bar_time_ms`) and integer-based price representations (`paisa`) to avoid floating-point errors.

@@ -31,6 +31,7 @@ import com.tradej.strategy.ml.ThresholdMLInferenceEngine;
 import com.tradej.strategy.plugin.OptionsContextStrategyPlugin;
 import com.tradej.strategy.portfolio.PortfolioEngine;
 import com.tradej.strategy.service.GraphStrategySandbox;
+import com.tradej.strategy.studio.StudioChartService;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
@@ -40,8 +41,12 @@ import com.tradej.core.domain.event.MarketTickEvent;
 import com.tradej.core.domain.event.ReconciliationHaltRequired;
 import com.tradej.core.domain.model.RiskLimits;
 import com.tradej.core.domain.port.EventBus;
+import com.tradej.core.domain.port.HistoricalBarRepository;
 import com.tradej.core.domain.port.NetPositionProvider;
+import com.tradej.core.domain.port.RollingOptionHistoricalRepository;
 import com.tradej.execution.risk.MarkToMarketRiskMonitor;
+import com.tradej.indicators.IndicatorEngine;
+import com.tradej.institutional.InstitutionalScanEngine;
 import java.time.Duration;
 import java.util.List;
 
@@ -53,26 +58,19 @@ import java.util.List;
 public class TradingConfiguration {
 
     // ── Risk beans ──
-
-    @Bean
-    com.tradej.core.domain.model.RiskLimits riskLimits(TradingProperties properties) {
-        TradingProperties.RiskProperties risk = properties.risk();
-        return new com.tradej.core.domain.model.RiskLimits(
-                risk.maxDailyLossPaisa(),
-                risk.maxConsecutiveLosses(),
-                risk.maxOrderValuePaisa(),
-                risk.effectiveMaxOpenPositionQuantity(),
-                risk.maxDistinctOpenPositions());
-    }
+    // RiskLimits, EventSourcedNetPositionProvider, MarginEnforcementHandler,
+    // KillSwitchCoordinator, and PositionRiskHandler are now owned by
+    // ExecutionComposition (built inside FullComposition). TradingConfiguration
+    // no longer wires them directly — consumers below inject FullComposition.
 
     @Bean
     MarkToMarketRiskMonitor markToMarketRiskMonitor(
             TradingProperties properties,
-            NetPositionProvider netPositionProvider
+            com.tradej.composition.FullComposition fullComposition
     ) {
         return new MarkToMarketRiskMonitor(
                 properties.risk().enforceUnrealizedLoss(),
-                netPositionProvider,
+                fullComposition.executionComposition().netPositionProvider(),
                 properties.risk().maxDailyLossPaisa());
     }
 
@@ -80,9 +78,13 @@ public class TradingConfiguration {
     RiskEventBusSubscriber riskEventBusSubscriber(
             EventBus eventBus,
             MarkToMarketRiskMonitor markToMarketRiskMonitor,
-            PositionRiskHandler positionRiskHandler
+            com.tradej.composition.FullComposition fullComposition
     ) {
-        return new RiskEventBusSubscriber(eventBus, markToMarketRiskMonitor, positionRiskHandler);
+        return new RiskEventBusSubscriber(
+                eventBus,
+                markToMarketRiskMonitor,
+                fullComposition.executionComposition().positionRiskHandler()
+        );
     }
 
     /**
@@ -105,8 +107,8 @@ public class TradingConfiguration {
     // ── Simulation beans ──
 
     @Bean
-    MatchingEngine matchingEngine() {
-        return new MatchingEngine();
+    MatchingEngine matchingEngine(TradingClock tradingClock) {
+        return new MatchingEngine(MatchingEngine.SlippageConfig.DEFAULT, tradingClock);
     }
 
     @Bean
@@ -144,11 +146,6 @@ public class TradingConfiguration {
     }
 
     @Bean
-    EventSourcedNetPositionProvider eventSourcedNetPositionProvider() {
-        return new EventSourcedNetPositionProvider();
-    }
-
-    @Bean
     OrderManagementService orderManagementService(
             ObjectProvider<IBrokerConnection> brokerConnection,
             RuntimeModeHolder runtimeModeHolder,
@@ -164,60 +161,6 @@ public class TradingConfiguration {
                 tradingClock,
                 orderRepository.getIfAvailable(),
                 circuitBreaker
-        );
-    }
-
-    @Bean
-    KillSwitchCoordinator killSwitchCoordinator(
-            ObjectProvider<IBrokerConnection> brokerConnection,
-            ObjectProvider<OrderManagementService> orderManagementService
-    ) {
-        return new KillSwitchCoordinator(
-                brokerConnection.getIfAvailable(),
-                orderManagementService.getIfAvailable()
-        );
-    }
-
-    @Bean
-    MarginEnforcementHandler marginEnforcementHandler(
-            TradingProperties properties,
-            ObjectProvider<IBrokerConnection> brokerConnection
-    ) {
-        var risk = properties.risk();
-        if (!risk.enforceMargin()) {
-            return new MarginEnforcementHandler(false, null, null, Duration.ofMinutes(1));
-        }
-
-        var connection = brokerConnection.getIfAvailable();
-        var margin = connection == null
-                ? null
-                : connection.getCapability(com.tradej.broker.api.port.MarginProvider.class).orElse(null);
-        var portfolio = connection == null
-                ? null
-                : connection.getCapability(com.tradej.broker.api.port.PortfolioProvider.class).orElse(null);
-
-        return new MarginEnforcementHandler(
-                true,
-                margin,
-                portfolio,
-                Duration.ofMinutes(Math.max(1, risk.marginCacheTtlMinutes()))
-        );
-    }
-
-    @Bean
-    PositionRiskHandler positionRiskHandler(
-            com.tradej.core.domain.model.RiskLimits riskLimits,
-            EventSourcedNetPositionProvider netPositionProvider,
-            ObjectProvider<PortfolioEngine> portfolioEngine,
-            ObjectProvider<MarginEnforcementHandler> marginEnforcement,
-            ObjectProvider<KillSwitchCoordinator> killSwitch
-    ) {
-        return new PositionRiskHandler(
-                riskLimits,
-                netPositionProvider,
-                portfolioEngine.getIfAvailable(),
-                marginEnforcement.getIfAvailable(),
-                killSwitch.getIfAvailable()
         );
     }
 
@@ -296,5 +239,30 @@ public class TradingConfiguration {
             EventMetadataFactory eventMetadataFactory
     ) {
         return new GraphStrategySandbox(graphStrategyPlugins, eventMetadataFactory);
+    }
+
+    @Bean
+    StudioChartService studioChartService(
+            HistoricalBarRepository barRepository,
+            RollingOptionHistoricalRepository optionRepository,
+            InstitutionalScanEngine scanEngine,
+            IndicatorEngine indicatorEngine
+    ) {
+        return new StudioChartService(barRepository, optionRepository, scanEngine, indicatorEngine);
+    }
+
+    @Bean
+    IndicatorEngine indicatorEngine() {
+        return new IndicatorEngine();
+    }
+
+    @Bean
+    InstitutionalScanEngine institutionalScanEngine(HistoricalBarRepository barRepository) {
+        return new InstitutionalScanEngine(barRepository);
+    }
+
+    @Bean
+    com.tradej.research.lab.DuckDbResearchStore duckDbResearchStore() {
+        return new com.tradej.research.lab.DuckDbResearchStore();
     }
 }

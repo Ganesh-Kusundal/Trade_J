@@ -6,8 +6,10 @@ import com.tradej.app.health.LoggingAlertChannel;
 import com.tradej.app.health.PagerDutyAlertChannel;
 import com.tradej.app.health.SlackAlertChannel;
 import com.tradej.app.health.WebhookAlertChannel;
+import com.tradej.app.plugin.ClassLoaderPluginLifecycleManager;
 import com.tradej.broker.api.IBrokerConnection;
 import com.tradej.core.domain.port.EventBus;
+import com.tradej.core.domain.port.PluginLifecycleManager;
 import com.tradej.core.domain.runtime.RuntimeBus;
 import com.tradej.core.domain.runtime.RuntimeBusHolder;
 import com.tradej.core.tracing.SpanFactory;
@@ -32,6 +34,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -295,5 +298,14 @@ public class ObservabilityConfiguration {
 
         log.info("Micrometer gauge metrics registered");
         return new Object();
+    }
+
+    // ── Plugin lifecycle ──
+
+    @Bean
+    @ConditionalOnMissingBean
+    PluginLifecycleManager pluginLifecycleManager() {
+        log.info("PluginLifecycleManager initialized — runtime plugin install/uninstall available");
+        return new ClassLoaderPluginLifecycleManager();
     }
 }

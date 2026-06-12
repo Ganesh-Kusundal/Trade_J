@@ -1,10 +1,10 @@
 package com.tradej.app.api;
 
-import com.tradej.replay.engine.CandleReplaySession;
 import com.tradej.core.domain.model.Candle;
 import com.tradej.core.domain.model.InstrumentKey;
 import com.tradej.core.domain.port.HistoricalBarRepository;
 import com.tradej.core.domain.value.ExchangeSegment;
+import com.tradej.replay.engine.ReplayController;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -15,20 +15,25 @@ import org.springframework.web.bind.annotation.RestController;
 import java.time.LocalDate;
 import java.util.List;
 
+/**
+ * Studio surface for driving a single in-process replay session.
+ * Backed by {@link ReplayController} (the new event-symmetric replay
+ * engine that replaces the legacy {@code CandleReplaySession}).
+ */
 @RestController
 @RequestMapping("/api/v1/replay")
 public class ReplayStudioController {
 
-    private final CandleReplaySession replaySession;
+    private final ReplayController replay;
     private final HistoricalBarRepository barRepository;
 
-    public ReplayStudioController(CandleReplaySession replaySession, HistoricalBarRepository barRepository) {
-        this.replaySession = replaySession;
+    public ReplayStudioController(ReplayController replay, HistoricalBarRepository barRepository) {
+        this.replay = replay;
         this.barRepository = barRepository;
     }
 
     @PostMapping("/start")
-    public ResponseEntity<CandleReplaySession.ReplayStatus> start(
+    public ResponseEntity<ReplayController.ReplayState> start(
             @RequestParam String symbol,
             @RequestParam(defaultValue = "NSE_EQ") String exchange,
             @RequestParam String from,
@@ -45,42 +50,42 @@ public class ReplayStudioController {
         if (candles.isEmpty()) {
             return ResponseEntity.badRequest().build();
         }
-        replaySession.start(candles);
-        return ResponseEntity.ok(replaySession.status());
+        replay.start(candles);
+        return ResponseEntity.ok(replay.getState());
     }
 
     @PostMapping("/play")
-    public ResponseEntity<CandleReplaySession.ReplayStatus> play() {
-        replaySession.play();
-        return ResponseEntity.ok(replaySession.status());
+    public ResponseEntity<ReplayController.ReplayState> play() {
+        replay.play();
+        return ResponseEntity.ok(replay.getState());
     }
 
     @PostMapping("/pause")
-    public ResponseEntity<CandleReplaySession.ReplayStatus> pause() {
-        replaySession.pause();
-        return ResponseEntity.ok(replaySession.status());
+    public ResponseEntity<ReplayController.ReplayState> pause() {
+        replay.pause();
+        return ResponseEntity.ok(replay.getState());
     }
 
     @PostMapping("/step")
-    public ResponseEntity<CandleReplaySession.ReplayStatus> step() {
-        replaySession.step();
-        return ResponseEntity.ok(replaySession.status());
+    public ResponseEntity<ReplayController.ReplayState> step() {
+        replay.step();
+        return ResponseEntity.ok(replay.getState());
     }
 
     @PostMapping("/stop")
-    public ResponseEntity<CandleReplaySession.ReplayStatus> stop() {
-        replaySession.stop();
-        return ResponseEntity.ok(replaySession.status());
+    public ResponseEntity<ReplayController.ReplayState> stop() {
+        replay.stop();
+        return ResponseEntity.ok(replay.getState());
     }
 
     @PostMapping("/speed")
-    public ResponseEntity<CandleReplaySession.ReplayStatus> speed(@RequestParam double multiplier) {
-        replaySession.setSpeed(multiplier);
-        return ResponseEntity.ok(replaySession.status());
+    public ResponseEntity<ReplayController.ReplayState> speed(@RequestParam double multiplier) {
+        replay.setSpeed(multiplier);
+        return ResponseEntity.ok(replay.getState());
     }
 
     @GetMapping("/status")
-    public ResponseEntity<CandleReplaySession.ReplayStatus> status() {
-        return ResponseEntity.ok(replaySession.status());
+    public ResponseEntity<ReplayController.ReplayState> status() {
+        return ResponseEntity.ok(replay.getState());
     }
 }

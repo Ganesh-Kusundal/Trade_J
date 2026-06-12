@@ -1,0 +1,6 @@
+com.tradej.scanner.spi.VolumeSpikeCriterionProvider
+com.tradej.scanner.spi.PctChangeFromOpenCriterionProvider
+com.tradej.scanner.spi.PctChangeFromPrevCloseCriterionProvider
+com.tradej.scanner.spi.MaxOiStrikeCriterionProvider
+com.tradej.scanner.spi.PcrRangeCriterionProvider
+com.tradej.scanner.spi.GroupAndCriterionProvider

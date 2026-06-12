@@ -5,8 +5,6 @@ import com.tradej.core.domain.port.DeadLetterQueue;
 import com.tradej.core.domain.port.EventBus;
 import com.tradej.core.domain.port.FeatureStore;
 import com.tradej.disruptor.DisruptorBusMetrics;
-import com.tradej.disruptor.DisruptorEventBus;
-import com.tradej.disruptor.ShardedDisruptorEventBus;
 import com.tradej.disruptor.config.DisruptorPipelineBuilder;
 import com.tradej.disruptor.config.StageTimings;
 import com.tradej.execution.risk.PositionRiskHandler;
@@ -57,7 +55,7 @@ public final class PipelineConfig {
             ExecutionHandler executionHandler,
             PortfolioEngine portfolioEngine
     ) {
-        return create(1, positionRiskHandler, candleAggregationService, null,
+        return create(positionRiskHandler, candleAggregationService, null,
                 executionHandler, portfolioEngine, StageTimings.NO_OP, null, DeadLetterQueue.noop(), null);
     }
 
@@ -78,7 +76,7 @@ public final class PipelineConfig {
             PortfolioEngine portfolioEngine,
             StageTimings stageTimings
     ) {
-        return create(1, positionRiskHandler, candleAggregationService, null,
+        return create(positionRiskHandler, candleAggregationService, null,
                 executionHandler, portfolioEngine, stageTimings, null, DeadLetterQueue.noop(), null);
     }
 
@@ -101,7 +99,7 @@ public final class PipelineConfig {
             PortfolioEngine portfolioEngine,
             StageTimings stageTimings
     ) {
-        return create(1, positionRiskHandler, candleAggregationService, graphStrategySandbox,
+        return create(positionRiskHandler, candleAggregationService, graphStrategySandbox,
                 executionHandler, portfolioEngine, stageTimings, null, DeadLetterQueue.noop(), null);
     }
 
@@ -114,7 +112,7 @@ public final class PipelineConfig {
             FeatureStore hotPathFeatureStore,
             DeadLetterQueue deadLetterQueue
     ) {
-        return create(1, positionRiskHandler, candleAggregationService, null,
+        return create(positionRiskHandler, candleAggregationService, null,
                 executionHandler, portfolioEngine, stageTimings, hotPathFeatureStore, deadLetterQueue, null);
     }
 
@@ -128,29 +126,11 @@ public final class PipelineConfig {
             FeatureStore hotPathFeatureStore,
             DeadLetterQueue deadLetterQueue
     ) {
-        return create(1, positionRiskHandler, candleAggregationService, graphStrategySandbox,
+        return create(positionRiskHandler, candleAggregationService, graphStrategySandbox,
                 executionHandler, portfolioEngine, stageTimings, hotPathFeatureStore, deadLetterQueue, null);
     }
 
     public static PipelineComponents create(
-            int shardCount,
-            PositionRiskHandler positionRiskHandler,
-            CandleAggregationService candleAggregationService,
-            ExecutionHandler executionHandler,
-            PortfolioEngine portfolioEngine,
-            StageTimings stageTimings,
-            FeatureStore hotPathFeatureStore,
-            DeadLetterQueue deadLetterQueue
-    ) {
-        return create(shardCount, positionRiskHandler, candleAggregationService, null,
-                executionHandler, portfolioEngine, stageTimings, hotPathFeatureStore, deadLetterQueue, null);
-    }
-
-    /**
-     * Create and wire the hot-path pipeline components (no sandbox, with pipeline runtime bridge).
-     */
-    public static PipelineComponents create(
-            int shardCount,
             PositionRiskHandler positionRiskHandler,
             CandleAggregationService candleAggregationService,
             ExecutionHandler executionHandler,
@@ -160,7 +140,7 @@ public final class PipelineConfig {
             DeadLetterQueue deadLetterQueue,
             PipelineRuntimeBridge pipelineRuntimeBridge
     ) {
-        return create(shardCount, positionRiskHandler, candleAggregationService, null,
+        return create(positionRiskHandler, candleAggregationService, null,
                 executionHandler, portfolioEngine, stageTimings, hotPathFeatureStore, deadLetterQueue, pipelineRuntimeBridge);
     }
 
@@ -168,7 +148,6 @@ public final class PipelineConfig {
      * Deep create with all optional components including graph strategy sandbox.
      */
     public static PipelineComponents create(
-            int shardCount,
             PositionRiskHandler positionRiskHandler,
             CandleAggregationService candleAggregationService,
             GraphStrategySandbox graphStrategySandbox,
@@ -195,21 +174,15 @@ public final class PipelineConfig {
                 .deadLetterQueue(deadLetterQueue != null ? deadLetterQueue : DeadLetterQueue.noop())
                 .pipelineRuntimeBridge(pipelineRuntimeBridge);
 
-        EventBus eventBus;
-        if (shardCount > 1) {
-            eventBus = new ShardedDisruptorEventBus(shardCount, builder.build());
-        } else {
-            eventBus = builder.buildBus();
-        }
-
+        EventBus eventBus = builder.buildBus();
         DisruptorBusMetrics busMetrics = (DisruptorBusMetrics) eventBus;
 
         Consumer<DomainEvent> busPublisher = eventBus::publish;
         MarketDataPipeline marketDataPipeline = new MarketDataPipeline(busPublisher);
         OrderPipeline orderPipeline = new OrderPipeline(busPublisher);
 
-        log.info("PipelineConfig assembled components: eventBus={} shards={} ringSize={}",
-                eventBus.getClass().getSimpleName(), busMetrics.shardCount(), busMetrics.ringBufferSize());
+        log.info("PipelineConfig assembled components: eventBus={} ringSize={}",
+                eventBus.getClass().getSimpleName(), busMetrics.ringBufferSize());
 
         return new PipelineComponents(eventBus, busMetrics, marketDataPipeline, orderPipeline);
     }

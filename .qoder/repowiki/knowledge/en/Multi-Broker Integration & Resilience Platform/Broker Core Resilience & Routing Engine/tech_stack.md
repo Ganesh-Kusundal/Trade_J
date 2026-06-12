@@ -1,0 +1,1 @@
+Uses `io.micrometer:micrometer-core` for observability metrics and `com.fasterxml.jackson.core:jackson-databind` for token state serialization.

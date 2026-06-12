@@ -1,0 +1,17 @@
+.git
+.gradle
+.idea
+*.iml
+node_modules
+**/build/
+**/dist/
+**/.DS_Store
+*.log
+certification-artifacts/
+CertificationArtifacts/
+runtime-verification/
+poc/
+archive/
+docs/archive/
+.qoder/
+*.md

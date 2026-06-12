@@ -23,10 +23,9 @@ export default function PortfolioPanel({ segment, refreshTrigger }: PortfolioPan
   useEffect(() => {
     const fetchOrders = async () => {
       try {
-        const res = await fetch(`/api/v1/orders?status=${tab === "active" ? "active" : "all"}`);
-        if (!res.ok) return;
-        const data = await res.json();
-        setOrders(Array.isArray(data) ? data : []);
+        const { orderApi } = await import("../generated/api");
+        const data = await orderApi.list(tab === "active" ? "active" : "all");
+        setOrders(Array.isArray(data) ? data as unknown as OrderEntry[] : []);
       } catch {}
     };
     fetchOrders();

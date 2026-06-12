@@ -3,6 +3,7 @@ package com.tradej.disruptor.config;
 import com.tradej.core.domain.event.DomainEvent;
 import com.tradej.core.domain.event.DomainEventVisitor;
 import com.tradej.core.domain.event.EventMetadata;
+import com.tradej.core.domain.event.TestEvent;
 import com.tradej.core.domain.port.DeadLetterQueue;
 import com.tradej.disruptor.MutableDomainEventEnvelope;
 import org.junit.jupiter.api.Tag;
@@ -22,17 +23,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @Tag("unit")
 class AsyncDispatchHandlerBackpressureTest {
 
-    /** Minimal DomainEvent stub for testing. */
-    private record StubEvent(EventMetadata metadata) implements DomainEvent {
-        @Override
-        public void accept(DomainEventVisitor visitor) {
-            // no-op for testing
-        }
 
-        static StubEvent create() {
-            return new StubEvent(EventMetadata.root());
-        }
-    }
 
     /** DeadLetterQueue that captures all appended events. */
     private static class CapturingDlq implements DeadLetterQueue {
@@ -66,13 +57,13 @@ class AsyncDispatchHandlerBackpressureTest {
         AsyncDispatchHandler h = handler(1, dlq);
 
         // First event should succeed immediately
-        h.onEvent(envelopeFor(StubEvent.create()), 0, false);
+        h.onEvent(envelopeFor(new TestEvent()), 0, false);
         assertEquals(1, h.queueDepth());
         assertEquals(0, h.droppedEventCount());
 
         // Second event must drop immediately because no consumer drains the queue
         long start = System.nanoTime();
-        h.onEvent(envelopeFor(StubEvent.create()), 1, false);
+        h.onEvent(envelopeFor(new TestEvent()), 1, false);
         long elapsedMs = (System.nanoTime() - start) / 1_000_000;
 
         // The offer should have completed immediately (less than 250ms to account for logger initialization/warmup)
@@ -87,9 +78,9 @@ class AsyncDispatchHandlerBackpressureTest {
         AsyncDispatchHandler h = handler(1, dlq);
 
         // Fill the queue
-        h.onEvent(envelopeFor(StubEvent.create()), 0, false);
+        h.onEvent(envelopeFor(new TestEvent()), 0, false);
         // This one should be dropped and go to DLQ
-        h.onEvent(envelopeFor(StubEvent.create()), 1, false);
+        h.onEvent(envelopeFor(new TestEvent()), 1, false);
 
         assertEquals(1, dlq.appendCount.get(), "DLQ should have received the dropped event");
         assertFalse(dlq.captured.isEmpty(), "DLQ captured list should not be empty");
@@ -101,13 +92,13 @@ class AsyncDispatchHandlerBackpressureTest {
         AsyncDispatchHandler h = handler(1, dlq);
 
         // Fill the single-slot queue
-        h.onEvent(envelopeFor(StubEvent.create()), 0, false);
+        h.onEvent(envelopeFor(new TestEvent()), 0, false);
         assertEquals(0, h.consecutiveDropCount());
 
         // Three consecutive drops
-        h.onEvent(envelopeFor(StubEvent.create()), 1, false);
-        h.onEvent(envelopeFor(StubEvent.create()), 2, false);
-        h.onEvent(envelopeFor(StubEvent.create()), 3, false);
+        h.onEvent(envelopeFor(new TestEvent()), 1, false);
+        h.onEvent(envelopeFor(new TestEvent()), 2, false);
+        h.onEvent(envelopeFor(new TestEvent()), 3, false);
 
         assertEquals(3, h.consecutiveDropCount());
         assertEquals(3, h.droppedEventCount());
@@ -119,11 +110,11 @@ class AsyncDispatchHandlerBackpressureTest {
         AsyncDispatchHandler h = handler(1, dlq);
 
         // Fill the queue
-        h.onEvent(envelopeFor(StubEvent.create()), 0, false);
+        h.onEvent(envelopeFor(new TestEvent()), 0, false);
 
         // Produce 10 consecutive drops
         for (int i = 1; i <= 10; i++) {
-            h.onEvent(envelopeFor(StubEvent.create()), i, false);
+            h.onEvent(envelopeFor(new TestEvent()), i, false);
         }
 
         assertEquals(10, h.consecutiveDropCount(),

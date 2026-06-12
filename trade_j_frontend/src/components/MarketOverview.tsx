@@ -55,11 +55,10 @@ export default function MarketOverview() {
 
   useEffect(() => {
     const poll = async () => {
+      const { marketApi } = await import("../generated/api");
       const updated = await Promise.all(INDICES.map(async (idx) => {
         try {
-          const res = await fetch(`/api/v1/market/ltp?symbol=${encodeURIComponent(idx.name)}&exchangeSegment=${idx.segment}`);
-          if (!res.ok) return { ...idx, value: sanitizeIndexValue(idx.name, INDEX_FALLBACKS[idx.name]), change: null, isApprox: true };
-          const data = await res.json();
+          const data = await marketApi.ltp(idx.name, idx.segment);
           const rawValue = data.ltpPaisa / 100;
           const sanitized = sanitizeIndexValue(idx.name, rawValue);
           const value = sanitized != null ? sanitized : sanitizeIndexValue(idx.name, INDEX_FALLBACKS[idx.name]);

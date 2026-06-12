@@ -1,0 +1,1 @@
+Gradle-based Java module integrating with internal `:core` and `:pipeline-core` libraries for domain events and pipeline runtime support.

@@ -22,6 +22,8 @@ class DhanAuthenticatedHttpClientFailureTest {
 
     private static DhanAuthenticatedHttpClient createClient(HttpClient httpClient) {
         DhanTokenProvider tokenProvider = mock(DhanTokenProvider.class);
+        when(tokenProvider.bearerToken()).thenReturn("test-token");
+        when(tokenProvider.ensureValidAndGet()).thenReturn("test-token");
         when(tokenProvider.getAccessToken()).thenReturn("test-token");
         DhanConnectionSettings settings = DhanConnectionSettings.sandboxWithDefaults("client-1", "test-token");
         return new DhanAuthenticatedHttpClient(httpClient, new ObjectMapper(), tokenProvider, settings);

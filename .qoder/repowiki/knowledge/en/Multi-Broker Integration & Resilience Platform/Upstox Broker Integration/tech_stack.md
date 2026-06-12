@@ -1,0 +1,1 @@
+Uses Java 17+ `java.net.http.HttpClient` for REST and WebSocket communication. Protobuf (`com.google.protobuf:protobuf-java`) is used for parsing binary market data feeds defined in `MarketDataFeed.proto`. Jackson (`jackson-databind`) handles JSON serialization for REST payloads.

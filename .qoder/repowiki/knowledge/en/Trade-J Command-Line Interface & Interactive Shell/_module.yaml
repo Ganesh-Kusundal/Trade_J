@@ -1,0 +1,8 @@
+schema_version: 1
+module_path: cli_tool
+title: Trade-J Command-Line Interface & Interactive Shell
+scope:
+    - cli/
+source_files: []
+depends_on: []
+related_to: []

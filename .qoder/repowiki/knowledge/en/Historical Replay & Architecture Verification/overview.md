@@ -1,0 +1,1 @@
+Provides deterministic historical market replay for strategy backtesting and enforces modular architectural boundaries across the codebase.

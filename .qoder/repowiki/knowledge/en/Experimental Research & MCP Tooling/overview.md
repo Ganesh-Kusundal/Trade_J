@@ -1,0 +1,1 @@
+Provides a sandbox for historical strategy backtesting, scanner evaluation, and candle replay, while exposing analytics data via an MCP server for AI-driven insights.

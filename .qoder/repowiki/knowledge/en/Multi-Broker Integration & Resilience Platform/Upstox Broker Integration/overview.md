@@ -1,0 +1,1 @@
+Provides a complete SPI-compliant integration with the Upstox trading platform, handling authentication, market data streaming, order management, and portfolio services.

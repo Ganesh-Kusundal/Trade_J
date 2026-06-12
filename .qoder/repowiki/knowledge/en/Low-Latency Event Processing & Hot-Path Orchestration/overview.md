@@ -1,0 +1,1 @@
+Provides a high-throughput, Disruptor-backed event bus and pure-Java hot-path pipelines for processing market data and order lifecycle events with minimal latency.
