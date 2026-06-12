@@ -4,6 +4,7 @@ import com.tradej.broker.api.IBrokerConnection;
 import com.tradej.broker.api.port.MarginProvider;
 import com.tradej.broker.api.port.PortfolioProvider;
 import com.tradej.composition.config.RiskProfile;
+import com.tradej.core.domain.service.PositionService;
 import com.tradej.execution.position.EventSourcedNetPositionProvider;
 import com.tradej.execution.risk.KillSwitchCoordinator;
 import com.tradej.execution.risk.MarginEnforcementHandler;
@@ -30,6 +31,7 @@ public final class ExecutionComposition {
     private static final Logger log = LoggerFactory.getLogger(ExecutionComposition.class);
 
     private final RiskProfile profile;
+    private final PositionService positionService;
     private final EventSourcedNetPositionProvider netPositionProvider;
     private final CaffeineIdempotencyCache idempotencyCache;
     private final MarginEnforcementHandler marginEnforcementHandler;
@@ -38,6 +40,7 @@ public final class ExecutionComposition {
 
     private ExecutionComposition(
             RiskProfile profile,
+            PositionService positionService,
             EventSourcedNetPositionProvider netPositionProvider,
             CaffeineIdempotencyCache idempotencyCache,
             MarginEnforcementHandler marginEnforcementHandler,
@@ -45,6 +48,7 @@ public final class ExecutionComposition {
             PositionRiskHandler positionRiskHandler
     ) {
         this.profile = profile;
+        this.positionService = positionService;
         this.netPositionProvider = netPositionProvider;
         this.idempotencyCache = idempotencyCache;
         this.marginEnforcementHandler = marginEnforcementHandler;
@@ -56,6 +60,8 @@ public final class ExecutionComposition {
      * Build the execution composition from a {@link RiskProfile} and its runtime dependencies.
      *
      * @param profile            risk profile (limits, enforce flags, margin cache TTL)
+     * @param positionService    canonical position service (created by the caller; this composition
+     *                            holds a reference, not an owner-of-creation)
      * @param portfolioEngine    non-null portfolio engine
      * @param brokerConnection   broker connection (used to resolve margin + portfolio providers; may be null if no broker)
      * @param orderManagementService non-null order management service
@@ -64,11 +70,13 @@ public final class ExecutionComposition {
      */
     public static ExecutionComposition create(
             RiskProfile profile,
+            PositionService positionService,
             PortfolioEngine portfolioEngine,
             IBrokerConnection brokerConnection,
             OrderManagementService orderManagementService
     ) {
         Objects.requireNonNull(profile, "profile");
+        Objects.requireNonNull(positionService, "positionService");
         Objects.requireNonNull(portfolioEngine, "portfolioEngine");
         Objects.requireNonNull(orderManagementService, "orderManagementService");
 
@@ -102,6 +110,7 @@ public final class ExecutionComposition {
 
         return new ExecutionComposition(
                 profile,
+                positionService,
                 netPositionProvider,
                 idempotencyCache,
                 marginEnforcementHandler,
@@ -112,6 +121,10 @@ public final class ExecutionComposition {
 
     public RiskProfile profile() {
         return profile;
+    }
+
+    public PositionService positionService() {
+        return positionService;
     }
 
     public EventSourcedNetPositionProvider netPositionProvider() {
