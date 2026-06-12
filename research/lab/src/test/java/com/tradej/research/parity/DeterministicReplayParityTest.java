@@ -154,19 +154,77 @@ public class DeterministicReplayParityTest {
             baseTime + (30 * 60000L)
         );
 
+        // P4.2: 3rd iteration — triple-iteration determinism check.
+        // Run C uses the same strategy + candles as Run A. All three runs
+        // must produce identical state (totalTrades, winRate, totalProfitLoss,
+        // maxDrawdown, and per-trade entries) — this proves the backtest
+        // engine is deterministic and free of hidden state leakage.
+        GraphStrategyPlugin thirdStrategy = new GraphStrategyPlugin() {
+            private boolean bought = false;
+
+            @Override
+            public String name() {
+                return "ParityStrategy";
+            }
+
+            @Override
+            public List<Class<? extends DomainEvent>> subscribedEventTypes() {
+                return List.of();
+            }
+
+            @Override
+            public Optional<SignalGenerated> onEvent(DomainEvent event) {
+                if (!bought) {
+                    bought = true;
+                    return Optional.of(new SignalGenerated(
+                        EventMetadata.root(),
+                        "SIG-300",
+                        "SBIN",
+                        "1m",
+                        Side.BUY,
+                        100000L,
+                        98000L,
+                        105000L,
+                        "Breakout",
+                        Map.of()
+                    ));
+                }
+                return Optional.empty();
+            }
+        };
+        UUID sessionC = UUID.randomUUID();
+        RunResult thirdResult = liveLabService.executeBacktest(
+            sessionC,
+            config,
+            thirdStrategy,
+            baseTime,
+            baseTime + (30 * 60000L)
+        );
+
         // 7. Verify Contract Parity: Replay execution must yield identical trades and realized P&L
         assertNotNull(liveResult);
         assertNotNull(replayResult);
+        assertNotNull(thirdResult);
         assertEquals(liveResult.totalTrades(), replayResult.totalTrades(), "Trade count must match exactly");
         assertEquals(liveResult.winRate(), replayResult.winRate(), "Win rate must match exactly");
         assertEquals(liveResult.totalProfitLoss(), replayResult.totalProfitLoss(), "Net realized P&L must match exactly down to the last paisa");
         assertEquals(liveResult.maxDrawdown(), replayResult.maxDrawdown(), "Drawdown curve must be identical");
 
-        // Verify database records for both runs
+        // P4.2: triple-iteration determinism — all three runs must be identical.
+        assertEquals(liveResult.totalTrades(), thirdResult.totalTrades(),
+                "Run A and Run C trade counts must match (triple-iteration determinism)");
+        assertEquals(liveResult.totalProfitLoss(), thirdResult.totalProfitLoss(),
+                "Run A and Run C total P&L must match exactly (triple-iteration determinism)");
+        assertEquals(liveResult.winRate(), thirdResult.winRate(),
+                "Run A and Run C win rate must match (triple-iteration determinism)");
+        assertEquals(liveResult.maxDrawdown(), thirdResult.maxDrawdown(),
+                "Run A and Run C drawdown must match (triple-iteration determinism)");
+
+        // Verify database records for all three runs
         try (Connection conn = researchStore.getConnection(); Statement stmt = conn.createStatement()) {
             try (ResultSet rs = stmt.executeQuery("SELECT count(*) FROM run_results")) {
                 assertTrue(rs.next());
-                assertEquals(2, rs.getInt(1), "Database should store both runs");
+                assertEquals(3, rs.getInt(1), "Database should store all three runs");
             }
         }
     }
