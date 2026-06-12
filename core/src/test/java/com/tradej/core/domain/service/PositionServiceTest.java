@@ -184,6 +184,41 @@ class PositionServiceTest {
         assertEquals(10_000L, svc2.getRealizedPnlPaisa("SBIN"));
     }
 
+    // ── Broker snapshot corrections (P3.5) ───────────────────────────
+
+    @Test
+    void applyBrokerSnapshotOverwritesInternalState() {
+        PositionService svc = new PositionService();
+        svc.onDomainEvent(open("t-1", "SBIN", Side.BUY, 10L, 100_000L));
+        assertEquals(10L, svc.getNetPosition("SBIN"));
+        assertEquals(100_000L, svc.getPosition("SBIN").averagePricePaisa());
+
+        // Broker reports a different state (e.g., a missed fill or partial close on broker side)
+        svc.applyBrokerSnapshot("SBIN", 15L, 105_000L);
+
+        assertEquals(15L, svc.getNetPosition("SBIN"));
+        assertEquals(105_000L, svc.getPosition("SBIN").averagePricePaisa());
+    }
+
+    @Test
+    void applyBrokerSnapshotWithZeroQuantityRemovesPosition() {
+        PositionService svc = new PositionService();
+        svc.onDomainEvent(open("t-1", "SBIN", Side.BUY, 10L, 100_000L));
+        assertEquals(10L, svc.getNetPosition("SBIN"));
+
+        svc.applyBrokerSnapshot("SBIN", 0L, 0L);
+        assertEquals(0L, svc.getNetPosition("SBIN"));
+    }
+
+    @Test
+    void applyBrokerSnapshotOnUnknownSymbolStartsFresh() {
+        PositionService svc = new PositionService();
+        // No prior state for SBIN
+        svc.applyBrokerSnapshot("SBIN", 5L, 200_000L);
+        assertEquals(5L, svc.getNetPosition("SBIN"));
+        assertEquals(200_000L, svc.getPosition("SBIN").averagePricePaisa());
+    }
+
     // ── Factories ──────────────────────────────────────────────────────
 
     private static TradeOpened open(String tradeId, String symbol, Side side,

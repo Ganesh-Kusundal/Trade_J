@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -98,6 +99,47 @@ public final class PositionService implements NetPositionProvider {
         } else {
             log.debug("PositionService ignoring event type={}", event.getClass().getSimpleName());
         }
+    }
+
+    // ── Broker-sourced position corrections (P3.5) ─────────────────────
+    //
+    // The broker's reported position is the ground truth for what's actually
+    // filled. The reconciliation flow (ReconciliationScheduler +
+    // OrderReconciler) queries the broker periodically and emits
+    // PositionMismatch events when internal state diverges. P3.5 exposes the
+    // API for the reconciliation flow to correct the internal state to match
+    // the broker's view. Full wiring (reconciliation → applyBrokerSnapshot) is
+    // a follow-up commit.
+
+    /**
+     * Apply a broker-reported position snapshot. Overwrites the internal
+     * state for {@code symbol} with the broker's view. The {@code averagePricePaisa}
+     * is the broker's reported average (may differ from the internal weighted
+     * average due to partial fills, slippage, or sync races). Pass
+     * {@code averagePricePaisa = 0} if the broker doesn't report it.
+     *
+     * <p>Use case: reconciliation detects a mismatch and corrects the
+     * internal state to match the broker. This is a "broker wins" policy
+     * for position state; the alternative is to flag the mismatch and let
+     * a human investigate.
+     */
+    public void applyBrokerSnapshot(String symbol, long brokerQuantity, long averagePricePaisa) {
+        Objects.requireNonNull(symbol, "symbol");
+        if (brokerQuantity == 0) {
+            positions.remove(symbol);
+            // Note: openContributions and openSizes are NOT cleared here —
+            // they track per-trade state that's still in flight. If the
+            // broker says net=0 but we have open contributions, that's a
+            // sign of a missed close — log a warning for follow-up.
+            if (!openContributions.isEmpty()) {
+                log.warn("Broker reports net=0 for symbol={} but {} open contribution(s) remain; " +
+                        "this may indicate a missed close event", symbol, openContributions.size());
+            }
+            return;
+        }
+        positions.put(symbol, new PositionState(brokerQuantity, averagePricePaisa));
+        log.info("PositionService applied broker snapshot symbol={} quantity={} avgPrice={}",
+                symbol, brokerQuantity, averagePricePaisa);
     }
 
     private void handleTradeOpened(TradeOpened opened) {
