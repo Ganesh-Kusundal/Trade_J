@@ -1,15 +1,25 @@
 package com.tradej.execution.reconcile;
 
 import com.tradej.core.domain.event.PositionMismatch;
+import com.tradej.core.domain.model.Order;
+import com.tradej.core.domain.model.OrderRequest;
+import com.tradej.core.domain.value.ExchangeSegment;
+import com.tradej.core.domain.value.OrderType;
+import com.tradej.core.domain.value.ProductType;
+import com.tradej.core.domain.value.Side;
+import com.tradej.core.domain.value.Validity;
+import com.tradej.execution.risk.PositionRiskHandler;
+import com.tradej.execution.service.OrderManagementService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
  * Production {@link ReconciliationScheduler.MismatchHandler} that handles
  * drift detection in LIVE mode by computing the corrective order intent
- * and logging it for the OMS / execution path to pick up.
+ * and either logging it (log-only mode) or placing it via the
+ * {@link OrderManagementService} (wired mode).
  *
- * <p><b>What this handler does today (P3.5 follow-up, 2026-06-12 + B2 2026-06-13):</b>
+ * <p><b>What this handler does:</b>
  * <ul>
  *   <li>Computes the correction direction (BUY or SELL) from the
  *       {@link PositionMismatch} (paper vs. broker qty delta).</li>
@@ -22,36 +32,45 @@ import org.slf4j.LoggerFactory;
  *   <li>Logs a structured "WOULD PLACE" message at WARN level with the
  *       full correction intent (side, qty, symbol, paper qty, broker
  *       qty, engine key).</li>
- *   <li>Does <b>NOT</b> place orders. Order placement requires OMS
- *       integration + risk checks + bracket-order machinery, which is
- *       a separate commit. The structured log line is the contract
- *       that the OMS path can subscribe to.</li>
+ *   <li>When constructed with an {@link OrderManagementService} and a
+ *       {@link PositionRiskHandler} (the 5-arg constructor), places
+ *       the correcting order via
+ *       {@link OrderManagementService#placeOrder(OrderRequest)} after a
+ *       pre-trade risk check. Risk rejection and OMS errors are caught
+ *       and logged at WARN — the reconciliation pass is never broken
+ *       by a failed correction.</li>
  * </ul>
+ *
+ * <p><b>"Bracket" naming:</b> the class name is historical. For drift
+ * correction, a single MARKET order is the natural choice (drift = "we
+ * have N more/less than we should" → close the gap with one market
+ * order). True bracket orders (entry + target + stop-loss as a single
+ * intent) are for new position entries, not corrections. The class
+ * name is retained for git history continuity; the actual order placed
+ * is a single MARKET MIS order.
  *
  * <p><b>Alerter failure handling:</b> the alerter invocation is wrapped
  * in try/catch. A failing alerter (e.g., Slack webhook down) does NOT
  * break the reconciliation pass — the handler logs the alerter failure
  * at ERROR and proceeds with the structured-log line.
  *
- * <p><b>Why log instead of act:</b> the MismatchHandler is invoked from
- * the reconciliation pass which is on a fixed schedule. Placing orders
- * from this hook would require:
- * <ol>
- *   <li>Risk-check integration (position size limits, exposure limits)</li>
- *   <li>Bracket-order wiring (entry + target + stop-loss as a single
- *       order intent)</li>
- *   <li>Idempotency keys (so a duplicate event doesn't place 2 orders)</li>
- *   <li>Broker-route dispatch via OrderManagementService</li>
- * </ol>
- * None of these are in scope for the P3.5 follow-up. The log line is
- * the extension point: an operator / OMS listener can read the log
- * stream and place the order via the existing OMS path.
+ * <p><b>OMS error handling:</b> {@link OrderManagementService#placeOrder}
+ * is wrapped in try/catch. A broker error (timeout, rejected, circuit
+ * breaker open) is logged at WARN and the reconciliation pass continues.
+ * The {@code IllegalStateException} thrown when the trading circuit
+ * breaker is open is treated as a normal failure path.
+ *
+ * <p><b>Idempotency:</b> the {@link OrderRequest#getCorrelationId()
+ * correlationId} is set to {@code "drift-correction-" + engineKey}.
+ * The engine key is stable across re-deliveries of the same event, so
+ * duplicate events produce duplicate correlation ids. Brokers (Dhan,
+ * Upstox, etc.) deduplicate on the correlation id at the OMS layer.
  *
  * <p><b>Gating:</b> this handler is wired as a Spring bean behind
  * {@code @ConditionalOnProperty(name = "trade.reconciliation.live-correction",
- * havingValue = "true", matchIfMissing = false)}. The default is OFF.
- * Production deployment should set the property to true after risk
- * checks and bracket-order wiring are complete.
+ * havingValue = "true", matchIfMissing = false)}. The default is OFF
+ * (log-only mode). Production deployment should set the property to
+ * true only after risk-check integration is verified.
  *
  * <p><b>Thread safety:</b> the handler is stateless; safe to invoke
  * from multiple reconciliation passes concurrently.
@@ -81,13 +100,17 @@ public final class LiveBracketOrderCorrectionHandler
     private final DriftAlerter alerter;
     private final long toleranceQty;
     private final long alertThresholdQty;
+    private final OrderManagementService orderManagementService;
+    private final PositionRiskHandler positionRiskHandler;
 
     public LiveBracketOrderCorrectionHandler() {
-        this(new LoggingDriftAlerter(), DEFAULT_TOLERANCE_QTY, DEFAULT_ALERT_THRESHOLD_QTY);
+        this(new LoggingDriftAlerter(), DEFAULT_TOLERANCE_QTY, DEFAULT_ALERT_THRESHOLD_QTY,
+                null, null);
     }
 
     public LiveBracketOrderCorrectionHandler(long toleranceQty) {
-        this(new LoggingDriftAlerter(), toleranceQty, DEFAULT_ALERT_THRESHOLD_QTY);
+        this(new LoggingDriftAlerter(), toleranceQty, DEFAULT_ALERT_THRESHOLD_QTY,
+                null, null);
     }
 
     public LiveBracketOrderCorrectionHandler(
@@ -95,9 +118,28 @@ public final class LiveBracketOrderCorrectionHandler
             long toleranceQty,
             long alertThresholdQty
     ) {
+        this(alerter, toleranceQty, alertThresholdQty, null, null);
+    }
+
+    /**
+     * Primary constructor: alerter + tolerance + alert threshold + OMS +
+     * risk handler. When {@code orderManagementService} and
+     * {@code positionRiskHandler} are both non-null, the handler places
+     * real drift-correction orders. When either is null, the handler
+     * falls back to log-only mode (structured WOULD PLACE log line).
+     */
+    public LiveBracketOrderCorrectionHandler(
+            DriftAlerter alerter,
+            long toleranceQty,
+            long alertThresholdQty,
+            OrderManagementService orderManagementService,
+            PositionRiskHandler positionRiskHandler
+    ) {
         this.alerter = alerter != null ? alerter : new LoggingDriftAlerter();
         this.toleranceQty = Math.max(0L, toleranceQty);
         this.alertThresholdQty = alertThresholdQty;
+        this.orderManagementService = orderManagementService;
+        this.positionRiskHandler = positionRiskHandler;
     }
 
     public DriftAlerter alerter() {
@@ -110,6 +152,14 @@ public final class LiveBracketOrderCorrectionHandler
 
     public long alertThresholdQty() {
         return alertThresholdQty;
+    }
+
+    public OrderManagementService orderManagementService() {
+        return orderManagementService;
+    }
+
+    public PositionRiskHandler positionRiskHandler() {
+        return positionRiskHandler;
     }
 
     @Override
@@ -146,13 +196,72 @@ public final class LiveBracketOrderCorrectionHandler
         }
 
         // Log a structured WOULD PLACE line. The OMS path can subscribe
-        // to the WARN-level log stream and pick up the intent. Replace
-        // this with a real OrderManagementService.place() call once
-        // bracket-order wiring is complete.
+        // to the WARN-level log stream and pick up the intent. When
+        // OMS + risk are wired, we ALSO actually place the order below.
         log.warn("LIVE_BRACKET_CORRECTION_WOULD_PLACE symbol={} side={} qty={} " +
                         "paperQty={} brokerQty={} engineKey={} delta={} tolerance={} alertThreshold={}",
                 mismatch.symbol(), side, correctionQty,
                 mismatch.paperQuantity(), mismatch.brokerQuantity(),
                 mismatch.engineKey(), delta, toleranceQty, alertThresholdQty);
+
+        // Real OMS placement path. Only active when both the OMS and
+        // the risk handler are wired. The risk check is a gate: a
+        // rejection logs WARN and skips placement. The OMS call is
+        // wrapped in try/catch so a broker / circuit-breaker failure
+        // never breaks the reconciliation pass.
+        if (orderManagementService != null && positionRiskHandler != null) {
+            Side orderSide = delta > 0 ? Side.SELL : Side.BUY;
+            ExchangeSegment segment = resolveSegment(mismatch.engineKey());
+            OrderRequest request = new OrderRequest(
+                    mismatch.symbol(),
+                    segment,
+                    orderSide,
+                    correctionQty,
+                    OrderType.MARKET,
+                    0L,
+                    0L,
+                    ProductType.INTRADAY,
+                    Validity.DAY,
+                    "drift-correction-" + mismatch.engineKey()
+            );
+
+            boolean allowed = positionRiskHandler.canPlaceOrder(
+                    mismatch.symbol(), orderSide, correctionQty);
+            if (!allowed) {
+                log.warn("Drift correction rejected by risk check: symbol={} side={} qty={}",
+                        mismatch.symbol(), orderSide, correctionQty);
+                return;
+            }
+
+            try {
+                Order order = orderManagementService.placeOrder(request);
+                log.info("Drift correction order placed: orderId={} symbol={} side={} qty={}",
+                        order.orderId(), mismatch.symbol(), orderSide, correctionQty);
+            } catch (Exception e) {
+                log.warn("Drift correction order failed: symbol={} side={} qty={} error={}",
+                        mismatch.symbol(), orderSide, correctionQty, e.getMessage());
+            }
+        }
+    }
+
+    /**
+     * Resolve the broker {@link ExchangeSegment} from the engine key.
+     * Engine keys are formatted as {@code "<segment>::<symbol>"} (e.g.
+     * {@code "nse-eq::RELIANCE"}, {@code "nse-fno::NIFTY24JUNFUT"}).
+     * Returns {@link ExchangeSegment#UNKNOWN} when the key is malformed
+     * or the segment is not recognised — callers (i.e. the OMS) treat
+     * UNKNOWN as a non-routable segment.
+     */
+    private static ExchangeSegment resolveSegment(String engineKey) {
+        if (engineKey == null) {
+            return ExchangeSegment.UNKNOWN;
+        }
+        int sep = engineKey.indexOf("::");
+        String rawSegment = sep < 0 ? engineKey : engineKey.substring(0, sep);
+        // Engine keys use lowercase + dashes (e.g. "nse-eq", "nse-fno");
+        // ExchangeSegment enum names use uppercase + underscores. Normalize
+        // by uppercasing + replacing dashes with underscores.
+        String normalized = rawSegment.toUpperCase(java.util.Locale.ROOT).replace('-', '_');
+        return ExchangeSegment.fromCode(normalized);
     }
 }

@@ -389,6 +389,38 @@ public final class PositionRiskHandler implements DomainEventVisitor {
     public int getConsecutiveLosses() { return consecutiveLosses.get(); }
     public int getOpenTrades() { return openTrades.get(); }
 
+    /**
+     * Pre-trade risk gate for ad-hoc order placement paths that bypass the
+     * normal signal flow (e.g., {@link com.tradej.execution.reconcile.LiveBracketOrderCorrectionHandler}
+     * placing a drift-correction order).
+     *
+     * <p>Runs the composable {@link RiskCheckChain} (kill switch → daily loss
+     * → position limit) against a {@link RiskContext} built from the
+     * handler's current state. Returns {@code true} if all checks approve,
+     * {@code false} if any check rejects.
+     *
+     * <p>Note: this gate does NOT enforce margin, portfolio allocation, or
+     * the position-flip / max-order-value heuristics that
+     * {@link #handleSignalPending} applies. Those checks require a
+     * {@link com.tradej.core.domain.model.OrderRequest} and an
+     * {@link com.tradej.core.domain.event.SignalGenerated}, which the
+     * drift-correction path does not produce. Callers needing full risk
+     * enforcement should route through the signal flow, not this method.
+     */
+    public boolean canPlaceOrder(String symbol, Side side, long quantity) {
+        RiskContext context = new RiskContext(
+                symbol,
+                realizedLossPaisa.get(),
+                unrealizedLossPaisa.get(),
+                openTrades.get(),
+                killSwitch.get(),
+                reconciliationHalt.get(),
+                riskLimits.maxDailyLossPaisa(),
+                riskLimits.maxOpenPositionQuantity()
+        );
+        return riskCheckChain.isApproved(context);
+    }
+
     public StateSnapshot snapshot() {
         return new StateSnapshot(
                 realizedLossPaisa.get(),

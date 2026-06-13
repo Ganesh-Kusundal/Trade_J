@@ -129,13 +129,17 @@ public class AdminConfiguration {
     )
     ReconciliationScheduler.MismatchHandler liveBracketOrderCorrectionHandler(
             com.tradej.execution.reconcile.DriftAlerter driftAlerter,
+            com.tradej.execution.service.OrderManagementService orderManagementService,
+            com.tradej.composition.FullComposition fullComposition,
             @org.springframework.beans.factory.annotation.Value(
                     "${trade.drift-alerting.threshold-qty:100}") long alertThresholdQty
     ) {
         return new LiveBracketOrderCorrectionHandler(
                 driftAlerter,
                 LiveBracketOrderCorrectionHandler.DEFAULT_TOLERANCE_QTY,
-                alertThresholdQty);
+                alertThresholdQty,
+                orderManagementService,
+                fullComposition.executionComposition().positionRiskHandler());
     }
 
     @Bean
