@@ -140,30 +140,69 @@ class GatewayEventBridgeContractTest {
 
     @Test
     void orderAcceptedPayload_containsOrderIdAndStatus() throws Exception {
-        JsonNode json = publishAndCapture(new OrderAccepted(EventMetadata.root(), ORDER), GatewayTopic.ORDER_UPDATE);
-        assertEquals("ORD-1", json.get("orderId").asText());
-        assertEquals("ACCEPTED", json.get("status").asText());
-        assertTrue(json.get("ack").asBoolean());
+        // P5.1 follow-up: OrderAccepted now uses the publishGeneric envelope.
+        OrderAccepted accepted = new OrderAccepted(EventMetadata.root(), ORDER);
+        bridge.onDomainEvent(accepted);
+        ArgumentCaptor<byte[]> bytesCaptor = ArgumentCaptor.forClass(byte[].class);
+        verify(router).publish(eq(GatewayTopic.ORDER_UPDATE), bytesCaptor.capture());
+        JsonNode envelope = objectMapper.readTree(bytesCaptor.getValue());
+        JsonNode payload = envelope.get("payload");
+        assertEquals("OrderAccepted", envelope.get("eventType").asText());
+        // The bespoke payload overrode the order's status to 'ACCEPTED'
+        // (the consumer of an OrderAccepted event knows it's accepted).
+        // The generic envelope keeps the original Order.status field
+        // (which is 'OPEN' for the test's ORDER fixture). Consumers
+        // derive the lifecycle event from the eventType field.
+        assertEquals("ORD-1", payload.get("order").get("orderId").asText());
+        assertEquals("OPEN", payload.get("order").get("status").asText());
     }
 
     @Test
     void orderRejectedPayload_containsReason() throws Exception {
-        JsonNode json = publishAndCapture(new OrderRejected(EventMetadata.root(), ORDER, "Insufficient margin"), GatewayTopic.ORDER_UPDATE);
-        assertEquals("ORD-1", json.get("orderId").asText());
-        assertEquals("REJECTED", json.get("status").asText());
-        assertFalse(json.get("ack").asBoolean());
-        assertEquals("Insufficient margin", json.get("reason").asText());
+        // P5.1 follow-up: OrderRejected now uses the publishGeneric envelope.
+        OrderRejected rejected = new OrderRejected(EventMetadata.root(), ORDER, "Insufficient margin");
+        bridge.onDomainEvent(rejected);
+        ArgumentCaptor<byte[]> bytesCaptor = ArgumentCaptor.forClass(byte[].class);
+        verify(router).publish(eq(GatewayTopic.ORDER_UPDATE), bytesCaptor.capture());
+        JsonNode envelope = objectMapper.readTree(bytesCaptor.getValue());
+        JsonNode payload = envelope.get("payload");
+        assertEquals("OrderRejected", envelope.get("eventType").asText());
+        assertEquals("ORD-1", payload.get("order").get("orderId").asText());
+        // The bespoke payload overrode the order's status to 'REJECTED'.
+        // The generic envelope keeps the original Order.status field
+        // (which is 'OPEN' for the test's ORDER fixture). Consumers
+        // derive the lifecycle event from the eventType field.
+        assertEquals("OPEN", payload.get("order").get("status").asText());
+        // The bespoke payload put ack=true/false + status=ACCEPTED/REJECTED
+        // at the top level. The generic envelope does not — the eventType
+        // field tells the consumer what kind of event it is. The reason
+        // field is still at the top level of the payload.
+        assertEquals("Insufficient margin", payload.get("reason").asText());
     }
 
     @Test
     void orderFilledPayload_containsFillInfo() throws Exception {
+        // P5.1 follow-up: OrderFilled now uses the publishGeneric envelope.
+        // The consumer reads the payload.fills subobject.
         var trade = new com.tradej.core.domain.model.Trade(
                 "FILL-1", "ORD-1", "RELIANCE", ExchangeSegment.NSE_EQ,
                 Side.BUY, 100L, 250000L, System.currentTimeMillis());
-        JsonNode json = publishAndCapture(new OrderFilled(EventMetadata.root(), ORDER, List.of(trade)), GatewayTopic.ORDER_UPDATE);
-        assertEquals("ORD-1", json.get("orderId").asText());
-        assertEquals(250000L, json.get("pricePaisa").asLong());
-        assertEquals("FILL-1", json.get("tradeId").asText());
+        OrderFilled filled = new OrderFilled(EventMetadata.root(), ORDER, List.of(trade));
+        bridge.onDomainEvent(filled);
+        ArgumentCaptor<byte[]> bytesCaptor = ArgumentCaptor.forClass(byte[].class);
+        verify(router).publish(eq(GatewayTopic.ORDER_UPDATE), bytesCaptor.capture());
+        JsonNode envelope = objectMapper.readTree(bytesCaptor.getValue());
+        JsonNode payload = envelope.get("payload");
+        assertEquals("OrderFilled", envelope.get("eventType").asText());
+        assertEquals("ORD-1", payload.get("order").get("orderId").asText());
+        // The bespoke payload put tradeId + pricePaisa at the top level
+        // (extracted from the fills list). The generic envelope keeps the
+        // full fills list intact; consumers iterate payload.fills.
+        JsonNode fills = payload.get("fills");
+        assertNotNull(fills, "publishGeneric emits the full fills list");
+        assertEquals(1, fills.size());
+        assertEquals("FILL-1", fills.get(0).get("tradeId").asText());
+        assertEquals(250000L, fills.get(0).get("pricePaisa").asLong());
     }
 
     @Test

@@ -101,9 +101,9 @@ public final class GatewayEventBridge implements AutoCloseable {
         m.put(DepthUpdateEvent.class,       entry(BridgeTopics.MAP.get(DepthUpdateEvent.class),       e -> depthPayload((DepthUpdateEvent) e)));
         m.put(CandleDeveloping.class,       entry(BridgeTopics.MAP.get(CandleDeveloping.class),       e -> candlePayload(((CandleDeveloping) e).candle())));
         m.put(CandleClosed.class,           entry(BridgeTopics.MAP.get(CandleClosed.class),           e -> candlePayload(((CandleClosed) e).candle())));
-        m.put(OrderAccepted.class,          entry(BridgeTopics.MAP.get(OrderAccepted.class),          e -> orderAckPayload((OrderAccepted) e)));
-        m.put(OrderRejected.class,          entry(BridgeTopics.MAP.get(OrderRejected.class),          e -> orderRejectPayload((OrderRejected) e)));
-        m.put(OrderFilled.class,            entry(BridgeTopics.MAP.get(OrderFilled.class),            e -> orderPayload(e)));
+        m.put(OrderAccepted.class,          SerializerEntry.generic(BridgeTopics.MAP.get(OrderAccepted.class)));
+        m.put(OrderRejected.class,          SerializerEntry.generic(BridgeTopics.MAP.get(OrderRejected.class)));
+        m.put(OrderFilled.class,            SerializerEntry.generic(BridgeTopics.MAP.get(OrderFilled.class)));
         m.put(TradeOpened.class,            SerializerEntry.generic(BridgeTopics.MAP.get(TradeOpened.class)));
         m.put(TradeClosed.class,            SerializerEntry.generic(BridgeTopics.MAP.get(TradeClosed.class)));
         m.put(SignalGenerated.class,        SerializerEntry.generic(BridgeTopics.MAP.get(SignalGenerated.class)));
