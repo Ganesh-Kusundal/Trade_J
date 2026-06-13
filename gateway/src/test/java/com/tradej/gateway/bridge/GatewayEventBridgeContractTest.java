@@ -146,28 +146,52 @@ class GatewayEventBridgeContractTest {
 
     @Test
     void candleClosedPayload_containsOHLCV() throws Exception {
+        // P5.1 follow-up: CandleClosed now uses the publishGeneric
+        // envelope. The Candle record is nested under payload.candle.
         Candle candle = new Candle("TCS", "5m", 1700000000000L, 1700000300000L,
                 380000L, 382000L, 379000L, 381000L, 50000L, true);
 
-        JsonNode json = publishAndCapture(new CandleClosed(EventMetadata.root(), candle), GatewayTopic.CANDLE_CLOSED);
-        assertNotNull(json.get("symbol"));
-        assertEquals("5m", json.get("interval").asText());
-        assertEquals(380000L, json.get("openPaisa").asLong());
-        assertEquals(382000L, json.get("highPaisa").asLong());
-        assertEquals(379000L, json.get("lowPaisa").asLong());
-        assertEquals(381000L, json.get("closePaisa").asLong());
-        assertEquals(50000L, json.get("volume").asLong());
-        assertNotNull(json.get("segment"));
+        bridge.onDomainEvent(new CandleClosed(EventMetadata.root(), candle));
+        ArgumentCaptor<byte[]> bytesCaptor = ArgumentCaptor.forClass(byte[].class);
+        verify(router).publish(eq(GatewayTopic.CANDLE_CLOSED), bytesCaptor.capture());
+        JsonNode envelope = objectMapper.readTree(bytesCaptor.getValue());
+        JsonNode payload = envelope.get("payload");
+        assertEquals("CandleClosed", envelope.get("eventType").asText());
+        // The Candle record is nested under payload.candle; the
+        // bespoke had it flattened to the top level.
+        JsonNode candleNode = payload.get("candle");
+        assertNotNull(candleNode, "Candle record must be nested under payload.candle");
+        assertEquals("TCS", candleNode.get("symbol").asText());
+        assertEquals("5m", candleNode.get("interval").asText());
+        assertEquals(380000L, candleNode.get("openPaisa").asLong());
+        assertEquals(382000L, candleNode.get("highPaisa").asLong());
+        assertEquals(379000L, candleNode.get("lowPaisa").asLong());
+        assertEquals(381000L, candleNode.get("closePaisa").asLong());
+        assertEquals(50000L, candleNode.get("volume").asLong());
+        // 'segment' was added by the bespoke via resolveSegment; the
+        // generic envelope does NOT add a segment. The Candle record
+        // doesn't have a segment field. Consumers that need the
+        // segment should resolve it locally via the same
+        // resolveSegment() helper.
     }
 
     @Test
     void candleDevelopingPayload_containsOHLCV() throws Exception {
+        // P5.1 follow-up: CandleDeveloping now uses the publishGeneric
+        // envelope (same as CandleClosed).
         Candle candle = new Candle("WIPRO", "1m", 1700000000000L, 1700000060000L,
                 45000L, 45500L, 44800L, 45200L, 10000L, false);
 
-        JsonNode json = publishAndCapture(new CandleDeveloping(EventMetadata.root(), candle), GatewayTopic.CANDLE_DEVELOPING);
-        assertNotNull(json.get("symbol"));
-        assertEquals("1m", json.get("interval").asText());
+        bridge.onDomainEvent(new CandleDeveloping(EventMetadata.root(), candle));
+        ArgumentCaptor<byte[]> bytesCaptor = ArgumentCaptor.forClass(byte[].class);
+        verify(router).publish(eq(GatewayTopic.CANDLE_DEVELOPING), bytesCaptor.capture());
+        JsonNode envelope = objectMapper.readTree(bytesCaptor.getValue());
+        JsonNode payload = envelope.get("payload");
+        assertEquals("CandleDeveloping", envelope.get("eventType").asText());
+        JsonNode candleNode = payload.get("candle");
+        assertNotNull(candleNode, "Candle record must be nested under payload.candle");
+        assertEquals("WIPRO", candleNode.get("symbol").asText());
+        assertEquals("1m", candleNode.get("interval").asText());
     }
 
     @Test

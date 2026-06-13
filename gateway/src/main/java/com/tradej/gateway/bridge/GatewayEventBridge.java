@@ -99,8 +99,8 @@ public final class GatewayEventBridge implements AutoCloseable {
         Map<Class<? extends DomainEvent>, SerializerEntry> m = new java.util.LinkedHashMap<>();
         m.put(MarketTickEvent.class,        SerializerEntry.generic(BridgeTopics.MAP.get(MarketTickEvent.class)));
         m.put(DepthUpdateEvent.class,       SerializerEntry.generic(BridgeTopics.MAP.get(DepthUpdateEvent.class)));
-        m.put(CandleDeveloping.class,       entry(BridgeTopics.MAP.get(CandleDeveloping.class),       e -> candlePayload(((CandleDeveloping) e).candle())));
-        m.put(CandleClosed.class,           entry(BridgeTopics.MAP.get(CandleClosed.class),           e -> candlePayload(((CandleClosed) e).candle())));
+        m.put(CandleDeveloping.class,       SerializerEntry.generic(BridgeTopics.MAP.get(CandleDeveloping.class)));
+        m.put(CandleClosed.class,           SerializerEntry.generic(BridgeTopics.MAP.get(CandleClosed.class)));
         m.put(OrderAccepted.class,          SerializerEntry.generic(BridgeTopics.MAP.get(OrderAccepted.class)));
         m.put(OrderRejected.class,          SerializerEntry.generic(BridgeTopics.MAP.get(OrderRejected.class)));
         m.put(OrderFilled.class,            SerializerEntry.generic(BridgeTopics.MAP.get(OrderFilled.class)));
