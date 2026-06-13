@@ -367,4 +367,35 @@ class GatewayEventBridgeContractTest {
         // change for downstream consumers.
         assertNotNull(payload.get("metadata"), "publishGeneric emits metadata in the payload");
     }
+
+    // ── P5.1 follow-up: ReplayTimeChangedEvent → publishGeneric envelope ──
+
+    /**
+     * Worked example: ReplayTimeChangedEvent opts into the publishGeneric
+     * envelope format. No pre-existing test for this event — this test
+     * pins the new wire format. The consumer of the REPLAY_CONTROL topic
+     * now sees the generic envelope.
+     */
+    @Test
+    void replayTimeChangedEvent_usesPublishGenericEnvelope() throws Exception {
+        com.tradej.core.domain.event.ReplayTimeChangedEvent replay = new com.tradej.core.domain.event.ReplayTimeChangedEvent(
+                EventMetadata.root(), 1700000000000L, 1000L);
+
+        bridge.onDomainEvent(replay);
+
+        ArgumentCaptor<byte[]> bytesCaptor = ArgumentCaptor.forClass(byte[].class);
+        verify(router).publish(eq(GatewayTopic.REPLAY_CONTROL), bytesCaptor.capture());
+
+        JsonNode envelope = objectMapper.readTree(bytesCaptor.getValue());
+        assertEquals(GatewayTopic.REPLAY_CONTROL.wireId(), envelope.get("topicId").asInt());
+        assertEquals(GatewayTopic.REPLAY_CONTROL.version(), envelope.get("topicVersion").asInt());
+        assertEquals("ReplayTimeChangedEvent", envelope.get("eventType").asText());
+
+        JsonNode payload = envelope.get("payload");
+        assertNotNull(payload, "publishGeneric envelope must wrap the event in a payload field");
+        assertEquals(1700000000000L, payload.get("currentTimeMs").asLong());
+        // replaySpeedNanos is also present (bespoke did not emit it).
+        assertEquals(1000L, payload.get("replaySpeedNanos").asLong());
+        assertNotNull(payload.get("metadata"), "publishGeneric emits metadata in the payload");
+    }
 }

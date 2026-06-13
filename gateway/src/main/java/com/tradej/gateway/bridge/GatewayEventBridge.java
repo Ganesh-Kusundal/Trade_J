@@ -107,7 +107,7 @@ public final class GatewayEventBridge implements AutoCloseable {
         m.put(TradeOpened.class,            SerializerEntry.generic(BridgeTopics.MAP.get(TradeOpened.class)));
         m.put(TradeClosed.class,            SerializerEntry.generic(BridgeTopics.MAP.get(TradeClosed.class)));
         m.put(SignalGenerated.class,        SerializerEntry.generic(BridgeTopics.MAP.get(SignalGenerated.class)));
-        m.put(ReplayTimeChangedEvent.class, entry(BridgeTopics.MAP.get(ReplayTimeChangedEvent.class), e -> replayPayload((ReplayTimeChangedEvent) e)));
+        m.put(ReplayTimeChangedEvent.class, SerializerEntry.generic(BridgeTopics.MAP.get(ReplayTimeChangedEvent.class)));
         // P5.1 follow-up worked example: PnlUpdatedEvent opts into the
         // generic envelope. The bespoke serializer (pnlPayload) is no
         // longer used; consumers read {topicId, topicVersion, eventType,
