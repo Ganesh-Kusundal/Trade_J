@@ -9,6 +9,7 @@ import com.tradej.core.domain.time.TradingClock;
 import com.tradej.execution.reconcile.OrderReconciler;
 import com.tradej.execution.reconcile.ReconciliationAlertLogger;
 import com.tradej.execution.reconcile.ReconciliationScheduler;
+import com.tradej.execution.reconcile.LiveBracketOrderCorrectionHandler;
 import com.tradej.execution.risk.DailyRiskResetScheduler;
 import com.tradej.persistence.oms.EventSourcedOrderRepository;
 import org.slf4j.Logger;
@@ -79,9 +80,48 @@ public class AdminConfiguration {
     ReconciliationScheduler reconciliationScheduler(
             OrderReconciler orderReconciler,
             EventBus eventBus,
-            com.tradej.composition.FullComposition fullComposition
+            com.tradej.composition.FullComposition fullComposition,
+            ReconciliationScheduler.MismatchHandler mismatchHandler
     ) {
-        return new ReconciliationScheduler(orderReconciler, eventBus, fullComposition.executionComposition().positionService());
+        return new ReconciliationScheduler(
+                orderReconciler, eventBus,
+                fullComposition.executionComposition().positionService(),
+                mismatchHandler);
+    }
+
+    /**
+     * Default {@link ReconciliationScheduler.MismatchHandler} bean. Logs
+     * WARN on detected {@link com.tradej.core.domain.event.PositionMismatch}
+     * but does NOT auto-correct. This is the safe default for sandbox /
+     * non-production deployments.
+     *
+     * <p>When the property {@code trade.reconciliation.live-correction=true}
+     * is set, the {@link LiveBracketOrderCorrectionHandler} bean is wired
+     * instead, which logs a structured "WOULD PLACE" message for the
+     * OMS path to pick up.
+     */
+    @Bean
+    @org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(
+            name = "trade.reconciliation.live-correction",
+            havingValue = "false",
+            matchIfMissing = true
+    )
+    ReconciliationScheduler.MismatchHandler defaultMismatchHandler() {
+        return ReconciliationScheduler.MismatchHandler.logging();
+    }
+
+    /**
+     * LIVE-mode {@link ReconciliationScheduler.MismatchHandler} bean.
+     * Wired only when {@code trade.reconciliation.live-correction=true}.
+     * See {@link LiveBracketOrderCorrectionHandler} for the full design.
+     */
+    @Bean
+    @org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(
+            name = "trade.reconciliation.live-correction",
+            havingValue = "true"
+    )
+    ReconciliationScheduler.MismatchHandler liveBracketOrderCorrectionHandler() {
+        return new LiveBracketOrderCorrectionHandler();
     }
 
     @Bean
