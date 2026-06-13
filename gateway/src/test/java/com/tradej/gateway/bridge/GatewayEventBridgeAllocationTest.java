@@ -164,6 +164,9 @@ class GatewayEventBridgeAllocationTest {
 
     @Test
     void pnlPayloadProducesValidJson() throws Exception {
+        // P5.1 follow-up: PnlUpdatedEvent uses the publishGeneric envelope
+        // format (the wire shape is now {topicId, topicVersion, eventType,
+        // payload: {...}}). The consumer reads the payload subobject.
         PnlUpdatedEvent pnl = new PnlUpdatedEvent(
                 EventMetadata.root(), 1000L, 500L, 2000L);
 
@@ -173,11 +176,13 @@ class GatewayEventBridgeAllocationTest {
         verify(router).publish(eq(GatewayTopic.PNL_UPDATE), payloadCaptor.capture());
 
         byte[] json = payloadCaptor.getValue();
-        JsonNode node = objectMapper.readTree(json);
+        JsonNode envelope = objectMapper.readTree(json);
+        JsonNode payload = envelope.get("payload");
 
-        assertEquals(1000L, node.get("realizedPnlPaisa").asLong());
-        assertEquals(500L, node.get("unrealizedPnlPaisa").asLong());
-        assertEquals(2000L, node.get("netExposurePaisa").asLong());
+        assertEquals("PnlUpdatedEvent", envelope.get("eventType").asText());
+        assertEquals(1000L, payload.get("realizedPnlPaisa").asLong());
+        assertEquals(500L, payload.get("unrealizedPnlPaisa").asLong());
+        assertEquals(2000L, payload.get("netExposurePaisa").asLong());
     }
 
     // ── Verify no LinkedHashMap in hot path ─────────────────────────────

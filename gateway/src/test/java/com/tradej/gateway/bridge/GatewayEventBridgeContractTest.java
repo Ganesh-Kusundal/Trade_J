@@ -197,11 +197,21 @@ class GatewayEventBridgeContractTest {
 
     @Test
     void pnlPayload_containsRealizedAndUnrealized() throws Exception {
+        // P5.1 follow-up: PnlUpdatedEvent now uses the publishGeneric
+        // envelope (pnlUpdatedEvent_usesPublishGenericEnvelope in this
+        // test class is the canonical test for that path). This test
+        // remains to verify the wire-level JSON the consumer sees for
+        // the PNL_UPDATE topic — the consumer reads the payload subobject.
         PnlUpdatedEvent pnl = new PnlUpdatedEvent(EventMetadata.root(), 50000L, 25000L, 1000000L);
-        JsonNode json = publishAndCapture(pnl, GatewayTopic.PNL_UPDATE);
-        assertEquals(50000L, json.get("realizedPnlPaisa").asLong());
-        assertEquals(25000L, json.get("unrealizedPnlPaisa").asLong());
-        assertEquals(1000000L, json.get("netExposurePaisa").asLong());
+        bridge.onDomainEvent(pnl);
+        ArgumentCaptor<byte[]> bytesCaptor = ArgumentCaptor.forClass(byte[].class);
+        verify(router).publish(eq(GatewayTopic.PNL_UPDATE), bytesCaptor.capture());
+        JsonNode envelope = objectMapper.readTree(bytesCaptor.getValue());
+        JsonNode payload = envelope.get("payload");
+        assertEquals("PnlUpdatedEvent", envelope.get("eventType").asText());
+        assertEquals(50000L, payload.get("realizedPnlPaisa").asLong());
+        assertEquals(25000L, payload.get("unrealizedPnlPaisa").asLong());
+        assertEquals(1000000L, payload.get("netExposurePaisa").asLong());
     }
 
     @Test
@@ -285,5 +295,42 @@ class GatewayEventBridgeContractTest {
         assertDoesNotThrow(() -> bridge.publishGeneric(unknown));
         // No publish should have happened (BridgeTopics.MAP has no entry for TestEvent).
         verify(router, never()).publish(any(GatewayTopic.class), any(byte[].class));
+    }
+
+    // ── P5.1 follow-up: PnlUpdatedEvent → publishGeneric envelope ──
+
+    /**
+     * Worked example: PnlUpdatedEvent opts into the publishGeneric envelope
+     * format. The consumer of the PNL_UPDATED topic now sees:
+     *   { topicId, topicVersion, eventType, payload: { metadata,
+     *     realizedPnlPaisa, unrealizedPnlPaisa, netExposurePaisa } }
+     * Previously the consumer saw a flat { realizedPnlPaisa, ... }
+     * schema. The metadata field is the breaking change for downstream
+     * consumers; the envelope shape is now consistent with publishGeneric.
+     */
+    @Test
+    void pnlUpdatedEvent_usesPublishGenericEnvelope() throws Exception {
+        PnlUpdatedEvent pnl = new PnlUpdatedEvent(
+                EventMetadata.root(), 100_000L, -50_000L, 1_000_000L);
+
+        bridge.onDomainEvent(pnl);
+
+        ArgumentCaptor<byte[]> bytesCaptor = ArgumentCaptor.forClass(byte[].class);
+        verify(router).publish(eq(GatewayTopic.PNL_UPDATE), bytesCaptor.capture());
+
+        JsonNode envelope = objectMapper.readTree(bytesCaptor.getValue());
+        assertEquals(GatewayTopic.PNL_UPDATE.wireId(), envelope.get("topicId").asInt());
+        assertEquals(GatewayTopic.PNL_UPDATE.version(), envelope.get("topicVersion").asInt());
+        assertEquals("PnlUpdatedEvent", envelope.get("eventType").asText());
+
+        JsonNode payload = envelope.get("payload");
+        assertNotNull(payload, "publishGeneric envelope must wrap the event in a payload field");
+        assertEquals(100_000L, payload.get("realizedPnlPaisa").asLong());
+        assertEquals(-50_000L, payload.get("unrealizedPnlPaisa").asLong());
+        assertEquals(1_000_000L, payload.get("netExposurePaisa").asLong());
+        // The metadata field is now present in the payload (was absent
+        // in the bespoke serializer output). This is the breaking
+        // change for downstream consumers.
+        assertNotNull(payload.get("metadata"), "publishGeneric emits metadata in the payload");
     }
 }

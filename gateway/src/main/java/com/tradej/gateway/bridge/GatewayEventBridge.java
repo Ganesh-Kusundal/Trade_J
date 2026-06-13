@@ -66,8 +66,21 @@ public final class GatewayEventBridge implements AutoCloseable {
         this.serializers = buildSerializerMap();
     }
 
-    /** Serializer entry linking a domain event type to its topic and payload builder. */
-    private record SerializerEntry(GatewayTopic topic, Function<DomainEvent, ObjectNode> serializer) {}
+    /** Serializer entry linking a domain event type to its topic, payload builder, and envelope mode. */
+    private record SerializerEntry(
+            GatewayTopic topic,
+            Function<DomainEvent, ObjectNode> serializer,
+            boolean useGenericEnvelope
+    ) {
+        /** Bespoke envelope (legacy): the per-event serializer produces a flat JSON payload. */
+        static SerializerEntry bespoke(GatewayTopic topic, Function<DomainEvent, ObjectNode> serializer) {
+            return new SerializerEntry(topic, serializer, false);
+        }
+        /** Generic envelope: the per-event serializer is ignored; the publishGeneric path is used. */
+        static SerializerEntry generic(GatewayTopic topic) {
+            return new SerializerEntry(topic, null, true);
+        }
+    }
 
     private Map<Class<? extends DomainEvent>, SerializerEntry> buildSerializerMap() {
         // Topic mapping is owned by BridgeTopics (single source of truth).
@@ -75,6 +88,14 @@ public final class GatewayEventBridge implements AutoCloseable {
         // here because the per-event serializers are bespoke (they know
         // the JSON shape). Asserting the two stay in sync is the job of
         // BridgeTopicsTest.
+        //
+        // P5.1 follow-up: events that opt into the generic envelope format
+        // use SerializerEntry.generic(topic). Their consumer must read the
+        // {topicId, topicVersion, eventType, payload} envelope. The first
+        // event migrated is PnlUpdatedEvent (a simple record with no
+        // nested Optional / custom shaping). New events should use the
+        // generic envelope by default; bespoke is for events that need
+        // custom JSON shape (depth, candle, scan results, etc.).
         Map<Class<? extends DomainEvent>, SerializerEntry> m = new java.util.LinkedHashMap<>();
         m.put(MarketTickEvent.class,        entry(BridgeTopics.MAP.get(MarketTickEvent.class),        e -> marketTickPayload((MarketTickEvent) e)));
         m.put(DepthUpdateEvent.class,       entry(BridgeTopics.MAP.get(DepthUpdateEvent.class),       e -> depthPayload((DepthUpdateEvent) e)));
@@ -91,7 +112,14 @@ public final class GatewayEventBridge implements AutoCloseable {
                 0L, 0L, "CLOSED")));
         m.put(SignalGenerated.class,        entry(BridgeTopics.MAP.get(SignalGenerated.class),        e -> signalPayload((SignalGenerated) e)));
         m.put(ReplayTimeChangedEvent.class, entry(BridgeTopics.MAP.get(ReplayTimeChangedEvent.class), e -> replayPayload((ReplayTimeChangedEvent) e)));
-        m.put(PnlUpdatedEvent.class,        entry(BridgeTopics.MAP.get(PnlUpdatedEvent.class),        e -> pnlPayload((PnlUpdatedEvent) e)));
+        // P5.1 follow-up worked example: PnlUpdatedEvent opts into the
+        // generic envelope. The bespoke serializer (pnlPayload) is no
+        // longer used; consumers read {topicId, topicVersion, eventType,
+        // payload: {metadata, realizedPnlPaisa, ...}} instead. Note:
+        // publishGeneric emits the metadata field in the payload
+        // (bespoke did not), so the consumer schema gains a `metadata`
+        // field. See PnlUpdatedEventEnvelopeMigrationTest.
+        m.put(PnlUpdatedEvent.class,        SerializerEntry.generic(BridgeTopics.MAP.get(PnlUpdatedEvent.class)));
         m.put(ScanResultsPublished.class,   entry(BridgeTopics.MAP.get(ScanResultsPublished.class),   e -> scanPayload((ScanResultsPublished) e)));
         m.put(OptionChainUpdated.class,     entry(BridgeTopics.MAP.get(OptionChainUpdated.class),     e -> optionChainPayload((OptionChainUpdated) e)));
         m.put(GreeksComputed.class,         entry(BridgeTopics.MAP.get(GreeksComputed.class),         e -> greeksPayload((GreeksComputed) e)));
@@ -102,7 +130,7 @@ public final class GatewayEventBridge implements AutoCloseable {
     }
 
     private static SerializerEntry entry(GatewayTopic topic, Function<DomainEvent, ObjectNode> serializer) {
-        return new SerializerEntry(topic, serializer);
+        return SerializerEntry.bespoke(topic, serializer);
     }
 
     /**
@@ -139,13 +167,23 @@ public final class GatewayEventBridge implements AutoCloseable {
         try {
             SerializerEntry entry = serializers.get(event.getClass());
             if (entry != null) {
-                ObjectNode payload = entry.serializer().apply(event);
-                // Inject correlation ID for end-to-end tracing
-                String correlationId = event.correlationId();
-                if (correlationId != null && !correlationId.isEmpty()) {
-                    payload.put("correlationId", correlationId);
+                if (entry.useGenericEnvelope()) {
+                    // P5.1 follow-up: events with useGenericEnvelope=true
+                    // bypass the bespoke serializer. The publishGeneric
+                    // path emits the {topicId, topicVersion, eventType,
+                    // payload} envelope. Note: publishGeneric does NOT
+                    // inject the correlationId field (it lives in the
+                    // metadata sub-object inside the payload instead).
+                    publishGeneric(event);
+                } else {
+                    ObjectNode payload = entry.serializer().apply(event);
+                    // Inject correlation ID for end-to-end tracing
+                    String correlationId = event.correlationId();
+                    if (correlationId != null && !correlationId.isEmpty()) {
+                        payload.put("correlationId", correlationId);
+                    }
+                    router.publish(entry.topic(), writeJson(payload));
                 }
-                router.publish(entry.topic(), writeJson(payload));
             }
             eventCount.incrementAndGet();
         } catch (Exception e) {
