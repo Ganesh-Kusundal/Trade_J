@@ -19,6 +19,16 @@ class StrategyMetricsRegistryTest {
 
     @Test
     void registeredSourceCountersAggregate() {
+        // The test name says 'aggregate' — to actually exercise aggregation
+        // across two registered sources, BOTH sources must contribute to
+        // the same (strategy, eventType, outcome) tuple. The prior version
+        // of this test had source `a` with 2 S1|TickEvent|OK events and
+        // source `b` with 1 S2|TickEvent|OK event, then asserted the
+        // S1|TickEvent|OK aggregate was 3. That asserted a value with
+        // no source actually contributing 3 — it was a test bug.
+        //
+        // The fix: source `b` also contributes to S1|TickEvent|OK so the
+        // aggregate (2 from a + 1 from b = 3) matches the assertion.
         StrategyMetricsRegistry r = new StrategyMetricsRegistry();
         StrategyMetrics a = new StrategyMetrics();
         a.recordOk("S1", "TickEvent");
@@ -26,6 +36,7 @@ class StrategyMetricsRegistryTest {
         a.recordError("S1", "TickEvent");
 
         StrategyMetrics b = new StrategyMetrics();
+        b.recordOk("S1", "TickEvent");
         b.recordOk("S2", "TickEvent");
         b.recordTimeout("S2", "TickEvent");
 
@@ -33,6 +44,7 @@ class StrategyMetricsRegistryTest {
         r.register("b", b);
 
         var snap = r.snapshot();
+        // Aggregate across both sources: a has 2 S1|TickEvent|OK, b has 1 → 3
         assertEquals(3, snap.get("S1|TickEvent|OK"));
         assertEquals(1, snap.get("S1|TickEvent|ERROR"));
         assertEquals(1, snap.get("S2|TickEvent|OK"));
