@@ -120,15 +120,28 @@ class GatewayEventBridgeContractTest {
 
     @Test
     void depthPayload_containsBidsAndAsks() throws Exception {
+        // P5.1 follow-up: DepthUpdateEvent now uses the publishGeneric
+        // envelope. The consumer reads the payload subobject.
+        var bid = new com.tradej.core.domain.model.DepthLevel(250_000L, 100L, 5);
+        var ask = new com.tradej.core.domain.model.DepthLevel(251_000L, 200L, 3);
         DepthUpdateEvent depth = new DepthUpdateEvent(
                 EventMetadata.root(), "INFY", ExchangeSegment.NSE_EQ,
-                List.of(), List.of(), 5, 1700000000000L);
+                List.of(bid), List.of(ask), 5, 1700000000000L);
 
-        JsonNode json = publishAndCapture(depth, GatewayTopic.MARKET_DEPTH);
-        assertNotNull(json.get("symbol"));
-        assertNotNull(json.get("bids"));
-        assertNotNull(json.get("asks"));
-        assertEquals(5, json.get("levels").asInt());
+        bridge.onDomainEvent(depth);
+        ArgumentCaptor<byte[]> bytesCaptor = ArgumentCaptor.forClass(byte[].class);
+        verify(router).publish(eq(GatewayTopic.MARKET_DEPTH), bytesCaptor.capture());
+        JsonNode envelope = objectMapper.readTree(bytesCaptor.getValue());
+        JsonNode payload = envelope.get("payload");
+        assertEquals("DepthUpdateEvent", envelope.get("eventType").asText());
+        assertEquals("INFY", payload.get("symbol").asText());
+        assertEquals(5, payload.get("levels").asInt());
+        assertNotNull(payload.get("bids"), "bids list must be present");
+        assertNotNull(payload.get("asks"), "asks list must be present");
+        assertEquals(1, payload.get("bids").size());
+        assertEquals(1, payload.get("asks").size());
+        assertEquals(250_000L, payload.get("bids").get(0).get("pricePaisa").asLong());
+        assertEquals(251_000L, payload.get("asks").get(0).get("pricePaisa").asLong());
     }
 
     @Test
