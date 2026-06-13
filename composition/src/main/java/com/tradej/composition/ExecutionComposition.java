@@ -77,10 +77,9 @@ public final class ExecutionComposition {
         Objects.requireNonNull(orderManagementService, "orderManagementService");
 
         // P3.3: PositionService is the canonical event-sourced position source.
-        // The legacy EventSourcedNetPositionProvider is no longer wired into
-        // the composition path — PositionRiskHandler now takes PositionService
-        // directly. The legacy class is still used by replay engine and
-        // broker startup orchestrator (separate consumers, not migrated yet).
+        // P3.6: the legacy EventSourcedNetPositionProvider has been removed.
+        // PositionRiskHandler takes PositionService directly. PositionService
+        // is the sole NetPositionProvider implementation now.
         CaffeineIdempotencyCache idempotencyCache = new CaffeineIdempotencyCache();
 
         boolean enforceMargin = profile.enforceMargin();

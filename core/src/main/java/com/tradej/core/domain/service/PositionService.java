@@ -29,11 +29,11 @@ import java.util.concurrent.ConcurrentHashMap;
  * safe to call from the event-dispatch thread.
  *
  * <p><b>Target of the P3 migration.</b> Existing consumers
- * ({@code com.tradej.execution.position.EventSourcedNetPositionProvider},
- * {@code com.tradej.strategy.portfolio.PortfolioEngine},
- * {@code com.tradej.execution.risk.PositionRiskHandler}) will be refactored to
- * delegate to this class in subsequent P3.x phases. Once all consumers are
- * migrated, {@code EventSourcedNetPositionProvider} will be deprecated and deleted.
+ * ({@code com.tradej.strategy.portfolio.PortfolioEngine},
+ * {@code com.tradej.execution.risk.PositionRiskHandler}) now delegate
+ * to this class. The legacy
+ * {@code com.tradej.execution.position.EventSourcedNetPositionProvider}
+ * has been removed in P3.6 — all position state lives here.
  *
  * <p><b>Thread-safety.</b> All mutable state is in {@link ConcurrentHashMap}
  * (per-symbol). The position-update logic uses {@code compute} / {@code merge}
@@ -294,9 +294,9 @@ public final class PositionService implements NetPositionProvider {
     }
 
     /**
-     * Serializable snapshot of all position state. P3.4 makes this the
-     * canonical persistence boundary for DuckDB position snapshots (replacing
-     * the per-trade event reconstruction in {@code EventSourcedNetPositionProvider}).
+     * Serializable snapshot of all position state. P3.4 made this the
+     * canonical persistence boundary for DuckDB position snapshots.
+     * P3.6 removed the legacy per-trade event reconstruction path.
      */
     public record StateSnapshot(
             Map<String, PositionState> positions,

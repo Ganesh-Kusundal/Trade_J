@@ -19,7 +19,9 @@ public final class IsolatedReplayStateManager implements ReplayStateManager {
     private final PortfolioEngine portfolioEngine;
     // P3.4: retyped from EventSourcedNetPositionProvider to the canonical
     // PositionService (which has snapshot()/restore() for replay isolation).
-    // Caller (DataConfiguration) passes FullComposition.executionComposition().positionService().
+    // P3.6: the legacy class has been removed; PositionService is the sole
+    // NetPositionProvider subtype. Caller (DataConfiguration) passes
+    // FullComposition.executionComposition().positionService().
     private final PositionService positionService;
     private final PositionRiskHandler positionRiskHandler;
     private final CandleAggregationService candleAggregationService;

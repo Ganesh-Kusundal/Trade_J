@@ -25,10 +25,9 @@ import com.tradej.replay.engine.PositionStateRebuilder;
  * Replaces the previous 21-parameter method signature.
  *
  * <p>P3.4: the {@code netPositionProvider} field was renamed to {@code positionService}
- * and retyped from {@code EventSourcedNetPositionProvider} to the canonical
- * {@link PositionService}. Callers that need position state should use
- * {@code PositionService} (which is a {@code NetPositionProvider} subtype
- * for backward compat).
+ * and retyped from the legacy {@code EventSourcedNetPositionProvider} to the
+ * canonical {@link PositionService}. P3.6 removed the legacy class entirely;
+ * {@code PositionService} is now the only {@code NetPositionProvider} subtype.
  */
 public record StartupDependencies(
         TradingProperties properties,

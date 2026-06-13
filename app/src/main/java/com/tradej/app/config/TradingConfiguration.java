@@ -9,7 +9,6 @@ import com.tradej.core.domain.runtime.RuntimeModeHolder;
 import com.tradej.core.domain.time.TradingClock;
 import com.tradej.execution.command.CommandHandler;
 import com.tradej.execution.identity.OrderIdentityRegistry;
-import com.tradej.execution.position.EventSourcedNetPositionProvider;
 import com.tradej.execution.risk.KillSwitchCoordinator;
 import com.tradej.execution.risk.MarginEnforcementHandler;
 import com.tradej.execution.risk.PositionRiskHandler;
@@ -58,7 +57,7 @@ import java.util.List;
 public class TradingConfiguration {
 
     // ── Risk beans ──
-    // RiskLimits, EventSourcedNetPositionProvider, MarginEnforcementHandler,
+    // RiskLimits, MarginEnforcementHandler,
     // KillSwitchCoordinator, and PositionRiskHandler are now owned by
     // ExecutionComposition (built inside FullComposition). TradingConfiguration
     // no longer wires them directly — consumers below inject FullComposition.
