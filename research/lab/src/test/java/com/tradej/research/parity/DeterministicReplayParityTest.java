@@ -12,14 +12,14 @@ import com.tradej.research.lab.DuckDbResearchStore;
 import com.tradej.research.lab.StrategyLabService;
 import com.tradej.strategy.api.GraphStrategyPlugin;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
+import org.junit.jupiter.api.io.TempDir;
 
+import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -28,36 +28,37 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.when;
 
 public class DeterministicReplayParityTest {
 
+    @TempDir
+    Path tempDir;
+
     @Test
     public void testReplayToLiveParityContract() throws SQLException {
-        // 1. Setup mock candles that represent the live market session
-        List<Map<String, Object>> liveMarketCandles = new ArrayList<>();
+        // 1. Build candles that represent the live market session
         long baseTime = 1717146000000L;
-        
+        List<Candle> liveMarketCandles = new ArrayList<>();
         for (int i = 0; i < 20; i++) {
-            Map<String, Object> candle = new HashMap<>();
-            candle.put("symbol", "SBIN");
-            candle.put("interval", "1m");
-            candle.put("barTimeMs", baseTime + (i * 60000L));
-            candle.put("openPaisa", 100000L + (i * 100)); // slightly rising
-            candle.put("highPaisa", 102000L + (i * 100));
-            candle.put("lowPaisa", 99000L + (i * 100));
-            candle.put("closePaisa", 101000L + (i * 100));
-            candle.put("volume", 5000L);
-            liveMarketCandles.add(candle);
+            long startTimeMs = baseTime + (i * 60000L);
+            liveMarketCandles.add(new Candle(
+                    "SBIN",
+                    "1m",
+                    startTimeMs,
+                    startTimeMs + 59999L,
+                    100000L + (i * 100),
+                    102000L + (i * 100),
+                    99000L + (i * 100),
+                    101000L + (i * 100),
+                    5000L,
+                    true
+            ));
         }
 
-        // 2. Setup mock analytics engine
-        DuckDbAnalyticsEngine mockEngine = Mockito.mock(DuckDbAnalyticsEngine.class);
-        when(mockEngine.queryEquityCandles(eq("SBIN"), anyLong(), anyLong(), anyInt()))
-            .thenReturn(liveMarketCandles);
+        // 2. Real analytics engine backed by real Parquet files
+        ParquetFeedTestSupport feed = new ParquetFeedTestSupport(tempDir);
+        feed.writeCandles("NSE_EQ", "SBIN", "1m", liveMarketCandles);
+        DuckDbAnalyticsEngine engine = feed.engine();
 
         // 3. Create persistent store (using clean in-memory db)
         DuckDbResearchStore researchStore = new DuckDbResearchStore("jdbc:duckdb::memory:");
@@ -98,7 +99,7 @@ public class DeterministicReplayParityTest {
         };
 
         // 5. Execute Run A ("Live Simulation")
-        StrategyLabService liveLabService = new StrategyLabService(mockEngine, researchStore, new com.tradej.core.domain.service.PositionService());
+        StrategyLabService liveLabService = new StrategyLabService(engine, researchStore, new com.tradej.core.domain.service.PositionService());
         StrategyConfig config = StrategyConfig.create("ParityStrategy", "1.0", Map.of("threshold", 0.05));
         UUID sessionA = UUID.randomUUID();
 
@@ -227,5 +228,7 @@ public class DeterministicReplayParityTest {
                 assertEquals(3, rs.getInt(1), "Database should store all three runs");
             }
         }
+
+        feed.close();
     }
 }
