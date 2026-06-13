@@ -376,6 +376,55 @@ public final class GatewayEventBridge implements AutoCloseable {
         }
     }
 
+    // ── P5.1: Generic event publisher ────────────────────────────────
+    //
+    // The bespoke per-event serializers above (marketTickPayload,
+    // depthPayload, etc.) are kept for cases that need a custom JSON shape.
+    // For new domain metrics that don't need a custom shape, the generic
+    // publisher below uses Jackson reflection to serialize the event and
+    // embeds the topic metadata (wireId + version) as JSON tags. Adding a
+    // new event type to the gateway no longer requires a per-event
+    // serializer method — just call publishGeneric(event) and the topic
+    // is resolved from the event class via the BridgeTopics.MAP table.
+
+    /**
+     * Generic publisher: serialize any {@link DomainEvent} to JSON via
+     * Jackson reflection and publish to the resolved {@link GatewayTopic}.
+     * Topic is determined by the event class via {@code BridgeTopics.MAP}
+     * (the single source of truth for topic mapping). If the event class
+     * has no entry in the map, a WARN is logged and the event is dropped.
+     *
+     * <p>The JSON envelope includes a {@code topicId} and {@code topicVersion}
+     * metadata tag pair so consumers can route/decode without knowing the
+     * exact class name on the wire.
+     */
+    public void publishGeneric(DomainEvent event) {
+        if (event == null) {
+            log.warn("publishGeneric called with null event — dropping");
+            return;
+        }
+        GatewayTopic topic = BridgeTopics.MAP.get(event.getClass());
+        if (topic == null) {
+            log.warn("publishGeneric: no BridgeTopics.MAP entry for {} — dropping. " +
+                    "Add the event type to BridgeTopics.MAP to enable generic publishing.",
+                    event.getClass().getSimpleName());
+            return;
+        }
+        try {
+            ObjectNode payload = objectMapper.valueToTree(event);
+            // Wrap in a metadata envelope so consumers can decode without
+            // knowing the class name on the wire.
+            ObjectNode envelope = objectMapper.createObjectNode();
+            envelope.put("topicId", topic.wireId());
+            envelope.put("topicVersion", topic.version());
+            envelope.put("eventType", event.getClass().getSimpleName());
+            envelope.set("payload", payload);
+            router.publish(topic, objectMapper.writeValueAsBytes(envelope));
+        } catch (Exception e) {
+            log.warn("publishGeneric failed for {}: {}", event.getClass().getSimpleName(), e.getMessage());
+        }
+    }
+
     private ObjectNode pnlPayload(PnlUpdatedEvent pnl) {
         ObjectNode node = objectMapper.createObjectNode();
         node.put("realizedPnlPaisa", pnl.realizedPnlPaisa());

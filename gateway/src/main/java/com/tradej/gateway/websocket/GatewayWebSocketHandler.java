@@ -73,6 +73,12 @@ public final class GatewayWebSocketHandler extends BinaryWebSocketHandler {
                 for (GatewayTopic topic : GatewayTopic.values()) {
                     router.subscribe(transport, topic);
                 }
+            } else if (topicName.contains("*")) {
+                // P5.2: wildcard subscription. Pattern like "MARKET_*" or
+                // "POSITION_*" or "*" matches all GatewayTopic enum values
+                // whose name matches the pattern (using a simple
+                // case-insensitive glob: '*' is the multi-char wildcard).
+                subscribeWildcard(transport, topicName);
             } else {
                 router.subscribe(transport, GatewayTopic.valueOf(topicName));
             }
@@ -82,6 +88,45 @@ public final class GatewayWebSocketHandler extends BinaryWebSocketHandler {
         if (GatewayBinaryCodec.isGatewayFrame(data)) {
             handleControlFrame(session, data);
         }
+    }
+
+    /**
+     * P5.2: subscribe the transport to all {@link GatewayTopic} values
+     * whose {@code name()} matches the given glob pattern. The pattern
+     * uses {@code *} as the multi-character wildcard. Matching is
+     * case-insensitive.
+     */
+    private void subscribeWildcard(WebSocketTransport transport, String pattern) {
+        String regex = globToRegex(pattern);
+        int matched = 0;
+        for (GatewayTopic topic : GatewayTopic.values()) {
+            if (topic.name().matches(regex)) {
+                router.subscribe(transport, topic);
+                matched++;
+            }
+        }
+        log.info("Gateway wildcard subscribe session={} pattern={} matched={} topic(s)",
+                "session", pattern, matched);
+    }
+
+    /**
+     * Convert a simple glob pattern (with {@code *} as multi-char wildcard)
+     * to a Java regex. All other characters are matched literally.
+     */
+    private static String globToRegex(String glob) {
+        StringBuilder sb = new StringBuilder("^");
+        for (int i = 0; i < glob.length(); i++) {
+            char c = glob.charAt(i);
+            if (c == '*') {
+                sb.append(".*");
+            } else if (Character.isLetterOrDigit(c) || c == '_') {
+                sb.append(c);
+            } else {
+                sb.append("\\").append(c);
+            }
+        }
+        sb.append("$");
+        return sb.toString();
     }
 
     private void handleControlFrame(WebSocketSession session, byte[] data) {
