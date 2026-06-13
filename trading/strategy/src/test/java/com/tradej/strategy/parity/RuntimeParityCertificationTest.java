@@ -54,6 +54,42 @@ class RuntimeParityCertificationTest {
         eventBus = new SimpleTestEventBus();
     }
     
+    /**
+     * CLI-vs-Replay signal parity test.
+     *
+     * <p><b>STATUS: FAILING (Type C — pre-existing real bug, out of scope for the immediate plan)</b>
+     *
+     * <p><b>Failure mode:</b> CLI produces 4 signals, Replay produces 3 (off by 1).
+     *
+     * <p><b>Root cause:</b> {@code runHalfTrendStrategyReplay} at line ~193 has an artificial
+     * {@code if (replayCandles.size() >= 10)} guard that the CLI path does not have. The CLI
+     * path processes all 100 points (i=0..99) and catches direction changes in the first
+     * 10 points. The Replay path skips the first 9 candles, then on candle 10 initializes
+     * {@code previousDirection} to {@code points[9].direction}, missing any direction
+     * changes that occurred in {@code points[0..8]}. For the deterministic 100-candle
+     * dataset used by this test, there is exactly 1 direction change in the first 10
+     * points (down→up at index 4), so the off-by-1 is deterministic and reproducible.
+     *
+     * <p><b>Suggested fix:</b> In {@code runHalfTrendStrategyReplay}, remove the
+     * {@code replayCandles.size() >= 10} guard. The {@code HalfTrend} algorithm has no
+     * minimum-candles requirement (it works on any number of candles, even 1) — the
+     * {@code >= 10} check is a leftover from an earlier warmup heuristic and is not
+     * present in the CLI path, breaking parity.
+     * <pre>
+     * // Before (line 193):
+     * if (replayCandles.size() >= 10) { // Need minimum candles for indicator
+     *     // ... calculate + emit signal ...
+     * }
+     * // After:
+     * { // no guard — HalfTrend.calculate() works on any number of candles
+     *     // ... calculate + emit signal ...
+     * }
+     * </pre>
+     *
+     * <p><b>Effort:</b> 1 file, ~5 lines changed (remove guard, re-indent body).
+     *
+     * <p><b>Same root cause as {@link #fullPipelineParity_signalToTradeToPnL()}.</b>
+     */
     @Test
     void cliVsReplayParity_producesIdenticalSignals() {
         // RUN 1: CLI-style execution (direct strategy call)
@@ -114,6 +150,25 @@ class RuntimeParityCertificationTest {
         System.out.println("   All signals identical");
     }
     
+    /**
+     * Full-pipeline CLI-vs-Replay parity test (signal → trade → PnL).
+     *
+     * <p><b>STATUS: FAILING (Type C — pre-existing real bug, out of scope for the immediate plan)</b>
+     *
+     * <p><b>Failure mode:</b> CLI reports 4 signals, Replay reports 3 (off by 1).
+     *
+     * <p><b>Root cause:</b> Same as {@link #cliVsReplayParity_producesIdenticalSignals()} —
+     * the {@code runHalfTrendStrategyReplay} helper at line ~193 has a
+     * {@code replayCandles.size() >= 10} guard that drops the first 9 candles' direction
+     * changes. This test exercises the same helper, so the same off-by-1 propagates into
+     * the signal-count assertion at line 124.
+     *
+     * <p><b>Suggested fix:</b> Same as {@link #cliVsReplayParity_producesIdenticalSignals()} —
+     * remove the {@code >= 10} guard from {@code runHalfTrendStrategyReplay}. Fixing that
+     * helper will fix both this test and the simpler parity test in one change.
+     *
+     * <p><b>Effort:</b> 0 lines (this test) — the fix lives entirely in the shared helper.
+     */
     @Test
     void fullPipelineParity_signalToTradeToPnL() {
         // Execute full pipeline: Signal → Trade → Position → PnL
