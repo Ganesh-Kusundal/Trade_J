@@ -116,7 +116,7 @@ public final class GatewayEventBridge implements AutoCloseable {
         // (bespoke did not), so the consumer schema gains a `metadata`
         // field. See PnlUpdatedEventEnvelopeMigrationTest.
         m.put(PnlUpdatedEvent.class,        SerializerEntry.generic(BridgeTopics.MAP.get(PnlUpdatedEvent.class)));
-        m.put(ScanResultsPublished.class,   entry(BridgeTopics.MAP.get(ScanResultsPublished.class),   e -> scanPayload((ScanResultsPublished) e)));
+        m.put(ScanResultsPublished.class,   SerializerEntry.generic(BridgeTopics.MAP.get(ScanResultsPublished.class)));
         m.put(OptionChainUpdated.class,     entry(BridgeTopics.MAP.get(OptionChainUpdated.class),     e -> optionChainPayload((OptionChainUpdated) e)));
         m.put(GreeksComputed.class,         entry(BridgeTopics.MAP.get(GreeksComputed.class),         e -> greeksPayload((GreeksComputed) e)));
         m.put(MaxPainComputed.class,        entry(BridgeTopics.MAP.get(MaxPainComputed.class),        e -> maxPainPayload((MaxPainComputed) e)));

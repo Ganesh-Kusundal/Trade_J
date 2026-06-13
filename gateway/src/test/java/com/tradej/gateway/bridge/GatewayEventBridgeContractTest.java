@@ -345,15 +345,32 @@ class GatewayEventBridgeContractTest {
 
     @Test
     void scanResultsPayload_containsHits() throws Exception {
+        // P5.1 follow-up: ScanResultsPublished now uses the publishGeneric
+        // envelope. The full record (including the hits list with nested
+        // ScanHitSummary records) is preserved in the payload.
         ScanResultsPublished.ScanHitSummary hit = new ScanResultsPublished.ScanHitSummary(
                 "RELIANCE", "NSE_EQ", "RELIANCE", 85.0, List.of("Volume spike", "RSI > 60"));
         ScanResultsPublished scan = new ScanResultsPublished(
                 EventMetadata.root(), "profile-1", "run-1", 1,
                 System.currentTimeMillis() - 1000, System.currentTimeMillis(), List.of(hit));
-        JsonNode json = publishAndCapture(scan, GatewayTopic.SCAN_COMPLETED);
-        assertEquals("profile-1", json.get("profileId").asText());
-        assertEquals(1, json.get("hitCount").asInt());
-        assertTrue(json.get("hits").isArray());
+        bridge.onDomainEvent(scan);
+        ArgumentCaptor<byte[]> bytesCaptor = ArgumentCaptor.forClass(byte[].class);
+        verify(router).publish(eq(GatewayTopic.SCAN_COMPLETED), bytesCaptor.capture());
+        JsonNode envelope = objectMapper.readTree(bytesCaptor.getValue());
+        JsonNode payload = envelope.get("payload");
+        assertEquals("ScanResultsPublished", envelope.get("eventType").asText());
+        assertEquals("profile-1", payload.get("profileId").asText());
+        assertEquals(1, payload.get("hitCount").asInt());
+        // P5.1 follow-up NOTE: the bespoke had a "type" field set to
+        // "SCAN_COMPLETED" at the top level. The generic envelope does
+        // not add this — the eventType field tells the consumer what
+        // kind of event it is. The "hits" list now contains the full
+        // nested ScanHitSummary record (symbol, exchangeSegment,
+        // underlying, score, reasons).
+        assertTrue(payload.get("hits").isArray());
+        assertEquals(1, payload.get("hits").size());
+        assertEquals("RELIANCE", payload.get("hits").get(0).get("symbol").asText());
+        assertEquals(85.0, payload.get("hits").get(0).get("score").asDouble());
     }
 
     @Test
