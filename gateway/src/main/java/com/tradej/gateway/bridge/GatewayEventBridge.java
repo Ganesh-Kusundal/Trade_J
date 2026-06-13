@@ -104,12 +104,8 @@ public final class GatewayEventBridge implements AutoCloseable {
         m.put(OrderAccepted.class,          entry(BridgeTopics.MAP.get(OrderAccepted.class),          e -> orderAckPayload((OrderAccepted) e)));
         m.put(OrderRejected.class,          entry(BridgeTopics.MAP.get(OrderRejected.class),          e -> orderRejectPayload((OrderRejected) e)));
         m.put(OrderFilled.class,            entry(BridgeTopics.MAP.get(OrderFilled.class),            e -> orderPayload(e)));
-        m.put(TradeOpened.class,            entry(BridgeTopics.MAP.get(TradeOpened.class),            e -> positionPayload(
-                ((TradeOpened) e).symbol(), resolveSegment(((TradeOpened) e).symbol()),
-                ((TradeOpened) e).size(), ((TradeOpened) e).entryPricePaisa(), "OPEN")));
-        m.put(TradeClosed.class,            entry(BridgeTopics.MAP.get(TradeClosed.class),            e -> positionPayload(
-                ((TradeClosed) e).symbol(), resolveSegment(((TradeClosed) e).symbol()),
-                0L, 0L, "CLOSED")));
+        m.put(TradeOpened.class,            SerializerEntry.generic(BridgeTopics.MAP.get(TradeOpened.class)));
+        m.put(TradeClosed.class,            SerializerEntry.generic(BridgeTopics.MAP.get(TradeClosed.class)));
         m.put(SignalGenerated.class,        entry(BridgeTopics.MAP.get(SignalGenerated.class),        e -> signalPayload((SignalGenerated) e)));
         m.put(ReplayTimeChangedEvent.class, entry(BridgeTopics.MAP.get(ReplayTimeChangedEvent.class), e -> replayPayload((ReplayTimeChangedEvent) e)));
         // P5.1 follow-up worked example: PnlUpdatedEvent opts into the

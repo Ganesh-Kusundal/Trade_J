@@ -168,20 +168,41 @@ class GatewayEventBridgeContractTest {
 
     @Test
     void tradeOpenedPayload_containsPositionInfo() throws Exception {
+        // P5.1 follow-up: TradeOpened now uses the publishGeneric envelope.
+        // The consumer reads the payload subobject.
         TradeOpened opened = new TradeOpened(EventMetadata.root(), "T-1", "ORD-1", "SIG-1",
                 "RELIANCE", Side.BUY, 100L, 250000L, 240000L, 260000L);
-        JsonNode json = publishAndCapture(opened, GatewayTopic.POSITION_UPDATE);
-        assertEquals(100L, json.get("size").asLong());
-        assertEquals(250000L, json.get("entryPricePaisa").asLong());
-        assertEquals("OPEN", json.get("action").asText());
+        bridge.onDomainEvent(opened);
+        ArgumentCaptor<byte[]> bytesCaptor = ArgumentCaptor.forClass(byte[].class);
+        verify(router).publish(eq(GatewayTopic.POSITION_UPDATE), bytesCaptor.capture());
+        JsonNode envelope = objectMapper.readTree(bytesCaptor.getValue());
+        JsonNode payload = envelope.get("payload");
+        assertEquals("TradeOpened", envelope.get("eventType").asText());
+        assertEquals(100L, payload.get("size").asLong());
+        assertEquals(250000L, payload.get("entryPricePaisa").asLong());
+        assertEquals("RELIANCE", payload.get("symbol").asText());
+        // The bespoke payload put an 'action' field with value 'OPEN';
+        // the generic envelope does not. The action can be derived from
+        // the eventType (TradeOpened → OPEN, TradeClosed → CLOSED).
     }
 
     @Test
     void tradeClosedPayload_containsClosedAction() throws Exception {
+        // P5.1 follow-up: TradeClosed now uses the publishGeneric envelope.
         TradeClosed closed = new TradeClosed(EventMetadata.root(), "T-1", "RELIANCE",
                 260000L, 100000L, 100L, "TARGET_HIT");
-        JsonNode json = publishAndCapture(closed, GatewayTopic.POSITION_UPDATE);
-        assertEquals("CLOSED", json.get("action").asText());
+        bridge.onDomainEvent(closed);
+        ArgumentCaptor<byte[]> bytesCaptor = ArgumentCaptor.forClass(byte[].class);
+        verify(router).publish(eq(GatewayTopic.POSITION_UPDATE), bytesCaptor.capture());
+        JsonNode envelope = objectMapper.readTree(bytesCaptor.getValue());
+        JsonNode payload = envelope.get("payload");
+        assertEquals("TradeClosed", envelope.get("eventType").asText());
+        // The bespoke payload put size=0 and entryPricePaisa=0 for
+        // closures; the generic envelope uses the actual values from
+        // the record (size=100, exitPricePaisa=260000, realizedPnlPaisa=100000).
+        assertEquals(100L, payload.get("size").asLong());
+        assertEquals(260000L, payload.get("exitPricePaisa").asLong());
+        assertEquals(100000L, payload.get("realizedPnlPaisa").asLong());
     }
 
     @Test
