@@ -50,7 +50,6 @@ public final class PositionRiskHandler implements DomainEventVisitor {
     private final Set<String> symbolsWithOpenPosition = ConcurrentHashMap.newKeySet();
     private final AtomicBoolean killSwitch = new AtomicBoolean(false);
     private final AtomicBoolean reconciliationHalt = new AtomicBoolean(false);
-    private volatile StateSnapshot snapshot;
     private final ThreadLocal<Consumer<DomainEvent>> currentPublisher = new ThreadLocal<>();
 
     public PositionRiskHandler(RiskLimits limits, NetPositionProvider netPositionProvider) {
@@ -391,11 +390,7 @@ public final class PositionRiskHandler implements DomainEventVisitor {
     public int getOpenTrades() { return openTrades.get(); }
 
     public StateSnapshot snapshot() {
-        StateSnapshot current = snapshot;
-        if (current != null) {
-            return current;
-        }
-        current = new StateSnapshot(
+        return new StateSnapshot(
                 realizedLossPaisa.get(),
                 unrealizedLossPaisa.get(),
                 consecutiveLosses.get(),
@@ -403,8 +398,6 @@ public final class PositionRiskHandler implements DomainEventVisitor {
                 killSwitch.get(),
                 reconciliationHalt.get(),
                 Set.copyOf(symbolsWithOpenPosition));
-        this.snapshot = current;
-        return current;
     }
 
     public void restore(StateSnapshot state) {
@@ -419,7 +412,6 @@ public final class PositionRiskHandler implements DomainEventVisitor {
         reconciliationHalt.set(state.reconciliationHalt());
         symbolsWithOpenPosition.clear();
         symbolsWithOpenPosition.addAll(state.symbolsWithOpenPosition());
-        this.snapshot = null;
     }
 
     public record StateSnapshot(
