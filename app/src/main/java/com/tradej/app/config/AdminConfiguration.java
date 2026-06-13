@@ -113,15 +113,29 @@ public class AdminConfiguration {
     /**
      * LIVE-mode {@link ReconciliationScheduler.MismatchHandler} bean.
      * Wired only when {@code trade.reconciliation.live-correction=true}.
-     * See {@link LiveBracketOrderCorrectionHandler} for the full design.
+     * The {@link com.tradej.execution.reconcile.DriftAlerter} is
+     * injected (the {@code @Primary} Slack variant wins when the
+     * webhook property is set, else the always-available logging
+     * variant). The alert threshold is
+     * {@code trade.drift-alerting.threshold-qty} (default 100 qty).
+     * See {@link LiveBracketOrderCorrectionHandler} for the full
+     * design and {@link DriftAlertingConfiguration} for the alerter
+     * wiring.
      */
     @Bean
     @org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(
             name = "trade.reconciliation.live-correction",
             havingValue = "true"
     )
-    ReconciliationScheduler.MismatchHandler liveBracketOrderCorrectionHandler() {
-        return new LiveBracketOrderCorrectionHandler();
+    ReconciliationScheduler.MismatchHandler liveBracketOrderCorrectionHandler(
+            com.tradej.execution.reconcile.DriftAlerter driftAlerter,
+            @org.springframework.beans.factory.annotation.Value(
+                    "${trade.drift-alerting.threshold-qty:100}") long alertThresholdQty
+    ) {
+        return new LiveBracketOrderCorrectionHandler(
+                driftAlerter,
+                LiveBracketOrderCorrectionHandler.DEFAULT_TOLERANCE_QTY,
+                alertThresholdQty);
     }
 
     @Bean
