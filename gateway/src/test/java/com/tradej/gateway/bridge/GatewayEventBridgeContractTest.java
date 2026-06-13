@@ -85,18 +85,37 @@ class GatewayEventBridgeContractTest {
 
     @Test
     void marketTickPayload_containsAllFields() throws Exception {
+        // P5.1 follow-up: MarketTickEvent now uses the publishGeneric
+        // envelope. The bespoke dropped the 'depth' (Optional<MarketDepth>)
+        // field entirely; the generic envelope preserves it (null when
+        // Optional.empty()). The record field 'segment' is also exposed
+        // (the bespoke had it as both a top-level field and embedded
+        // via putSymbolFields).
         MarketTickEvent tick = new MarketTickEvent(
                 EventMetadata.root(), 1L, "RELIANCE", ExchangeSegment.NSE_EQ,
                 FeedMode.FULL, 250000L, 100L, 5000L, 1700000000000L,
                 Optional.empty(), 0L, 0L);
 
-        JsonNode json = publishAndCapture(tick, GatewayTopic.MARKET_TICK);
-        assertNotNull(json.get("symbol"));
-        assertEquals(250000L, json.get("ltpPaisa").asLong());
-        assertEquals(100L, json.get("lastTradeQuantity").asLong());
-        assertEquals(5000L, json.get("cumulativeVolume").asLong());
-        assertEquals(1700000000000L, json.get("exchangeTimestampMs").asLong());
-        assertEquals("NSE_EQ", json.get("segment").asText());
+        bridge.onDomainEvent(tick);
+        ArgumentCaptor<byte[]> bytesCaptor = ArgumentCaptor.forClass(byte[].class);
+        verify(router).publish(eq(GatewayTopic.MARKET_TICK), bytesCaptor.capture());
+        JsonNode envelope = objectMapper.readTree(bytesCaptor.getValue());
+        JsonNode payload = envelope.get("payload");
+        assertEquals("MarketTickEvent", envelope.get("eventType").asText());
+        assertEquals("RELIANCE", payload.get("symbol").asText());
+        assertEquals(250000L, payload.get("ltpPaisa").asLong());
+        assertEquals(100L, payload.get("lastTradeQuantity").asLong());
+        assertEquals(5000L, payload.get("cumulativeVolume").asLong());
+        assertEquals(1700000000000L, payload.get("exchangeTimestampEpochMs").asLong());
+        // The record field is 'segment', not 'exchangeSegment' (the
+        // bespoke used 'segment' as a separate field from the symbol
+        // fields helper, which also emitted it). Both shapes are now
+        // consolidated: just 'segment' in the generic envelope.
+        assertEquals("NSE_EQ", payload.get("segment").asText());
+        // depth is null when Optional.empty() — Jackson + Jdk8Module
+        // serialize Optional.empty() as null (or sometimes absent).
+        assertTrue(payload.get("depth") == null || payload.get("depth").isNull(),
+                "depth must be null/absent for empty Optional");
     }
 
     @Test

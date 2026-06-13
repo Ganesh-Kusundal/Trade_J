@@ -97,7 +97,7 @@ public final class GatewayEventBridge implements AutoCloseable {
         // generic envelope by default; bespoke is for events that need
         // custom JSON shape (depth, candle, scan results, etc.).
         Map<Class<? extends DomainEvent>, SerializerEntry> m = new java.util.LinkedHashMap<>();
-        m.put(MarketTickEvent.class,        entry(BridgeTopics.MAP.get(MarketTickEvent.class),        e -> marketTickPayload((MarketTickEvent) e)));
+        m.put(MarketTickEvent.class,        SerializerEntry.generic(BridgeTopics.MAP.get(MarketTickEvent.class)));
         m.put(DepthUpdateEvent.class,       entry(BridgeTopics.MAP.get(DepthUpdateEvent.class),       e -> depthPayload((DepthUpdateEvent) e)));
         m.put(CandleDeveloping.class,       entry(BridgeTopics.MAP.get(CandleDeveloping.class),       e -> candlePayload(((CandleDeveloping) e).candle())));
         m.put(CandleClosed.class,           entry(BridgeTopics.MAP.get(CandleClosed.class),           e -> candlePayload(((CandleClosed) e).candle())));

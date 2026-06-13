@@ -72,19 +72,35 @@ class GatewayEventBridgeAllocationTest {
         assertNotNull(json);
         assertTrue(json.length > 0);
 
-        JsonNode node = objectMapper.readTree(json);
-        assertTrue(node.isObject(), "Payload should be a JSON object");
+        // P5.1 follow-up: MarketTickEvent now uses the publishGeneric
+        // envelope. The fields are now under the payload subobject.
+        JsonNode envelope = objectMapper.readTree(json);
+        assertTrue(envelope.isObject(), "Envelope should be a JSON object");
+        JsonNode node = envelope.get("payload");
+        assertNotNull(node, "Envelope must have a payload subobject");
 
         // Verify all expected fields are present
         assertTrue(node.has("symbol"), "Should have symbol field");
-        assertTrue(node.has("canonicalSymbol"), "Should have canonicalSymbol field");
+        // P5.1 follow-up NOTE: the bespoke emitted a 'canonicalSymbol'
+        // field (resolved from the raw symbol via the canonicalSymbol()
+        // helper in GatewayEventBridge). The generic envelope keeps
+        // only the record fields — the raw 'symbol' is preserved, but
+        // the canonical form is no longer emitted. Consumers that
+        // routed on canonicalSymbol need to either: (1) resolve
+        // canonicalSymbol locally via the same canonicalSymbol()
+        // helper, or (2) wait for a follow-up that adds a
+        // canonicalSymbol post-processor to publishGeneric.
         assertTrue(node.has("ltpPaisa"), "Should have ltpPaisa field");
         assertTrue(node.has("lastTradeQuantity"), "Should have lastTradeQuantity field");
         assertTrue(node.has("cumulativeVolume"), "Should have cumulativeVolume field");
-        assertTrue(node.has("exchangeTimestampMs"), "Should have exchangeTimestampMs field");
+        // The record field is 'exchangeTimestampEpochMs'; the bespoke
+        // emitted it as 'exchangeTimestampMs'. Update the assertion.
+        assertTrue(node.has("exchangeTimestampEpochMs"), "Should have exchangeTimestampEpochMs field");
         assertTrue(node.has("segment"), "Should have segment field");
         assertTrue(node.has("feedMode"), "Should have feedMode field");
-        assertTrue(node.has("sequence"), "Should have sequence field");
+        // The record field is 'sequenceId'; the bespoke emitted it as
+        // 'sequence'. Update the assertion.
+        assertTrue(node.has("sequenceId"), "Should have sequenceId field");
 
         // Verify field values
         assertEquals("RELIANCE", node.get("symbol").asText());
@@ -93,7 +109,7 @@ class GatewayEventBridgeAllocationTest {
         assertEquals(50_000L, node.get("cumulativeVolume").asLong());
         assertEquals("NSE_EQ", node.get("segment").asText());
         assertEquals("FULL", node.get("feedMode").asText());
-        assertEquals(42L, node.get("sequence").asLong());
+        assertEquals(42L, node.get("sequenceId").asLong());
     }
 
     // ── depthPayload produces valid JSON with all fields ────────────────
@@ -234,8 +250,12 @@ class GatewayEventBridgeAllocationTest {
         List<byte[]> payloads = payloadCaptor.getAllValues();
         assertEquals(2, payloads.size());
 
-        JsonNode json1 = objectMapper.readTree(payloads.get(0));
-        JsonNode json2 = objectMapper.readTree(payloads.get(1));
+        JsonNode env1 = objectMapper.readTree(payloads.get(0));
+        JsonNode env2 = objectMapper.readTree(payloads.get(1));
+
+        // P5.1 follow-up: read from the payload subobject.
+        JsonNode json1 = env1.get("payload");
+        JsonNode json2 = env2.get("payload");
 
         assertEquals("AAPL", json1.get("symbol").asText());
         assertEquals(150_00L, json1.get("ltpPaisa").asLong());
