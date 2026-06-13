@@ -244,37 +244,35 @@ class RuntimeParityCertificationTest {
         // Subscribe to CandleClosed events
         eventBus.subscribe(CandleClosed.class, (CandleClosed event) -> {
             replayCandles.add(event.candle());
-            
-            if (replayCandles.size() >= 10) { // Need minimum candles for indicator
-                List<HalfTrend.Point> points = halfTrend.calculate(replayCandles);
-                if (!points.isEmpty()) {
-                    HalfTrend.Point latest = points.get(points.size() - 1);
-                    
-                    if (previousDirection[0] != null && !previousDirection[0].equals(latest.direction())) {
-                        Side side = "up".equals(latest.direction()) ? Side.BUY : Side.SELL;
-                        
-                        SignalGenerated signal = new SignalGenerated(
-                                EventMetadata.root(),
-                                "signal-replay-" + replayCandles.size(),
-                                SYMBOL,
-                                INTERVAL,
-                                side,
-                                event.candle().closePaisa(),
-                                event.candle().closePaisa() - 5000,
-                                event.candle().closePaisa() + 10000,
-                                "HALF_TREND",
-                                java.util.Map.of(
-                                        "strategyName", "HalfTrend",
-                                        "direction", latest.direction(),
-                                        "quantity", 10L
-                                )
-                        );
-                        
-                        signals.add(signal);
-                    }
-                    
-                    previousDirection[0] = latest.direction();
+
+            List<HalfTrend.Point> points = halfTrend.calculate(replayCandles);
+            if (!points.isEmpty()) {
+                HalfTrend.Point latest = points.get(points.size() - 1);
+
+                if (previousDirection[0] != null && !previousDirection[0].equals(latest.direction())) {
+                    Side side = "up".equals(latest.direction()) ? Side.BUY : Side.SELL;
+
+                    SignalGenerated signal = new SignalGenerated(
+                            EventMetadata.root(),
+                            "signal-replay-" + replayCandles.size(),
+                            SYMBOL,
+                            INTERVAL,
+                            side,
+                            event.candle().closePaisa(),
+                            event.candle().closePaisa() - 5000,
+                            event.candle().closePaisa() + 10000,
+                            "HALF_TREND",
+                            java.util.Map.of(
+                                    "strategyName", "HalfTrend",
+                                    "direction", latest.direction(),
+                                    "quantity", 10L
+                            )
+                    );
+
+                    signals.add(signal);
                 }
+
+                previousDirection[0] = latest.direction();
             }
         });
         

@@ -16,7 +16,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
-import java.util.ServiceLoader;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -62,7 +61,6 @@ public final class GraphStrategySandbox {
         if (plugins != null) {
             this.plugins.addAll(plugins);
         }
-        ServiceLoader.load(GraphStrategyPlugin.class).forEach(this.plugins::add);
         this.executor = Executors.newVirtualThreadPerTaskExecutor();
         this.timeoutMs = timeoutMs;
         this.positionSizer = positionSizer != null ? positionSizer : new DefaultPositionSizer();
