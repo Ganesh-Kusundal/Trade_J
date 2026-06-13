@@ -117,8 +117,8 @@ public final class FullComposition {
         // deprecate the dual-constructor path entirely.
         PortfolioEngine sharedEngine = new PortfolioEngine(
                 positionService,
-                portfolioEngine == null ? PortfolioEngine.DEFAULT_CAPITAL_PER_STRATEGY_PAISA : extractDefaultCapital(portfolioEngine),
-                portfolioEngine == null ? PortfolioEngine.DEFAULT_MAX_NET_EXPOSURE_PAISA : extractMaxExposure(portfolioEngine)
+                PortfolioEngine.DEFAULT_CAPITAL_PER_STRATEGY_PAISA,
+                PortfolioEngine.DEFAULT_MAX_NET_EXPOSURE_PAISA
         );
 
         BrokerComposition broker = BrokerComposition.create(brokerProfile);
@@ -148,29 +148,6 @@ public final class FullComposition {
     }
 
     // ── Capital param extraction helpers ─────────────────────────────────
-
-    /**
-     * Read the caller's portfolio engine's default capital without depending
-     * on PortfolioEngine exposing its field. Uses reflection-free snapshot
-     * via the engine's external API: if the engine is null or doesn't expose,
-     * default is used.
-     */
-    private static long extractDefaultCapital(PortfolioEngine engine) {
-        if (engine == null) {
-            return PortfolioEngine.DEFAULT_CAPITAL_PER_STRATEGY_PAISA;
-        }
-        // PortfolioEngine doesn't currently expose its defaultCapital field.
-        // We default to the engine's documented constant for now and
-        // rely on the engine being constructed with the desired values.
-        return PortfolioEngine.DEFAULT_CAPITAL_PER_STRATEGY_PAISA;
-    }
-
-    private static long extractMaxExposure(PortfolioEngine engine) {
-        if (engine == null) {
-            return PortfolioEngine.DEFAULT_MAX_NET_EXPOSURE_PAISA;
-        }
-        return PortfolioEngine.DEFAULT_MAX_NET_EXPOSURE_PAISA;
-    }
 
     /**
      * Build a broker-only composition for the CLI / replay path. Only the clock

@@ -12,7 +12,6 @@ import com.tradej.core.domain.event.TradeClosed;
 import com.tradej.core.domain.event.TradeOpened;
 import com.tradej.core.domain.value.Side;
 
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Map;
@@ -473,14 +472,6 @@ public final class PortfolioEngine {
     }
 
     // ── Helpers ──
-
-    private static String extractStrategyName(SignalGenerated signal) {
-        Object name = signal.attributes().get(ATTR_STRATEGY_NAME);
-        if (name instanceof String s && !s.isBlank()) {
-            return s;
-        }
-        return "unknown";
-    }
 
     public static long extractQuantity(SignalGenerated signal) {
         Object qty = signal.attributes().get(ATTR_QUANTITY);

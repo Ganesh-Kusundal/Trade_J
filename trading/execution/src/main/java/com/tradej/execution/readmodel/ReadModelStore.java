@@ -17,8 +17,6 @@ import com.tradej.core.domain.model.Candle;
 import com.tradej.core.domain.model.DepthLevel;
 import com.tradej.core.domain.model.Order;
 
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -104,10 +102,10 @@ public final class ReadModelStore {
             }
             case TradeClosed closed -> {
                 if (activeTradeIds.remove(closed.tradeId())) {
-            positions.computeIfPresent(closed.symbol(), (sym, existing) -> {
-                long remaining = existing.netQuantity() - closed.size();
-                return remaining <= 0 ? null : new PositionView(sym, remaining, existing.avgPricePaisa());
-            });
+                    positions.computeIfPresent(closed.symbol(), (sym, existing) -> {
+                        long remaining = existing.netQuantity() - closed.size();
+                        return remaining <= 0 ? null : new PositionView(sym, remaining, existing.avgPricePaisa());
+                    });
                 }
             }
             case MarketTickEvent tick -> ticks.put(tick.symbol(), new TickView(
@@ -238,10 +236,10 @@ public final class ReadModelStore {
     }
 
     public List<OrderView> orders() {
-        return Collections.unmodifiableList(new ArrayList<>(orders.values()));
+        return List.copyOf(orders.values());
     }
 
     public List<PositionView> positions() {
-        return Collections.unmodifiableList(new ArrayList<>(positions.values()));
+        return List.copyOf(positions.values());
     }
 }
