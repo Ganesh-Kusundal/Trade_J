@@ -103,6 +103,14 @@ class GatewayEventBridgeContractTest {
         JsonNode payload = envelope.get("payload");
         assertEquals("MarketTickEvent", envelope.get("eventType").asText());
         assertEquals("RELIANCE", payload.get("symbol").asText());
+        // Track D3: canonicalSymbol is RESTORED via the
+        // CANONICAL_SYMBOL_POST_PROCESSOR hook in publishGeneric. The
+        // bespoke putSymbolFields used to emit it (deleted in bb9772a
+        // and regressed in ecd8342). For MarketTick/Depth it is the
+        // identity of payload.symbol; for Candle events it is copied
+        // from payload.candle.symbol. See
+        // CANONICAL_SYMBOL_POST_PROCESSOR for the post-processor.
+        assertEquals("RELIANCE", payload.get("canonicalSymbol").asText());
         assertEquals(250000L, payload.get("ltpPaisa").asLong());
         assertEquals(100L, payload.get("lastTradeQuantity").asLong());
         assertEquals(5000L, payload.get("cumulativeVolume").asLong());
@@ -135,6 +143,9 @@ class GatewayEventBridgeContractTest {
         JsonNode payload = envelope.get("payload");
         assertEquals("DepthUpdateEvent", envelope.get("eventType").asText());
         assertEquals("INFY", payload.get("symbol").asText());
+        // Track D3: canonicalSymbol is RESTORED for symbol-bearing
+        // events. See comment in marketTickPayload_containsAllFields.
+        assertEquals("INFY", payload.get("canonicalSymbol").asText());
         assertEquals(5, payload.get("levels").asInt());
         assertNotNull(payload.get("bids"), "bids list must be present");
         assertNotNull(payload.get("asks"), "asks list must be present");
@@ -162,6 +173,11 @@ class GatewayEventBridgeContractTest {
         JsonNode candleNode = payload.get("candle");
         assertNotNull(candleNode, "Candle record must be nested under payload.candle");
         assertEquals("TCS", candleNode.get("symbol").asText());
+        // Track D3: canonicalSymbol is RESTORED for Candle events via
+        // the post-processor. The post-processor reads
+        // payload.candle.symbol (nested) and writes a top-level
+        // payload.canonicalSymbol (matching the bespoke wire shape).
+        assertEquals("TCS", payload.get("canonicalSymbol").asText());
         assertEquals("5m", candleNode.get("interval").asText());
         assertEquals(380000L, candleNode.get("openPaisa").asLong());
         assertEquals(382000L, candleNode.get("highPaisa").asLong());
@@ -191,6 +207,9 @@ class GatewayEventBridgeContractTest {
         JsonNode candleNode = payload.get("candle");
         assertNotNull(candleNode, "Candle record must be nested under payload.candle");
         assertEquals("WIPRO", candleNode.get("symbol").asText());
+        // Track D3: canonicalSymbol is RESTORED for Candle events via
+        // the post-processor (see candleClosedPayload_containsOHLCV).
+        assertEquals("WIPRO", payload.get("canonicalSymbol").asText());
         assertEquals("1m", candleNode.get("interval").asText());
     }
 

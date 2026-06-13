@@ -23,6 +23,7 @@ import com.tradej.core.domain.event.TradeOpened;
 import com.tradej.core.domain.port.EventBus;
 import com.tradej.gateway.protocol.GatewayTopic;
 import com.tradej.gateway.router.GatewayTopicRouter;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
@@ -30,6 +31,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 /**
@@ -66,15 +68,20 @@ public final class GatewayEventBridge implements AutoCloseable {
     private record SerializerEntry(
             GatewayTopic topic,
             Function<DomainEvent, ObjectNode> serializer,
-            boolean useGenericEnvelope
+            boolean useGenericEnvelope,
+            Consumer<ObjectNode> postProcessor
     ) {
         /** Bespoke envelope (legacy): the per-event serializer produces a flat JSON payload. */
         static SerializerEntry bespoke(GatewayTopic topic, Function<DomainEvent, ObjectNode> serializer) {
-            return new SerializerEntry(topic, serializer, false);
+            return new SerializerEntry(topic, serializer, false, null);
         }
         /** Generic envelope: the per-event serializer is ignored; the publishGeneric path is used. */
         static SerializerEntry generic(GatewayTopic topic) {
-            return new SerializerEntry(topic, null, true);
+            return new SerializerEntry(topic, null, true, null);
+        }
+        /** Generic envelope with a payload post-processor (applied to the payload before envelope wrap). */
+        static SerializerEntry generic(GatewayTopic topic, Consumer<ObjectNode> postProcessor) {
+            return new SerializerEntry(topic, null, true, postProcessor);
         }
     }
 
@@ -90,10 +97,17 @@ public final class GatewayEventBridge implements AutoCloseable {
         // SerializerEntry factory is retained for future cases that
         // need a custom JSON shape; none are currently in use.
         Map<Class<? extends DomainEvent>, SerializerEntry> m = new java.util.LinkedHashMap<>();
-        m.put(MarketTickEvent.class,        SerializerEntry.generic(BridgeTopics.MAP.get(MarketTickEvent.class)));
-        m.put(DepthUpdateEvent.class,       SerializerEntry.generic(BridgeTopics.MAP.get(DepthUpdateEvent.class)));
-        m.put(CandleDeveloping.class,       SerializerEntry.generic(BridgeTopics.MAP.get(CandleDeveloping.class)));
-        m.put(CandleClosed.class,           SerializerEntry.generic(BridgeTopics.MAP.get(CandleClosed.class)));
+        // Symbol-bearing events get the CANONICAL_SYMBOL_POST_PROCESSOR so
+        // consumers that route on canonicalSymbol (lost when the bespoke
+        // putSymbolFields helper was deleted in commit bb9772a and then
+        // regressed in commit ecd8342) get the field back. The post-
+        // processor copies payload.symbol (or, for nested Candle events,
+        // payload.candle.symbol) to a new top-level payload.canonicalSymbol
+        // field. For all other events, no post-processor runs.
+        m.put(MarketTickEvent.class,        SerializerEntry.generic(BridgeTopics.MAP.get(MarketTickEvent.class),        CANONICAL_SYMBOL_POST_PROCESSOR));
+        m.put(DepthUpdateEvent.class,       SerializerEntry.generic(BridgeTopics.MAP.get(DepthUpdateEvent.class),       CANONICAL_SYMBOL_POST_PROCESSOR));
+        m.put(CandleDeveloping.class,       SerializerEntry.generic(BridgeTopics.MAP.get(CandleDeveloping.class),       CANONICAL_SYMBOL_POST_PROCESSOR));
+        m.put(CandleClosed.class,           SerializerEntry.generic(BridgeTopics.MAP.get(CandleClosed.class),           CANONICAL_SYMBOL_POST_PROCESSOR));
         m.put(OrderAccepted.class,          SerializerEntry.generic(BridgeTopics.MAP.get(OrderAccepted.class)));
         m.put(OrderRejected.class,          SerializerEntry.generic(BridgeTopics.MAP.get(OrderRejected.class)));
         m.put(OrderFilled.class,            SerializerEntry.generic(BridgeTopics.MAP.get(OrderFilled.class)));
@@ -116,10 +130,6 @@ public final class GatewayEventBridge implements AutoCloseable {
         m.put(GammaExposureComputed.class,  SerializerEntry.generic(BridgeTopics.MAP.get(GammaExposureComputed.class)));
         m.put(StrategyMetricsSnapshot.class, SerializerEntry.generic(BridgeTopics.MAP.get(StrategyMetricsSnapshot.class)));
         return Map.copyOf(m);
-    }
-
-    private static SerializerEntry entry(GatewayTopic topic, Function<DomainEvent, ObjectNode> serializer) {
-        return SerializerEntry.bespoke(topic, serializer);
     }
 
     /**
@@ -162,7 +172,11 @@ public final class GatewayEventBridge implements AutoCloseable {
                     // publishGeneric does NOT inject the correlationId
                     // field at the top level (it lives in the
                     // metadata sub-object inside the payload instead).
-                    publishGeneric(event);
+                    // The per-event postProcessor (when set) is applied
+                    // to the payload BEFORE the envelope is built — for
+                    // symbol-bearing events this is the hook that
+                    // restores the canonicalSymbol field.
+                    publishGeneric(event, entry.postProcessor());
                 } else {
                     ObjectNode payload = entry.serializer().apply(event);
                     // Inject correlation ID for end-to-end tracing
@@ -225,6 +239,55 @@ public final class GatewayEventBridge implements AutoCloseable {
     // shape; none are currently in use.
 
     /**
+     * Per-event payload post-processor that restores the {@code canonicalSymbol}
+     * field for symbol-bearing events (MarketTickEvent, DepthUpdateEvent,
+     * CandleDeveloping, CandleClosed). The bespoke {@code putSymbolFields}
+     * helper (deleted in commit bb9772a) emitted a top-level
+     * {@code canonicalSymbol} on these events; the migration to the generic
+     * envelope in commit ecd8342 dropped the field. Consumers that route on
+     * {@code canonicalSymbol} need it back.
+     *
+     * <p>The canonical symbol is the raw {@code symbol} value — the bespoke
+     * resolver mapped them 1:1 when no {@code InstrumentResolver} was wired,
+     * which is the default for tests. For MarketTick and Depth, {@code symbol}
+     * lives at the top level of the payload. For Candle events the record is
+     * nested under {@code payload.candle}, so the post-processor falls back
+     * to {@code payload.candle.symbol}. The output is always a top-level
+     * {@code payload.canonicalSymbol} field, matching the bespoke wire shape.
+     */
+    public static final Consumer<ObjectNode> CANONICAL_SYMBOL_POST_PROCESSOR = node -> {
+        if (node == null) {
+            return;
+        }
+        // Skip if already present (defensive — bespoke writers may have set it).
+        JsonNode existing = node.get("canonicalSymbol");
+        if (existing != null && existing.isTextual()) {
+            return;
+        }
+        String symbolText = symbolTextOf(node);
+        if (symbolText != null) {
+            node.put("canonicalSymbol", symbolText);
+        }
+    };
+
+    private static String symbolTextOf(ObjectNode node) {
+        // Top-level symbol (MarketTickEvent, DepthUpdateEvent, …).
+        JsonNode top = node.get("symbol");
+        if (top != null && top.isTextual()) {
+            return top.asText();
+        }
+        // Nested Candle record (CandleClosed, CandleDeveloping).
+        JsonNode candle = node.get("candle");
+        if (candle instanceof ObjectNode candleObj) {
+            JsonNode c = candleObj.get("symbol");
+            if (c != null && c.isTextual()) {
+                return c.asText();
+            }
+        }
+        return null;
+    }
+
+    /**
      * Generic publisher: serialize any {@link DomainEvent} to JSON via
      * Jackson reflection and publish to the resolved {@link GatewayTopic}.
      * Topic is determined by the event class via {@code BridgeTopics.MAP}
@@ -236,6 +299,17 @@ public final class GatewayEventBridge implements AutoCloseable {
      * exact class name on the wire.
      */
     public void publishGeneric(DomainEvent event) {
+        publishGeneric(event, null);
+    }
+
+    /**
+     * Generic publisher with an optional payload post-processor. The
+     * {@code postProcessor} (when non-null) is invoked on the payload
+     * {@code ObjectNode} BEFORE the envelope is built and published.
+     * Used by symbol-bearing events to restore the {@code canonicalSymbol}
+     * field that the bespoke putSymbolFields helper used to emit.
+     */
+    public void publishGeneric(DomainEvent event, Consumer<ObjectNode> postProcessor) {
         if (event == null) {
             log.warn("publishGeneric called with null event — dropping");
             return;
@@ -262,6 +336,12 @@ public final class GatewayEventBridge implements AutoCloseable {
                 jdk8ModuleRegistered = true;
             }
             ObjectNode payload = objectMapper.valueToTree(event);
+            // Apply the per-event post-processor BEFORE wrapping the
+            // payload in the envelope. This is the hook that restores
+            // the canonicalSymbol field for symbol-bearing events.
+            if (postProcessor != null) {
+                postProcessor.accept(payload);
+            }
             // Wrap in a metadata envelope so consumers can decode without
             // knowing the class name on the wire.
             ObjectNode envelope = objectMapper.createObjectNode();

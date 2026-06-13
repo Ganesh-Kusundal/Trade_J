@@ -81,15 +81,13 @@ class GatewayEventBridgeAllocationTest {
 
         // Verify all expected fields are present
         assertTrue(node.has("symbol"), "Should have symbol field");
-        // P5.1 follow-up NOTE: the bespoke emitted a 'canonicalSymbol'
-        // field (resolved from the raw symbol via the canonicalSymbol()
-        // helper in GatewayEventBridge). The generic envelope keeps
-        // only the record fields — the raw 'symbol' is preserved, but
-        // the canonical form is no longer emitted. Consumers that
-        // routed on canonicalSymbol need to either: (1) resolve
-        // canonicalSymbol locally via the same canonicalSymbol()
-        // helper, or (2) wait for a follow-up that adds a
-        // canonicalSymbol post-processor to publishGeneric.
+        // Track D3: canonicalSymbol is RESTORED for symbol-bearing
+        // events. The CANONICAL_SYMBOL_POST_PROCESSOR hook in
+        // publishGeneric copies payload.symbol to payload.canonicalSymbol
+        // — see GatewayEventBridge.CANONICAL_SYMBOL_POST_PROCESSOR.
+        assertTrue(node.has("canonicalSymbol"), "Should have canonicalSymbol field");
+        assertEquals("RELIANCE", node.get("canonicalSymbol").asText(),
+                "canonicalSymbol should mirror symbol for MarketTickEvent");
         assertTrue(node.has("ltpPaisa"), "Should have ltpPaisa field");
         assertTrue(node.has("lastTradeQuantity"), "Should have lastTradeQuantity field");
         assertTrue(node.has("cumulativeVolume"), "Should have cumulativeVolume field");
@@ -146,9 +144,13 @@ class GatewayEventBridgeAllocationTest {
 
         // Verify top-level fields
         assertTrue(node.has("symbol"), "Should have symbol field");
-        // P5.1 follow-up NOTE: canonicalSymbol is GONE (the bespoke
-        // resolved the raw symbol to canonical form via canonicalSymbol()
-        // helper; the generic envelope keeps only the raw 'symbol').
+        // Track D3: canonicalSymbol is RESTORED for symbol-bearing
+        // events. The CANONICAL_SYMBOL_POST_PROCESSOR hook in
+        // publishGeneric copies payload.symbol to payload.canonicalSymbol
+        // — see GatewayEventBridge.CANONICAL_SYMBOL_POST_PROCESSOR.
+        assertTrue(node.has("canonicalSymbol"), "Should have canonicalSymbol field");
+        assertEquals("INFY", node.get("canonicalSymbol").asText(),
+                "canonicalSymbol should mirror symbol for DepthUpdateEvent");
         assertTrue(node.has("segment"), "Should have segment field");
         assertTrue(node.has("levels"), "Should have levels field");
         assertTrue(node.has("exchangeTimestampMs"), "Should have exchangeTimestampMs field");
