@@ -170,6 +170,7 @@ public final class GatewayEventBridge implements AutoCloseable {
         eventBus.subscribe(GreeksComputed.class, this::onDomainEvent);
         eventBus.subscribe(MaxPainComputed.class, this::onDomainEvent);
         eventBus.subscribe(GammaExposureComputed.class, this::onDomainEvent);
+        eventBus.subscribe(StrategyMetricsSnapshot.class, this::onDomainEvent);
     }
 
     void onDomainEvent(DomainEvent event) {

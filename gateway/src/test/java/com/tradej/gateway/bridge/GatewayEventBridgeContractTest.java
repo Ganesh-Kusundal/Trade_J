@@ -16,6 +16,7 @@ import com.tradej.core.domain.event.OrderRejected;
 import com.tradej.core.domain.event.PnlUpdatedEvent;
 import com.tradej.core.domain.event.ScanResultsPublished;
 import com.tradej.core.domain.event.SignalGenerated;
+import com.tradej.core.domain.event.StrategyMetricsSnapshot;
 import com.tradej.core.domain.event.TradeClosed;
 import com.tradej.core.domain.event.TradeOpened;
 import com.tradej.core.domain.model.Candle;
@@ -31,6 +32,7 @@ import com.tradej.core.domain.value.OrderStatus;
 import com.tradej.core.domain.value.OrderType;
 import com.tradej.core.domain.value.ProductType;
 import com.tradej.core.domain.value.Side;
+import com.tradej.core.domain.port.EventBus;
 import com.tradej.gateway.protocol.GatewayTopic;
 import com.tradej.gateway.router.GatewayTopicRouter;
 import org.junit.jupiter.api.AfterEach;
@@ -50,6 +52,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
@@ -558,6 +561,64 @@ class GatewayEventBridgeContractTest {
         assertEquals(1700000000000L, payload.get("currentTimeMs").asLong());
         // replaySpeedNanos is also present (bespoke did not emit it).
         assertEquals(1000L, payload.get("replaySpeedNanos").asLong());
+        assertNotNull(payload.get("metadata"), "publishGeneric emits metadata in the payload");
+    }
+
+    // ── Track E1: StrategyMetricsSnapshot subscription + publishGeneric ──
+
+    /**
+     * Verifies that {@link GatewayEventBridge#register(EventBus)} subscribes
+     * to {@code StrategyMetricsSnapshot}. The event is in {@link BridgeTopics#MAP}
+     * and {@code buildSerializerMap}, but the bridge never received it
+     * because the corresponding {@code eventBus.subscribe(...)} call was
+     * missing from {@code register()}. This is a regression test: if the
+     * subscription is ever dropped, this test fails.
+     */
+    @Test
+    void register_subscribesToStrategyMetricsSnapshot() {
+        EventBus eventBus = mock(EventBus.class);
+        bridge.register(eventBus);
+        // The bridge must subscribe to every class in the serializer table.
+        // StrategyMetricsSnapshot is the one that was missing — pin it here.
+        verify(eventBus).subscribe(eq(StrategyMetricsSnapshot.class),
+                any(com.tradej.core.domain.port.DomainEventHandler.class));
+    }
+
+    /**
+     * Verifies the full subscribe + publish flow for {@code StrategyMetricsSnapshot}.
+     * After {@code register(mockEventBus)} returns, feeding a
+     * {@code StrategyMetricsSnapshot} to {@code bridge.onDomainEvent(...)}
+     * should publish the generic envelope to the {@code STRATEGY_METRICS} topic
+     * with the counters map embedded in the payload.
+     */
+    @Test
+    void strategyMetricsSnapshot_publishedToStrategyMetricsTopicWithGenericEnvelope() throws Exception {
+        EventBus eventBus = mock(EventBus.class);
+        bridge.register(eventBus);
+
+        java.util.Map<String, Long> counters = new java.util.HashMap<>();
+        counters.put("momentumA|signal|emitted", 12L);
+        counters.put("momentumA|trade|closed|profit", 7L);
+        StrategyMetricsSnapshot snapshot = new StrategyMetricsSnapshot(
+                EventMetadata.root(), java.util.Map.copyOf(counters));
+
+        bridge.onDomainEvent(snapshot);
+
+        ArgumentCaptor<byte[]> bytesCaptor = ArgumentCaptor.forClass(byte[].class);
+        verify(router).publish(eq(GatewayTopic.STRATEGY_METRICS), bytesCaptor.capture());
+        JsonNode envelope = objectMapper.readTree(bytesCaptor.getValue());
+
+        // publishGeneric envelope shape: {topicId, topicVersion, eventType, payload}
+        assertEquals(GatewayTopic.STRATEGY_METRICS.wireId(), envelope.get("topicId").asInt());
+        assertEquals(GatewayTopic.STRATEGY_METRICS.version(), envelope.get("topicVersion").asInt());
+        assertEquals("StrategyMetricsSnapshot", envelope.get("eventType").asText());
+
+        JsonNode payload = envelope.get("payload");
+        assertNotNull(payload, "publishGeneric envelope must wrap the event in a payload field");
+        JsonNode payloadCounters = payload.get("counters");
+        assertNotNull(payloadCounters, "counters map must be present in the payload");
+        assertEquals(12L, payloadCounters.get("momentumA|signal|emitted").asLong());
+        assertEquals(7L, payloadCounters.get("momentumA|trade|closed|profit").asLong());
         assertNotNull(payload.get("metadata"), "publishGeneric emits metadata in the payload");
     }
 }
