@@ -117,11 +117,11 @@ public final class GatewayEventBridge implements AutoCloseable {
         // field. See PnlUpdatedEventEnvelopeMigrationTest.
         m.put(PnlUpdatedEvent.class,        SerializerEntry.generic(BridgeTopics.MAP.get(PnlUpdatedEvent.class)));
         m.put(ScanResultsPublished.class,   SerializerEntry.generic(BridgeTopics.MAP.get(ScanResultsPublished.class)));
-        m.put(OptionChainUpdated.class,     entry(BridgeTopics.MAP.get(OptionChainUpdated.class),     e -> optionChainPayload((OptionChainUpdated) e)));
-        m.put(GreeksComputed.class,         entry(BridgeTopics.MAP.get(GreeksComputed.class),         e -> greeksPayload((GreeksComputed) e)));
-        m.put(MaxPainComputed.class,        entry(BridgeTopics.MAP.get(MaxPainComputed.class),        e -> maxPainPayload((MaxPainComputed) e)));
-        m.put(GammaExposureComputed.class,  entry(BridgeTopics.MAP.get(GammaExposureComputed.class),  e -> gammaPayload((GammaExposureComputed) e)));
-        m.put(StrategyMetricsSnapshot.class, entry(BridgeTopics.MAP.get(StrategyMetricsSnapshot.class), e -> strategyMetricsPayload((StrategyMetricsSnapshot) e)));
+        m.put(OptionChainUpdated.class,     SerializerEntry.generic(BridgeTopics.MAP.get(OptionChainUpdated.class)));
+        m.put(GreeksComputed.class,         SerializerEntry.generic(BridgeTopics.MAP.get(GreeksComputed.class)));
+        m.put(MaxPainComputed.class,        SerializerEntry.generic(BridgeTopics.MAP.get(MaxPainComputed.class)));
+        m.put(GammaExposureComputed.class,  SerializerEntry.generic(BridgeTopics.MAP.get(GammaExposureComputed.class)));
+        m.put(StrategyMetricsSnapshot.class, SerializerEntry.generic(BridgeTopics.MAP.get(StrategyMetricsSnapshot.class)));
         return Map.copyOf(m);
     }
 
@@ -451,6 +451,11 @@ public final class GatewayEventBridge implements AutoCloseable {
             // for already-registered modules.
             if (!jdk8ModuleRegistered) {
                 objectMapper.registerModule(new com.fasterxml.jackson.datatype.jdk8.Jdk8Module());
+                objectMapper.registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule());
+                // LocalDate / LocalDateTime / Instant: emit ISO-8601
+                // strings (not numeric arrays). Default JSR-310
+                // behaviour is to emit arrays like [2026, 6, 25].
+                objectMapper.disable(com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
                 jdk8ModuleRegistered = true;
             }
             ObjectNode payload = objectMapper.valueToTree(event);

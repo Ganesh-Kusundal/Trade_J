@@ -375,21 +375,52 @@ class GatewayEventBridgeContractTest {
 
     @Test
     void greeksPayload_containsDeltaGamma() throws Exception {
+        // P5.1 follow-up: GreeksComputed now uses the publishGeneric
+        // envelope. The OptionGreeks record is nested under
+        // payload.greeks (the bespoke had delta + gamma at the top
+        // level alongside other derived fields).
         OptionGreeks greeks = new OptionGreeks(0.55, -0.02, 0.01, 25.0, 0.18);
         GreeksComputed event = new GreeksComputed(EventMetadata.root(),
                 new com.tradej.core.domain.model.InstrumentKey("NIFTY25JUN24000CE", ExchangeSegment.IDX_I), greeks);
-        JsonNode json = publishAndCapture(event, GatewayTopic.GREEKS_UPDATE);
-        assertEquals(0.55, json.get("delta").asDouble(), 0.001);
-        assertEquals(0.01, json.get("gamma").asDouble(), 0.001);
+        bridge.onDomainEvent(event);
+        ArgumentCaptor<byte[]> bytesCaptor = ArgumentCaptor.forClass(byte[].class);
+        verify(router).publish(eq(GatewayTopic.GREEKS_UPDATE), bytesCaptor.capture());
+        JsonNode envelope = objectMapper.readTree(bytesCaptor.getValue());
+        JsonNode payload = envelope.get("payload");
+        assertEquals("GreeksComputed", envelope.get("eventType").asText());
+        JsonNode greeksNode = payload.get("greeks");
+        assertNotNull(greeksNode, "OptionGreeks record must be nested under payload.greeks");
+        assertEquals(0.55, greeksNode.get("delta").asDouble(), 0.001);
+        assertEquals(0.01, greeksNode.get("gamma").asDouble(), 0.001);
+        // The bespoke emitted theta + vega + rho at the top level too;
+        // the generic envelope keeps them nested under payload.greeks.
+        assertEquals(-0.02, greeksNode.get("theta").asDouble(), 0.001);
+        // The InstrumentKey record is also nested under payload.instrumentKey.
+        // Fields: symbol + exchangeSegment.
+        JsonNode instrumentNode = payload.get("instrumentKey");
+        assertNotNull(instrumentNode, "InstrumentKey record must be nested under payload.instrumentKey");
+        assertEquals("NIFTY25JUN24000CE", instrumentNode.get("symbol").asText());
     }
 
     @Test
     void maxPainPayload_containsStrike() throws Exception {
+        // P5.1 follow-up: MaxPainComputed now uses the publishGeneric
+        // envelope. The LocalDate expiry field is serialized via the
+        // Jdk8Module registered in P5.1 follow-up commit ee58c35.
         MaxPainComputed event = new MaxPainComputed(EventMetadata.root(), "NIFTY",
                 LocalDate.of(2026, 6, 25), 2400000L, 50000000L);
-        JsonNode json = publishAndCapture(event, GatewayTopic.MAX_PAIN_UPDATE);
-        assertEquals("NIFTY", json.get("underlying").asText());
-        assertEquals(2400000L, json.get("maxPainStrikePaisa").asLong());
+        bridge.onDomainEvent(event);
+        ArgumentCaptor<byte[]> bytesCaptor = ArgumentCaptor.forClass(byte[].class);
+        verify(router).publish(eq(GatewayTopic.MAX_PAIN_UPDATE), bytesCaptor.capture());
+        JsonNode envelope = objectMapper.readTree(bytesCaptor.getValue());
+        JsonNode payload = envelope.get("payload");
+        assertEquals("MaxPainComputed", envelope.get("eventType").asText());
+        assertEquals("NIFTY", payload.get("underlying").asText());
+        assertEquals(2400000L, payload.get("maxPainStrikePaisa").asLong());
+        // P5.1 follow-up NOTE: LocalDate serializes as an ISO-8601
+        // string by default (e.g. "2026-06-25"). The bespoke emitted
+        // a separate 'expiry' string field with the same value.
+        assertEquals("2026-06-25", payload.get("expiry").asText());
     }
 
     @Test
