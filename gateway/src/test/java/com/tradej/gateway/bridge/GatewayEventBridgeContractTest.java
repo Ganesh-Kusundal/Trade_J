@@ -207,13 +207,26 @@ class GatewayEventBridgeContractTest {
 
     @Test
     void signalPayload_containsSignalInfo() throws Exception {
+        // P5.1 follow-up: SignalGenerated now uses the publishGeneric
+        // envelope. The consumer reads the payload subobject.
         SignalGenerated signal = new SignalGenerated(EventMetadata.root(), "SIG-1",
                 "RELIANCE", "5m", Side.BUY, 250000L, 240000L, 260000L,
                 "BREAKOUT", Map.of());
-        JsonNode json = publishAndCapture(signal, GatewayTopic.STRATEGY_SIGNAL);
-        assertEquals("SIG-1", json.get("signalId").asText());
-        assertEquals("BUY", json.get("side").asText());
-        assertEquals("BREAKOUT", json.get("setup").asText());
+        bridge.onDomainEvent(signal);
+        ArgumentCaptor<byte[]> bytesCaptor = ArgumentCaptor.forClass(byte[].class);
+        verify(router).publish(eq(GatewayTopic.STRATEGY_SIGNAL), bytesCaptor.capture());
+        JsonNode envelope = objectMapper.readTree(bytesCaptor.getValue());
+        JsonNode payload = envelope.get("payload");
+        assertEquals("SignalGenerated", envelope.get("eventType").asText());
+        assertEquals("SIG-1", payload.get("signalId").asText());
+        assertEquals("BUY", payload.get("side").asText());
+        assertEquals("BREAKOUT", payload.get("setup").asText());
+        // The generic envelope emits MORE fields than the bespoke
+        // serializer did (the bespoke dropped interval + the price
+        // fields; the generic envelope keeps them all). The consumer
+        // can read them from the payload as needed.
+        assertEquals("5m", payload.get("interval").asText());
+        assertEquals(250000L, payload.get("entryPricePaisa").asLong());
     }
 
     @Test
