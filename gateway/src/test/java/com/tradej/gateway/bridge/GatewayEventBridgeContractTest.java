@@ -50,6 +50,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 @Tag("unit")
@@ -239,5 +240,50 @@ class GatewayEventBridgeContractTest {
     void unknownEventType_silentlyIgnored() {
         com.tradej.core.domain.event.DomainEvent unknown = new com.tradej.core.domain.event.TestEvent();
         assertDoesNotThrow(() -> bridge.onDomainEvent(unknown));
+    }
+
+    // ── P5.1 follow-up: publishGeneric envelope ─────────────────────
+
+    /**
+     * Verifies the publishGeneric envelope: topicId + topicVersion + eventType
+     * metadata tags + event payload. The full P5.1 follow-up migrates the
+     * 17+ bespoke serializers to publishGeneric; this test pins the
+     * envelope shape so the migration is safe.
+     */
+    @Test
+    void publishGeneric_envelopeContainsTopicMetadataAndPayload() throws Exception {
+        MarketTickEvent tick = new MarketTickEvent(
+                EventMetadata.root(), 1L, "RELIANCE", ExchangeSegment.NSE_EQ,
+                FeedMode.FULL, 250000L, 100L, 5000L, 1700000000000L,
+                Optional.empty(), 0L, 0L);
+
+        bridge.publishGeneric(tick);
+
+        ArgumentCaptor<byte[]> bytesCaptor = ArgumentCaptor.forClass(byte[].class);
+        verify(router).publish(eq(GatewayTopic.MARKET_TICK), bytesCaptor.capture());
+
+        JsonNode envelope = objectMapper.readTree(bytesCaptor.getValue());
+        assertEquals(GatewayTopic.MARKET_TICK.wireId(), envelope.get("topicId").asInt());
+        assertEquals(GatewayTopic.MARKET_TICK.version(), envelope.get("topicVersion").asInt());
+        assertEquals("MarketTickEvent", envelope.get("eventType").asText());
+
+        JsonNode payload = envelope.get("payload");
+        assertNotNull(payload, "publishGeneric must wrap the event in a payload field");
+        assertEquals("RELIANCE", payload.get("symbol").asText());
+        assertEquals(250000L, payload.get("ltpPaisa").asLong());
+    }
+
+    /**
+     * Verifies that publishGeneric for an event whose class is NOT in
+     * BridgeTopics.MAP is silently dropped (with a WARN log). This is
+     * the contract: the map is the single source of truth; events not
+     * in the map don't get auto-published.
+     */
+    @Test
+    void publishGeneric_unknownEventType_doesNotPublish() {
+        com.tradej.core.domain.event.DomainEvent unknown = new com.tradej.core.domain.event.TestEvent();
+        assertDoesNotThrow(() -> bridge.publishGeneric(unknown));
+        // No publish should have happened (BridgeTopics.MAP has no entry for TestEvent).
+        verify(router, never()).publish(any(GatewayTopic.class), any(byte[].class));
     }
 }

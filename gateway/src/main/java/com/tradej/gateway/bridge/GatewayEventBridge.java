@@ -411,6 +411,14 @@ public final class GatewayEventBridge implements AutoCloseable {
             return;
         }
         try {
+            // Register the Jdk8Module on first use so Optional / Stream /
+            // other Java 8 types in event payloads serialize correctly.
+            // This is idempotent — ObjectMapper.registerModules is a no-op
+            // for already-registered modules.
+            if (!jdk8ModuleRegistered) {
+                objectMapper.registerModule(new com.fasterxml.jackson.datatype.jdk8.Jdk8Module());
+                jdk8ModuleRegistered = true;
+            }
             ObjectNode payload = objectMapper.valueToTree(event);
             // Wrap in a metadata envelope so consumers can decode without
             // knowing the class name on the wire.
@@ -424,6 +432,8 @@ public final class GatewayEventBridge implements AutoCloseable {
             log.warn("publishGeneric failed for {}: {}", event.getClass().getSimpleName(), e.getMessage());
         }
     }
+
+    private volatile boolean jdk8ModuleRegistered = false;
 
     private ObjectNode pnlPayload(PnlUpdatedEvent pnl) {
         ObjectNode node = objectMapper.createObjectNode();
