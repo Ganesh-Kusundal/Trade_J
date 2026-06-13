@@ -62,6 +62,21 @@ public final class GatewayEventBridge implements AutoCloseable {
         this.objectMapper = objectMapper;
         this.instrumentResolver = instrumentResolver;
         this.serializers = buildSerializerMap();
+        // Register Jdk8Module + JavaTimeModule once at construction time so
+        // Optional / Stream / LocalDate / LocalDateTime / Instant fields in
+        // event payloads serialize correctly. registerModule is idempotent,
+        // so the shared Spring-injected ObjectMapper is safe to register on
+        // even if other components have already registered the same modules.
+        // The null guard lets BridgeTopicsTest construct a bridge with
+        // (null, null) purely to inspect the serializer table via reflection.
+        if (objectMapper != null) {
+            objectMapper.registerModule(new com.fasterxml.jackson.datatype.jdk8.Jdk8Module());
+            objectMapper.registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule());
+            // LocalDate / LocalDateTime / Instant: emit ISO-8601 strings
+            // (not numeric arrays). Default JSR-310 behaviour is to emit
+            // arrays like [2026, 6, 25].
+            objectMapper.disable(com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        }
     }
 
     /** Serializer entry linking a domain event type to its topic, payload builder, and envelope mode. */
@@ -322,19 +337,10 @@ public final class GatewayEventBridge implements AutoCloseable {
             return;
         }
         try {
-            // Register the Jdk8Module on first use so Optional / Stream /
-            // other Java 8 types in event payloads serialize correctly.
-            // This is idempotent — ObjectMapper.registerModules is a no-op
-            // for already-registered modules.
-            if (!jdk8ModuleRegistered) {
-                objectMapper.registerModule(new com.fasterxml.jackson.datatype.jdk8.Jdk8Module());
-                objectMapper.registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule());
-                // LocalDate / LocalDateTime / Instant: emit ISO-8601
-                // strings (not numeric arrays). Default JSR-310
-                // behaviour is to emit arrays like [2026, 6, 25].
-                objectMapper.disable(com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
-                jdk8ModuleRegistered = true;
-            }
+            // Jdk8Module + JavaTimeModule are registered once in the
+            // constructor — by the time publishGeneric runs, the mapper
+            // is already configured to handle Optional / Stream /
+            // LocalDate / LocalDateTime / Instant fields.
             ObjectNode payload = objectMapper.valueToTree(event);
             // Apply the per-event post-processor BEFORE wrapping the
             // payload in the envelope. This is the hook that restores
@@ -354,8 +360,6 @@ public final class GatewayEventBridge implements AutoCloseable {
             log.warn("publishGeneric failed for {}: {}", event.getClass().getSimpleName(), e.getMessage());
         }
     }
-
-    private volatile boolean jdk8ModuleRegistered = false;
 
     // ── Depth Analytics Publishing ──
 
