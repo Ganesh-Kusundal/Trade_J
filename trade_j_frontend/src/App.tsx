@@ -15,11 +15,12 @@ import type { OHLCVBar, L2Level, TradeTick, SessionResponse, Instrument } from "
 import { MarketState, MARKET_STATE_COLORS, resolveInstrument } from "./domain/instrument";
 import { filterValidBars, validateOrderBook } from "./domain/validators";
 import { MarketCalendarService } from "./domain/MarketCalendarService";
-import { BarChart2, Search, Activity, Settings as SettingsIcon } from "lucide-react";
+import { BarChart2, Search, Activity, Settings as SettingsIcon, Power } from "lucide-react";
 import { fetchSymbols } from "./api/marketData";
 import { TerminalDataOrchestrator, DataMode } from "./api/TerminalDataOrchestrator";
 import type { BrokerConfig, OrchestratorCallbacks } from "./api/TerminalDataOrchestrator";
 import { placeOrder } from "./api/orders";
+import { armKillSwitch } from "./api/killSwitch";
 import { subscribeReadModel } from "./api/stream";
 import { fetchSession, isMarketOpen } from "./api/marketSession";
 import type { ExchangeSegment, Side, OrderType, ProductType, Validity } from "./generated/models";
@@ -95,6 +96,10 @@ export default function App() {
   const [orderPrice, setOrderPrice] = useState("");
   const [orderStatus, setOrderStatus] = useState("");
   const [bottomTab, setBottomTab] = useState<"watchlist" | "orders" | "alerts" | "risk" | "news" | "studio">("watchlist");
+
+  // Kill switch (STOP ALL TRADING) — confirmation modal + toast state.
+  const [showKillConfirm, setShowKillConfirm] = useState(false);
+  const [killSwitchStatus, setKillSwitchStatus] = useState<string>("");
 
   // Dashboard layout switcher: persists in localStorage and renders the
   // chosen TerminalLayout as an *additional* panel below the legacy
@@ -404,6 +409,23 @@ export default function App() {
     } catch (e: any) { setOrderStatus(`Error: ${e.message}`); }
   };
 
+  const handleConfirmKillSwitch = async () => {
+    setShowKillConfirm(false);
+    setKillSwitchStatus("Arming kill switch...");
+    console.warn("[KILL-SWITCH] User initiated STOP ALL TRADING from UI toolbar");
+    try {
+      const result = await armKillSwitch();
+      setKillSwitchStatus(`Kill switch ARMED at ${new Date(result.armedAtMs).toLocaleTimeString()}`);
+      setBrokerStatus(prev => ({ ...prev, status: "DOWN", websocketConnected: false }));
+      setTimeout(() => setKillSwitchStatus(""), 8000);
+    } catch (e: any) {
+      setKillSwitchStatus(`Kill switch failed: ${e.message}`);
+      setTimeout(() => setKillSwitchStatus(""), 8000);
+    }
+  };
+
+  const killSwitchDisabled = dataMode === "SIMULATION";
+
   const filteredSymbolsList = useMemo(() => {
     if (!searchQuery) return availableSymbols;
     return availableSymbols.filter(s => s.toLowerCase().includes(searchQuery.toLowerCase()));
@@ -558,6 +580,19 @@ export default function App() {
             className="flex items-center gap-1 px-3 py-1 rounded font-black text-[10px] bg-[#f0b429]/15 text-[#f0b429] border border-[#f0b429]/30 hover:border-[#f0b429]/60 cursor-pointer">
             <Activity className="w-3 h-3" /> TRADE
           </button>
+          <span className="text-slate-600">|</span>
+          <button
+            onClick={() => setShowKillConfirm(true)}
+            disabled={killSwitchDisabled}
+            title={killSwitchDisabled ? "Disabled in SIMULATION mode (no live positions to stop)" : "STOP ALL TRADING — cancels open orders and pauses strategies"}
+            className={`flex items-center gap-1 px-3 py-1 rounded font-black text-[10px] border cursor-pointer ${
+              killSwitchDisabled
+                ? "bg-[#21262d] text-slate-600 border-[#21262d] cursor-not-allowed"
+                : "bg-[#ef5350]/20 text-[#ef5350] border-[#ef5350]/50 hover:bg-[#ef5350]/30 hover:border-[#ef5350]"
+            }`}
+            data-testid="stop-all-trading">
+            <Power className="w-3 h-3" /> STOP ALL TRADING
+          </button>
           <button onClick={() => setShowSettings(true)}
             className="flex items-center gap-1 px-2 py-1 rounded text-[10px] text-slate-400 hover:text-slate-200 hover:bg-[#21262d] cursor-pointer">
             <SettingsIcon className="w-3 h-3" />
@@ -710,6 +745,45 @@ export default function App() {
           </div>
         );
       })()}
+
+      {showKillConfirm && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[110]" data-testid="stop-all-confirm">
+          <div className="bg-[#161b22] border-2 border-[#ef5350] rounded-lg p-5 w-[420px] shadow-2xl">
+            <h3 className="text-base font-black text-[#ef5350] mb-2 flex items-center gap-2">
+              <Power className="w-4 h-4" /> STOP ALL TRADING?
+            </h3>
+            <p className="text-[11px] text-slate-300 leading-relaxed mb-4">
+              This will cancel all open orders and pause all strategies. The kill
+              switch will remain armed until manually disarmed. Are you sure?
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={handleConfirmKillSwitch}
+                className="flex-1 px-3 py-1.5 rounded font-black text-[10px] bg-[#ef5350] text-white hover:bg-[#ef5350]/90 cursor-pointer"
+                data-testid="stop-all-confirm-yes">
+                YES — STOP ALL TRADING
+              </button>
+              <button
+                onClick={() => setShowKillConfirm(false)}
+                className="flex-1 px-3 py-1.5 rounded font-bold text-[10px] bg-[#21262d] text-slate-300 hover:bg-[#30363d] cursor-pointer">
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {killSwitchStatus && (
+        <div
+          data-testid="kill-switch-toast"
+          className={`fixed bottom-3 right-3 z-[120] px-4 py-2 rounded shadow-lg text-[11px] font-bold border ${
+            killSwitchStatus.startsWith("Kill switch failed")
+              ? "bg-[#ef5350]/15 text-[#ef5350] border-[#ef5350]/40"
+              : "bg-[#26a69a]/15 text-[#26a69a] border-[#26a69a]/40"
+          }`}>
+          {killSwitchStatus}
+        </div>
+      )}
     </div>
     <SettingsPanel isOpen={showSettings} onClose={() => setShowSettings(false)} />
     </ErrorBoundary>

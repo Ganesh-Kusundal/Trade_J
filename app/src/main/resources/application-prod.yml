@@ -13,6 +13,17 @@ trade:
     rest-base-url: ${dhan.restBaseUrl:}
     auth-mode: ${dhan.authMode:TOTP_GENERATED}
     token-state-file: ${dhan.tokenStateFile:runtime-prod/dhan-token-state.json}
+
+  # ── Risk gates (ENFORCED ONLY IN THE prod profile) ────────────────────────
+  # The prod profile flips these on so a runaway strategy cannot blow past
+  # the margin cap or the unrealized-loss cap. The default profile (used by
+  # dev / test / paper / replay) keeps them off so developer workflows are
+  # not interrupted by risk checks. Gates are verified working in
+  # MarginEnforcementComponentTest.
+  risk:
+    enforce-margin: true
+    enforce-unrealized-loss: true
+
   storage:
     chronicle-path: runtime-prod/chronicle
     duckdb-path: runtime-prod/trade.duckdb
