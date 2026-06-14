@@ -114,6 +114,10 @@ registerWidget("positions-table", PositionsTable);
 registerWidget("pnl-summary", PnLSummary);
 registerWidget("signals-table", SignalsTable);
 
+import { DashboardRenderer as _ } from "./types";
+import "./widgetsExtra";
+import "./widgetsStrategy";
+
 export function DashboardRenderer({ spec }: { spec: DashboardSpec }) {
   if (spec.layout.kind === "grid") {
     const cols = spec.layout.cols;
@@ -123,5 +127,51 @@ export function DashboardRenderer({ spec }: { spec: DashboardSpec }) {
       </div>
     );
   }
+  if (spec.layout.kind === "tabs") {
+    return <TabbedDashboard spec={spec} />;
+  }
+  if (spec.layout.kind === "split") {
+    return <SplitDashboard spec={spec} direction={spec.layout.direction} ratio={spec.layout.ratio} />;
+  }
   return <div className="p-2 text-slate-500 text-[10px]">Unsupported layout: {(spec.layout as { kind: string }).kind}</div>;
+}
+
+function TabbedDashboard({ spec }: { spec: DashboardSpec }) {
+  const tabs = spec.layout.kind === "tabs" ? spec.layout.tabs : [];
+  const [active, setActive] = React.useState(tabs[0] ?? "");
+  return (
+    <div className="h-full flex flex-col">
+      <div className="flex items-center gap-1 bg-[#0d1117] border-b border-[#21262d] p-1">
+        {tabs.map((t) => (
+          <button key={t} onClick={() => setActive(t)}
+            className={`px-2 py-0.5 text-[9px] font-bold rounded uppercase ${
+              active === t ? "bg-amber-500 text-[#0d1117]" : "text-slate-400 hover:bg-[#21262d]"
+            }`}>
+            {t}
+          </button>
+        ))}
+      </div>
+      <div className="flex-1 grid gap-2 p-1" style={{ gridTemplateColumns: `repeat(${Math.max(1, Math.ceil(spec.widgets.length / Math.max(1, tabs.length)))}, minmax(0, 1fr))` }}>
+        {spec.widgets.map((w) => <WidgetRenderer key={w.id} spec={w} />)}
+      </div>
+    </div>
+  );
+}
+
+function SplitDashboard({ spec, direction, ratio }: { spec: DashboardSpec; direction: "horizontal" | "vertical"; ratio: number }) {
+  const left = spec.widgets.slice(0, Math.ceil(spec.widgets.length * ratio));
+  const right = spec.widgets.slice(Math.ceil(spec.widgets.length * ratio));
+  const style: React.CSSProperties = direction === "horizontal"
+    ? { gridTemplateColumns: `${ratio}fr ${1 - ratio}fr` }
+    : { gridTemplateRows: `${ratio}fr ${1 - ratio}fr` };
+  return (
+    <div className="h-full grid gap-2 p-1" style={style}>
+      <div className="grid gap-2" style={direction === "horizontal" ? { gridTemplateRows: `repeat(${left.length}, 1fr)` } : { gridTemplateColumns: `repeat(${left.length}, 1fr)` }}>
+        {left.map((w) => <WidgetRenderer key={w.id} spec={w} />)}
+      </div>
+      <div className="grid gap-2" style={direction === "horizontal" ? { gridTemplateRows: `repeat(${right.length}, 1fr)` } : { gridTemplateColumns: `repeat(${right.length}, 1fr)` }}>
+        {right.map((w) => <WidgetRenderer key={w.id} spec={w} />)}
+      </div>
+    </div>
+  );
 }
