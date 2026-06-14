@@ -1,5 +1,6 @@
 import type { BrokerFeedClient, FeedEvent, FeedTick, FeedDepth, FeedFill } from "./brokerFeedClient";
 import type { DataOrigin } from "../store/types";
+import { decodeUpstoxFrame } from "./upstoxBinaryDecoder";
 
 interface UpstoxConfig {
   accessToken: string;
@@ -31,7 +32,14 @@ export class UpstoxBrokerFeedClient implements BrokerFeedClient {
 
     this.ws.onmessage = (event) => {
       try {
-        this.handleBinaryFrame(event.data);
+        if (event.data instanceof ArrayBuffer) {
+          const ticks = decodeUpstoxFrame(event.data);
+          for (const t of ticks) {
+            this.emit({ type: "tick", data: t });
+          }
+        } else if (typeof event.data === "string") {
+          this.handleTextFrame(event.data);
+        }
       } catch (e) {
         console.error("[UpstoxBrokerFeedClient] parse error", e);
       }
@@ -84,10 +92,14 @@ export class UpstoxBrokerFeedClient implements BrokerFeedClient {
   }
 
   private handleBinaryFrame(_data: ArrayBuffer | string): void {
-    // Upstox protobuf schema (v3) is required to decode ltp/depth/ff.
-    // Intentionally a no-op until the proto is wired into the frontend bundle.
-    // The backend's /api/v1/stream/read-model projection is the
-    // canonical source; this client is for direct push only.
+    // Retained for backwards compatibility; the new path decodes
+    // binary frames via decodeUpstoxFrame() in onmessage above.
+    // (Subclassing or alternative transport modes can override this.)
+  }
+
+  private handleTextFrame(_text: string): void {
+    // Upstox v3 sends binary frames only. Text frames are not
+    // expected on the market-data feed.
   }
 }
 
