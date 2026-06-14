@@ -5,6 +5,13 @@ layout:
   kind: tabs
   tabs: [overview, greeks, smile, oi]
 widgets:
+  - id: chain
+    type: option-chain
+    title: Option Chain
+    dataSource:
+      kind: readmodel.optionChain
+      underlying: ${selectedUnderlying}
+      depth: 8
   - id: option-depth
     type: depth-snapshot
     title: ATM Option Depth

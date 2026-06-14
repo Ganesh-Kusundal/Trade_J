@@ -11,7 +11,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DASHBOARDS="${ROOT}/trade_j_frontend/src/dashboards"
 
 # Widget types known to be implemented (from T15 + prior work).
-KNOWN_WIDGETS="depth-snapshot drawdown equity-curve heatmap orders-table pnl-curve pnl-summary positions-table scan-hits signal-stream signals-table"
+KNOWN_WIDGETS="depth-snapshot drawdown equity-curve heatmap option-chain orders-table pnl-curve pnl-summary positions-table scan-hits signal-stream signals-table"
 
 # Layout kinds supported by the renderer.
 KNOWN_LAYOUTS="grid tabs split"

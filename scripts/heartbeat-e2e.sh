@@ -226,6 +226,74 @@ else
   bad "SSE stream returned unexpected content"
 fi
 
+# ----- 9. Signed-URL endpoint -----------------------------------------------
+# The /api/v1/auth/ws-url endpoint hands the browser a 30-second
+# signed broker WebSocket URL. Verify the endpoint:
+#   1. Returns 401 with no X-Session-Id header
+#   2. Returns 200 with a valid session: {url, broker, expiresAtMs,
+#      signature, ttlMs}; url starts with wss://, expiresAtMs is
+#      a future timestamp, ttlMs == 30000, signature is non-empty
+step "9. /api/v1/auth/ws-url (signed broker WS URL)"
+SIGNED_HTTP=$(curl -s -o /dev/null -w "%{http_code}" \
+  "$BASE/api/v1/auth/ws-url?broker=DHAN&instruments=2885,11536")
+if [[ "$SIGNED_HTTP" == "401" ]]; then
+  ok "/ws-url returns 401 without X-Session-Id"
+else
+  bad "/ws-url without session: HTTP $SIGNED_HTTP (expected 401)"
+fi
+# Re-use the existing test login (or mint a fresh session)
+TEST_LOGIN=$(curl -s -X POST -H "Content-Type: application/json" \
+  -d '{"broker":"DHAN","accessToken":"hb-tok","clientId":"hb-cid"}' \
+  "$BASE/api/v1/auth/login" 2>/dev/null)
+TEST_SID=$(echo "$TEST_LOGIN" | python3 -c "import json,sys
+try: print(json.load(sys.stdin)['sessionId'])
+except: print('')" 2>/dev/null)
+if [[ -n "$TEST_SID" ]]; then
+  SIGNED=$(curl -s -H "X-Session-Id: $TEST_SID" \
+    "$BASE/api/v1/auth/ws-url?broker=DHAN&instruments=2885,11536")
+  SIGNED_URL=$(echo "$SIGNED" | python3 -c "import json,sys
+try: print(json.load(sys.stdin)['url'])
+except: print('')" 2>/dev/null)
+  if [[ "$SIGNED_URL" == wss://* ]]; then
+    ok "/ws-url url starts with wss://"
+  else
+    bad "/ws-url url is not wss:// ($SIGNED_URL)"
+  fi
+  SIGNED_TTL=$(echo "$SIGNED" | python3 -c "import json,sys
+try: print(json.load(sys.stdin)['ttlMs'])
+except: print(0)" 2>/dev/null)
+  if [[ "$SIGNED_TTL" == "30000" ]]; then
+    ok "/ws-url ttlMs is 30000 (30 seconds)"
+  else
+    bad "/ws-url ttlMs is $SIGNED_TTL (expected 30000)"
+  fi
+  SIGNED_SIG=$(echo "$SIGNED" | python3 -c "import json,sys
+try: print(len(json.load(sys.stdin).get('signature', '')))
+except: print(0)" 2>/dev/null)
+  if [[ "$SIGNED_SIG" -gt 20 ]]; then
+    ok "/ws-url signature is non-trivial ($SIGNED_SIG chars)"
+  else
+    bad "/ws-url signature is too short ($SIGNED_SIG chars)"
+  fi
+  # Verify expiry is in the future and within ~30 sec
+  SIGNED_EXP=$(echo "$SIGNED" | python3 -c "import json,sys,time
+try:
+    body = json.load(sys.stdin)
+    delta = body['expiresAtMs'] - int(time.time() * 1000)
+    print(delta)
+except: print(-1)" 2>/dev/null)
+  if [[ "$SIGNED_EXP" -gt 25000 ]] && [[ "$SIGNED_EXP" -le 30000 ]]; then
+    ok "/ws-url expires in ~30s (delta=${SIGNED_EXP}ms)"
+  else
+    bad "/ws-url expiresAtMs is ${SIGNED_EXP}ms from now (expected 25000-30000)"
+  fi
+  # Cleanup: logout the test session
+  curl -s -X POST -H "X-Session-Id: $TEST_SID" \
+    "$BASE/api/v1/auth/logout" >/dev/null 2>&1 || true
+else
+  bad "/ws-url: could not mint a test session"
+fi
+
 # ----- Summary ---------------------------------------------------------------
 echo ""
 echo "═══════════════════════════════════════════════════════"

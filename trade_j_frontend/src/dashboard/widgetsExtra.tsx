@@ -143,10 +143,106 @@ function ScanHits({ spec }: WidgetProps) {
   );
 }
 
+// ── OptionChain widget ──
+// Shows the option chain for the underlying specified in the
+// widget's dataSource. Calls /api/v1/options/chain?underlying=...
+// Renders spot price, max pain, PCR, total call/Put OI, and
+// the strikes table (call OI / LTP, strike, put LTP / OI).
+// Empty chain (no strikes) shows a clean "no chain" message.
+function OptionChain({ spec }: WidgetProps) {
+  const ds: any = spec.dataSource ?? {};
+  const underlying: string = ds.underlying ?? "NIFTY";
+  const segment: string = ds.segment ?? "NSE_FNO";
+  const depth: number = typeof ds.depth === "number" ? ds.depth : 5;
+
+  const [data, setData] = React.useState<any | null>(null);
+  const [err, setErr] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    const url = `/api/v1/options/chain?underlying=${encodeURIComponent(underlying)}&segment=${encodeURIComponent(segment)}&depth=${depth}`;
+    fetch(url)
+      .then((r) => r.json())
+      .then((j) => { if (!cancelled) { setData(j); setErr(null); } })
+      .catch((e) => { if (!cancelled) setErr(String(e?.message ?? e)); });
+    return () => { cancelled = true; };
+  }, [underlying, segment, depth]);
+
+  if (err) {
+    return <div className="bg-[#0d1117] border border-rose-500/40 rounded p-2 text-rose-400 text-[10px]">Option chain error: {err}</div>;
+  }
+  if (!data) {
+    return <div className="bg-[#0d1117] border border-[#21262d] rounded p-2 text-slate-600 text-[10px]">Loading option chain…</div>;
+  }
+  const strikes: any[] = Array.isArray(data.strikes) ? data.strikes : [];
+  const spotPaisa: number = data.spotPricePaisa ?? 0;
+  const maxPain: number = data.maxPainStrikePaisa ?? 0;
+  const pcr: number = data.putCallRatio ?? 0;
+  const totalCallOi: number = data.totalCallOi ?? 0;
+  const totalPutOi: number = data.totalPutOi ?? 0;
+
+  return (
+    <div className="bg-[#0d1117] border border-[#21262d] rounded p-2 h-full overflow-auto text-[10px]">
+      <div className="text-[9px] uppercase font-bold text-slate-500 mb-1">
+        {spec.title ?? `Option Chain — ${data.underlying ?? underlying}`}
+      </div>
+      <div className="grid grid-cols-4 gap-1 mb-1 text-[9px]">
+        <div>
+          <div className="text-slate-500">Spot</div>
+          <div className="text-slate-200 font-bold">{(spotPaisa / 100).toFixed(2)}</div>
+        </div>
+        <div>
+          <div className="text-slate-500">Max Pain</div>
+          <div className="text-amber-400 font-bold">{maxPain > 0 ? (maxPain / 100).toFixed(2) : "—"}</div>
+        </div>
+        <div>
+          <div className="text-slate-500">PCR</div>
+          <div className="text-cyan-400 font-bold">{pcr.toFixed(2)}</div>
+        </div>
+        <div>
+          <div className="text-slate-500">Strikes</div>
+          <div className="text-slate-300">{strikes.length}</div>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-2 mb-1 text-[9px]">
+        <div className="text-emerald-400">Call OI: {totalCallOi}</div>
+        <div className="text-rose-400">Put OI: {totalPutOi}</div>
+      </div>
+      {strikes.length === 0 ? (
+        <div className="text-slate-600 text-[10px] mt-1">No strikes for {data.underlying ?? underlying} (live data required)</div>
+      ) : (
+        <table className="w-full text-[9px]">
+          <thead className="text-slate-500">
+            <tr className="grid grid-cols-5">
+              <th className="text-right text-emerald-400">Call OI</th>
+              <th className="text-right text-emerald-400">Call LTP</th>
+              <th className="text-center">Strike</th>
+              <th className="text-left text-rose-400">Put LTP</th>
+              <th className="text-left text-rose-400">Put OI</th>
+            </tr>
+          </thead>
+          <tbody>
+            {strikes.map((s, i) => (
+              <tr key={i} className="grid grid-cols-5 border-t border-[#21262d]">
+                <td className="text-right text-slate-200">{s.callOi ?? 0}</td>
+                <td className="text-right text-slate-300">{((s.callLtpPaisa ?? 0) / 100).toFixed(2)}</td>
+                <td className="text-center font-bold text-amber-400">{(s.strikePaisa / 100).toFixed(0)}</td>
+                <td className="text-left text-slate-300">{((s.putLtpPaisa ?? 0) / 100).toFixed(2)}</td>
+                <td className="text-left text-slate-200">{s.putOi ?? 0}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}
+
 import { registerWidget } from "./types";
 registerWidget("pnl-curve", PnLCurve);
 registerWidget("signal-stream", SignalStream);
 registerWidget("depth-snapshot", DepthSnapshot);
 registerWidget("scan-hits", ScanHits);
+registerWidget("option-chain", OptionChain);
 
-export const newWidgets: WidgetRenderer[] = [PnLCurve, SignalStream, DepthSnapshot, ScanHits];
+export const newWidgets: WidgetRenderer[] = [PnLCurve, SignalStream, DepthSnapshot, ScanHits, OptionChain];
