@@ -28,6 +28,8 @@ import NewsFeed from "./components/NewsFeed";
 import ErrorBoundary from "./components/ErrorBoundary";
 import StrategyDashboard from "./components/StrategyDashboard";
 import OptionChain from "./components/OptionChain";
+import { DashboardRenderer } from "./dashboard/DashboardRenderer";
+import { defaultExecutionDashboard } from "./dashboard/yamlParser";
 import { resolveInstrument } from "./domain/instrument";
 import { fetchSession } from "./api/marketSession";
 
@@ -63,7 +65,7 @@ export default function LiveTerminal() {
   const [symbols, setSymbols] = useState<Symbol[]>([]);
   const [brokers, setBrokers] = useState<BrokerInfo[]>([]);
   const [showSettings, setShowSettings] = useState(false);
-  const [bottomTab, setBottomTab] = useState<"watchlist" | "orders" | "alerts" | "risk" | "news" | "strategy" | "options">("watchlist");
+  const [bottomTab, setBottomTab] = useState<"watchlist" | "orders" | "alerts" | "risk" | "news" | "strategy" | "options" | "dashboard">("watchlist");
   const [orderPanelOpen, setOrderPanelOpen] = useState(false);
   const [orderSide, setOrderSide] = useState<Side>("BUY");
   const [orderQty, setOrderQty] = useState("1");
@@ -265,7 +267,7 @@ export default function LiveTerminal() {
           </div>
           <div className="flex-1" />
           <div className="flex items-center bg-[#161b22] border border-[#21262d] rounded p-0.5 gap-0.5">
-            {(["watchlist", "orders", "alerts", "risk", "news", "strategy", "options"] as const).map((tab) => (
+            {(["watchlist", "orders", "alerts", "risk", "news", "strategy", "options", "dashboard"] as const).map((tab) => (
               <button key={tab} onClick={() => setBottomTab(tab)}
                 className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${bottomTab === tab ? "bg-[#f0b429] text-[#0d1117]" : "text-slate-400 hover:text-slate-200 hover:bg-[#21262d]"}`}>
                 {tab}
@@ -312,6 +314,7 @@ export default function LiveTerminal() {
             {bottomTab === "news" && <NewsFeed symbol={symbolState} />}
             {bottomTab === "strategy" && <StrategyDashboard />}
             {bottomTab === "options" && <OptionChain underlying={["NIFTY", "BANKNIFTY", "RELIANCE", "TCS"].includes(symbolState) ? symbolState : "NIFTY"} />}
+            {bottomTab === "dashboard" && <DashboardRenderer spec={defaultExecutionDashboard()} />}
             <OrderBook bids={market.bids} asks={market.asks} lastPrice={market.ltp} priceChange={market.priceChangePct} symbol={symbolState} onSelectPrice={(p) => setOrderPrice(safeNum(p).toFixed(2))} priceUnit={instrument.currency} qtyUnit={instrument.volumeUnit} marketState={marketStateText} dataMode={market.mode} />
             <TradesList trades={market.fills} priceUnit={instrument.currency} qtyUnit={instrument.volumeUnit} qtyDecimals={instrument.qtyDecimals} marketState={marketStateText} dataMode={market.mode} />
           </section>

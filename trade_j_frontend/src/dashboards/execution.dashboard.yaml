@@ -1,0 +1,24 @@
+id: execution
+title: Execution
+description: Live orders, fills, positions, P&L
+layout:
+  kind: grid
+  cols: 2
+  gap: 8
+widgets:
+  - id: orders
+    type: orders-table
+    title: Active Orders
+    dataSource: { kind: readmodel.orders }
+  - id: positions
+    type: positions-table
+    title: Positions
+    dataSource: { kind: readmodel.positions }
+  - id: pnl
+    type: pnl-summary
+    title: P&L
+    dataSource: { kind: readmodel.pnl }
+  - id: signals
+    type: signals-table
+    title: Recent Signals
+    dataSource: { kind: readmodel.signals }
