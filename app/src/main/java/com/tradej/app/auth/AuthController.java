@@ -107,6 +107,28 @@ public class AuthController {
         return ResponseEntity.ok(body);
     }
 
+    /**
+     * Returns the full {@link BrokerSession} JSON for the WebSocket
+     * feed. The server reads the credential from
+     * {@link SessionStore} and hands it to the browser in one
+     * shot — the browser does not persist the response.
+     */
+    @GetMapping("/broker-session")
+    public ResponseEntity<Map<String, Object>> brokerSession(HttpServletRequest request) {
+        String id = request.getHeader(SESSION_HEADER);
+        Optional<Session> s = id == null ? Optional.empty() : sessions.get(id);
+        if (s.isEmpty()) {
+            return ResponseEntity.status(401).body(Map.of("error", "Invalid or missing session"));
+        }
+        Session sess = s.get();
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("broker", sess.broker());
+        body.put("accessToken", sess.accessToken());
+        if (sess.clientId() != null) body.put("clientId", sess.clientId());
+        if (sess.sessionToken() != null) body.put("sessionToken", sess.sessionToken());
+        return ResponseEntity.ok(body);
+    }
+
     public static class LoginRequest {
         public String broker;
         public String source;

@@ -1,0 +1,23 @@
+id: strategy
+title: Strategy
+description: Per-strategy equity, drawdown, signals, and depth
+layout:
+  kind: tabs
+  tabs: [equity, drawdown, signals, depth]
+widgets:
+  - id: equity-curve
+    type: equity-curve
+    title: Equity Curve
+    dataSource: { kind: readmodel.pnl }
+  - id: drawdown
+    type: drawdown
+    title: Drawdown
+    dataSource: { kind: readmodel.pnl }
+  - id: signal-stream
+    type: signal-stream
+    title: Signal Stream
+    dataSource: { kind: readmodel.signals }
+  - id: depth
+    type: depth-snapshot
+    title: Top of Book
+    dataSource: { kind: readmodel.depths }

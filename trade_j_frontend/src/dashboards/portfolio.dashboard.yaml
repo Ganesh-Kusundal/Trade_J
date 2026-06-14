@@ -1,0 +1,20 @@
+id: portfolio
+title: Portfolio
+description: Positions, P&L curve, signal stream, depth
+layout:
+  kind: split
+  direction: vertical
+  ratio: 0.65
+widgets:
+  - id: pnl-curve
+    type: pnl-curve
+    title: P&L Curve
+    dataSource: { kind: readmodel.pnl }
+  - id: scan-hits
+    type: scan-hits
+    title: Positions
+    dataSource: { kind: readmodel.positions }
+  - id: signal-stream
+    type: signal-stream
+    title: Signals
+    dataSource: { kind: readmodel.signals }

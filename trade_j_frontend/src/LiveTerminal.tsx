@@ -15,6 +15,7 @@ import { useHealth, applyHealth } from "./store/healthStore";
 import { startReadModelStream } from "./store/readModelStream";
 import { brokerFeedClient, type BrokerSession } from "./api/brokerFeedRegistry";
 import type { BrokerFeedClient, FeedEvent } from "./api/brokerFeedClient";
+import { fetchBrokerSession, getSessionId, clearSession } from "./api/auth";
 import CandlestickChart from "./components/CandlestickChart";
 import OrderBook from "./components/OrderBook";
 import TradesList from "./components/TradesList";
@@ -88,16 +89,23 @@ export default function LiveTerminal() {
   useEffect(() => { startReadModelStream(); return () => {}; }, []);
 
   useEffect(() => {
-    const stored = localStorage.getItem("tj_session");
-    if (!stored) { setFeedClient(null); return; }
-    let session: BrokerSession;
-    try { session = JSON.parse(stored) as BrokerSession; } catch { return; }
-    const client = brokerFeedClient(session);
-    const unsub = client.subscribe((event: FeedEvent) => {
-      if (event.type === "status") applyHealth({ websocketConnected: event.data.connected });
-    });
-    setFeedClient(client);
-    return () => { unsub(); client.disconnect(); };
+    const sid = getSessionId();
+    if (!sid) { setFeedClient(null); return; }
+    let cancelled = false;
+    (async () => {
+      const session = await fetchBrokerSession();
+      if (cancelled || !session) {
+        if (!session) clearSession();
+        setFeedClient(null);
+        return;
+      }
+      const client = brokerFeedClient(session);
+      const unsub = client.subscribe((event: FeedEvent) => {
+        if (event.type === "status") applyHealth({ websocketConnected: event.data.connected });
+      });
+      setFeedClient(client);
+    })();
+    return () => { cancelled = true; };
   }, [broker]);
 
   useEffect(() => {
