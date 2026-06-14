@@ -9,7 +9,9 @@ import com.tradej.core.domain.model.Candle;
 import com.tradej.core.domain.port.EventBus;
 import com.tradej.core.domain.port.HistoricalBarRepository;
 import com.tradej.core.domain.value.ExchangeSegment;
+import com.tradej.persistence.replay.HistoricalEventReplayService;
 import com.tradej.persistence.replay.HistoricalQueryService;
+import com.tradej.persistence.replay.ReplayResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -17,6 +19,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.HexFormat;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -53,6 +56,7 @@ public class ScenarioRunner {
     private final BacktestExecutionService backtestService;
     private final HistoricalBarRepository barRepository;
     private final HistoricalQueryService queryService;
+    private final HistoricalEventReplayService eventReplayService;
     private final String strategyHash;
     private final long seed;
 
@@ -64,15 +68,9 @@ public class ScenarioRunner {
             String strategyHash,
             long seed
     ) {
-        this(eventBus, candleSession, backtestService, barRepository, null, strategyHash, seed);
+        this(eventBus, candleSession, backtestService, barRepository, null, null, strategyHash, seed);
     }
 
-    /**
-     * Full constructor: includes the {@link HistoricalQueryService}
-     * needed by the {@link Scenario.Kind#REPLAY_TICKS} path. The
-     * 6-arg constructor above remains for callers that don't
-     * need tick replay (backtests, candle replays, scanners).
-     */
     public ScenarioRunner(
             EventBus eventBus,
             CandleReplaySession candleSession,
@@ -82,11 +80,31 @@ public class ScenarioRunner {
             String strategyHash,
             long seed
     ) {
+        this(eventBus, candleSession, backtestService, barRepository, queryService, null, strategyHash, seed);
+    }
+
+    /**
+     * Full constructor: includes the data sources for tick
+     * ({@link HistoricalQueryService}) and event
+     * ({@link HistoricalEventReplayService}) replay. Either may be
+     * null — the corresponding path returns a graceful error.
+     */
+    public ScenarioRunner(
+            EventBus eventBus,
+            CandleReplaySession candleSession,
+            BacktestExecutionService backtestService,
+            HistoricalBarRepository barRepository,
+            HistoricalQueryService queryService,
+            HistoricalEventReplayService eventReplayService,
+            String strategyHash,
+            long seed
+    ) {
         this.eventBus = eventBus;
         this.candleSession = candleSession;
         this.backtestService = backtestService;
         this.barRepository = barRepository;
         this.queryService = queryService;
+        this.eventReplayService = eventReplayService;
         this.strategyHash = strategyHash == null ? "" : strategyHash;
         this.seed = seed;
     }
@@ -112,6 +130,8 @@ public class ScenarioRunner {
                 case REPLAY_CANDLES -> runCandleReplay(scenario, bus, eventCount, startMs);
                 case BACKTEST -> runBacktest(scenario, bus, eventCount, startMs);
                 case REPLAY_TICKS -> runTickReplay(scenario, bus, eventCount, startMs);
+                case REPLAY_FILL_EVENTS -> runFillReplay(scenario, bus, eventCount, startMs);
+                case REPLAY_ORDERS -> runOrderReplay(scenario, bus, eventCount, startMs);
                 case REPLAY_EVENTS, SCANNER_REPLAY, SCANNER_LIVE ->
                         runEventReplay(scenario, bus, eventCount, startMs);
             };
@@ -280,6 +300,85 @@ public class ScenarioRunner {
         if (bs == null) return 50_000;
         try { return Math.max(1, Integer.parseInt(bs)); }
         catch (NumberFormatException ex) { return 50_000; }
+    }
+
+    /**
+     * Fill-event replay. Delegates to
+     * {@link HistoricalEventReplayService#replayFillEvents} for
+     * the data fetch + publish loop, then maps the legacy
+     * {@link ReplayResult} into a {@link Scenario.Result} so the
+     * adapter and downstream consumers see a uniform shape.
+     */
+    private Scenario.Result runFillReplay(
+            Scenario scenario, Optional<EventBus> bus, AtomicLong eventCount, long startMs
+    ) {
+        if (eventReplayService == null) {
+            return error(scenario, "HistoricalEventReplayService not configured", eventCount, startMs);
+        }
+        if (bus.isEmpty()) {
+            return error(scenario, "EventBus not configured", eventCount, startMs);
+        }
+        try {
+            String symbol = firstSymbolName(scenario);
+            long fromMs = scenario.window().from().toEpochMilli();
+            long toMs = scenario.window().to().toEpochMilli();
+            ReplayResult raw = eventReplayService.replayFillEvents(symbol, fromMs, toMs, bus.get());
+            log.info("Fill replay for {}: {}/{} replayed, {} failed",
+                    symbol, raw.replayed(), raw.totalRead(), raw.failed());
+            return successFromReplay(scenario, raw, eventCount, startMs);
+        } catch (RuntimeException ex) {
+            return error(scenario, "Fill replay failed: " + ex.getMessage(), eventCount, startMs);
+        }
+    }
+
+    /**
+     * Order replay. Same shape as {@link #runFillReplay} but
+     * delegates to
+     * {@link HistoricalEventReplayService#replayOrders}.
+     */
+    private Scenario.Result runOrderReplay(
+            Scenario scenario, Optional<EventBus> bus, AtomicLong eventCount, long startMs
+    ) {
+        if (eventReplayService == null) {
+            return error(scenario, "HistoricalEventReplayService not configured", eventCount, startMs);
+        }
+        if (bus.isEmpty()) {
+            return error(scenario, "EventBus not configured", eventCount, startMs);
+        }
+        try {
+            String symbol = firstSymbolName(scenario);
+            long fromMs = scenario.window().from().toEpochMilli();
+            long toMs = scenario.window().to().toEpochMilli();
+            ReplayResult raw = eventReplayService.replayOrders(symbol, fromMs, toMs, bus.get());
+            log.info("Order replay for {}: {}/{} replayed, {} failed",
+                    symbol, raw.replayed(), raw.totalRead(), raw.failed());
+            return successFromReplay(scenario, raw, eventCount, startMs);
+        } catch (RuntimeException ex) {
+            return error(scenario, "Order replay failed: " + ex.getMessage(), eventCount, startMs);
+        }
+    }
+
+    /**
+     * Map a {@link ReplayResult} (legacy 3-arg shape) onto a
+     * {@link Scenario.Result}. The runner doesn't track the
+     * individual events for the fill/orders path (the service
+     * already published them); the result carries the count.
+     */
+    private Scenario.Result successFromReplay(
+            Scenario scenario, ReplayResult raw, AtomicLong eventCount, long startMs
+    ) {
+        Map<String, Long> counts = new LinkedHashMap<>();
+        counts.put("totalRead", raw.totalRead());
+        counts.put("replayed", raw.replayed());
+        counts.put("failed", raw.failed());
+        return new Scenario.Result(
+                scenario.id(), seed, "scenario-" + scenario.id(),
+                strategyHash, List.of(),
+                counts,
+                Scenario.ResultHash.of("0".repeat(64)),
+                raw.failed() == 0L,
+                raw.failed() == 0L ? List.of() : List.of(raw.failed() + " events failed")
+        );
     }
 
     private Scenario.Result error(Scenario scenario, String message, AtomicLong eventCount, long startMs) {

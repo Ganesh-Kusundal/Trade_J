@@ -413,7 +413,7 @@ public class AdminController {
         if (replayCheck.isPresent()) {
             return replayCheck.get();
         }
-        var result = replayOrchestrator.replayCandles(symbol, interval, from, to, eventBus);
+        var result = adminReplayAdapter.replayCandles(symbol, interval, from, to);
         return ResponseEntity.ok(Map.of(
                 "mode", "candles",
                 "symbol", symbol,
@@ -437,8 +437,8 @@ public class AdminController {
         if (replayCheck.isPresent()) {
             return replayCheck.get();
         }
-        var result = replayOrchestrator.replayFillEvents(
-                symbol.isBlank() ? null : symbol, from, to, eventBus);
+        var result = adminReplayAdapter.replayFillEvents(
+                symbol.isBlank() ? null : symbol, from, to);
         return ResponseEntity.ok(Map.of(
                 "mode", "fill-events",
                 "symbol", symbol.isBlank() ? "*" : symbol,
@@ -461,8 +461,8 @@ public class AdminController {
         if (replayCheck.isPresent()) {
             return replayCheck.get();
         }
-        var result = replayOrchestrator.replayOrders(
-                symbol.isBlank() ? null : symbol, from, to, eventBus);
+        var result = adminReplayAdapter.replayOrders(
+                symbol.isBlank() ? null : symbol, from, to);
         return ResponseEntity.ok(Map.of(
                 "mode", "orders",
                 "symbol", symbol.isBlank() ? "*" : symbol,

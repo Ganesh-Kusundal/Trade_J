@@ -158,16 +158,62 @@ if echo "$LTP" | grep -q '"ltpPaisa"' 2>/dev/null; then ok "LTP endpoint returns
 step "7. /api/v1/options/chain"
 CHAIN=$(curl -s -w "\n%{http_code}" --max-time $TIMEOUT_REQ "$BASE/api/v1/options/chain?underlying=NIFTY&segment=NSE_FNO")
 CHAIN_CODE=$(echo "$CHAIN" | tail -1)
+CHAIN_BODY=$(echo "$CHAIN" | sed '$d')
 if [[ "$CHAIN_CODE" == "200" ]]; then
   ok "Option chain endpoint: HTTP 200"
 else
   bad "Option chain endpoint: HTTP $CHAIN_CODE"
 fi
-if echo "$CHAIN" | grep -q '"expiries"' 2>/dev/null; then
+if echo "$CHAIN_BODY" | grep -q '"expiries"' 2>/dev/null; then
   ok "Option chain returns expiries"
 else
   bad "Option chain missing expiries"
 fi
+# Expiries must be a non-empty JSON array — an empty list is a
+# regression (the chain knows the underlying but lost its
+# expiries).
+EXPIRY_COUNT=$(echo "$CHAIN_BODY" | python3 -c "import json,sys
+try:
+    body = json.loads(sys.stdin.read())
+    print(len(body.get('expiries', [])))
+except Exception:
+    print(-1)
+" 2>/dev/null)
+if [[ "$EXPIRY_COUNT" -gt 0 ]] 2>/dev/null; then
+  ok "Option chain expiries is non-empty ($EXPIRY_COUNT entries)"
+else
+  bad "Option chain expiries is empty (count=$EXPIRY_COUNT)"
+fi
+# strikeCount must be a non-negative integer — the field is the
+# canonical "do we have a chain?" check. -1 means the response
+# is malformed (no field at all).
+STRIKE_COUNT=$(echo "$CHAIN_BODY" | python3 -c "import json,sys
+try:
+    body = json.loads(sys.stdin.read())
+    sc = body.get('strikeCount', -1)
+    if isinstance(sc, int) and sc >= 0:
+        print(sc)
+    else:
+        print(-1)
+except Exception:
+    print(-1)
+" 2>/dev/null)
+if [[ "$STRIKE_COUNT" -ge 0 ]] 2>/dev/null; then
+  ok "Option chain strikeCount present and non-negative ($STRIKE_COUNT)"
+else
+  bad "Option chain strikeCount missing or negative ($STRIKE_COUNT)"
+fi
+# Verify the Greeks-bearing fields are present in the response
+# shape. These are the contract: the chain advertises spotPrice,
+# maxPain, PCR, totalCallOi, totalPutOi, strikeCount, and a
+# strikes array. A field dropping out is a regression.
+for FIELD in spotPricePaisa maxPainStrikePaisa putCallRatio totalCallOi totalPutOi strikeCount strikes; do
+  if echo "$CHAIN_BODY" | grep -q "\"$FIELD\"" 2>/dev/null; then
+    ok "Option chain field present: $FIELD"
+  else
+    bad "Option chain field MISSING: $FIELD"
+  fi
+done
 
 # ----- 8. SSE stream emits a snapshot ----------------------------------------
 step "8. /api/v1/stream/read-model"

@@ -67,13 +67,13 @@ public final class AdminReplayAdapter {
     public ReplayResult replayFillEvents(String symbolOrNull, long fromMs, long toMs) {
         String sym = (symbolOrNull == null || symbolOrNull.isBlank()) ? "*" : symbolOrNull;
         return run(buildScenario("admin-fills-" + sym, "Admin: fills " + sym,
-                sym, null, fromMs, toMs, Scenario.Kind.REPLAY_EVENTS));
+                sym, null, fromMs, toMs, Scenario.Kind.REPLAY_FILL_EVENTS));
     }
 
     public ReplayResult replayOrders(String symbolOrNull, long fromMs, long toMs) {
         String sym = (symbolOrNull == null || symbolOrNull.isBlank()) ? "*" : symbolOrNull;
         return run(buildScenario("admin-orders-" + sym, "Admin: orders " + sym,
-                sym, null, fromMs, toMs, Scenario.Kind.REPLAY_EVENTS));
+                sym, null, fromMs, toMs, Scenario.Kind.REPLAY_ORDERS));
     }
 
     /**
@@ -143,14 +143,25 @@ public final class AdminReplayAdapter {
 
     private ReplayResult run(Scenario scenario) {
         Scenario.Result result = runner.run(scenario);
-        long replayed = result.eventsPublished() == null ? 0L : result.eventsPublished().size();
-        long failed = result.errors() == null ? 0L : result.errors().size();
-        // The legacy shape: totalRead, replayed, failed. The
-        // 3-arg constructor (skipped=0) is the form the controller
-        // and integration tests expect; the 4-arg canonical
-        // constructor adds `skipped` for replays that observe
-        // events but can't publish them.
-        long totalRead = replayed;
+        // Two result shapes arrive at the adapter:
+        //   1. Tick / event paths publish a list of events; the
+        //      result's eventsPublished.size() == totalRead.
+        //   2. Fill / order paths delegate to a service that
+        //      publishes directly; the result carries the counts
+        //      in consumerCounts.{totalRead, replayed, failed}.
+        Map<String, Long> counts = result.consumerCounts() == null
+                ? Map.of()
+                : result.consumerCounts();
+        Long totalFromCounts = counts.get("totalRead");
+        Long replayedFromCounts = counts.get("replayed");
+        Long failedFromCounts = counts.get("failed");
+        long replayed = replayedFromCounts != null
+                ? replayedFromCounts
+                : (result.eventsPublished() == null ? 0L : result.eventsPublished().size());
+        long totalRead = totalFromCounts != null ? totalFromCounts : replayed;
+        long failed = failedFromCounts != null
+                ? failedFromCounts
+                : (result.errors() == null ? 0L : result.errors().size());
         return new ReplayResult(totalRead, replayed, failed);
     }
 

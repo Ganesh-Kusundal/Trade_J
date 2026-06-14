@@ -87,6 +87,14 @@ public interface Scenario {
          *  directly; with this kind the path goes through
          *  {@link ScenarioRunner} like every other scenario. */
         REPLAY_TICKS,
+        /** Fill-event replay — query {@code fill_events} and
+         *  publish reconstructed events into the bus. The admin
+         *  {@code /admin/historical/replay/fills} path. */
+        REPLAY_FILL_EVENTS,
+        /** Order replay — query {@code orders} and publish
+         *  reconstructed events into the bus. The admin
+         *  {@code /admin/historical/replay/orders} path. */
+        REPLAY_ORDERS,
         /** Backtest with deterministic fill model. */
         BACKTEST,
         /** Live scanner using real-time ticks. */

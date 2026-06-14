@@ -216,22 +216,24 @@ public class DataConfiguration {
             com.tradej.replay.engine.CandleReplaySession candleSession,
             com.tradej.replay.engine.BacktestExecutionService backtestService,
             com.tradej.core.domain.port.HistoricalBarRepository barRepository,
-            org.springframework.beans.factory.ObjectProvider<com.tradej.persistence.replay.HistoricalQueryService> queryServiceProvider
+            org.springframework.beans.factory.ObjectProvider<com.tradej.persistence.replay.HistoricalQueryService> queryServiceProvider,
+            org.springframework.beans.factory.ObjectProvider<com.tradej.persistence.replay.HistoricalEventReplayService> eventReplayServiceProvider
     ) {
         // The ScenarioRunner is the single entry point for replay,
         // backtest, and scanner-on-replay. The strategyHash is empty
         // and the seed is 42L (deterministic). A production
         // deployment would parameterize these.
         //
-        // HistoricalQueryService is not yet a Spring bean in dev
-        // mode (it requires a DuckDB Connection); the
-        // ObjectProvider lets us wire the runner anyway. The
-        // REPLAY_TICKS path returns a graceful error if no query
-        // service is present — see ScenarioRunner.runTickReplay.
+        // HistoricalQueryService and HistoricalEventReplayService
+        // are not yet Spring beans in dev mode (they require a
+        // DuckDB Connection); the ObjectProvider lets us wire the
+        // runner anyway. The corresponding Kinds return a graceful
+        // error if their service is absent.
         com.tradej.persistence.replay.HistoricalQueryService qs = queryServiceProvider.getIfAvailable();
+        com.tradej.persistence.replay.HistoricalEventReplayService ers = eventReplayServiceProvider.getIfAvailable();
         return new com.tradej.replay.engine.ScenarioRunner(
                 eventBus, candleSession, backtestService, barRepository,
-                qs, "", 42L);
+                qs, ers, "", 42L);
     }
 
     @Bean
