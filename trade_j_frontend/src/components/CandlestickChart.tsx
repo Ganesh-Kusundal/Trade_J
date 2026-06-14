@@ -4,7 +4,6 @@ import {
   CandlestickSeries, HistogramSeries, LineSeries,
 } from "lightweight-charts";
 import type { OHLCVBar, Instrument } from "../domain/instrument";
-import { computeMA, computeVWAP } from "../domain/validators";
 
 interface ChartProps {
   instrument: Instrument;
@@ -52,10 +51,10 @@ export default function CandlestickChart({ instrument, timeframe, setTimeframe, 
   const [showMA99, setShowMA99] = useState(false);
   const [showVWAP, setShowVWAP] = useState(true);
 
-  const ma7Data = useMemo(() => computeMA(bars, 7), [bars]);
-  const ma25Data = useMemo(() => computeMA(bars, 25), [bars]);
-  const ma99Data = useMemo(() => computeMA(bars, 99), [bars]);
-  const vwapData = useMemo(() => computeVWAP(bars), [bars]);
+  const [ma25Data, setMa25Data] = useState<Array<{ time: number; value: number }>>([]);
+  const [ma99Data, setMa99Data] = useState<Array<{ time: number; value: number }>>([]);
+  const [vwapData, setVwapData] = useState<Array<{ time: number; value: number }>>([]);
+  const [indicatorsLoading, setIndicatorsLoading] = useState(false);
 
   const activeBar = hoverBar || (bars.length > 0 ? bars[bars.length - 1] : null);
   const prevClose = bars.length > 1 ? bars[bars.length - 2].close : activeBar?.open ?? 0;
