@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trade·J — Runtime Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-primary: #0b0d11;
+    --bg-secondary: #12151c;
+    --bg-card: #181c26;
+    --bg-card-hover: #1e2330;
+    --border: #252b3a;
+    --border-active: #2e364a;
+    --text-primary: #e8edf5;
+    --text-secondary: #8892a8;
+    --text-muted: #5a6278;
+    --accent-green: #22c55e;
+    --accent-green-dim: rgba(34, 197, 94, 0.15);
+    --accent-red: #ef4444;
+    --accent-red-dim: rgba(239, 68, 68, 0.15);
+    --accent-amber: #f59e0b;
+    --accent-amber-dim: rgba(245, 158, 11, 0.15);
+    --accent-blue: #3b82f6;
+    --accent-blue-dim: rgba(59, 130, 246, 0.15);
+    --accent-cyan: #06b6d4;
+    --radius: 10px;
+    --radius-sm: 6px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.4), 0 1px 2px rgba(0,0,0,0.3);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    min-height: 100vh;
+    line-height: 1.5;
+    padding: 20px;
+  }
+
+  /* ── Header ── */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 24px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 20px;
+    animation: fadeIn 0.4s ease-out;
+  }
+
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .logo {
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    background: linear-gradient(135deg, #22c55e, #06b6d4);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .logo span { font-weight: 500; -webkit-text-fill-color: var(--text-muted); }
+
+  .header-status {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    transition: background 0.3s;
+  }
+
+  .status-dot.up { background: var(--accent-green); box-shadow: 0 0 8px var(--accent-green-dim); }
+  .status-dot.down { background: var(--accent-red); box-shadow: 0 0 8px var(--accent-red-dim); }
+  .status-dot.degraded { background: var(--accent-amber); box-shadow: 0 0 8px var(--accent-amber-dim); }
+
+  .header-time {
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+
+  .refresh-indicator {
+    font-size: 12px;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .refresh-indicator .spinner {
+    width: 12px; height: 12px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent-cyan);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Grid ── */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    transition: border-color 0.2s, background 0.2s;
+    animation: fadeIn 0.4s ease-out forwards;
+    opacity: 0;
+  }
+
+  .card:hover { border-color: var(--border-active); background: var(--bg-card-hover); }
+
+  .card:nth-child(1) { animation-delay: 0.05s; }
+  .card:nth-child(2) { animation-delay: 0.1s; }
+  .card:nth-child(3) { animation-delay: 0.15s; }
+  .card:nth-child(4) { animation-delay: 0.2s; }
+  .card:nth-child(5) { animation-delay: 0.25s; }
+  .card:nth-child(6) { animation-delay: 0.3s; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+
+  .card-title {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-muted);
+  }
+
+  .card-badge {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 20px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .badge-up { background: var(--accent-green-dim); color: var(--accent-green); }
+  .badge-down { background: var(--accent-red-dim); color: var(--accent-red); }
+  .badge-degraded { background: var(--accent-amber-dim); color: var(--accent-amber); }
+
+  /* ── Metric rows ── */
+  .metric {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(37, 43, 58, 0.6);
+  }
+
+  .metric:last-child { border-bottom: none; }
+
+  .metric-label {
+    font-size: 13px;
+    color: var(--text-secondary);
+  }
+
+  .metric-value {
+    font-family: 'DM Mono', monospace;
+    font-size: 14px;
+    font-weight: 500;
+  }
+
+  .metric-value.green { color: var(--accent-green); }
+  .metric-value.red { color: var(--accent-red); }
+  .metric-value.amber { color: var(--accent-amber); }
+  .metric-value.cyan { color: var(--accent-cyan); }
+
+  .metric-value.large {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+  }
+
+  /* ── Progress bar ── */
+  .progress-bar {
+    width: 100%;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    margin-top: 4px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.5s ease;
+  }
+
+  .progress-fill.green { background: var(--accent-green); }
+  .progress-fill.amber { background: var(--accent-amber); }
+  .progress-fill.red { background: var(--accent-red); }
+  .progress-fill.cyan { background: var(--accent-cyan); }
+
+  /* ── Health table ── */
+  .health-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  .health-table th {
+    text-align: left;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--text-muted);
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .health-table td {
+    padding: 8px;
+    border-bottom: 1px solid rgba(37, 43, 58, 0.4);
+    color: var(--text-secondary);
+  }
+
+  .health-table td:last-child { text-align: right; font-family: 'DM Mono', monospace; }
+
+  .health-table tr:last-child td { border-bottom: none; }
+
+  /* ── Large metric display ── */
+  .big-metric {
+    text-align: center;
+    padding: 12px 0;
+  }
+
+  .big-metric .value {
+    font-family: 'DM Mono', monospace;
+    font-size: 36px;
+    font-weight: 700;
+    letter-spacing: -1px;
+    line-height: 1;
+  }
+
+  .big-metric .label {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 4px;
+  }
+
+  /* ── Full-width row ── */
+  .row-full {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+
+  /* ── Responsive ── */
+  @media (max-width: 768px) {
+    body { padding: 12px; }
+    .grid { grid-template-columns: 1fr; }
+    .header { flex-direction: column; gap: 12px; align-items: flex-start; }
+  }
+
+  /* ── Pulse animation for live indicators ── */
+  .pulse {
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div class="header-left">
+    <div class="logo">Trade·J <span>| Runtime</span></div>
+    <span class="status-dot up" id="mainStatusDot"></span>
+    <span id="mainStatusText" style="font-size:13px;color:var(--text-secondary)">Loading...</span>
+  </div>
+  <div class="header-status">
+    <span class="header-time" id="clock"></span>
+    <span class="refresh-indicator">
+      <span class="spinner"></span>
+      <span id="refreshLabel">auto</span>
+    </span>
+  </div>
+</div>
+
+<!-- Summary Grid -->
+<div class="grid">
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Broker Status</span>
+      <span class="card-badge badge-up" id="brokerBadge">—</span>
+    </div>
+    <div class="metric">
+      <span class="metric-label">WebSocket</span>
+      <span class="metric-value" id="websocketStatus">—</span>
+    </div>
+    <div class="metric">
+      <span class="metric-label">Subscriptions</span>
+      <span class="metric-value" id="subscriptions">—</span>
+    </div>
+    <div class="metric">
+      <span class="metric-label">Circuit Breaker</span>
+      <span class="metric-value" id="circuitBreaker">—</span>
+    </div>
+    <div class="metric">
+      <span class="metric-label">Catalog Size</span>
+      <span class="metric-value" id="catalogSize">—</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Pipeline</span>
+      <span class="card-badge badge-up" id="pipelineBadge">—</span>
+    </div>
+    <div class="metric">
+      <span class="metric-label">Ring Buffer</span>
+      <span class="metric-value cyan" id="ringBufferUtilization">—</span>
+    </div>
+    <div class="progress-bar">
+      <div class="progress-fill green" id="ringBufferBar" style="width:0%"></div>
+    </div>
+    <div class="metric">
+      <span class="metric-label">Dispatch Queue</span>
+      <span class="metric-value" id="dispatchQueueDepth">—</span>
+    </div>
+    <div class="metric">
+      <span class="metric-label">Dropped Events</span>
+      <span class="metric-value" id="dispatchDropped">—</span>
+    </div>
+    <div class="metric">
+      <span class="metric-label">Execution Queue</span>
+      <span class="metric-value" id="executionQueueDepth">—</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Market Data</span>
+      <span class="card-badge badge-up" id="marketDataBadge">—</span>
+    </div>
+    <div class="big-metric">
+      <div class="value cyan" id="totalTicks">0</div>
+      <div class="label">Total Ticks</div>
+    </div>
+    <div class="metric">
+      <span class="metric-label">Tick Rate</span>
+      <span class="metric-value" id="tickRate">0.00 /s</span>
+    </div>
+    <div class="metric">
+      <span class="metric-label">Last Tick</span>
+      <span class="metric-value" id="lastTick">—</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Orders &amp; Signals</span>
+      <span class="card-badge badge-up" id="ordersBadge">—</span>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+      <div class="big-metric">
+        <div class="value green" id="totalSignals">0</div>
+        <div class="label">Signals</div>
+      </div>
+      <div class="big-metric">
+        <div class="value cyan" id="totalOrders">0</div>
+        <div class="label">Orders</div>
+      </div>
+    </div>
+    <div class="metric">
+      <span class="metric-label">Signal Rate</span>
+      <span class="metric-value" id="signalRate">0.00 /s</span>
+    </div>
+    <div class="metric">
+      <span class="metric-label">Order Rate</span>
+      <span class="metric-value" id="orderRate">0.00 /s</span>
+    </div>
+    <div class="metric">
+      <span class="metric-label">Rate Limited</span>
+      <span class="metric-value amber" id="rateLimited">0</span>
+    </div>
+  </div>
+</div>
+
+<!-- Health & Strategy Row -->
+<div class="row-full">
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Health Checks</span>
+      <span class="card-badge badge-up" id="healthBadge">—</span>
+    </div>
+    <table class="health-table" id="healthTable">
+      <thead><tr><th>Component</th><th>Status</th><th>Detail</th></tr></thead>
+      <tbody id="healthBody">
+        <tr><td colspan="3" style="text-align:center;color:var(--text-muted)">Loading...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="grid">
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Strategy Plugins</span>
+      <span class="card-badge" id="strategyCount" style="background:var(--accent-blue-dim);color:var(--accent-blue)">0</span>
+    </div>
+    <div id="strategyPlugins">
+      <span style="color:var(--text-muted);font-size:13px">Loading...</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Runtime State</span>
+      <span class="card-badge" id="runtimeBadge" style="background:var(--accent-amber-dim);color:var(--accent-amber)">BOOTING</span>
+    </div>
+    <div class="metric">
+      <span class="metric-label">Startup</span>
+      <span class="metric-value" id="startupState">—</span>
+    </div>
+    <div class="metric">
+      <span class="metric-label">Preflight</span>
+      <span class="metric-value" id="preflightState">—</span>
+    </div>
+    <div class="metric">
+      <span class="metric-label">Catalog Loaded</span>
+      <span class="metric-value" id="catalogLoadedState">—</span>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  const REFRESH_MS = 3000;
+  let refreshInterval;
+
+  function $(id) { return document.getElementById(id); }
+
+  function fmt(n) { return Number(n).toLocaleString(); }
+
+  function iso(epochMs) {
+    if (!epochMs || epochMs <= 0) return '—';
+    return new Date(epochMs).toLocaleTimeString();
+  }
+
+  function statusClass(val) {
+    if (val === true || val === 'UP' || val === 'ACTIVE' || val === 'CONNECTED' || val === 'true') return 'green';
+    if (val === false || val === 'DOWN' || val === 'STALLED' || val === 'DISCONNECTED' || val === 'CIRCUIT_OPEN') return 'red';
+    return 'amber';
+  }
+
+  function statusText(val) {
+    if (val === true) return '✅ Connected';
+    if (val === false) return '❌ Disconnected';
+    if (val === 'UP') return '✅ Healthy';
+    if (val === 'DOWN') return '❌ Down';
+    if (val === 'NO_TICKS_YET') return '⏳ Waiting';
+    if (val === 'STALLED') return '⚠️ Stalled';
+    if (val === 'ACTIVE') return '✅ Active';
+    return val || '—';
+  }
+
+  function setStatusDot(color) {
+    const dot = $('mainStatusDot');
+    dot.className = 'status-dot ' + color;
+  }
+
+  function updateBadge(id, ok) {
+    const el = $(id);
+    if (ok === true || ok === 'UP' || ok === 'ACTIVE' || ok === 'CONNECTED') {
+      el.className = 'card-badge badge-up'; el.textContent = 'HEALTHY';
+    } else if (ok === false || ok === 'DOWN' || ok === 'STALLED') {
+      el.className = 'card-badge badge-down'; el.textContent = 'DOWN';
+    } else {
+      el.className = 'card-badge badge-degraded'; el.textContent = 'DEGRADED';
+    }
+  }
+
+  function fetchJSON(url) {
+    return fetch(url).then(r => {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    });
+  }
+
+  function updateClock() {
+    $('clock').textContent = new Date().toLocaleTimeString();
+  }
+
+  async function refresh() {
+    try {
+      const [summary, health] = await Promise.all([
+        fetchJSON('/admin/summary'),
+        fetchJSON('/actuator/health')
+      ]);
+
+      // Overall system health
+      const healthStatus = health && health.status === 'UP' ? 'up' : 'down';
+      setStatusDot(healthStatus);
+      $('mainStatusText').textContent = health && health.status ? 'System ' + health.status : 'Loading...';
+
+      // Broker
+      const wsOk = summary.websocketConnected;
+      $('websocketStatus').textContent = wsOk ? '✅ Connected' : '❌ Disconnected';
+      $('websocketStatus').className = 'metric-value ' + statusClass(wsOk);
+      $('subscriptions').textContent = fmt(summary.subscriptions || 0);
+      const cbOpen = summary.circuitBreakerOpen;
+      $('circuitBreaker').textContent = cbOpen ? '⚠️ Open' : '✅ Closed';
+      $('circuitBreaker').className = 'metric-value ' + (cbOpen ? 'red' : 'green');
+      $('catalogSize').textContent = fmt(summary.catalogSize || 0);
+      updateBadge('brokerBadge', wsOk && !cbOpen);
+
+      // Pipeline
+      const ringUtil = summary.ringBufferUtilizationPct || 0;
+      $('ringBufferUtilization').textContent = ringUtil.toFixed(1) + '%';
+      const ringBar = $('ringBufferBar');
+      ringBar.style.width = Math.min(ringUtil, 100) + '%';
+      ringBar.className = 'progress-fill ' + (ringUtil > 80 ? 'red' : ringUtil > 60 ? 'amber' : 'green');
+
+      const dd = summary.dispatchQueueDepth || 0;
+      $('dispatchQueueDepth').textContent = fmt(dd);
+      $('dispatchQueueDepth').className = 'metric-value ' + (dd > 100 ? 'red' : dd > 10 ? 'amber' : '');
+      $('dispatchDropped').textContent = fmt(summary.dispatchDroppedEvents || 0);
+      $('dispatchDropped').className = 'metric-value ' + ((summary.dispatchDroppedEvents || 0) > 0 ? 'red' : '');
+
+      const eq = summary.executionQueueDepth || 0;
+      $('executionQueueDepth').textContent = fmt(eq);
+      $('executionQueueDepth').className = 'metric-value ' + (eq > 20 ? 'red' : eq > 5 ? 'amber' : '');
+
+      const pipelineOk = ringUtil < 80 && dd < 100;
+      updateBadge('pipelineBadge', pipelineOk);
+
+      // Market Data
+      $('totalTicks').textContent = fmt(summary.totalTicks || 0);
+      $('tickRate').textContent = (summary.tickRate || 0).toFixed(2) + ' /s';
+      $('lastTick').textContent = iso(summary.lastTickTimestampMs);
+      updateBadge('marketDataBadge', (summary.totalTicks || 0) > 0 ? 'ACTIVE' : 'NO_TICKS_YET');
+
+      // Orders
+      $('totalSignals').textContent = fmt(summary.totalSignals || 0);
+      $('totalOrders').textContent = fmt(summary.totalOrders || 0);
+      $('signalRate').textContent = (summary.signalRate || 0).toFixed(2) + ' /s';
+      $('orderRate').textContent = (summary.signalRate || 0).toFixed(2) + ' /s';
+      $('rateLimited').textContent = fmt(summary.signalRateLimited || 0);
+      updateBadge('ordersBadge', (summary.totalOrders || 0) > 0 ? 'UP' : 'UP');
+
+      // Health checks
+      const healthBody = $('healthBody');
+      if (health && health.components) {
+        let html = '';
+        for (const [name, comp] of Object.entries(health.components)) {
+          const st = comp.status || 'UNKNOWN';
+          html += '<tr>' +
+            '<td style="font-weight:600">' + name + '</td>' +
+            '<td><span class="status-dot ' + statusClass(st) + '" style="display:inline-block;margin-right:6px;vertical-align:middle"></span>' + st + '</td>' +
+            '<td>' + (comp.details ? Object.values(comp.details).filter(v => typeof v === 'string').join(', ') : '—') + '</td>' +
+            '</tr>';
+        }
+        healthBody.innerHTML = html;
+      }
+      const healthOk = health && health.status === 'UP';
+      updateBadge('healthBadge', healthOk ? 'UP' : 'DOWN');
+
+      // Strategy plugins
+      const plugins = summary.strategyPlugins || [];
+      $('strategyCount').textContent = plugins.length;
+      if (plugins.length > 0) {
+        $('strategyPlugins').innerHTML = plugins.map(p =>
+          '<span style="display:inline-block;padding:4px 10px;margin:3px;background:var(--accent-blue-dim);color:var(--accent-blue);border-radius:4px;font-size:12px;font-family:DM Mono,monospace">' + p + '</span>'
+        ).join('');
+      } else {
+        $('strategyPlugins').innerHTML = '<span style="color:var(--text-muted);font-size:13px">No plugins registered</span>';
+      }
+
+      // Runtime state
+      $('startupState').textContent = summary.startupCompleted ? '✅ Completed' : '⏳ Pending';
+      $('startupState').className = 'metric-value ' + (summary.startupCompleted ? 'green' : 'amber');
+      $('preflightState').textContent = summary.brokerPreflightPassed ? '✅ Passed' : '⏳ Pending';
+      $('preflightState').className = 'metric-value ' + (summary.brokerPreflightPassed ? 'green' : 'amber');
+      $('catalogLoadedState').textContent = summary.catalogLoaded ? '✅ Loaded (' + fmt(summary.catalogSize || 0) + ')' : '❌ Not loaded';
+      $('catalogLoadedState').className = 'metric-value ' + (summary.catalogLoaded ? 'green' : 'red');
+      $('runtimeBadge').textContent = summary.startupCompleted ? 'RUNNING' : 'BOOTING';
+      $('runtimeBadge').className = 'card-badge ' + (summary.startupCompleted ? 'badge-up' : 'badge-degraded');
+
+    } catch (err) {
+      console.error('Refresh failed:', err);
+      $('mainStatusText').textContent = '⚠️ Connection error';
+      setStatusDot('down');
+    }
+  }
+
+  // Clock
+  updateClock();
+  setInterval(updateClock, 1000);
+
+  // Initial load + auto-refresh
+  refresh();
+  refreshInterval = setInterval(refresh, REFRESH_MS);
+
+  // Pause on visibility change
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      clearInterval(refreshInterval);
+    } else {
+      refresh();
+      refreshInterval = setInterval(refresh, REFRESH_MS);
+    }
+  });
+})();
+</script>
+</body>
+</html>

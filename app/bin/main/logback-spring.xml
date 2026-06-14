@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <springProperty name="springAppName" source="spring.application.name" defaultValue="trade-j"/>
+
+    <!-- Default console appender: structured JSON with MDC fields -->
+    <appender name="JSON_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <includeMdcKeyName>eventId</includeMdcKeyName>
+            <includeMdcKeyName>correlationId</includeMdcKeyName>
+            <includeMdcKeyName>eventType</includeMdcKeyName>
+            <includeMdcKeyName>symbol</includeMdcKeyName>
+            <includeMdcKeyName>latencyMs</includeMdcKeyName>
+            <includeMdcKeyName>stage</includeMdcKeyName>
+            <fieldNames>
+                <timestamp>@timestamp</timestamp>
+                <version>[ignore]</version>
+                <levelValue>[ignore]</levelValue>
+            </fieldNames>
+        </encoder>
+    </appender>
+
+    <!-- Development profile: human-readable console output -->
+    <appender name="DEV_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} %highlight(%-5level) [%thread] %cyan(%logger{36}) — %msg%n%rEx</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Root logger: WARN by default -->
+    <root level="WARN">
+        <appender-ref ref="JSON_CONSOLE"/>
+    </root>
+
+    <!-- Trade-J module loggers -->
+    <logger name="com.tradej" level="INFO"/>
+
+    <!-- Spring framework loggers (keep quiet) -->
+    <logger name="org.springframework" level="WARN"/>
+    <logger name="org.springframework.boot" level="WARN"/>
+
+    <!-- Profile-specific overrides -->
+    <springProfile name="dev">
+        <root level="WARN">
+            <appender-ref ref="DEV_CONSOLE"/>
+        </root>
+        <logger name="com.tradej" level="INFO"/>
+        <logger name="com.tradej.execution" level="DEBUG"/>
+    </springProfile>
+
+    <springProfile name="dev-live">
+        <root level="WARN">
+            <appender-ref ref="JSON_CONSOLE"/>
+        </root>
+        <logger name="com.tradej" level="INFO"/>
+        <logger name="com.tradej.execution" level="DEBUG"/>
+        <logger name="com.tradej.broker.dhan" level="DEBUG"/>
+    </springProfile>
+
+    <springProfile name="test">
+        <root level="WARN">
+            <appender-ref ref="DEV_CONSOLE"/>
+        </root>
+        <logger name="com.tradej" level="INFO"/>
+    </springProfile>
+
+    <springProfile name="prod">
+        <root level="WARN">
+            <appender-ref ref="JSON_CONSOLE"/>
+        </root>
+        <logger name="com.tradej" level="INFO"/>
+        <logger name="com.tradej.execution" level="INFO"/>
+        <logger name="com.tradej.broker.dhan" level="WARN"/>
+    </springProfile>
+</configuration>

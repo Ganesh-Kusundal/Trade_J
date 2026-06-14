@@ -1,0 +1,13 @@
+{
+  "orderId": "SANDBOX-ORDER-001",
+  "orderStatus": "PENDING",
+  "correlationId": "itest-redacted-001",
+  "tradingSymbol": "TCS",
+  "exchangeSegment": "NSE_EQ",
+  "transactionType": "BUY",
+  "productType": "INTRADAY",
+  "orderType": "MARKET",
+  "quantity": 1,
+  "filledQty": 0,
+  "price": 0
+}

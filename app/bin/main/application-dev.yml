@@ -1,0 +1,135 @@
+spring:
+  config:
+    import:
+      - optional:file:./config/dhan-local.properties
+      - optional:file:./config/dhan-sandbox.properties
+
+# ─── Dhan SANDBOX (default dev) ───────────────────────────────────────────────
+trade:
+  broker-type: simulation
+  runtime:
+    bus: SIMPLE
+
+  broker:
+    client-id: ${dhan.sandbox.clientId}
+    access-token: ${dhan.sandbox.accessToken}
+    environment: SANDBOX
+    rest-base-url: ${dhan.sandbox.restBaseUrl:https://sandbox.dhan.co/v2}
+    auth-mode: STATIC
+    token-state-file: runtime-dev/dhan-sandbox-token-state.json
+  storage:
+    chronicle-path: runtime-dev/chronicle
+    duckdb-path: runtime-dev/trade.duckdb
+    historical-warehouse-path: runtime-dev/historical.duckdb
+  download:
+    delay-ms: 0
+    workers: 2
+  instruments:
+    cache-directory: runtime-dev/instruments
+  subscriptions:
+    - symbol: NIFTY
+      exchange-segment: IDX_I
+      feed-mode: TICKER
+  scan:
+    enabled: false
+    default-profile: intraday-hybrid
+    profiles:
+      - id: intraday-hybrid
+        mode: HYBRID
+        universe:
+          segments:
+            - NSE_EQ
+            - NSE_FNO
+          asset-classes:
+            - EQUITY
+            - FUTURE
+            - OPTION
+          underlyings:
+            - NIFTY
+            - BANKNIFTY
+            - RELIANCE
+            - TCS
+            - SBIN
+        rest:
+          batch-size: 20
+          fetch-option-chains-on-coarse-pass: true
+        promotion:
+          top-n: 5
+          feed-mode: QUOTE
+          max-concurrent-promotions: 10
+          promotion-ttl-minutes: 30
+        option-fine-pass-enabled: true
+        criteria:
+          - type: pct-change-from-open
+            min: 0.5
+          - type: volume-spike
+            multiplier: 1.5
+            min-volume: 1000
+      - id: test-small
+        mode: REST_SNAPSHOT
+        universe:
+          segments:
+            - IDX_I
+          asset-classes:
+            - EQUITY
+          underlyings:
+            - NIFTY
+        rest:
+          batch-size: 5
+        promotion:
+          top-n: 0
+        criteria:
+          - type: pct-change-from-open
+            min: -100
+      - id: option-liquidity
+        mode: REST_SNAPSHOT
+        universe:
+          segments:
+            - IDX_I
+            - NSE_EQ
+            - NSE_FNO
+          asset-classes:
+            - OPTION
+          underlyings:
+            - NIFTY
+            - BANKNIFTY
+            - RELIANCE
+        rest:
+          batch-size: 20
+          fetch-option-chains-on-coarse-pass: false
+        promotion:
+          top-n: 0
+        option-fine-pass-enabled: false
+        criteria: []
+        option-scan:
+          expiry-policy: NEAREST
+          sides:
+            - CE
+            - PE
+          min-open-interest: 5000
+          min-volume: 100
+          max-spread-bps: 250
+          top-n-per-underlying: 5
+          top-n-global: 20
+
+# ─── Dhan LIVE override (activate profile: dev-live instead of dev) ───────────
+# To use live Dhan credentials in dev, run with:
+#   --spring.profiles.active=dev-live
+# The dev-live profile overlays these settings on top of the common base:
+#
+# trade:
+#   broker:
+#     client-id: ${dhan.clientId:${DHAN_CLIENT_ID:}}
+#     access-token: ${dhan.accessToken:${DHAN_ACCESS_TOKEN:}}
+#     environment: LIVE
+#     rest-base-url: ${dhan.restBaseUrl:}
+#     auth-mode: ${dhan.authMode:TOTP_GENERATED}
+#     token-state-file: ${dhan.tokenStateFile:runtime-dev/dhan-token-state.json}
+#   storage:
+#     chronicle-path: runtime-dev/chronicle
+#     duckdb-path: runtime-dev/trade.duckdb
+#   instruments:
+#     cache-directory: runtime-dev/instruments
+#
+# (These settings are now inline above. Use application-dev-live.yml if you
+#  need a separate profile file, or just override via env vars.)

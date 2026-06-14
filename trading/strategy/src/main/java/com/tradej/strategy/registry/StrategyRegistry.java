@@ -104,17 +104,68 @@ public final class StrategyRegistry {
             if (cl == null) cl = StrategyRegistry.class.getClassLoader();
             Enumeration<URL> resources = cl.getResources(RESOURCE_PREFIX);
             while (resources.hasMoreElements()) {
-                URL url = resources.nextElement();
-                String path = url.getPath();
-                if (path == null) continue;
-                int slash = path.lastIndexOf('/');
-                String filename = slash < 0 ? path : path.substring(slash + 1);
-                if (!filename.endsWith(RESOURCE_SUFFIX)) continue;
-                loadOneYaml(url, filename);
+                URL dirUrl = resources.nextElement();
+                scanDirectory(dirUrl, cl);
             }
         } catch (IOException ex) {
             log.warn("Failed to scan {} resources: {}", RESOURCE_PREFIX, ex.getMessage());
         }
+    }
+
+    /**
+     * Scan a single classpath directory URL for yaml descriptors.
+     * Two cases:
+     *  1. {@code file:} URLs — list the directory directly
+     *  2. {@code jar:} URLs — open a JarFile and list entries
+     *     with the matching prefix
+     */
+    private void scanDirectory(URL dirUrl, ClassLoader cl) {
+        String protocol = dirUrl.getProtocol();
+        if ("file".equals(protocol)) {
+            try {
+                java.io.File dir = new java.io.File(dirUrl.toURI());
+                java.io.File[] files = dir.listFiles((d, name) -> name.endsWith(RESOURCE_SUFFIX));
+                if (files == null) return;
+                for (java.io.File f : files) {
+                    loadOneYaml(f.toURI().toURL(), f.getName());
+                }
+            } catch (Exception ex) {
+                log.warn("Failed to list directory {}: {}", dirUrl, ex.getMessage());
+            }
+            return;
+        }
+        if ("jar".equals(protocol)) {
+            // Walk the jar entries. A jar: URL looks like
+            //   jar:file:/path/to.jar!/META-INF/strategies/
+            // — the entry prefix is the inner part.
+            String fullUrl = dirUrl.toString();
+            int bang = fullUrl.indexOf("!/");
+            if (bang < 0) return;
+            String jarPath = fullUrl.substring("jar:".length(), bang);
+            String prefix = fullUrl.substring(bang + 2);
+            if (!prefix.endsWith("/")) prefix = prefix + "/";
+            try {
+                java.util.jar.JarFile jar = new java.util.jar.JarFile(
+                        new java.io.File(new java.net.URI(jarPath)));
+                java.util.Enumeration<java.util.jar.JarEntry> entries = jar.entries();
+                while (entries.hasMoreElements()) {
+                    java.util.jar.JarEntry entry = entries.nextElement();
+                    String name = entry.getName();
+                    if (name.startsWith(prefix) && name.endsWith(RESOURCE_SUFFIX) && !entry.isDirectory()) {
+                        int slash = name.lastIndexOf('/');
+                        String filename = name.substring(slash + 1);
+                        URL entryUrl = new java.net.URL(dirUrl, name);
+                        loadOneYaml(entryUrl, filename);
+                    }
+                }
+            } catch (Exception ex) {
+                log.warn("Failed to scan jar {}: {}", jarPath, ex.getMessage());
+            }
+            return;
+        }
+        // Fallback: try to list the URL contents (works for some
+        // classloaders but not the standard ones). Best-effort.
+        log.debug("Skipping unknown protocol for classpath scan: {}", protocol);
     }
 
     private void loadOneYaml(URL url, String filename) {

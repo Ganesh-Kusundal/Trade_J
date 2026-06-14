@@ -1,0 +1,19 @@
+spring:
+  config:
+    import:
+      - optional:file:./config/dhan-sandbox.properties
+      - optional:file:./config/dhan-local.properties
+
+trade:
+  broker:
+    client-id: ${dhan.sandbox.clientId}
+    access-token: ${dhan.sandbox.accessToken}
+    environment: SANDBOX
+    rest-base-url: ${dhan.sandbox.restBaseUrl:https://sandbox.dhan.co/v2}
+    auth-mode: STATIC
+    token-state-file: runtime-test/dhan-sandbox-token-state.json
+  storage:
+    chronicle-path: runtime-test/chronicle
+    duckdb-path: runtime-test/trade.duckdb
+  instruments:
+    cache-directory: runtime-test/instruments

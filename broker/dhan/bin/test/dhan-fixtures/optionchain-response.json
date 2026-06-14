@@ -1,0 +1,14 @@
+{
+  "data": {
+    "underlyingSymbol": "NIFTY",
+    "expiry": "2026-06-26",
+    "oc": {
+      "25000": {
+        "ce": {
+          "securityId": "12345",
+          "ltp": 150.5
+        }
+      }
+    }
+  }
+}

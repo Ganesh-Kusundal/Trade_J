@@ -1,0 +1,35 @@
+#!/usr/bin/env duckdb
+-- migrate_parquet.sql
+-- Migrates existing parquet files from old layout to canonical layout.
+--
+-- Old: data/historical-equity/bars/interval=1m/symbol=SBIN/part-hive-YYYY-MM.parquet
+-- New: data/historical/bars/segment=NSE_EQ/symbol=SBIN/interval=1m/year=YYYY/month=MM/part.parquet
+--
+-- Run: duckdb < migrate_parquet.sql
+-- Or use the Java migration service below.
+
+-- Step 1: Read all existing data
+-- SELECT * FROM read_parquet('data/historical-equity/bars/**/*.parquet', hive_partitioning=true)
+
+-- Step 2: Write to new partition layout
+-- COPY (
+--   SELECT
+--     symbol,
+--     'NSE_EQ' as segment,
+--     interval,
+--     bar_time_ms,
+--     open_paisa,
+--     high_paisa,
+--     low_paisa,
+--     close_paisa,
+--     volume,
+--     0 as oi,
+--     0 as trades,
+--     ingested_at_ms
+--   FROM read_parquet('data/historical-equity/bars/**/*.parquet', hive_partitioning=true)
+-- )
+-- TO 'data/historical/bars/' (
+--   FORMAT PARQUET,
+--   PARTITION_BY (segment, symbol, interval),
+--   OVERWRITE_OR_IGNORE
+-- );

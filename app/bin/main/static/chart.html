@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trade·J — Advanced Chart Station</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+<!-- TradingView Lightweight Charts -->
+<script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+<style>
+  :root {
+    --bg-primary: #0b0d11;
+    --bg-secondary: #12151c;
+    --bg-card: #181c26;
+    --bg-card-hover: #1e2330;
+    --border: #252b3a;
+    --border-active: #2e364a;
+    --text-primary: #e8edf5;
+    --text-secondary: #8892a8;
+    --text-muted: #5a6278;
+    --accent-green: #22c55e;
+    --accent-green-dim: rgba(34, 197, 94, 0.15);
+    --accent-red: #ef4444;
+    --accent-red-dim: rgba(239, 68, 68, 0.15);
+    --accent-amber: #f59e0b;
+    --accent-amber-dim: rgba(245, 158, 11, 0.15);
+    --accent-blue: #3b82f6;
+    --accent-blue-dim: rgba(59, 130, 246, 0.15);
+    --accent-cyan: #06b6d4;
+    --radius: 10px;
+    --radius-sm: 6px;
+    --shadow: 0 4px 12px rgba(0,0,0,0.5);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    padding: 20px;
+  }
+
+  /* Header */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 24px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 20px;
+  }
+
+  .logo {
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    background: linear-gradient(135deg, #22c55e, #06b6d4);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-decoration: none;
+  }
+  .logo span { font-weight: 500; -webkit-text-fill-color: var(--text-muted); }
+
+  .nav-links {
+    display: flex;
+    gap: 16px;
+  }
+
+  .nav-btn {
+    padding: 8px 16px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 600;
+    transition: all 0.2s;
+  }
+
+  .nav-btn:hover, .nav-btn.active {
+    border-color: var(--accent-cyan);
+    color: var(--text-primary);
+    background: var(--bg-card-hover);
+  }
+
+  /* Control Panel */
+  .control-panel {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1.5fr 1fr auto;
+    gap: 16px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 20px;
+    align-items: end;
+  }
+
+  @media (max-width: 1024px) {
+    .control-panel {
+      grid-template-columns: 1fr 1fr;
+    }
+    .control-panel .btn-submit {
+      grid-column: span 2;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .control-panel {
+      grid-template-columns: 1fr;
+    }
+    .control-panel .btn-submit {
+      grid-column: span 1;
+    }
+  }
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    position: relative;
+  }
+
+  label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-muted);
+  }
+
+  input, select {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 10px 14px;
+    color: var(--text-primary);
+    font-size: 14px;
+    font-family: inherit;
+    width: 100%;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  input:focus, select:focus {
+    border-color: var(--accent-cyan);
+  }
+
+  /* Autocomplete / Typeahead */
+  .autocomplete-results {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: var(--bg-card);
+    border: 1px solid var(--border-active);
+    border-radius: var(--radius-sm);
+    max-height: 250px;
+    overflow-y: auto;
+    z-index: 100;
+    box-shadow: var(--shadow);
+    display: none;
+    margin-top: 4px;
+  }
+
+  .autocomplete-item {
+    padding: 10px 14px;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    transition: background 0.2s;
+  }
+
+  .autocomplete-item:hover, .autocomplete-item.selected {
+    background: var(--bg-card-hover);
+  }
+
+  .autocomplete-symbol {
+    font-family: 'DM Mono', monospace;
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--text-primary);
+  }
+
+  .autocomplete-canonical {
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-left: 8px;
+  }
+
+  .autocomplete-type {
+    font-size: 9px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+    text-transform: uppercase;
+  }
+
+  .type-equity { background: rgba(59, 130, 246, 0.15); color: var(--accent-blue); }
+  .type-option { background: rgba(245, 158, 11, 0.15); color: var(--accent-amber); }
+  .type-future { background: rgba(6, 182, 212, 0.15); color: var(--accent-cyan); }
+  .type-commodity { background: rgba(34, 197, 94, 0.15); color: var(--accent-green); }
+
+  .date-range {
+    display: flex;
+    gap: 8px;
+  }
+
+  .btn-submit {
+    background: linear-gradient(135deg, #06b6d4, #3b82f6);
+    border: none;
+    border-radius: var(--radius-sm);
+    color: #fff;
+    padding: 11px 24px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.1s;
+    outline: none;
+  }
+
+  .btn-submit:hover {
+    opacity: 0.9;
+  }
+
+  .btn-submit:active {
+    transform: scale(0.98);
+  }
+
+  /* Main Workspace */
+  .workspace {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 3fr 1fr;
+    gap: 20px;
+    min-height: 500px;
+  }
+
+  @media (max-width: 900px) {
+    .workspace {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .chart-container-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+
+  .chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+
+  .symbol-info {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+  }
+
+  .symbol-title {
+    font-size: 18px;
+    font-weight: 700;
+  }
+
+  .symbol-exchange {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-weight: 600;
+  }
+
+  .symbol-price-info {
+    font-family: 'DM Mono', monospace;
+    font-size: 14px;
+    color: var(--text-secondary);
+  }
+
+  .chart-wrapper {
+    flex: 1;
+    width: 100%;
+    min-height: 450px;
+    position: relative;
+  }
+
+  /* Sidebar Stats */
+  .sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+  }
+
+  .card-title {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-muted);
+    margin-bottom: 16px;
+  }
+
+  .stat-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+  }
+
+  .stat-row:last-child {
+    border-bottom: none;
+  }
+
+  .stat-label {
+    font-size: 13px;
+    color: var(--text-secondary);
+  }
+
+  .stat-value {
+    font-family: 'DM Mono', monospace;
+    font-size: 14px;
+    font-weight: 500;
+  }
+
+  /* Loading & Status States */
+  .spinner-overlay {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(11, 13, 17, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10;
+    border-radius: var(--radius);
+    display: none;
+  }
+
+  .spinner {
+    width: 32px;
+    height: 32px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent-cyan);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .status-message {
+    padding: 12px 16px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-weight: 500;
+    margin-bottom: 16px;
+    display: none;
+  }
+
+  .status-error {
+    background: var(--accent-red-dim);
+    color: var(--accent-red);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+  }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <a href="dashboard.html" class="logo">Trade·J <span>| Chart Station</span></a>
+  <div class="nav-links">
+    <a href="dashboard.html" class="nav-btn">Dashboard</a>
+    <a href="chart.html" class="nav-btn active">Charts</a>
+  </div>
+</div>
+
+<!-- Control Panel -->
+<div class="control-panel">
+  <!-- Symbol Typeahead Field -->
+  <div class="form-group">
+    <label for="symbolSearch">Symbol (Standard or Canonical)</label>
+    <input type="text" id="symbolSearch" autocomplete="off" placeholder="e.g. SBIN, NIFTY26JUN..." />
+    <input type="hidden" id="selectedSymbol" value="" />
+    <input type="hidden" id="selectedSegment" value="" />
+    <div class="autocomplete-results" id="autocompleteResults"></div>
+  </div>
+
+  <!-- Interval / Timeframe -->
+  <div class="form-group">
+    <label for="timeframeSelect">Timeframe</label>
+    <select id="timeframeSelect">
+      <option value="1m">1 Minute</option>
+      <option value="3m">3 Minutes</option>
+      <option value="5m" selected>5 Minutes</option>
+      <option value="15m">15 Minutes</option>
+      <option value="1h">1 Hour</option>
+      <option value="1d">1 Day</option>
+    </select>
+  </div>
+
+  <!-- Date range selection -->
+  <div class="form-group">
+    <label>Date Range (From - To)</label>
+    <div class="date-range">
+      <input type="date" id="dateFrom" />
+      <input type="date" id="dateTo" />
+    </div>
+  </div>
+
+  <!-- Source Choice (Broker vs DuckDB Parquet) -->
+  <div class="form-group">
+    <label for="sourceSelect">Source</label>
+    <select id="sourceSelect">
+      <option value="broker" selected>Live Broker API</option>
+      <option value="parquet">Local Parquet DB</option>
+    </select>
+  </div>
+
+  <button class="btn-submit" id="btnLoad">Load Chart</button>
+</div>
+
+<!-- Main Workspace -->
+<div class="workspace">
+  <!-- Chart Card -->
+  <div class="chart-container-card">
+    <div class="spinner-overlay" id="loadingOverlay">
+      <div class="spinner"></div>
+    </div>
+    
+    <div class="chart-header">
+      <div class="symbol-info">
+        <div class="symbol-title" id="displaySymbol">Select a Symbol</div>
+        <div class="symbol-exchange" id="displayExchange">—</div>
+      </div>
+      <div class="symbol-price-info" id="priceTracker">—</div>
+    </div>
+
+    <!-- Error message space -->
+    <div class="status-message status-error" id="errorBanner"></div>
+
+    <div class="chart-wrapper" id="chartArea"></div>
+  </div>
+
+  <!-- Statistics Panel -->
+  <div class="sidebar">
+    <div class="card">
+      <div class="card-title">Bar Summary</div>
+      <div class="stat-row">
+        <span class="stat-label">Open</span>
+        <span class="stat-value" id="statOpen">—</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">High</span>
+        <span class="stat-value" id="statHigh">—</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Low</span>
+        <span class="stat-value" id="statLow">—</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Close</span>
+        <span class="stat-value" id="statClose">—</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Volume</span>
+        <span class="stat-value" id="statVolume">—</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Symbol Details</div>
+      <div class="stat-row">
+        <span class="stat-label">Canonical</span>
+        <span class="stat-value" id="detailCanonical">—</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Segment</span>
+        <span class="stat-value" id="detailSegment">—</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Type</span>
+        <span class="stat-value" id="detailType">—</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Lot Size</span>
+        <span class="stat-value" id="detailLotSize">—</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  // State
+  let symbolCatalog = [];
+  let chart = null;
+  let candleSeries = null;
+  let volumeSeries = null;
+  let selectedCatalogIndex = -1;
+  let filteredCatalog = [];
+
+  // Helper selectors
+  function $(id) { return document.getElementById(id); }
+
+  // Set default dates (past 15 days to today)
+  function initDates() {
+    const to = new Date();
+    const from = new Date();
+    from.setDate(from.getDate() - 15);
+    
+    $('dateTo').value = to.toISOString().split('T')[0];
+    $('dateFrom').value = from.toISOString().split('T')[0];
+  }
+
+  // Set up TradingView chart
+  function initChart() {
+    const chartWrapper = $('chartArea');
+    chart = LightweightCharts.createChart(chartWrapper, {
+      layout: {
+        background: { color: '#12151c' },
+        textColor: '#8892a8',
+      },
+      grid: {
+        vertLines: { color: '#181c26' },
+        horzLines: { color: '#181c26' },
+      },
+      crosshair: {
+        mode: LightweightCharts.CrosshairMode.Normal,
+      },
+      timeScale: {
+        borderColor: '#252b3a',
+        timeVisible: true,
+      },
+    });
+
+    candleSeries = chart.addSeries(LightweightCharts.CandlestickSeries, {
+      upColor: '#22c55e',
+      downColor: '#ef4444',
+      borderUpColor: '#22c55e',
+      borderDownColor: '#ef4444',
+      wickUpColor: '#22c55e',
+      wickDownColor: '#ef4444',
+    });
+
+    volumeSeries = chart.addSeries(LightweightCharts.HistogramSeries, {
+      color: '#26a69a',
+      priceFormat: {
+        type: 'volume',
+      },
+      priceScaleId: '', // Set overlay volume
+    });
+
+    volumeSeries.priceScale().applyOptions({
+      scaleMargins: {
+        top: 0.8, // volume takes up bottom 20%
+        bottom: 0,
+      },
+    });
+
+    // Resize listener
+    const resizeObserver = new ResizeObserver(entries => {
+      if (entries.length === 0 || !entries[0]) return;
+      const { width, height } = entries[0].contentRect;
+      chart.resize(width, height);
+    });
+    resizeObserver.observe(chartWrapper);
+
+    // Crosshair move listener for OHLV values update
+    chart.subscribeCrosshairMove(param => {
+      if (!param.time || param.point === undefined || !param.seriesData.get(candleSeries)) {
+        clearStats();
+        return;
+      }
+      const data = param.seriesData.get(candleSeries);
+      const volData = param.seriesData.get(volumeSeries);
+      
+      $('statOpen').textContent = data.open.toFixed(2);
+      $('statHigh').textContent = data.high.toFixed(2);
+      $('statLow').textContent = data.low.toFixed(2);
+      $('statClose').textContent = data.close.toFixed(2);
+      $('statVolume').textContent = volData ? volData.value.toLocaleString() : '0';
+
+      $('priceTracker').textContent = `O: ${data.open.toFixed(2)} | H: ${data.high.toFixed(2)} | L: ${data.low.toFixed(2)} | C: ${data.close.toFixed(2)}`;
+    });
+  }
+
+  function clearStats() {
+    $('statOpen').textContent = '—';
+    $('statHigh').textContent = '—';
+    $('statLow').textContent = '—';
+    $('statClose').textContent = '—';
+    $('statVolume').textContent = '—';
+    $('priceTracker').textContent = '—';
+  }
+
+  // Load symbols catalog for typeahead
+  async function loadCatalog() {
+    try {
+      const response = await fetch('/api/v1/symbols');
+      if (!response.ok) {
+        throw new Error('Symbols endpoint returned status: ' + response.status);
+      }
+      const data = await response.json();
+      symbolCatalog = data.symbols || [];
+      console.log('Symbols loaded:', symbolCatalog.length);
+    } catch (err) {
+      showError('Failed to fetch symbol list. Check server connection.');
+    }
+  }
+
+  // Perform autocomplete search locally (supporting canonical names)
+  function setupAutocomplete() {
+    const input = $('symbolSearch');
+    const resultsDiv = $('autocompleteResults');
+
+    input.addEventListener('input', () => {
+      const query = input.value.trim().toUpperCase();
+      if (!query) {
+        resultsDiv.style.display = 'none';
+        return;
+      }
+
+      // Filter: match standard symbol, canonical symbol, or company name
+      filteredCatalog = symbolCatalog.filter(item => {
+        return (item.symbol && item.symbol.toUpperCase().includes(query)) ||
+               (item.canonicalSymbol && item.canonicalSymbol.toUpperCase().includes(query)) ||
+               (item.name && item.name.toUpperCase().includes(query));
+      }).slice(0, 15); // limit output to top 15 results
+
+      selectedCatalogIndex = -1;
+      renderAutocomplete(filteredCatalog);
+    });
+
+    input.addEventListener('keydown', (e) => {
+      const items = resultsDiv.getElementsByClassName('autocomplete-item');
+      if (items.length === 0) return;
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        selectedCatalogIndex = (selectedCatalogIndex + 1) % items.length;
+        updateSelectedAutocompleteItem(items);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        selectedCatalogIndex = (selectedCatalogIndex - 1 + items.length) % items.length;
+        updateSelectedAutocompleteItem(items);
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (selectedCatalogIndex >= 0 && selectedCatalogIndex < filteredCatalog.length) {
+          selectSymbol(filteredCatalog[selectedCatalogIndex]);
+        } else if (items.length > 0) {
+          selectSymbol(filteredCatalog[0]);
+        }
+      }
+    });
+
+    // Hide suggestions on outer click
+    document.addEventListener('click', (e) => {
+      if (e.target !== input && e.target !== resultsDiv) {
+        resultsDiv.style.display = 'none';
+      }
+    });
+  }
+
+  function updateSelectedAutocompleteItem(items) {
+    for (let i = 0; i < items.length; i++) {
+      if (i === selectedCatalogIndex) {
+        items[i].classList.add('selected');
+        items[i].scrollIntoView({ block: 'nearest' });
+      } else {
+        items[i].classList.remove('selected');
+      }
+    }
+  }
+
+  function renderAutocomplete(list) {
+    const resultsDiv = $('autocompleteResults');
+    if (list.length === 0) {
+      resultsDiv.innerHTML = '<div style="padding: 10px; color: var(--text-muted); font-size: 13px;">No symbols match query</div>';
+      resultsDiv.style.display = 'block';
+      return;
+    }
+
+    resultsDiv.innerHTML = list.map((item, idx) => {
+      const typeClass = 'type-' + (item.instrumentType || 'equity').toLowerCase();
+      return `
+        <div class="autocomplete-item" data-index="${idx}">
+          <div>
+            <span class="autocomplete-symbol">${item.symbol}</span>
+            <span class="autocomplete-canonical">${item.canonicalSymbol || ''}</span>
+          </div>
+          <span class="autocomplete-type ${typeClass}">${item.instrumentType}</span>
+        </div>
+      `;
+    }).join('');
+
+    resultsDiv.style.display = 'block';
+
+    // Click handler for items
+    const items = resultsDiv.getElementsByClassName('autocomplete-item');
+    for (let i = 0; i < items.length; i++) {
+      items[i].addEventListener('click', function() {
+        const idx = parseInt(this.getAttribute('data-index'), 10);
+        selectSymbol(list[idx]);
+      });
+    }
+  }
+
+  function selectSymbol(item) {
+    $('symbolSearch').value = item.symbol;
+    $('selectedSymbol').value = item.symbol;
+    $('selectedSegment').value = item.exchangeSegment;
+    $('autocompleteResults').style.display = 'none';
+
+    // Update details side bar
+    $('detailCanonical').textContent = item.canonicalSymbol || '—';
+    $('detailSegment').textContent = item.exchangeSegment || '—';
+    $('detailType').textContent = item.instrumentType || '—';
+    $('detailLotSize').textContent = item.lotSize || '—';
+
+    $('displaySymbol').textContent = item.symbol;
+    $('displayExchange').textContent = item.exchange + ' : ' + item.exchangeSegment;
+  }
+
+  // API Call to Load Candle Data
+  async function loadChartData() {
+    const symbol = $('selectedSymbol').value;
+    const segment = $('selectedSegment').value;
+    const interval = $('timeframeSelect').value;
+    const from = $('dateFrom').value;
+    const to = $('dateTo').value;
+    const source = $('sourceSelect').value;
+
+    if (!symbol || !segment) {
+      showError('Please type and select a symbol from autocomplete results first.');
+      return;
+    }
+
+    hideError();
+    showLoading();
+
+    try {
+      const url = `/api/v1/market/historical/candles?symbol=${encodeURIComponent(symbol)}&exchangeSegment=${encodeURIComponent(segment)}&interval=${encodeURIComponent(interval)}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&source=${encodeURIComponent(source)}`;
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error('API returned status: ' + response.status);
+      }
+      const data = await response.json();
+      const rawCandles = data.candles || [];
+
+      if (rawCandles.length === 0) {
+        showError('No historical data found for the selected configuration.');
+        candleSeries.setData([]);
+        volumeSeries.setData([]);
+        return;
+      }
+
+      // Convert prices from paisa to rupees
+      const cleanCandles = rawCandles.map(c => {
+        // Handle timestamps. If daily, TV Lightweight Charts expects date string 'YYYY-MM-DD'
+        // If intra-day, it expects unix epoch in seconds.
+        let timeVal;
+        const isDaily = interval === '1d';
+        if (isDaily) {
+          timeVal = new Date(c.startTimeMs).toISOString().split('T')[0];
+        } else {
+          timeVal = Math.floor(c.startTimeMs / 1000);
+        }
+
+        return {
+          time: timeVal,
+          open: c.openPaisa / 100,
+          high: c.highPaisa / 100,
+          low: c.lowPaisa / 100,
+          close: c.closePaisa / 100,
+          volume: c.volume
+        };
+      });
+
+      // Sort by time ascending (lightweight-charts strictly requires this)
+      cleanCandles.sort((a, b) => {
+        const tA = typeof a.time === 'string' ? new Date(a.time).getTime() : a.time;
+        const tB = typeof b.time === 'string' ? new Date(b.time).getTime() : b.time;
+        return tA - tB;
+      });
+
+      // Load candlestick series
+      candleSeries.setData(cleanCandles.map(c => ({
+        time: c.time,
+        open: c.open,
+        high: c.high,
+        low: c.low,
+        close: c.close
+      })));
+
+      // Load volume series
+      volumeSeries.setData(cleanCandles.map(c => ({
+        time: c.time,
+        value: c.volume || 0,
+        color: c.close >= c.open ? 'rgba(34, 197, 94, 0.4)' : 'rgba(239, 68, 68, 0.4)'
+      })));
+
+      chart.timeScale().fitContent();
+
+    } catch (err) {
+      console.error(err);
+      showError('Error loading historical chart data: ' + err.message);
+    } finally {
+      hideLoading();
+    }
+  }
+
+  // Load state and view helpers
+  function showLoading() { $('loadingOverlay').style.display = 'flex'; }
+  function hideLoading() { $('loadingOverlay').style.display = 'none'; }
+  function showError(msg) {
+    const banner = $('errorBanner');
+    banner.textContent = msg;
+    banner.style.display = 'block';
+  }
+  function hideError() { $('errorBanner').style.display = 'none'; }
+
+  // Initialisation Orchestration
+  async function init() {
+    initDates();
+    initChart();
+    await loadCatalog();
+    setupAutocomplete();
+
+    // Load first default symbol (e.g. SBIN if available)
+    if (symbolCatalog.length > 0) {
+      const sbin = symbolCatalog.find(item => item.symbol === 'SBIN') || symbolCatalog[0];
+      selectSymbol(sbin);
+      loadChartData();
+    }
+
+    $('btnLoad').addEventListener('click', loadChartData);
+  }
+
+  window.addEventListener('DOMContentLoaded', init);
+
+})();
+</script>
+</body>
+</html>

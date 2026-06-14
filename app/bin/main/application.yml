@@ -1,0 +1,179 @@
+spring:
+  application:
+    name: trade-j
+  ai:
+    mcp:
+      server:
+        type: SYNC
+        protocol: SSE
+        annotation-scanner:
+          enabled: true
+  profiles:
+    default: dev
+    # Active profiles:
+    #   dev          — Dhan sandbox, local dev (application-dev.yml)
+    #   dev-live     — Dhan live credentials in dev env (application-dev-live.yml)
+    #   prod         — Dhan live, production (application-prod.yml)
+    #   gateway      — Multi-broker load-balanced (application-gateway.yml)
+    #   replay       — Offline replay mode, no live broker (application-replay.yml)
+    #   test         — Integration tests with sandbox (application-test.yml)
+    #
+    # To switch broker type, set trade.broker-type=dhan|upstox|icici|gateway|simulation
+    # and provide the corresponding env vars (see application-prod.yml comments)
+    # simulation = paper trading mode, no broker credentials needed
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true
+  health:
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true
+
+trade:
+  broker-type: simulation
+  broker:
+    logging-enabled: false
+    rate-limit-retries: 3
+    max-reconnect-attempts: 10
+    auto-reconnect-enabled: true
+    auto-resubscribe-enabled: true
+    pin-file: ${dhan.pinFile:config/dhan-pin.txt}
+    totp-secret-file: ${dhan.totpSecretFile:config/dhan-totp-secret.txt}
+    refresh-buffer-minutes: ${dhan.refreshBufferMinutes:10}
+    option-expiry-cache-ttl-minutes: ${dhan.optionExpiryCacheTtlMinutes:5}
+  reconciliation:
+    interval-seconds: 300
+    initial-delay-seconds: 60
+    auto-halt: false
+    mismatch-tolerance-qty: 0
+  risk:
+    max-daily-loss-paisa: 500000
+    max-consecutive-losses: 3
+    max-order-value-paisa: 5000000
+    max-open-positions: 3
+    max-distinct-open-positions: 10
+    enforce-margin: false
+    enforce-unrealized-loss: false
+    margin-cache-ttl-minutes: 5
+  options:
+    analytics-enabled: false
+    chain-poll-interval-ms: 60000
+  tracing:
+    enabled: false
+    sample-rate: 1.0
+  portfolio:
+    default-capital-paisa: 1000000
+    max-net-exposure-paisa: 5000000
+  runtime:
+    mode: LIVE
+    bus: SIMPLE
+  hot-path:
+    shard-count: ${TRADE_HOTPATH_SHARD_COUNT:0}
+  virtual-threads:
+    enabled: ${TRADE_VIRTUAL_THREADS_ENABLED:true}
+    max-concurrency: ${TRADE_VIRTUAL_THREADS_MAX_CONCURRENCY:0}
+  gateway:
+    enabled: ${TRADE_GATEWAY_ENABLED:true}
+    endpoint: /ws/gateway
+  universe:
+    max-subscriptions-per-batch: ${TRADE_UNIVERSE_BATCH_SIZE:50}
+  scan:
+    enabled: ${TRADE_SCAN_ENABLED:false}
+    default-profile: intraday-hybrid
+    scheduler-cron: "0 15,30,45 9-15 * * MON-FRI"
+    scheduler-zone: Asia/Kolkata
+    profiles: []
+  instruments:
+    csv-path: ${TRADE_INSTRUMENTS_CSV:}
+    auto-download: ${TRADE_INSTRUMENTS_AUTO_DOWNLOAD:true}
+  download:
+    delay-ms: ${TRADE_DOWNLOAD_DELAY_MS:0}
+    workers: ${TRADE_DOWNLOAD_WORKERS:2}
+  historical-equity:
+    root-path: ${TRADE_HISTORICAL_EQUITY_ROOT:data/historical-equity}
+    universe-url: ${TRADE_HISTORICAL_EQUITY_UNIVERSE_URL:https://www.niftyindices.com/IndexConstituent/ind_nifty500list.csv}
+    refresh-universe-on-job-start: ${TRADE_HISTORICAL_EQUITY_REFRESH_UNIVERSE:true}
+    workers: ${TRADE_HISTORICAL_EQUITY_WORKERS:8}
+    delay-ms: ${TRADE_HISTORICAL_EQUITY_DELAY_MS:200}
+    source-hive-path: ${TRADE_HISTORICAL_EQUITY_SOURCE_HIVE:}
+    source-universe-csv: ${TRADE_HISTORICAL_EQUITY_SOURCE_UNIVERSE_CSV:}
+    source-industry-parquet: ${TRADE_HISTORICAL_EQUITY_SOURCE_INDUSTRY:}
+    import-from-month: ${TRADE_HISTORICAL_EQUITY_IMPORT_FROM:2020-01}
+    import-to-month: ${TRADE_HISTORICAL_EQUITY_IMPORT_TO:}
+  analytics:
+    engine: duckdb
+    equity-root: ${TRADE_HISTORICAL_EQUITY_ROOT:data/historical-equity}
+    options-warehouse: ${TRADE_HISTORICAL_WAREHOUSE:runtime-dev/historical.duckdb}
+    runtime-db-path: ${TRADE_STORAGE_DUCKDB:runtime-dev/trade.duckdb}
+    attach-runtime-db: ${TRADE_ANALYTICS_ATTACH_RUNTIME:true}
+    sql-enabled: ${TRADE_ANALYTICS_SQL_ENABLED:true}
+    sql-max-rows: ${TRADE_ANALYTICS_SQL_MAX_ROWS:10000}
+    sql-max-runtime-ms: ${TRADE_ANALYTICS_SQL_MAX_RUNTIME_MS:30000}
+  subscriptions: []
+  venues:
+    NSE_EQ:
+      supported-feed-modes: [TICKER, QUOTE, FULL, DEPTH_20]
+      supports-depth-20: true
+      supports-depth-200: false
+      requires-contract-discovery: false
+      session-open: "09:15"
+      session-close: "15:30"
+      supports-late-session: false
+    NSE_FNO:
+      supported-feed-modes: [TICKER, QUOTE, FULL, DEPTH_20]
+      supports-depth-20: true
+      supports-depth-200: false
+      requires-contract-discovery: true
+      session-open: "09:15"
+      session-close: "15:30"
+      supports-late-session: false
+    BSE_EQ:
+      supported-feed-modes: [TICKER, QUOTE, FULL, DEPTH_20]
+      supports-depth-20: true
+      supports-depth-200: false
+      requires-contract-discovery: false
+      session-open: "09:15"
+      session-close: "15:30"
+      supports-late-session: false
+    BSE_FNO:
+      supported-feed-modes: [TICKER, QUOTE, FULL, DEPTH_20]
+      supports-depth-20: true
+      supports-depth-200: false
+      requires-contract-discovery: true
+      session-open: "09:15"
+      session-close: "15:30"
+      supports-late-session: false
+    MCX_COMM:
+      supported-feed-modes: [TICKER, QUOTE, FULL, DEPTH_20]
+      supports-depth-20: true
+      supports-depth-200: false
+      requires-contract-discovery: true
+      session-open: "09:00"
+      session-close: "23:30"
+      supports-late-session: true
+    IDX_I:
+      supported-feed-modes: [TICKER, QUOTE]
+      supports-depth-20: false
+      supports-depth-200: false
+      requires-contract-discovery: false
+      session-open: "09:15"
+      session-close: "15:30"
+      supports-late-session: false
+
+tradej:
+  gateway:
+    enabled: true
+    websocket-path: /ws/gateway
+  console:
+    cors:
+      enabled: false
+      # allowed-origins: "http://localhost:5173,https://console.example.com"
