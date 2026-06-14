@@ -1,0 +1,6 @@
+id: sma-cross-5-15
+className: com.tradej.strategy.example.SmaCrossStrategy
+enabled: true
+parameters:
+  fastPeriod: 5
+  slowPeriod: 15
