@@ -182,6 +182,11 @@ tradej:
     enabled: true
     websocket-path: /ws/gateway
   console:
+    # CORS is enabled by default with a permissive localhost-friendly default.
+    # Production deployments MUST set the ALLOWED_ORIGINS env var to the actual
+    # frontend origin (comma-separated list). To disable CORS entirely (e.g., when
+    # running behind a reverse proxy that handles CORS), set
+    # tradej.console.cors.enabled=false.
     cors:
-      enabled: false
-      # allowed-origins: "http://localhost:5173,https://console.example.com"
+      enabled: true
+      allowed-origins: ${ALLOWED_ORIGINS:http://localhost:3000,http://localhost:8080}

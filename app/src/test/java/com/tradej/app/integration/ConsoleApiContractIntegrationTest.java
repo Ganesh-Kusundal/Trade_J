@@ -24,7 +24,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 /**
- * Verifies REST shapes used by the React console ({@code frontend/src/api/client.ts})
+ * Verifies REST shapes used by the React console ({@code trade_j_frontend/src/api/})
  * against real controller code (mocked services, no browser mocks).
  */
 @Tag("integration")
