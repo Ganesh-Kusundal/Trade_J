@@ -56,6 +56,7 @@ import com.tradej.persistence.replay.ReplayClock;
 import com.tradej.persistence.replay.ReplayRunner;
 import com.tradej.persistence.replay.ReplayStateManager;
 import com.tradej.pipeline.clock.VirtualClock;
+import com.tradej.replay.engine.BacktestExecutionService;
 import com.tradej.replay.engine.IsolatedReplayStateManager;
 import com.tradej.replay.engine.PositionStateRebuilder;
 import com.tradej.replay.engine.ReplayOrchestrator;
@@ -316,6 +317,16 @@ public class DataConfiguration {
     }
 
     // ── Options analytics (conditional) ──
+
+
+    @Bean
+    @org.springframework.context.annotation.Lazy
+    BacktestExecutionService backtestExecutionService(
+            com.tradej.pipeline.service.DagPipelineRuntimeService dagPipelineRuntimeService,
+            com.tradej.persistence.replay.ReplayStateManager replayStateManager
+    ) {
+        return new BacktestExecutionService(dagPipelineRuntimeService, replayStateManager);
+    }
 
     @Configuration
     @EnableScheduling
