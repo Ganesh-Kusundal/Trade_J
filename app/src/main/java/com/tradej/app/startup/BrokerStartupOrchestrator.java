@@ -167,6 +167,9 @@ public final class BrokerStartupOrchestrator {
         } else {
             log.info("Skipping WebSocket handler wiring in REST-only mode.");
         }
+        // Always wire the order-update listener — paper brokers use the
+        // simulated WebSocket multiplexer to publish lifecycle events.
+        wireOrderUpdateListener(deps.brokerConnection(), deps.orderPipeline(), deps.eventBus());
     }
 
     private void startRuntimeAndRecover(StartupDependencies deps) {
@@ -354,6 +357,37 @@ public final class BrokerStartupOrchestrator {
                 eventBus.publish(event);
             }
         });
+        brokerConnection.websocket().onOrderUpdate(event -> {
+            switch (event) {
+                case OrderAccepted accepted -> orderPipeline.onOrderAccepted(accepted);
+                case OrderFilled filled -> orderPipeline.onOrderFilled(filled);
+                case com.tradej.core.domain.event.OrderPartiallyFilled partial ->
+                        orderPipeline.onOrderPartiallyFilled(partial);
+                case com.tradej.core.domain.event.OrderFullyFilled fully ->
+                        orderPipeline.onOrderFullyFilled(fully);
+                case OrderRejected rejected -> orderPipeline.onOrderRejected(rejected);
+                default -> eventBus.publish(event);
+            }
+        });
+    }
+
+    /**
+     * Wires the order-update listener that forwards broker order
+     * lifecycle events to the order pipeline. This must run for
+     * EVERY broker profile, not just those with a live WebSocket —
+     * the paper broker uses its simulated WebSocket multiplexer to
+     * publish OrderAccepted/OrderFullyFilled events that the
+     * read-model fold subscribes to via this listener.
+     *
+     * <p>Without this, the read-model fold never sees paper orders
+     * and the heartbeat step 5 ("read model contains orderId")
+     * fails.
+     */
+    private void wireOrderUpdateListener(
+            IBrokerConnection brokerConnection,
+            OrderPipeline orderPipeline,
+            EventBus eventBus
+    ) {
         brokerConnection.websocket().onOrderUpdate(event -> {
             switch (event) {
                 case OrderAccepted accepted -> orderPipeline.onOrderAccepted(accepted);

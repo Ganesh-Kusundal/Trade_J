@@ -32,4 +32,19 @@ public class OptionsAnalyticsController {
         }
         return ResponseEntity.ok(result);
     }
+
+    @GetMapping("/chain")
+    public ResponseEntity<Map<String, Object>> optionChain(
+            @RequestParam String underlying,
+            @RequestParam(defaultValue = "NSE_FNO") String segment,
+            @RequestParam(required = false) LocalDate expiry,
+            @RequestParam(required = false) Integer depth
+    ) {
+        Map<String, Object> result = optionsService.getOptionChain(underlying, segment, expiry, depth);
+        if (result.containsKey("error")) {
+            int status = "No expiries for ".concat(underlying).equals(result.get("error")) ? 404 : 503;
+            return ResponseEntity.status(status).body(result);
+        }
+        return ResponseEntity.ok(result);
+    }
 }

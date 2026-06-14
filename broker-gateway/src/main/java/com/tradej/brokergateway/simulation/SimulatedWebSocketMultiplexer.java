@@ -43,4 +43,9 @@ public final class SimulatedWebSocketMultiplexer implements WebSocketMultiplexer
     public Map<MarketSubscriptionRequest, FeedMode> subscriptions() {
         return Map.copyOf(subscriptions);
     }
+
+    /** Package-private accessor for the paper broker to publish lifecycle events. */
+    public List<OrderUpdateListener> orderListeners() {
+        return List.copyOf(orderListeners);
+    }
 }

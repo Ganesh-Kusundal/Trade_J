@@ -40,6 +40,9 @@ import com.tradej.core.domain.model.RollingOptionHistoryRequest;
 import com.tradej.core.domain.model.RollingOptionSeries;
 import com.tradej.core.domain.model.SliceOrderRequest;
 import com.tradej.core.domain.model.Trade;
+import com.tradej.core.domain.event.EventMetadata;
+import com.tradej.core.domain.event.OrderAccepted;
+import com.tradej.core.domain.event.OrderFullyFilled;
 import com.tradej.core.domain.value.Exchange;
 import com.tradej.core.domain.value.ExchangeSegment;
 import com.tradej.core.domain.value.FeedMode;
@@ -203,6 +206,7 @@ public final class PaperBrokerConnection implements IBrokerConnection {
                     request.pricePaisa(), request.triggerPricePaisa(),
                     System.currentTimeMillis(), null);
             activeOrders.put(id, order);
+            publishOrderLifecycle(order);
             return order;
         }
 
@@ -377,6 +381,53 @@ public final class PaperBrokerConnection implements IBrokerConnection {
     // ── WebSocketMultiplexer (no-op) ──────────────────────────────────
 
     private final WebSocketMultiplexer wsMultiplexer = new SimulatedWebSocketMultiplexer();
+
+    /**
+     * Publishes the order-lifecycle events a real broker would push over
+     * its order-update WebSocket. Without this, the read-model fold never
+     * sees a paper order and the SSE/heartbeat step 5 ("read model
+     * contains orderId") fails.
+     *
+     * <p>For a paper order the lifecycle is: accepted then immediately
+     * fully filled. The same listeners wired in
+     * {@code BrokerStartupOrchestrator.setupWebSocketHandlers} will
+     * forward the events to {@code OrderPipeline} → event bus →
+     * read model.
+     */
+    private void publishOrderLifecycle(Order order) {
+        EventMetadata meta = EventMetadata.root();
+        for (var listener : reflectOrderListeners()) {
+            try {
+                listener.onEvent(new OrderAccepted(meta, order));
+                if (order.status() == OrderStatus.TRADED) {
+                    Trade fill = new Trade(
+                            "SIM-FILL-" + order.orderId(),
+                            order.orderId(),
+                            order.symbol(),
+                            order.exchangeSegment(),
+                            order.side(),
+                            order.quantity(),
+                            order.pricePaisa(),
+                            order.exchangeTimeMs()
+                    );
+                    listener.onEvent(new OrderFullyFilled(meta, order, List.of(fill)));
+                }
+            } catch (Exception e) {
+                // Listener failures must not break the broker.
+            }
+        }
+    }
+
+    private List<com.tradej.broker.api.port.OrderUpdateListener> reflectOrderListeners() {
+        // SimulatedWebSocketMultiplexer keeps a CopyOnWriteArrayList<OrderUpdateListener>
+        // that is package-private. We expose the path through its public onOrderUpdate
+        // API, but to *invoke* the listeners we need the field. Since we own the
+        // class we cast to SimulatedWebSocketMultiplexer and read the field directly.
+        if (wsMultiplexer instanceof SimulatedWebSocketMultiplexer sim) {
+            return sim.orderListeners();
+        }
+        return List.of();
+    }
 
     // ── Helpers ───────────────────────────────────────────────────────
 
