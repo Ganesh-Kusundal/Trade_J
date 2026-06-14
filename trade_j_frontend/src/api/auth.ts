@@ -135,3 +135,44 @@ export function authedFetchInit(init: RequestInit = {}): RequestInit {
   headers.set("X-Session-Id", sid);
   return { ...init, headers };
 }
+
+export interface SignedBrokerWsUrl {
+  url: string;
+  broker: string;
+  expiresAtMs: number;
+  signature: string;
+  ttlMs: number;
+}
+
+/**
+ * Fetch a 30-second signed broker WebSocket URL. The credential
+ * is NEVER in the browser beyond the 30-sec window. The browser
+ * opens a WebSocket to the returned URL on the broker; the URL
+ * is unusable after expiresAtMs.
+ *
+ * <p>This is the v2 of the broker-credential flow. The
+ * {@link fetchBrokerSession} variant (which returns the raw
+ * credential) is preserved for backward compat.
+ */
+export async function fetchSignedBrokerWsUrl(
+  broker: string,
+  instruments: string[] = []
+): Promise<SignedBrokerWsUrl | null> {
+  const sid = getSessionId();
+  if (!sid) return null;
+  const params = new URLSearchParams();
+  params.set("broker", broker);
+  if (instruments.length > 0) {
+    params.set("instruments", instruments.join(","));
+  }
+  const res = await fetch(`/api/v1/auth/ws-url?${params.toString()}`, {
+    headers: { "X-Session-Id": sid },
+  });
+  if (res.status === 401) {
+    clearSession();
+    return null;
+  }
+  if (!res.ok) return null;
+  return (await res.json()) as SignedBrokerWsUrl;
+}
+

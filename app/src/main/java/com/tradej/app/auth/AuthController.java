@@ -8,9 +8,11 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -41,12 +43,14 @@ import java.util.Optional;
 @RequestMapping("/api/v1/auth")
 public class AuthController {
 
-    public static final String SESSION_HEADER = "X-Session-Id";
+    private static final String SESSION_HEADER = "X-Session-Id";
 
     private final SessionStore sessions;
+    private final BrokerSignedUrlService signedUrlService;
 
-    public AuthController(SessionStore sessions) {
+    public AuthController(SessionStore sessions, BrokerSignedUrlService signedUrlService) {
         this.sessions = sessions;
+        this.signedUrlService = signedUrlService;
     }
 
     @PostMapping("/login")
@@ -112,6 +116,13 @@ public class AuthController {
      * feed. The server reads the credential from
      * {@link SessionStore} and hands it to the browser in one
      * shot — the browser does not persist the response.
+     *
+     * <p><strong>Deprecated:</strong> prefer the
+     * {@code /api/v1/brokers/{name}/ws-url} endpoint, which
+     * returns a 30-second signed URL instead of the raw
+     * credential. The raw-credential endpoint is preserved for
+     * backward compat (browsers that already store the session
+     * JSON in memory).
      */
     @GetMapping("/broker-session")
     public ResponseEntity<Map<String, Object>> brokerSession(HttpServletRequest request) {
@@ -144,4 +155,45 @@ public class AuthController {
             long issuedAtMs,
             long expiresAtMs
     ) {}
+
+    /**
+     * Returns a 30-second signed broker WebSocket URL. The
+     * browser calls this BEFORE opening the WebSocket to the
+     * broker; the credential in the URL expires in 30 seconds
+     * and is unusable after that.
+     *
+     * <p>This endpoint is the v2 of the broker-credential flow:
+     * instead of the browser holding the raw
+     * {@code accessToken} for the duration of a session, it
+     * holds a short-lived signed URL. The credential is still
+     * server-side (in {@code SessionStore}); the browser only
+     * ever holds a 30-sec signed URL.
+     */
+    @GetMapping("/ws-url")
+    public ResponseEntity<Map<String, Object>> wsUrl(
+            @RequestParam(required = false) String broker,
+            @RequestParam(required = false) String instruments,
+            HttpServletRequest request
+    ) {
+        String sessionId = request.getHeader(SESSION_HEADER);
+        if (sessionId == null || sessions.get(sessionId).isEmpty()) {
+            return ResponseEntity.status(401).body(Map.of(
+                    "error", "Invalid or missing session",
+                    "header", SESSION_HEADER
+            ));
+        }
+        try {
+            List<String> instrumentList = instruments == null || instruments.isBlank()
+                    ? List.of()
+                    : List.of(instruments.split(","));
+            BrokerSignedUrlService.SignedUrl signed = signedUrlService.sign(
+                    sessionId, broker, instrumentList);
+            Map<String, Object> body = signed.toMap();
+            body.put("ttlMs", signedUrlService.ttlMs());
+            return ResponseEntity.ok(body);
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.badRequest().body(Map.of("error", ex.getMessage()));
+        }
+    }
 }
+
