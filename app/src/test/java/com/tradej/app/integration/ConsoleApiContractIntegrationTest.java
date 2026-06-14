@@ -1,5 +1,6 @@
 package com.tradej.app.integration;
 
+import com.tradej.app.security.JwtTokenService;
 import com.tradej.pipeline.service.DagPipelineRuntimeService;
 import com.tradej.pipeline.service.PipelineRuntimeService;
 import com.tradej.strategy.studio.StudioChartService;
@@ -7,8 +8,10 @@ import com.tradej.broker.api.port.OrderCommand;
 import com.tradej.pipeline.graph.PipelineExecutionMode;
 import com.tradej.pipeline.graph.PipelineGraph;
 import com.tradej.pipeline.registry.NodeRegistry;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.ActiveProfiles;
@@ -52,6 +55,18 @@ class ConsoleApiContractIntegrationTest extends AdminTestBase {
 
     @MockitoBean
     private OrderCommand orderCommandPort;
+
+    @Autowired
+    private JwtTokenService jwtTokenService;
+
+    @BeforeEach
+    void attachBearerToken() {
+        String token = jwtTokenService.generateToken("test-admin");
+        rest.getRestTemplate().getInterceptors().add((httpRequest, bytes, execution) -> {
+            httpRequest.getHeaders().setBearerAuth(token);
+            return execution.execute(httpRequest, bytes);
+        });
+    }
 
     @SuppressWarnings("unchecked")
     @Test

@@ -24,6 +24,15 @@ trade:
     enforce-margin: true
     enforce-unrealized-loss: true
 
+  # ── Auth (REQUIRED IN prod) ──────────────────────────────────────────────
+  # Both TRADE_JWT_SECRET and TRADE_ADMIN_PASSWORD MUST be set in the prod
+  # profile. If either is blank the app fails to start with a clear error
+  # (see JwtTokenService + AuthController). The dev profile auto-generates
+  # these on first boot (runtime/jwt-secret.txt + runtime/auth-admin-password.txt).
+  auth:
+    jwt-secret: ${TRADE_JWT_SECRET}
+    admin-password: ${TRADE_ADMIN_PASSWORD}
+
   storage:
     chronicle-path: runtime-prod/chronicle
     duckdb-path: runtime-prod/trade.duckdb

@@ -127,6 +127,11 @@ trade:
     sql-max-rows: ${TRADE_ANALYTICS_SQL_MAX_ROWS:10000}
     sql-max-runtime-ms: ${TRADE_ANALYTICS_SQL_MAX_RUNTIME_MS:30000}
   subscriptions: []
+  auth:
+    jwt-secret: ${TRADE_JWT_SECRET:}
+    jwt-expiration-seconds: 86400
+    admin-username: ${TRADE_ADMIN_USERNAME:admin}
+    admin-password: ${TRADE_ADMIN_PASSWORD:}
   venues:
     NSE_EQ:
       supported-feed-modes: [TICKER, QUOTE, FULL, DEPTH_20]
