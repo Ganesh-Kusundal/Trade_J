@@ -33,6 +33,14 @@ trade:
     jwt-secret: ${TRADE_JWT_SECRET}
     admin-password: ${TRADE_ADMIN_PASSWORD}
 
+  # ── Tracing (ON by default; tune for prod) ─────────────────────────────
+  # Prod MUST set OTEL_EXPORTER_OTLP_ENDPOINT to a real collector
+  # (Tempo, Jaeger, Honeycomb, etc.), or the app will silently drop
+  # spans at the default localhost endpoint. Tracing is enabled by
+  # default; set trade.tracing.enabled=false to disable in prod if no
+  # collector is available. Tune TRACING_SAMPLE_RATE (default 1.0) down
+  # (e.g. 0.1) for cost control in high-traffic environments.
+
   storage:
     chronicle-path: runtime-prod/chronicle
     duckdb-path: runtime-prod/trade.duckdb

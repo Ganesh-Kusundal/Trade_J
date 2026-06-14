@@ -45,6 +45,17 @@ management:
       enabled: true
     readinessstate:
       enabled: true
+  # ── Distributed tracing (OpenTelemetry) ──────────────────────────────
+  # Tracing is enabled by default. Set trade.tracing.enabled=false to
+  # disable (zero overhead), or OTEL_EXPORTER_OTLP_ENDPOINT to a real
+  # collector to export spans. For local dev, run
+  # `docker compose -f docker-compose.observability.yml up` to spin up
+  # a Tempo + OTel collector on :4318.
+  tracing:
+    sampling:
+      probability: ${TRACING_SAMPLE_RATE:1.0}    # 1.0 = sample everything; tune down for prod
+    otlp:
+      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4318/v1/traces}
 
 trade:
   broker-type: simulation
@@ -76,7 +87,7 @@ trade:
     analytics-enabled: false
     chain-poll-interval-ms: 60000
   tracing:
-    enabled: false
+    enabled: true
     sample-rate: 1.0
   portfolio:
     default-capital-paisa: 1000000
