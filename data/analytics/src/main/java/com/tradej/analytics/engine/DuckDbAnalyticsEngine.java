@@ -68,6 +68,24 @@ public final class DuckDbAnalyticsEngine implements AutoCloseable {
     }
 
     private void openConnection() {
+        // Close any prior connection cleanly. The DuckDB JDBC driver
+        // holds an exclusive file lock and auto-assigns the alias
+        // `historical` when the same file is re-attached. Without
+        // explicit close, a leaked connection surfaces as
+        // "Cannot attach options_wh — already attached by database
+        // historical" on the next call.
+        Connection prior = this.connection;
+        this.connection = null;
+        this.optionsAttached = false;
+        this.runtimeAttached = false;
+        if (prior != null) {
+            try {
+                prior.close();
+            } catch (SQLException ignored) {
+                // Best-effort close; DuckDB releases the file lock
+                // when the connection is GC'd even if close() throws.
+            }
+        }
         try {
             this.connection = DriverManager.getConnection("jdbc:duckdb:");
             bootstrapViews();
@@ -160,6 +178,16 @@ public final class DuckDbAnalyticsEngine implements AutoCloseable {
             log.warn("Options warehouse not found at {} — rolling_option_bars view is empty", warehouse);
             return false;
         }
+        // DuckDB auto-assigns an alias from the file basename on ATTACH.
+        // If the same file was attached earlier in this connection's
+        // lifetime (e.g. via the same path under a different alias), the
+        // second attach would fail with a Unique file handle conflict.
+        // Detect and skip; the rolling_option_bars view is already
+        // pointed at the schema.
+        if (isAttached(warehouse)) {
+            log.debug("Options warehouse already attached: {}", warehouse);
+            return true;
+        }
         log.info("Attaching options warehouse: {}", warehouse);
         connection.createStatement().execute(
                 "attach '" + escapeSqlPath(warehouse) + "' as options_wh (read_only)");
@@ -168,6 +196,20 @@ public final class DuckDbAnalyticsEngine implements AutoCloseable {
                 select * from options_wh.main.rolling_option_bars
                 """.formatted(VIEW_ROLLING_OPTION_BARS));
         return true;
+    }
+
+    /**
+     * Returns true if a database file is already attached to this
+     * connection (under any alias). The DuckDB JDBC driver exposes
+     * the attached-databases list via {@code duckdb_databases()}.
+     * The file path is compared as-is; symlinks are not resolved.
+     */
+    private boolean isAttached(Path warehouse) throws SQLException {
+        try (var rs = connection.createStatement().executeQuery(
+                "select database_name from duckdb_databases() where path = '"
+                        + escapeSqlPath(warehouse.toAbsolutePath()) + "'")) {
+            return rs.next();
+        }
     }
 
     private boolean attachRuntimeWarehouse() throws SQLException {
