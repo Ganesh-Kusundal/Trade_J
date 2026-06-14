@@ -161,7 +161,8 @@ public class BacktestExecutionService {
             double feeBps,
             double slippageBps,
             long seed,
-            List<DomainEvent> events
+            List<DomainEvent> events,
+            List<com.tradej.core.domain.event.TradeExecutionEvent> fills
     ) {}
 
     public record BacktestResult(

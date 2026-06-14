@@ -69,7 +69,8 @@ public class BacktestController {
 
         BacktestRequest req = new BacktestRequest(
                 body.graphId, symbol, segment, from, to,
-                interval, feeBps, slippageBps, seed, List.of()
+                interval, feeBps, slippageBps, seed,
+                List.of(), body.fills
         );
         return ResponseEntity.ok(backtestService.runBacktest(req));
     }
@@ -94,5 +95,6 @@ public class BacktestController {
         public Double feeBps;
         public Double slippageBps;
         public Long seed;
+        public List<com.tradej.core.domain.event.TradeExecutionEvent> fills;
     }
 }
