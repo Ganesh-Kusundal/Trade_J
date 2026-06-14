@@ -362,7 +362,7 @@ import java.util.function.Consumer;
     private static WaitStrategy selectWaitStrategy(com.tradej.core.domain.runtime.RuntimeMode mode) {
         return switch (mode) {
             case LIVE -> new BusySpinWaitStrategy();
-            case REPLAY, BACKTEST -> new YieldingWaitStrategy();
+            case REPLAY, BACKTEST, PAPER -> new YieldingWaitStrategy();
         };
     }
 

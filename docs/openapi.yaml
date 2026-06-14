@@ -1805,3 +1805,51 @@ components:
       summary: Risk surface
       responses:
         '200': { description: OK }
+  /api/v1/runtime/mode:
+    get:
+      tags: [Runtime]
+      summary: Read the current process-wide runtime mode
+      description: |
+        Returns the active `RuntimeMode` held by the singleton `RuntimeModeHolder`
+        on the backend. Used by the UI's LIVE/PAPER toggle on boot. Requires a
+        valid JWT (G1 wiring).
+      responses:
+        '200':
+          description: Current runtime mode
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  mode: { type: string, enum: [LIVE, PAPER, REPLAY, BACKTEST] }
+                  userToggleable: { type: boolean }
+        '401': { description: Unauthorized }
+    put:
+      tags: [Runtime]
+      summary: Switch the process-wide runtime mode
+      description: |
+        Mutates the singleton `RuntimeModeHolder` so the next request sees the
+        new mode. Only LIVE and PAPER are accepted — REPLAY and BACKTEST are
+        dev/test-only modes and must be set via Spring profile. Requires a
+        valid JWT (G1 wiring).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [mode]
+              properties:
+                mode: { type: string, enum: [LIVE, PAPER] }
+      responses:
+        '200':
+          description: New runtime mode
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  mode: { type: string, enum: [LIVE, PAPER, REPLAY, BACKTEST] }
+                  userToggleable: { type: boolean }
+        '400': { description: Mode is missing, invalid, or not user-toggleable }
+        '401': { description: Unauthorized }

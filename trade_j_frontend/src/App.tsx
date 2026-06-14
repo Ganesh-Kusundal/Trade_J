@@ -21,6 +21,7 @@ import { TerminalDataOrchestrator, DataMode } from "./api/TerminalDataOrchestrat
 import type { BrokerConfig, OrchestratorCallbacks } from "./api/TerminalDataOrchestrator";
 import { placeOrder } from "./api/orders";
 import { armKillSwitch } from "./api/killSwitch";
+import RuntimeModeToggle from "./components/RuntimeModeToggle";
 import { subscribeReadModel } from "./api/stream";
 import { fetchSession, isMarketOpen } from "./api/marketSession";
 import type { ExchangeSegment, Side, OrderType, ProductType, Validity } from "./generated/models";
@@ -100,6 +101,14 @@ export default function App() {
   // Kill switch (STOP ALL TRADING) — confirmation modal + toast state.
   const [showKillConfirm, setShowKillConfirm] = useState(false);
   const [killSwitchStatus, setKillSwitchStatus] = useState<string>("");
+
+  // Runtime mode toggle — a transient toast shown when the user switches
+  // LIVE/PAPER (or when a switch fails). Auto-dismisses after a few seconds.
+  const [runtimeModeToast, setRuntimeModeToast] = useState<{ text: string; variant: "success" | "error" } | null>(null);
+  const showRuntimeModeToast = (text: string, variant: "success" | "error") => {
+    setRuntimeModeToast({ text, variant });
+    setTimeout(() => setRuntimeModeToast(null), 4000);
+  };
 
   // Dashboard layout switcher: persists in localStorage and renders the
   // chosen TerminalLayout as an *additional* panel below the legacy
@@ -576,6 +585,7 @@ export default function App() {
               {showLayout ? "HIDE PANEL" : "SHOW PANEL"}
             </button>
           </div>
+          <RuntimeModeToggle onToast={showRuntimeModeToast} />
           <button onClick={() => setShowOrderPanel(!showOrderPanel)}
             className="flex items-center gap-1 px-3 py-1 rounded font-black text-[10px] bg-[#f0b429]/15 text-[#f0b429] border border-[#f0b429]/30 hover:border-[#f0b429]/60 cursor-pointer">
             <Activity className="w-3 h-3" /> TRADE
@@ -782,6 +792,18 @@ export default function App() {
               : "bg-[#26a69a]/15 text-[#26a69a] border-[#26a69a]/40"
           }`}>
           {killSwitchStatus}
+        </div>
+      )}
+
+      {runtimeModeToast && (
+        <div
+          data-testid="runtime-mode-toast"
+          className={`fixed bottom-3 left-3 z-[120] px-4 py-2 rounded shadow-lg text-[11px] font-bold border ${
+            runtimeModeToast.variant === "error"
+              ? "bg-[#ef5350]/15 text-[#ef5350] border-[#ef5350]/40"
+              : "bg-[#26a69a]/15 text-[#26a69a] border-[#26a69a]/40"
+          }`}>
+          {runtimeModeToast.text}
         </div>
       )}
     </div>
