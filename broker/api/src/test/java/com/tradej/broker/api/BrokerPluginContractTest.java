@@ -17,6 +17,8 @@ import com.tradej.broker.icici.instrument.BreezeInstrumentResolver;
 import com.tradej.broker.upstox.UpstoxBrokerConnection;
 import com.tradej.broker.upstox.adapter.UpstoxDataServicesProvider;
 import com.tradej.broker.upstox.adapter.UpstoxProfileProvider;
+import com.tradej.broker.upstox.depth.UpstoxMarketDepthProvider;
+import com.tradej.broker.upstox.depth.UpstoxTwentyDepthWebSocketClient;
 import com.tradej.broker.upstox.instrument.UpstoxInstrumentLoader;
 import com.tradej.broker.upstox.instrument.UpstoxInstrumentResolver;
 import org.junit.jupiter.api.Tag;
@@ -83,7 +85,9 @@ class BrokerPluginContractTest {
                 mock(com.tradej.broker.api.port.SliceOrderCommand.class),
                 mock(UpstoxDataServicesProvider.class),
                 mock(UpstoxProfileProvider.class),
-                mock(UpstoxInstrumentLoader.class)
+                mock(UpstoxInstrumentLoader.class),
+                mock(UpstoxTwentyDepthWebSocketClient.class),
+                mock(UpstoxMarketDepthProvider.class)
         );
     }
 

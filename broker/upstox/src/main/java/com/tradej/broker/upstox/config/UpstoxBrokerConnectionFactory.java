@@ -25,6 +25,8 @@ import com.tradej.broker.upstox.auth.UpstoxAnalyticsTokenHolder;
 import com.tradej.broker.upstox.auth.UpstoxBearerTokenSource;
 import com.tradej.broker.upstox.auth.UpstoxOAuthClient;
 import com.tradej.broker.upstox.auth.UpstoxTokenManager;
+import com.tradej.broker.upstox.depth.UpstoxMarketDepthProvider;
+import com.tradej.broker.upstox.depth.UpstoxTwentyDepthWebSocketClient;
 import com.tradej.broker.upstox.http.UpstoxHttpClient;
 import com.tradej.broker.upstox.http.UpstoxJsonHttpClient;
 import com.tradej.broker.upstox.instrument.UpstoxInstrumentLoader;
@@ -153,6 +155,10 @@ public final class UpstoxBrokerConnectionFactory {
                 metadataFactory
         );
 
+        UpstoxTwentyDepthWebSocketClient depthClient = new UpstoxTwentyDepthWebSocketClient(
+                webSocketMultiplexer, instrumentResolver);
+        UpstoxMarketDepthProvider marketDepthProvider = new UpstoxMarketDepthProvider(depthClient);
+
         ConditionalAlertProvider conditionalAlertProvider = new com.tradej.broker.upstox.adapter.UpstoxGttOrderAdapter(
                 new com.tradej.broker.upstox.rest.UpstoxGttRestClient(jsonClient),
                 instrumentResolver
@@ -178,7 +184,9 @@ public final class UpstoxBrokerConnectionFactory {
                 sliceOrderCommand,
                 dataServicesProvider,
                 profileProvider,
-                instrumentLoader
+                instrumentLoader,
+                depthClient,
+                marketDepthProvider
         );
     }
 

@@ -167,7 +167,9 @@ class UpstoxMarketFeedIntegrationTest {
                 null, // sliceOrderCommand - not needed for market feed test
                 null, // dataServicesProvider - not needed for market feed test
                 null, // profileProvider - not needed for market feed test
-                instrumentLoader
+                instrumentLoader,
+                null, // depthClient - not needed for market feed test
+                null  // marketDepthProvider - not needed for market feed test
         );
 
         CountDownLatch tickLatch = new CountDownLatch(1);
