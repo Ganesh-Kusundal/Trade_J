@@ -13,6 +13,8 @@ import {
 import { useOrders, ordersStore, applyOrder } from "./store/ordersStore";
 import { useHealth, applyHealth } from "./store/healthStore";
 import { startReadModelStream } from "./store/readModelStream";
+import { brokerFeedClient, type BrokerSession } from "./api/brokerFeedRegistry";
+import type { BrokerFeedClient, FeedEvent } from "./api/brokerFeedClient";
 import CandlestickChart from "./components/CandlestickChart";
 import OrderBook from "./components/OrderBook";
 import TradesList from "./components/TradesList";
@@ -67,6 +69,7 @@ export default function LiveTerminal() {
   const [orderPrice, setOrderPrice] = useState("");
   const [orderStatus, setOrderStatus] = useState("");
   const [marketStateText, setMarketStateText] = useState("UNKNOWN");
+  const [feedClient, setFeedClient] = useState<BrokerFeedClient | null>(null);
 
   const segment = EXCHANGE_MAP[exchange] ?? "NSE_EQ";
   const instrument = useMemo(() => resolveInstrument(symbolState, exchange), [symbolState, exchange]);
@@ -78,7 +81,20 @@ export default function LiveTerminal() {
     localStorage.setItem("tj_timeframe", timeframe);
   }, [broker, exchange, symbolState, timeframe]);
 
-  useEffect(() => startReadModelStream(), []);
+  useEffect(() => { startReadModelStream(); return () => {}; }, []);
+
+  useEffect(() => {
+    const stored = localStorage.getItem("tj_session");
+    if (!stored) { setFeedClient(null); return; }
+    let session: BrokerSession;
+    try { session = JSON.parse(stored) as BrokerSession; } catch { return; }
+    const client = brokerFeedClient(session);
+    const unsub = client.subscribe((event: FeedEvent) => {
+      if (event.type === "status") applyHealth({ websocketConnected: event.data.connected });
+    });
+    setFeedClient(client);
+    return () => { unsub(); client.disconnect(); };
+  }, [broker]);
 
   useEffect(() => {
     setSymbol(symbolState, exchange, segment);
