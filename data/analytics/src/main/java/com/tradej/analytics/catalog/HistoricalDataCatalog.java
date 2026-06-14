@@ -16,11 +16,33 @@ public final class HistoricalDataCatalog {
      *  probes return instantly with a possibly-stale view. */
     private static final Duration CACHE_TTL = Duration.ofSeconds(5);
 
-    private final DuckDbAnalyticsEngine engine;
+    /**
+     * Read-only view of the analytics engine's catalog. The
+     * production binding is {@link DuckDbAnalyticsEngine}; tests
+     * can supply a stub via the package-private constructor.
+     */
+    public interface SnapshotSource {
+        AnalyticsCatalogSnapshot read() throws SQLException;
+    }
+
+    private final SnapshotSource source;
+    private final Duration cacheTtl;
     private final AtomicReference<Cached> cache = new AtomicReference<>(Cached.empty());
 
     public HistoricalDataCatalog(DuckDbAnalyticsEngine engine) {
-        this.engine = engine;
+        this(engine, CACHE_TTL);
+    }
+
+    /** Test-only constructor that takes a stub source and a custom TTL. */
+    HistoricalDataCatalog(SnapshotSource source, Duration ttl) {
+        this.source = source;
+        this.cacheTtl = ttl;
+    }
+
+    /** Production constructor — wraps the engine in a SnapshotSource. */
+    HistoricalDataCatalog(DuckDbAnalyticsEngine engine, Duration ttl) {
+        this.source = engine::catalogSnapshot;
+        this.cacheTtl = ttl;
     }
 
     public AnalyticsCatalogSnapshot snapshot() {
@@ -43,22 +65,28 @@ public final class HistoricalDataCatalog {
 
     private synchronized Cached computeAndCache() {
         Cached current = cache.get();
-        if (current.isFresh()) {
+        if (current.isFresh(cacheTtl)) {
             return current;
         }
+        Cached failed;
         try {
-            AnalyticsCatalogSnapshot snap = engine.catalogSnapshot();
-            Cached next = new Cached(snap, snap.equitySymbolCount() > 0, System.nanoTime() + CACHE_TTL.toNanos());
+            AnalyticsCatalogSnapshot snap = source.read();
+            Cached next = new Cached(snap, snap.equitySymbolCount() > 0, System.nanoTime() + cacheTtl.toNanos());
             cache.set(next);
             return next;
-        } catch (SQLException ex) {
-            throw new IllegalStateException("Failed to build analytics catalog snapshot", ex);
-        } catch (RuntimeException ex) {
-            // Caching the failure prevents the next probe from re-running
-            // the heavy path; the next refresh will retry.
-            Cached failed = new Cached(null, false, System.nanoTime() + CACHE_TTL.toNanos());
+        } catch (Exception ex) {
+            // Cache the failure so a probe storm during a warehouse
+            // outage doesn't keep retrying the heavy path. The
+            // caller still gets the exception (re-thrown below) so
+            // the user sees a clear "analytics down" signal; the
+            // next refresh after the TTL elapses will retry.
+            failed = new Cached(null, false, System.nanoTime() + cacheTtl.toNanos());
             cache.set(failed);
-            return failed;
+            if (ex instanceof RuntimeException re) throw re;
+            if (ex instanceof SQLException sqle) {
+                throw new IllegalStateException("Failed to build analytics catalog snapshot", sqle);
+            }
+            throw new IllegalStateException("Failed to build analytics catalog snapshot", ex);
         }
     }
 
@@ -66,8 +94,11 @@ public final class HistoricalDataCatalog {
         static Cached empty() {
             return new Cached(null, false, 0L);
         }
+        boolean isFresh(Duration ttl) {
+            return expiresAtNanos > System.nanoTime() && ttl != null;
+        }
         boolean isFresh() {
-            return expiresAtNanos > System.nanoTime();
+            return isFresh(Duration.ofSeconds(5));
         }
     }
 }
