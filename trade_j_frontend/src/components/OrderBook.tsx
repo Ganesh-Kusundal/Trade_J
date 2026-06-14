@@ -23,32 +23,8 @@ export default function OrderBook({ bids, asks, lastPrice, priceChange, symbol, 
   const fmt = (p: number) => (typeof p === "number" && isFinite(p)) ? p.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "\u2014";
   const isClosed = marketState === "CLOSED" || marketState === "HOLIDAY";
 
-  // Reconstruct frozen snapshot when in HISTORICAL mode with empty data
-  const displayAsks = useMemo(() => {
-    if (visibleAsks.length > 0) return visibleAsks;
-    if (dataMode === "HISTORICAL" && lastPrice > 0) {
-      const tickSize = lastPrice > 10000 ? 1 : lastPrice > 1000 ? 0.5 : 0.05;
-      return Array.from({ length: 5 }, (_, i) => ({
-        price: lastPrice + (5 - i) * tickSize,
-        quantity: Math.floor(Math.random() * 200 + 50),
-        orders: Math.floor(Math.random() * 5 + 1),
-      }));
-    }
-    return [];
-  }, [visibleAsks, dataMode, lastPrice]);
-
-  const displayBids = useMemo(() => {
-    if (visibleBids.length > 0) return visibleBids;
-    if (dataMode === "HISTORICAL" && lastPrice > 0) {
-      const tickSize = lastPrice > 10000 ? 1 : lastPrice > 1000 ? 0.5 : 0.05;
-      return Array.from({ length: 5 }, (_, i) => ({
-        price: lastPrice - (i + 1) * tickSize,
-        quantity: Math.floor(Math.random() * 200 + 50),
-        orders: Math.floor(Math.random() * 5 + 1),
-      }));
-    }
-    return [];
-  }, [visibleBids, dataMode, lastPrice]);
+  const displayAsks = useMemo(() => visibleAsks, [visibleAsks]);
+  const displayBids = useMemo(() => visibleBids, [visibleBids]);
 
   const displayMaxCum = useMemo(() => {
     const aMax = displayAsks.length > 0 ? displayAsks.reduce((s, a) => s + a.quantity, 0) : 1;
