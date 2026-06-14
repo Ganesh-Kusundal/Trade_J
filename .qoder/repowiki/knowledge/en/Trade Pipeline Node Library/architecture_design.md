@@ -1,0 +1,4 @@
+- Core Contract Layer: Defines the `NodeExecutor` interface, `NodeDescriptor` record, `NodeContext`, and `NodeResult` to standardize node execution and metadata.
+- Adapter Layer: `NodeAdapterFactory` bridges legacy `BasePipelineNode` implementations with the new `NodeExecutor` contract via an internal adapter pattern.
+- Implementation Layer: Provides concrete node types such as `HistoricalDataNode` (data ingest), `ScannerNode` (filtering), and abstract `FeatureNode` (technical indicators) organized by functional sub-packages.
+- Dependency Direction: Depends on `:core`, `:pipeline-core`, and `:trade-pipeline-platform` for domain models and pipeline runtime interfaces.

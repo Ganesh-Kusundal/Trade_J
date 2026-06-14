@@ -4,3 +4,8 @@ com.tradej.indicators.spi.builtin.SMAProvider
 com.tradej.indicators.spi.builtin.ATRProvider
 com.tradej.indicators.spi.builtin.VWAPProvider
 com.tradej.indicators.spi.builtin.OBVProvider
+com.tradej.indicators.spi.builtin.HalfTrendProvider
+com.tradej.indicators.spi.builtin.CVDProvider
+com.tradej.indicators.spi.builtin.BollingerSqueezeProvider
+com.tradej.indicators.spi.builtin.SwingHighLowProvider
+com.tradej.indicators.spi.builtin.HighProbabilityOrderBlockProvider

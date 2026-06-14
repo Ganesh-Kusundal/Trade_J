@@ -22,7 +22,12 @@ public enum GatewayTopic {
     ICEBERG_ALERT(13, 1),
     ABSORPTION_ALERT(14, 1),
     SR_LEVELS_UPDATE(15, 1),
-    ORDER_BOOK_SNAPSHOT(16, 1);
+    ORDER_BOOK_SNAPSHOT(16, 1),
+    MAX_PAIN_UPDATE(17, 1),
+    GREEKS_UPDATE(18, 1),
+    OI_UPDATE(19, 1),
+    GAMMA_EXPOSURE_UPDATE(20, 1),
+    STRATEGY_METRICS(21, 1);
 
     private final int wireId;
     private final int version;

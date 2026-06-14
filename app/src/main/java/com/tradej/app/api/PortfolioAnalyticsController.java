@@ -1,6 +1,6 @@
 package com.tradej.app.api;
 
-import com.tradej.execution.risk.PositionRiskHandler;
+import com.tradej.composition.FullComposition;
 import com.tradej.strategy.portfolio.PortfolioEngine;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -20,21 +20,36 @@ import java.util.concurrent.TimeUnit;
 public class PortfolioAnalyticsController {
 
     private final PortfolioEngine portfolioEngine;
-    private final PositionRiskHandler positionRiskHandler;
+    private final FullComposition fullComposition;
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
         Thread t = new Thread(r, "portfolio-sse");
         t.setDaemon(true);
         return t;
     });
 
-    public PortfolioAnalyticsController(PortfolioEngine portfolioEngine, PositionRiskHandler positionRiskHandler) {
+    public PortfolioAnalyticsController(PortfolioEngine portfolioEngine, FullComposition fullComposition) {
         this.portfolioEngine = portfolioEngine;
-        this.positionRiskHandler = positionRiskHandler;
+        this.fullComposition = fullComposition;
     }
 
     @GetMapping
     public Map<String, Object> snapshot() {
         return buildSnapshot();
+    }
+
+    /**
+     * Equity curve: list of (timestampMs, realizedPnlPaisa) points
+     * accumulated since the engine was constructed. Used by the
+     * {@code EquityCurve} widget.
+     */
+    @GetMapping("/equity-curve")
+    public java.util.List<Map<String, Object>> equityCurve() {
+        return portfolioEngine.equityCurveSnapshot().stream()
+                .map(p -> Map.<String, Object>of(
+                        "timestampMs", p.timestampMs(),
+                        "realizedPnlPaisa", p.realizedPnlPaisa()
+                ))
+                .toList();
     }
 
     @GetMapping(path = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
@@ -62,10 +77,10 @@ public class PortfolioAnalyticsController {
                         "usedCapitalPaisa", e.getValue().usedCapitalPaisa()
                 ))
                 .toList());
-        body.put("realizedLossPaisa", positionRiskHandler.getRealizedLossPaisa());
-        body.put("unrealizedLossPaisa", positionRiskHandler.getUnrealizedLossPaisa());
-        body.put("openTrades", positionRiskHandler.getOpenTrades());
-        body.put("killSwitchActive", positionRiskHandler.isKillSwitchActive());
+        body.put("realizedLossPaisa", fullComposition.executionComposition().positionRiskHandler().getRealizedLossPaisa());
+        body.put("unrealizedLossPaisa", fullComposition.executionComposition().positionRiskHandler().getUnrealizedLossPaisa());
+        body.put("openTrades", fullComposition.executionComposition().positionRiskHandler().getOpenTrades());
+        body.put("killSwitchActive", fullComposition.executionComposition().positionRiskHandler().isKillSwitchActive());
         return body;
     }
 }

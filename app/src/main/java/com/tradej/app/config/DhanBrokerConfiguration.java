@@ -1,20 +1,21 @@
 package com.tradej.app.config;
 
 import com.tradej.broker.api.IBrokerConnection;
-import com.tradej.broker.api.port.BracketOrderProvider;
-import com.tradej.broker.api.port.ConditionalAlertProvider;
 import com.tradej.broker.api.port.FuturesProvider;
 import com.tradej.broker.api.port.GttOrderProvider;
 import com.tradej.broker.api.port.InstrumentResolver;
-import com.tradej.broker.api.port.MarketDataProvider;
 import com.tradej.broker.api.port.MarginProvider;
+import com.tradej.broker.api.port.MarketDataProvider;
 import com.tradej.broker.api.port.OptionsProvider;
 import com.tradej.broker.api.port.OrderCommand;
 import com.tradej.broker.api.port.OrderQuery;
 import com.tradej.broker.api.port.PortfolioProvider;
 import com.tradej.broker.api.port.SessionRiskProvider;
 import com.tradej.broker.api.port.SliceOrderCommand;
+import com.tradej.broker.api.port.BracketOrderProvider;
+import com.tradej.broker.api.port.ConditionalAlertProvider;
 import com.tradej.broker.api.port.WebSocketMultiplexer;
+import com.tradej.broker.api.model.BrokerTransportCapabilities;
 import com.tradej.broker.core.observability.ObservableMarketDataProvider;
 import com.tradej.broker.core.observability.ObservableOrderCommand;
 import com.tradej.broker.core.rate.MultiBucketRateLimiter;
@@ -70,7 +71,7 @@ public class DhanBrokerConfiguration {
     }
 
     @Bean
-    BrokerComposition brokerComposition(TradingProperties properties, CaffeineIdempotencyCache idempotencyCache) {
+    BrokerComposition brokerComposition(TradingProperties properties) {
         TradingProperties.DhanProperties broker = properties.broker();
         TradingProperties.InstrumentProperties instruments = properties.instruments();
         BrokerProfile.DhanConfig dhanConfig = new BrokerProfile.DhanConfig(
@@ -87,7 +88,7 @@ public class DhanBrokerConfiguration {
                 instruments != null ? instruments.cacheDirectory() : null
         );
         BrokerProfile profile = new BrokerProfile(BrokerProfile.BrokerType.DHAN, dhanConfig, null, null);
-        return BrokerComposition.create(profile, idempotencyCache);
+        return BrokerComposition.create(profile);
     }
 
     @Bean

@@ -1,0 +1,1 @@
+Uses ArchUnit (`archunit-junit5`) for architectural constraint testing in the test suite.

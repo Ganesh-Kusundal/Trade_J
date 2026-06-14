@@ -11,10 +11,12 @@ import com.tradej.broker.upstox.instrument.UpstoxInstrumentResolver;
 import com.tradej.broker.upstox.websocket.proto.MarketFeedProto;
 import com.tradej.core.domain.event.EventMetadataFactory;
 import com.tradej.core.domain.event.MarketTickEvent;
+import com.tradej.core.domain.model.DepthLevel;
 import com.tradej.core.domain.model.Instrument;
 import com.tradej.core.domain.value.ExchangeSegment;
 import com.tradej.core.domain.value.FeedMode;
 import com.tradej.core.domain.value.OrderStatus;
+import com.tradej.core.domain.event.DepthUpdateEvent;
 import com.tradej.core.domain.event.OrderAccepted;
 import com.tradej.core.domain.event.OrderCancelled;
 import com.tradej.core.domain.event.OrderFilled;
@@ -302,10 +304,12 @@ public final class UpstoxWebSocketMultiplexer implements WebSocketMultiplexer {
                 MarketFeedProto.Feed feed = entry.getValue();
 
                 MarketFeedProto.LTPC ltpc = null;
+                MarketFeedProto.MarketLevel marketLevel = null;
                 if (feed.hasLtpc()) {
                     ltpc = feed.getLtpc();
                 } else if (feed.hasFf() && feed.getFf().hasMarketFF()) {
                     ltpc = feed.getFf().getMarketFF().getLtpc();
+                    marketLevel = feed.getFf().getMarketFF().getMarketLevel();
                 } else if (feed.hasFf() && feed.getFf().hasIndexFF()) {
                     ltpc = feed.getFf().getIndexFF().getLtpc();
                 }
@@ -336,6 +340,26 @@ public final class UpstoxWebSocketMultiplexer implements WebSocketMultiplexer {
 
                 com.tradej.broker.core.metrics.BrokerFeedMetrics.INSTANCE.recordTickReceived("upstox");
 
+                java.util.Optional<com.tradej.core.domain.model.MarketDepth> depthOpt = java.util.Optional.empty();
+                if (marketLevel != null && marketLevel.getBidAskQuoteCount() > 0) {
+                    java.util.List<DepthLevel> bids = new java.util.ArrayList<>();
+                    java.util.List<DepthLevel> asks = new java.util.ArrayList<>();
+                    for (MarketFeedProto.Quote q : marketLevel.getBidAskQuoteList()) {
+                        if (q.getBp() > 0 || q.getBq() > 0) {
+                            bids.add(new DepthLevel(Math.round(q.getBp() * 100), q.getBq(), q.getBno()));
+                        }
+                        if (q.getAp() > 0 || q.getAq() > 0) {
+                            asks.add(new DepthLevel(Math.round(q.getAp() * 100), q.getAq(), q.getAno()));
+                        }
+                    }
+                    if (!bids.isEmpty() || !asks.isEmpty()) {
+                        depthOpt = java.util.Optional.of(new com.tradej.core.domain.model.MarketDepth(
+                                null, bids, asks,
+                                Math.max(bids.size(), asks.size()),
+                                ltpc.getLtt() > 0 ? ltpc.getLtt() : System.currentTimeMillis()));
+                    }
+                }
+
                 MarketTickEvent event = new MarketTickEvent(
                         metadataFactory.root(),
                         sequenceId,
@@ -346,11 +370,26 @@ public final class UpstoxWebSocketMultiplexer implements WebSocketMultiplexer {
                         ltpc.getLtq(),
                         0L,
                         ltpc.getLtt(),
-                        java.util.Optional.empty(),
+                        depthOpt,
                         0L, 0L);
 
                 for (var listener : marketDataListeners) {
                     listener.onEvent(event);
+                }
+
+                if (depthOpt.isPresent() && feedMode == FeedMode.DEPTH_20) {
+                    com.tradej.core.domain.model.MarketDepth depth = depthOpt.get();
+                    DepthUpdateEvent depthEvent = new DepthUpdateEvent(
+                            metadataFactory.root(),
+                            symbol,
+                            segment,
+                            depth.bids(),
+                            depth.asks(),
+                            depth.levels(),
+                            depth.timestampMs());
+                    for (var listener : marketDataListeners) {
+                        listener.onEvent(depthEvent);
+                    }
                 }
             }
         } catch (Exception e) {

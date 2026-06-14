@@ -1,0 +1,8 @@
+schema_version: 1
+module_path: broker_platform/broker_icici
+title: ICICI Direct Breeze API Integration
+scope:
+    - broker/icici/
+source_files: []
+depends_on: []
+related_to: []

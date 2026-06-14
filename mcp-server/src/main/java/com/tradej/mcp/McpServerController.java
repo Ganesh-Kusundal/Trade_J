@@ -17,10 +17,7 @@ import java.util.Map;
  *
  * <p>Tool classes annotated with {@code @McpTool} are auto-discovered and registered:
  * <ul>
- *   <li>{@link com.tradej.mcp.tools.EquityAnalyticsTools} — equity analytics (7 tools)</li>
- *   <li>{@link com.tradej.mcp.tools.OptionsAnalyticsTools} — options analytics (4 tools)</li>
- *   <li>{@link com.tradej.mcp.tools.SyncTools} — data sync (4 tools)</li>
- *   <li>{@link com.tradej.mcp.tools.MarketDataTools} — market data (3 tools)</li>
+ *   <li>{@link com.tradej.mcp.tools.AnalyticsTools} — all analytics (market, equity, options, sync)</li>
  * </ul>
  *
  * <p>MCP clients connect to {@code /sse} for the SSE transport endpoint.

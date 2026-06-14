@@ -4,6 +4,7 @@ import com.tradej.app.admin.AdminController;
 import com.tradej.app.api.PipelineController;
 import com.tradej.app.api.StudioController;
 import com.tradej.app.config.WebConfiguration.RateLimitFilter;
+import com.tradej.app.security.JwtTokenService;
 import com.tradej.composition.config.ScanProperties;
 import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
@@ -20,7 +21,13 @@ import org.springframework.context.annotation.Profile;
 @SpringBootConfiguration
 @EnableAutoConfiguration
 @Profile("console-api-contract")
-@Import({AdminController.class, StudioController.class, PipelineController.class, RateLimitFilter.class})
+@Import({
+        AdminController.class,
+        StudioController.class,
+        PipelineController.class,
+        RateLimitFilter.class,
+        JwtTokenService.class
+})
 class ConsoleApiContractTestConfig {
 
     @Bean

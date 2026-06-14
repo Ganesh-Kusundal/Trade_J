@@ -1,0 +1,460 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": { "type": "grafana", "uid": "-- Grafana --" },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "Trade-J runtime overview. Wires the 30+ Micrometer gauges emitted by ObservabilityConfiguration (and the supporting config in PrometheusConfiguration, VirtualThreadConfiguration, StrategyMetricsConfiguration, BrokerResilienceMetricsConfiguration) to a single Grafana dashboard. Datasource: Prometheus at /actuator/prometheus. Source repo: trade-j app/ module, ObservabilityConfiguration.java:154-301.",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "type": "row",
+      "title": "Gateway Health",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "collapsed": false,
+      "id": 100,
+      "panels": []
+    },
+    {
+      "id": 1,
+      "title": "Gateway events sent (rate)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 1 },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "drawStyle": "line", "lineInterpolation": "linear", "lineWidth": 2, "fillOpacity": 10, "showPoints": "never" },
+          "unit": "ops",
+          "description": "rate(gateway_events_sent[5m]) — events the gateway published to the EventBus. ObservabilityConfiguration.java:290"
+        }
+      },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }, "expr": "rate(gateway_events_sent[5m])", "legendFormat": "events/s" }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Gateway events dropped (rate)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 8, "w": 6, "x": 6, "y": 1 },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "drawStyle": "line", "lineInterpolation": "linear", "lineWidth": 2, "fillOpacity": 10, "showPoints": "never" },
+          "unit": "ops",
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 0.1 } ] },
+          "description": "rate(gateway_events_dropped[5m]) — events the gateway router rejected. ObservabilityConfiguration.java:292"
+        }
+      },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }, "expr": "rate(gateway_events_dropped[5m])", "legendFormat": "drops/s" }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Broker WebSocket connected",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 1 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "value_and_name",
+        "colorMode": "background",
+        "graphMode": "none"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "options": { "0": { "text": "DOWN", "color": "red" } }, "type": "value" },
+            { "options": { "1": { "text": "UP", "color": "green" } }, "type": "value" }
+          ],
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] },
+          "unit": "none",
+          "description": "${broker}_websocket_connected — 1 = connected, 0 = disconnected. ObservabilityConfiguration.java:170"
+        }
+      },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }, "expr": "${broker}_websocket_connected", "legendFormat": "{{__name__}}" }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "Market Data",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 9 },
+      "collapsed": false,
+      "id": 101,
+      "panels": []
+    },
+    {
+      "id": 5,
+      "title": "Hot-path tick rate",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 10 },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "drawStyle": "line", "lineInterpolation": "smooth", "lineWidth": 2, "fillOpacity": 15, "showPoints": "never" },
+          "unit": "ops",
+          "description": "hotpath_ticks_rate — exponential moving average tick rate (ticks/second). ObservabilityConfiguration.java:253"
+        }
+      },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }, "expr": "hotpath_ticks_rate", "legendFormat": "ticks/s" }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Hot-path ticks rate-limited",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 10 },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "drawStyle": "bars", "lineWidth": 1, "fillOpacity": 60, "showPoints": "never" },
+          "unit": "short",
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 1 } ] },
+          "description": "hotpath_ticks_rate_limited — ticks dropped by hot-path rate limiter. ObservabilityConfiguration.java:285"
+        }
+      },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }, "expr": "rate(hotpath_ticks_rate_limited[5m])", "legendFormat": "limited/s" }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "Trading",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 18 },
+      "collapsed": false,
+      "id": 102,
+      "panels": []
+    },
+    {
+      "id": 8,
+      "title": "Orders placed (rate)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 19 },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "drawStyle": "line", "lineInterpolation": "linear", "lineWidth": 2, "fillOpacity": 15, "showPoints": "never" },
+          "unit": "ops",
+          "description": "rate(orders_placed_total[5m]) — orders accepted by execution. PrometheusConfiguration.java:42"
+        }
+      },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }, "expr": "rate(orders_placed_total[5m])", "legendFormat": "placed/s" }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "Orders rejected (rate)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 8, "w": 6, "x": 6, "y": 19 },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "drawStyle": "line", "lineInterpolation": "linear", "lineWidth": 2, "fillOpacity": 15, "showPoints": "never" },
+          "unit": "ops",
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 0.05 } ] },
+          "description": "rate(orders_rejected_total[5m]) — orders rejected (risk, validation, etc.). PrometheusConfiguration.java:50"
+        }
+      },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }, "expr": "rate(orders_rejected_total[5m])", "legendFormat": "rejected/s" }
+      ]
+    },
+    {
+      "id": 10,
+      "title": "Signals generated (rate)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 19 },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "drawStyle": "line", "lineInterpolation": "linear", "lineWidth": 2, "fillOpacity": 10, "showPoints": "never" },
+          "unit": "ops",
+          "description": "rate(signals_generated_total[5m]) — trading signals from the strategy layer. PrometheusConfiguration.java:58"
+        }
+      },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }, "expr": "rate(signals_generated_total[5m])", "legendFormat": "signals/s" }
+      ]
+    },
+    {
+      "id": 11,
+      "title": "Order latency p50/p95/p99",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 19 },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "drawStyle": "line", "lineInterpolation": "linear", "lineWidth": 2, "fillOpacity": 0, "showPoints": "never" },
+          "unit": "s",
+          "description": "histogram_quantile on ${broker}_order_latency_seconds — per-broker order round-trip latency. ObservableOrderCommand.java:101"
+        }
+      },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }, "expr": "histogram_quantile(0.5, sum by (le) (rate(${broker}_order_latency_seconds_bucket[5m])))", "legendFormat": "p50" },
+        { "refId": "B", "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }, "expr": "histogram_quantile(0.95, sum by (le) (rate(${broker}_order_latency_seconds_bucket[5m])))", "legendFormat": "p95" },
+        { "refId": "C", "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }, "expr": "histogram_quantile(0.99, sum by (le) (rate(${broker}_order_latency_seconds_bucket[5m])))", "legendFormat": "p99" }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "Risk & Reconciliation",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 27 },
+      "collapsed": false,
+      "id": 103,
+      "panels": []
+    },
+    {
+      "id": 12,
+      "title": "Async-sink events dropped (rate)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 28 },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "drawStyle": "line", "lineInterpolation": "linear", "lineWidth": 2, "fillOpacity": 15, "showPoints": "never" },
+          "unit": "ops",
+          "description": "rate(duckdb_events_dropped[5m]) + rate(featurestore_events_dropped[5m]) + rate(gateway_events_dropped[5m]) — drops at the async sink layer. ObservabilityConfiguration.java:292-297"
+        }
+      },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }, "expr": "rate(duckdb_events_dropped[5m])", "legendFormat": "duckdb" },
+        { "refId": "B", "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }, "expr": "rate(featurestore_events_dropped[5m])", "legendFormat": "featurestore" },
+        { "refId": "C", "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }, "expr": "rate(gateway_events_dropped[5m])", "legendFormat": "gateway" }
+      ]
+    },
+    {
+      "id": 13,
+      "title": "Event-bus dispatch queue depth",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 28 },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "drawStyle": "line", "lineInterpolation": "linear", "lineWidth": 2, "fillOpacity": 25, "showPoints": "never" },
+          "unit": "short",
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 1000 } ] },
+          "description": "disruptor_dispatch_queue_depth + event_bus_dispatch_queue_depth — async dispatch queue depth. ObservabilityConfiguration.java:200, 270"
+        }
+      },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }, "expr": "disruptor_dispatch_queue_depth", "legendFormat": "disruptor" },
+        { "refId": "B", "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }, "expr": "event_bus_dispatch_queue_depth", "legendFormat": "event-bus" }
+      ]
+    },
+    {
+      "id": 14,
+      "title": "Broker resilience (retries, circuit breaker state changes)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 28 },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "drawStyle": "line", "lineInterpolation": "linear", "lineWidth": 2, "fillOpacity": 10, "showPoints": "never" },
+          "unit": "ops",
+          "description": "rate(broker_retry_attempt[5m]) and rate(broker_circuit_breaker_state_change[5m]) — broker resilience. BrokerResilienceMetrics.java"
+        }
+      },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }, "expr": "rate(broker_retry_attempt_total[5m])", "legendFormat": "retries/s" },
+        { "refId": "B", "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }, "expr": "rate(broker_circuit_breaker_state_change_total[5m])", "legendFormat": "cb-changes/s" }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "JVM & Runtime",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 36 },
+      "collapsed": false,
+      "id": 104,
+      "panels": []
+    },
+    {
+      "id": 15,
+      "title": "JVM threads (current / peak)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 37 },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "drawStyle": "line", "lineInterpolation": "linear", "lineWidth": 2, "fillOpacity": 15, "showPoints": "never" },
+          "unit": "short",
+          "description": "jvm_threads_count + jvm_threads_peak_count — current / peak JVM thread counts. VirtualThreadConfiguration.java:43-49"
+        }
+      },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }, "expr": "jvm_threads_count", "legendFormat": "current" },
+        { "refId": "B", "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }, "expr": "jvm_threads_peak_count", "legendFormat": "peak" }
+      ]
+    },
+    {
+      "id": 16,
+      "title": "Disruptor ring-buffer remaining capacity",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 37 },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "drawStyle": "line", "lineInterpolation": "linear", "lineWidth": 2, "fillOpacity": 15, "showPoints": "never" },
+          "unit": "short",
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] },
+          "description": "disruptor_ring_buffer_remaining_capacity + event_bus_ring_buffer_remaining_capacity — slack in the event bus ring buffer. ObservabilityConfiguration.java:210, 237"
+        }
+      },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }, "expr": "disruptor_ring_buffer_remaining_capacity", "legendFormat": "disruptor" },
+        { "refId": "B", "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }, "expr": "event_bus_ring_buffer_remaining_capacity", "legendFormat": "event-bus" }
+      ]
+    },
+    {
+      "id": 17,
+      "title": "Disruptor stage latency p95",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 37 },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "drawStyle": "line", "lineInterpolation": "linear", "lineWidth": 2, "fillOpacity": 0, "showPoints": "never" },
+          "unit": "s",
+          "description": "histogram_quantile on disruptor_stage_latency_seconds — event-processing latency per Disruptor stage (risk/candle/strategy/execution/dispatch). ObservabilityConfiguration.java:139"
+        }
+      },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }, "expr": "histogram_quantile(0.95, sum by (le, stage) (rate(disruptor_stage_latency_seconds_bucket[5m])))", "legendFormat": "{{stage}}" }
+      ]
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["trade-j", "trading", "micrometer", "spring-boot"],
+  "templating": {
+    "list": [
+      {
+        "current": { "selected": false, "text": "dhan", "value": "dhan" },
+        "hide": 0,
+        "includeAll": false,
+        "label": "Broker",
+        "multi": false,
+        "name": "broker",
+        "options": [
+          { "selected": true, "text": "dhan", "value": "dhan" },
+          { "selected": false, "text": "icici", "value": "icici" },
+          { "selected": false, "text": "upstox", "value": "upstox" },
+          { "selected": false, "text": "simulation", "value": "simulation" }
+        ],
+        "query": "dhan,icici,upstox,simulation",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "type": "custom"
+      },
+      {
+        "current": { "selected": false, "text": "Prometheus", "value": "Prometheus" },
+        "hide": 0,
+        "includeAll": false,
+        "label": "Datasource",
+        "multi": false,
+        "name": "DS_PROMETHEUS",
+        "options": [
+          { "selected": true, "text": "Prometheus", "value": "Prometheus" }
+        ],
+        "query": "prometheus",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "type": "datasource"
+      }
+    ]
+  },
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Trade-J Overview",
+  "uid": "trade-j-overview",
+  "version": 1,
+  "weekStart": ""
+}

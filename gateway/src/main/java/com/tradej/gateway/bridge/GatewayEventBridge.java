@@ -17,15 +17,13 @@ import com.tradej.core.domain.event.PnlUpdatedEvent;
 import com.tradej.core.domain.event.ReplayTimeChangedEvent;
 import com.tradej.core.domain.event.ScanResultsPublished;
 import com.tradej.core.domain.event.SignalGenerated;
+import com.tradej.core.domain.event.StrategyMetricsSnapshot;
 import com.tradej.core.domain.event.TradeClosed;
 import com.tradej.core.domain.event.TradeOpened;
-import com.tradej.core.domain.model.Candle;
-import com.tradej.core.domain.model.DepthLevel;
 import com.tradej.core.domain.port.EventBus;
-import com.tradej.core.domain.value.ExchangeSegment;
 import com.tradej.gateway.protocol.GatewayTopic;
 import com.tradej.gateway.router.GatewayTopicRouter;
-import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
@@ -33,6 +31,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 /**
@@ -63,40 +62,89 @@ public final class GatewayEventBridge implements AutoCloseable {
         this.objectMapper = objectMapper;
         this.instrumentResolver = instrumentResolver;
         this.serializers = buildSerializerMap();
+        // Register Jdk8Module + JavaTimeModule once at construction time so
+        // Optional / Stream / LocalDate / LocalDateTime / Instant fields in
+        // event payloads serialize correctly. registerModule is idempotent,
+        // so the shared Spring-injected ObjectMapper is safe to register on
+        // even if other components have already registered the same modules.
+        // The null guard lets BridgeTopicsTest construct a bridge with
+        // (null, null) purely to inspect the serializer table via reflection.
+        if (objectMapper != null) {
+            objectMapper.registerModule(new com.fasterxml.jackson.datatype.jdk8.Jdk8Module());
+            objectMapper.registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule());
+            // LocalDate / LocalDateTime / Instant: emit ISO-8601 strings
+            // (not numeric arrays). Default JSR-310 behaviour is to emit
+            // arrays like [2026, 6, 25].
+            objectMapper.disable(com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        }
     }
 
-    /** Serializer entry linking a domain event type to its topic and payload builder. */
-    private record SerializerEntry(GatewayTopic topic, Function<DomainEvent, ObjectNode> serializer) {}
+    /** Serializer entry linking a domain event type to its topic, payload builder, and envelope mode. */
+    private record SerializerEntry(
+            GatewayTopic topic,
+            Function<DomainEvent, ObjectNode> serializer,
+            boolean useGenericEnvelope,
+            Consumer<ObjectNode> postProcessor
+    ) {
+        /** Bespoke envelope (legacy): the per-event serializer produces a flat JSON payload. */
+        static SerializerEntry bespoke(GatewayTopic topic, Function<DomainEvent, ObjectNode> serializer) {
+            return new SerializerEntry(topic, serializer, false, null);
+        }
+        /** Generic envelope: the per-event serializer is ignored; the publishGeneric path is used. */
+        static SerializerEntry generic(GatewayTopic topic) {
+            return new SerializerEntry(topic, null, true, null);
+        }
+        /** Generic envelope with a payload post-processor (applied to the payload before envelope wrap). */
+        static SerializerEntry generic(GatewayTopic topic, Consumer<ObjectNode> postProcessor) {
+            return new SerializerEntry(topic, null, true, postProcessor);
+        }
+    }
 
     private Map<Class<? extends DomainEvent>, SerializerEntry> buildSerializerMap() {
-        // Immutable map is safe — serializers are registered once at construction time
-        return Map.ofEntries(
-                Map.entry(MarketTickEvent.class,          entry(GatewayTopic.MARKET_TICK,       e -> marketTickPayload((MarketTickEvent) e))),
-                Map.entry(DepthUpdateEvent.class,         entry(GatewayTopic.MARKET_DEPTH,      e -> depthPayload((DepthUpdateEvent) e))),
-                Map.entry(CandleDeveloping.class,         entry(GatewayTopic.CANDLE_DEVELOPING, e -> candlePayload(((CandleDeveloping) e).candle()))),
-                Map.entry(CandleClosed.class,             entry(GatewayTopic.CANDLE_CLOSED,     e -> candlePayload(((CandleClosed) e).candle()))),
-                Map.entry(OrderAccepted.class,            entry(GatewayTopic.ORDER_UPDATE,      e -> orderAckPayload((OrderAccepted) e))),
-                Map.entry(OrderRejected.class,            entry(GatewayTopic.ORDER_UPDATE,      e -> orderRejectPayload((OrderRejected) e))),
-                Map.entry(OrderFilled.class,              entry(GatewayTopic.ORDER_UPDATE,      e -> orderPayload(e))),
-                Map.entry(TradeOpened.class,              entry(GatewayTopic.POSITION_UPDATE,   e -> positionPayload(
-                        ((TradeOpened) e).symbol(), resolveSegment(((TradeOpened) e).symbol()),
-                        ((TradeOpened) e).size(), ((TradeOpened) e).entryPricePaisa(), "OPEN"))),
-                Map.entry(TradeClosed.class,              entry(GatewayTopic.POSITION_UPDATE,   e -> positionPayload(
-                        ((TradeClosed) e).symbol(), resolveSegment(((TradeClosed) e).symbol()),
-                        0L, 0L, "CLOSED"))),
-                Map.entry(SignalGenerated.class,          entry(GatewayTopic.STRATEGY_SIGNAL,   e -> signalPayload((SignalGenerated) e))),
-                Map.entry(ReplayTimeChangedEvent.class,   entry(GatewayTopic.REPLAY_CONTROL,   e -> replayPayload((ReplayTimeChangedEvent) e))),
-                Map.entry(PnlUpdatedEvent.class,          entry(GatewayTopic.PNL_UPDATE,       e -> pnlPayload((PnlUpdatedEvent) e))),
-                Map.entry(ScanResultsPublished.class,     entry(GatewayTopic.SCAN_COMPLETED,   e -> scanPayload((ScanResultsPublished) e))),
-                Map.entry(OptionChainUpdated.class,       entry(GatewayTopic.STRATEGY_SIGNAL,  e -> optionChainPayload((OptionChainUpdated) e))),
-                Map.entry(GreeksComputed.class,           entry(GatewayTopic.STRATEGY_SIGNAL,  e -> greeksPayload((GreeksComputed) e))),
-                Map.entry(MaxPainComputed.class,          entry(GatewayTopic.STRATEGY_SIGNAL,  e -> maxPainPayload((MaxPainComputed) e))),
-                Map.entry(GammaExposureComputed.class,    entry(GatewayTopic.STRATEGY_SIGNAL,  e -> gammaPayload((GammaExposureComputed) e)))
-        );
-    }
-
-    private static SerializerEntry entry(GatewayTopic topic, Function<DomainEvent, ObjectNode> serializer) {
-        return new SerializerEntry(topic, serializer);
+        // Topic mapping is owned by BridgeTopics (single source of truth).
+        // This map is keyed by the same class. Asserting the two stay in
+        // sync is the job of BridgeTopicsTest.
+        //
+        // Every event is routed through publishGeneric (the
+        // {topicId, topicVersion, eventType, payload} envelope). New
+        // event types should be added to BridgeTopics.MAP and listed
+        // here with SerializerEntry.generic(topic). The bespoke
+        // SerializerEntry factory is retained for future cases that
+        // need a custom JSON shape; none are currently in use.
+        Map<Class<? extends DomainEvent>, SerializerEntry> m = new java.util.LinkedHashMap<>();
+        // Symbol-bearing events get the CANONICAL_SYMBOL_POST_PROCESSOR so
+        // consumers that route on canonicalSymbol (lost when the bespoke
+        // putSymbolFields helper was deleted in commit bb9772a and then
+        // regressed in commit ecd8342) get the field back. The post-
+        // processor copies payload.symbol (or, for nested Candle events,
+        // payload.candle.symbol) to a new top-level payload.canonicalSymbol
+        // field. For all other events, no post-processor runs.
+        m.put(MarketTickEvent.class,        SerializerEntry.generic(BridgeTopics.MAP.get(MarketTickEvent.class),        CANONICAL_SYMBOL_POST_PROCESSOR));
+        m.put(DepthUpdateEvent.class,       SerializerEntry.generic(BridgeTopics.MAP.get(DepthUpdateEvent.class),       CANONICAL_SYMBOL_POST_PROCESSOR));
+        m.put(CandleDeveloping.class,       SerializerEntry.generic(BridgeTopics.MAP.get(CandleDeveloping.class),       CANONICAL_SYMBOL_POST_PROCESSOR));
+        m.put(CandleClosed.class,           SerializerEntry.generic(BridgeTopics.MAP.get(CandleClosed.class),           CANONICAL_SYMBOL_POST_PROCESSOR));
+        m.put(OrderAccepted.class,          SerializerEntry.generic(BridgeTopics.MAP.get(OrderAccepted.class)));
+        m.put(OrderRejected.class,          SerializerEntry.generic(BridgeTopics.MAP.get(OrderRejected.class)));
+        m.put(OrderFilled.class,            SerializerEntry.generic(BridgeTopics.MAP.get(OrderFilled.class)));
+        m.put(TradeOpened.class,            SerializerEntry.generic(BridgeTopics.MAP.get(TradeOpened.class)));
+        m.put(TradeClosed.class,            SerializerEntry.generic(BridgeTopics.MAP.get(TradeClosed.class)));
+        m.put(SignalGenerated.class,        SerializerEntry.generic(BridgeTopics.MAP.get(SignalGenerated.class)));
+        m.put(ReplayTimeChangedEvent.class, SerializerEntry.generic(BridgeTopics.MAP.get(ReplayTimeChangedEvent.class)));
+        // P5.1 follow-up worked example: PnlUpdatedEvent opts into the
+        // generic envelope. Consumers read {topicId, topicVersion,
+        // eventType, payload: {metadata, realizedPnlPaisa, ...}}
+        // instead. Note: publishGeneric emits the metadata field in
+        // the payload (the original bespoke serializer did not), so
+        // the consumer schema gains a `metadata` field. See
+        // PnlUpdatedEventEnvelopeMigrationTest.
+        m.put(PnlUpdatedEvent.class,        SerializerEntry.generic(BridgeTopics.MAP.get(PnlUpdatedEvent.class)));
+        m.put(ScanResultsPublished.class,   SerializerEntry.generic(BridgeTopics.MAP.get(ScanResultsPublished.class)));
+        m.put(OptionChainUpdated.class,     SerializerEntry.generic(BridgeTopics.MAP.get(OptionChainUpdated.class)));
+        m.put(GreeksComputed.class,         SerializerEntry.generic(BridgeTopics.MAP.get(GreeksComputed.class)));
+        m.put(MaxPainComputed.class,        SerializerEntry.generic(BridgeTopics.MAP.get(MaxPainComputed.class)));
+        m.put(GammaExposureComputed.class,  SerializerEntry.generic(BridgeTopics.MAP.get(GammaExposureComputed.class)));
+        m.put(StrategyMetricsSnapshot.class, SerializerEntry.generic(BridgeTopics.MAP.get(StrategyMetricsSnapshot.class)));
+        return Map.copyOf(m);
     }
 
     /**
@@ -122,6 +170,7 @@ public final class GatewayEventBridge implements AutoCloseable {
         eventBus.subscribe(GreeksComputed.class, this::onDomainEvent);
         eventBus.subscribe(MaxPainComputed.class, this::onDomainEvent);
         eventBus.subscribe(GammaExposureComputed.class, this::onDomainEvent);
+        eventBus.subscribe(StrategyMetricsSnapshot.class, this::onDomainEvent);
     }
 
     void onDomainEvent(DomainEvent event) {
@@ -133,7 +182,26 @@ public final class GatewayEventBridge implements AutoCloseable {
         try {
             SerializerEntry entry = serializers.get(event.getClass());
             if (entry != null) {
-                router.publish(entry.topic(), writeJson(entry.serializer().apply(event)));
+                if (entry.useGenericEnvelope()) {
+                    // publishGeneric emits the {topicId, topicVersion,
+                    // eventType, payload} envelope. Note:
+                    // publishGeneric does NOT inject the correlationId
+                    // field at the top level (it lives in the
+                    // metadata sub-object inside the payload instead).
+                    // The per-event postProcessor (when set) is applied
+                    // to the payload BEFORE the envelope is built — for
+                    // symbol-bearing events this is the hook that
+                    // restores the canonicalSymbol field.
+                    publishGeneric(event, entry.postProcessor());
+                } else {
+                    ObjectNode payload = entry.serializer().apply(event);
+                    // Inject correlation ID for end-to-end tracing
+                    String correlationId = event.correlationId();
+                    if (correlationId != null && !correlationId.isEmpty()) {
+                        payload.put("correlationId", correlationId);
+                    }
+                    router.publish(entry.topic(), writeJson(payload));
+                }
             }
             eventCount.incrementAndGet();
         } catch (Exception e) {
@@ -163,196 +231,6 @@ public final class GatewayEventBridge implements AutoCloseable {
         return objectMapper.writeValueAsBytes(payload);
     }
 
-    // ── Payload builders ──
-
-    private ObjectNode marketTickPayload(MarketTickEvent tick) {
-        ObjectNode node = objectMapper.createObjectNode();
-        putSymbolFields(node, tick.symbol(), tick.segment());
-        node.put("ltpPaisa", tick.ltpPaisa());
-        node.put("lastTradeQuantity", tick.lastTradeQuantity());
-        node.put("cumulativeVolume", tick.cumulativeVolume());
-        node.put("exchangeTimestampMs", tick.exchangeTimestampEpochMs());
-        node.put("segment", tick.segment().name());
-        node.put("feedMode", tick.feedMode().name());
-        node.put("sequence", tick.sequenceId());
-        return node;
-    }
-
-
-    private ObjectNode depthPayload(DepthUpdateEvent depth) {
-        ObjectNode node = objectMapper.createObjectNode();
-        putSymbolFields(node, depth.symbol(), depth.segment());
-        node.put("segment", depth.segment().name());
-        node.put("levels", depth.levels());
-        node.put("exchangeTimestampMs", depth.exchangeTimestampMs());
-        ArrayNode bidsArray = node.putArray("bids");
-        for (DepthLevel level : depth.bids()) {
-            bidsArray.add(depthLevelToNode(level));
-        }
-        ArrayNode asksArray = node.putArray("asks");
-        for (DepthLevel level : depth.asks()) {
-            asksArray.add(depthLevelToNode(level));
-        }
-        node.put("sequence", depth.sequenceId());
-        return node;
-    }
-
-    private ObjectNode depthLevelToNode(DepthLevel level) {
-        ObjectNode m = objectMapper.createObjectNode();
-        m.put("pricePaisa", level.pricePaisa());
-        m.put("quantity", level.quantity());
-        m.put("orders", level.orderCount());
-        return m;
-    }
-
-    private ObjectNode candlePayload(Candle candle) {
-        ObjectNode node = objectMapper.createObjectNode();
-        ExchangeSegment segment = resolveSegment(candle.symbol());
-        String canonical = canonicalSymbol(candle.symbol(), segment);
-        node.put("symbol", canonical);
-        node.put("canonicalSymbol", canonical);
-        node.put("segment", segment.name());
-        node.put("interval", candle.interval());
-        node.put("startTimeMs", candle.startTimeMs());
-        node.put("endTimeMs", candle.endTimeMs());
-        node.put("openPaisa", candle.openPaisa());
-        node.put("highPaisa", candle.highPaisa());
-        node.put("lowPaisa", candle.lowPaisa());
-        node.put("closePaisa", candle.closePaisa());
-        node.put("volume", candle.volume());
-        return node;
-    }
-
-    private ObjectNode orderAckPayload(OrderAccepted accepted) {
-        ObjectNode node = orderPayload(accepted);
-        node.put("ack", true);
-        node.put("status", "ACCEPTED");
-        return node;
-    }
-
-    private ObjectNode orderRejectPayload(OrderRejected rejected) {
-        ObjectNode node = orderPayload(rejected);
-        node.put("ack", false);
-        node.put("status", "REJECTED");
-        return node;
-    }
-
-    private ObjectNode orderPayload(DomainEvent event) {
-        ObjectNode node = objectMapper.createObjectNode();
-        String type = event.getClass().getSimpleName();
-        node.put("type", type);
-        if (event instanceof OrderAccepted a) {
-            node.put("orderId", a.order().orderId());
-            putSymbolFields(node, a.order().symbol(), a.order().exchangeSegment());
-            node.put("status", a.order().status().name());
-            node.put("quantity", a.order().quantity());
-            node.put("filledQuantity", a.order().filledQuantity());
-            node.put("pricePaisa", a.order().pricePaisa());
-            node.put("side", a.order().side().name());
-        } else if (event instanceof OrderRejected r) {
-            node.put("orderId", r.order().orderId());
-            putSymbolFields(node, r.order().symbol(), r.order().exchangeSegment());
-            node.put("status", r.order().status().name());
-            node.put("reason", r.reason());
-        } else if (event instanceof OrderFilled f) {
-            node.put("orderId", f.order().orderId());
-            putSymbolFields(node, f.order().symbol(), f.order().exchangeSegment());
-            node.put("status", f.order().status().name());
-            node.put("filledQuantity", f.order().filledQuantity());
-            node.put("fillCount", f.fills().size());
-            if (!f.fills().isEmpty()) {
-                var firstFill = f.fills().getFirst();
-                node.put("pricePaisa", firstFill.pricePaisa());
-                node.put("tradeId", firstFill.tradeId());
-            }
-        }
-        return node;
-    }
-
-    private ObjectNode positionPayload(String symbol, ExchangeSegment segment, long size, long entryPricePaisa, String action) {
-        ObjectNode node = objectMapper.createObjectNode();
-        putSymbolFields(node, symbol, segment);
-        node.put("size", size);
-        node.put("entryPricePaisa", entryPricePaisa);
-        node.put("action", action);
-        return node;
-    }
-
-    private ObjectNode signalPayload(SignalGenerated signal) {
-        ObjectNode node = objectMapper.createObjectNode();
-        node.put("signalId", signal.signalId());
-        putSymbolFields(node, signal.symbol(), resolveSegment(signal.symbol()));
-        node.put("side", signal.side().name());
-        node.put("setup", signal.setup());
-        return node;
-    }
-
-    private ObjectNode replayPayload(ReplayTimeChangedEvent replay) {
-        ObjectNode node = objectMapper.createObjectNode();
-        node.put("type", "REPLAY_TIME_CHANGED");
-        node.put("currentTimeMs", replay.currentTimeMs());
-        node.put("replaySpeedNanos", replay.replaySpeedNanos());
-        return node;
-    }
-
-    private ObjectNode scanPayload(ScanResultsPublished scan) {
-        ObjectNode node = objectMapper.createObjectNode();
-        node.put("type", "SCAN_COMPLETED");
-        node.put("profileId", scan.profileId());
-        node.put("hitCount", scan.hits().size());
-        ArrayNode hitsArray = node.putArray("hits");
-        for (var h : scan.hits()) {
-            ObjectNode hitNode = objectMapper.createObjectNode();
-            hitNode.put("symbol", h.symbol());
-            hitNode.put("score", h.score());
-            ArrayNode reasonsArray = hitNode.putArray("reasons");
-            for (String reason : h.reasons()) {
-                reasonsArray.add(reason);
-            }
-            hitsArray.add(hitNode);
-        }
-        return node;
-    }
-
-    private ObjectNode optionChainPayload(OptionChainUpdated event) {
-        ObjectNode node = objectMapper.createObjectNode();
-        node.put("type", "OPTION_CHAIN_UPDATED");
-        node.put("underlying", event.chain().underlying().symbol());
-        node.put("expiry", event.chain().expiry().toString());
-        node.put("spotPricePaisa", event.chain().spotPricePaisa());
-        node.put("entryCount", event.chain().strikes().size());
-        return node;
-    }
-
-    private ObjectNode greeksPayload(GreeksComputed event) {
-        ObjectNode node = objectMapper.createObjectNode();
-        node.put("type", "GREEKS_COMPUTED");
-        node.put("symbol", event.instrumentKey().symbol());
-        if (event.greeks().delta() != null) node.put("delta", event.greeks().delta());
-        if (event.greeks().gamma() != null) node.put("gamma", event.greeks().gamma());
-        if (event.greeks().theta() != null) node.put("theta", event.greeks().theta());
-        if (event.greeks().vega() != null) node.put("vega", event.greeks().vega());
-        if (event.greeks().impliedVolatility() != null) node.put("iv", event.greeks().impliedVolatility());
-        return node;
-    }
-
-    private ObjectNode maxPainPayload(MaxPainComputed event) {
-        ObjectNode node = objectMapper.createObjectNode();
-        node.put("type", "MAX_PAIN_COMPUTED");
-        node.put("underlying", event.underlying());
-        node.put("maxPainStrikePaisa", event.maxPainStrikePaisa());
-        node.put("totalPainPaisa", event.totalPainPaisa());
-        return node;
-    }
-
-    private ObjectNode gammaPayload(GammaExposureComputed event) {
-        ObjectNode node = objectMapper.createObjectNode();
-        node.put("type", "GAMMA_EXPOSURE_COMPUTED");
-        node.put("underlying", event.underlying());
-        node.put("netGamma", event.netGamma());
-        return node;
-    }
-
     /**
      * Publishes a pipeline health snapshot to subscribed gateway clients.
      */
@@ -364,40 +242,123 @@ public final class GatewayEventBridge implements AutoCloseable {
         }
     }
 
-    private ObjectNode pnlPayload(PnlUpdatedEvent pnl) {
-        ObjectNode node = objectMapper.createObjectNode();
-        node.put("realizedPnlPaisa", pnl.realizedPnlPaisa());
-        node.put("unrealizedPnlPaisa", pnl.unrealizedPnlPaisa());
-        node.put("netExposurePaisa", pnl.netExposurePaisa());
-        return node;
+    // ── P5.1: Generic event publisher ────────────────────────────────
+    //
+    // Every event in buildSerializerMap uses publishGeneric. The
+    // generic publisher below uses Jackson reflection to serialize
+    // the event and embeds the topic metadata (wireId + version) as
+    // JSON tags. Adding a new event type to the gateway no longer
+    // requires a per-event serializer method — just call
+    // publishGeneric(event) and the topic is resolved from the event
+    // class via the BridgeTopics.MAP table. The bespoke SerializerEntry
+    // factory is retained for future cases that need a custom JSON
+    // shape; none are currently in use.
+
+    /**
+     * Per-event payload post-processor that restores the {@code canonicalSymbol}
+     * field for symbol-bearing events (MarketTickEvent, DepthUpdateEvent,
+     * CandleDeveloping, CandleClosed). The bespoke {@code putSymbolFields}
+     * helper (deleted in commit bb9772a) emitted a top-level
+     * {@code canonicalSymbol} on these events; the migration to the generic
+     * envelope in commit ecd8342 dropped the field. Consumers that route on
+     * {@code canonicalSymbol} need it back.
+     *
+     * <p>The canonical symbol is the raw {@code symbol} value — the bespoke
+     * resolver mapped them 1:1 when no {@code InstrumentResolver} was wired,
+     * which is the default for tests. For MarketTick and Depth, {@code symbol}
+     * lives at the top level of the payload. For Candle events the record is
+     * nested under {@code payload.candle}, so the post-processor falls back
+     * to {@code payload.candle.symbol}. The output is always a top-level
+     * {@code payload.canonicalSymbol} field, matching the bespoke wire shape.
+     */
+    public static final Consumer<ObjectNode> CANONICAL_SYMBOL_POST_PROCESSOR = node -> {
+        if (node == null) {
+            return;
+        }
+        // Skip if already present (defensive — bespoke writers may have set it).
+        JsonNode existing = node.get("canonicalSymbol");
+        if (existing != null && existing.isTextual()) {
+            return;
+        }
+        String symbolText = symbolTextOf(node);
+        if (symbolText != null) {
+            node.put("canonicalSymbol", symbolText);
+        }
+    };
+
+    private static String symbolTextOf(ObjectNode node) {
+        // Top-level symbol (MarketTickEvent, DepthUpdateEvent, …).
+        JsonNode top = node.get("symbol");
+        if (top != null && top.isTextual()) {
+            return top.asText();
+        }
+        // Nested Candle record (CandleClosed, CandleDeveloping).
+        JsonNode candle = node.get("candle");
+        if (candle instanceof ObjectNode candleObj) {
+            JsonNode c = candleObj.get("symbol");
+            if (c != null && c.isTextual()) {
+                return c.asText();
+            }
+        }
+        return null;
     }
 
-    private void putSymbolFields(ObjectNode node, String symbol, ExchangeSegment segment) {
-        String canonical = canonicalSymbol(symbol, segment);
-        node.put("symbol", canonical);
-        node.put("canonicalSymbol", canonical);
+    /**
+     * Generic publisher: serialize any {@link DomainEvent} to JSON via
+     * Jackson reflection and publish to the resolved {@link GatewayTopic}.
+     * Topic is determined by the event class via {@code BridgeTopics.MAP}
+     * (the single source of truth for topic mapping). If the event class
+     * has no entry in the map, a WARN is logged and the event is dropped.
+     *
+     * <p>The JSON envelope includes a {@code topicId} and {@code topicVersion}
+     * metadata tag pair so consumers can route/decode without knowing the
+     * exact class name on the wire.
+     */
+    public void publishGeneric(DomainEvent event) {
+        publishGeneric(event, null);
     }
 
-    private String canonicalSymbol(String symbol, ExchangeSegment segment) {
-        if (instrumentResolver == null || symbol == null || symbol.isBlank()) {
-            return symbol;
+    /**
+     * Generic publisher with an optional payload post-processor. The
+     * {@code postProcessor} (when non-null) is invoked on the payload
+     * {@code ObjectNode} BEFORE the envelope is built and published.
+     * Used by symbol-bearing events to restore the {@code canonicalSymbol}
+     * field that the bespoke putSymbolFields helper used to emit.
+     */
+    public void publishGeneric(DomainEvent event, Consumer<ObjectNode> postProcessor) {
+        if (event == null) {
+            log.warn("publishGeneric called with null event — dropping");
+            return;
+        }
+        GatewayTopic topic = BridgeTopics.MAP.get(event.getClass());
+        if (topic == null) {
+            log.warn("publishGeneric: no BridgeTopics.MAP entry for {} — dropping. " +
+                    "Add the event type to BridgeTopics.MAP to enable generic publishing.",
+                    event.getClass().getSimpleName());
+            return;
         }
         try {
-            return instrumentResolver.toCanonicalSymbol(symbol, segment);
-        } catch (Exception ex) {
-            return symbol;
-        }
-    }
-
-    private ExchangeSegment resolveSegment(String symbol) {
-        if (instrumentResolver == null || symbol == null || symbol.isBlank()) {
-            return ExchangeSegment.NSE_EQ;
-        }
-        try {
-            var instrument = instrumentResolver.resolveNormalized(symbol, ExchangeSegment.NSE_EQ);
-            return instrument != null ? instrument.exchangeSegment() : ExchangeSegment.NSE_EQ;
-        } catch (Exception ex) {
-            return ExchangeSegment.NSE_EQ;
+            // Jdk8Module + JavaTimeModule are registered once in the
+            // constructor — by the time publishGeneric runs, the mapper
+            // is already configured to handle Optional / Stream /
+            // LocalDate / LocalDateTime / Instant fields.
+            ObjectNode payload = objectMapper.valueToTree(event);
+            // Apply the per-event post-processor BEFORE wrapping the
+            // payload in the envelope. This is the hook that restores
+            // the canonicalSymbol field for symbol-bearing events.
+            if (postProcessor != null) {
+                postProcessor.accept(payload);
+            }
+            // Wrap in a metadata envelope so consumers can decode without
+            // knowing the class name on the wire.
+            ObjectNode envelope = objectMapper.createObjectNode();
+            envelope.put("topicId", topic.wireId());
+            envelope.put("topicVersion", topic.version());
+            envelope.put("eventType", event.getClass().getSimpleName());
+            envelope.set("payload", payload);
+            router.publish(topic, objectMapper.writeValueAsBytes(envelope));
+        } catch (Exception e) {
+            log.warn("publishGeneric failed for {}: {}", event.getClass().getSimpleName(), e.getMessage());
         }
     }
 

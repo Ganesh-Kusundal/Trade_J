@@ -1,8 +1,18 @@
+plugins {
+    id 'java'
+    id 'java-test-fixtures'
+}
+
 dependencies {
     implementation project(':core')
     implementation project(':pipeline-core')
     implementation project(':broker-api')
     implementation 'org.slf4j:slf4j-api'
 
+    testFixturesImplementation project(':core')
+    testFixturesImplementation project(':pipeline-core')
+    testFixturesImplementation 'org.junit.jupiter:junit-jupiter'
+
+    testImplementation testFixtures(project(':trading-scanner'))
     testImplementation 'org.junit.jupiter:junit-jupiter'
 }

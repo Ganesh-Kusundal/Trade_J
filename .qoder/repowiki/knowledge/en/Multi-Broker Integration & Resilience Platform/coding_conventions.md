@@ -1,0 +1,3 @@
+- All broker operations return a standardized `GatewayResult<T>` wrapper containing data, latency, and source metadata.
+- Vendor-specific adapters implement the `BrokerProvider` SPI and register via `META-INF/services/com.tradej.broker.api.spi.BrokerProvider`.
+- Resilience patterns (Circuit Breaker, Retry) are implemented in `broker-core` and applied uniformly across all broker connections via `RetryExecutor`.

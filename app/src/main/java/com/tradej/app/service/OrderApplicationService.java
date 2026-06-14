@@ -1,5 +1,6 @@
 package com.tradej.app.service;
 
+import com.tradej.composition.FullComposition;
 import com.tradej.core.domain.model.ModifyOrderRequest;
 import com.tradej.core.domain.model.OrderRequest;
 import com.tradej.core.domain.runtime.RuntimeMode;
@@ -7,7 +8,6 @@ import com.tradej.core.domain.runtime.RuntimeModeHolder;
 import com.tradej.execution.command.CommandHandler;
 import com.tradej.execution.command.CommandResult;
 import com.tradej.execution.command.TradingCommand;
-import com.tradej.execution.risk.PositionRiskHandler;
 import org.springframework.stereotype.Service;
 
 /**
@@ -20,23 +20,23 @@ public class OrderApplicationService {
 
     private final CommandHandler commandHandler;
     private final RuntimeModeHolder runtimeModeHolder;
-    private final PositionRiskHandler positionRiskHandler;
+    private final FullComposition fullComposition;
 
     public OrderApplicationService(
             CommandHandler commandHandler,
             RuntimeModeHolder runtimeModeHolder,
-            PositionRiskHandler positionRiskHandler
+            FullComposition fullComposition
     ) {
         this.commandHandler = commandHandler;
         this.runtimeModeHolder = runtimeModeHolder;
-        this.positionRiskHandler = positionRiskHandler;
+        this.fullComposition = fullComposition;
     }
 
     public CommandResult placeOrder(OrderRequest request) {
         if (runtimeModeHolder.mode() != RuntimeMode.LIVE) {
             return new CommandResult.Rejected("Order placement only allowed in LIVE mode (current: " + runtimeModeHolder.mode() + ")");
         }
-        if (positionRiskHandler.isKillSwitchActive()) {
+        if (fullComposition.executionComposition().positionRiskHandler().isKillSwitchActive()) {
             return new CommandResult.Rejected("Kill switch active");
         }
         return commandHandler.execute(new TradingCommand.PlaceOrder(request));

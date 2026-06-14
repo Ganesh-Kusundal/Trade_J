@@ -29,18 +29,26 @@ dependencies {
     implementation project(':pipeline-runtime')
     implementation project(':replay-engine')
     implementation project(':composition')
+    implementation project(':research-lab')
 
     implementation 'org.springframework.boot:spring-boot-starter'
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-websocket'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
     implementation 'io.micrometer:micrometer-registry-prometheus'
+    implementation 'io.micrometer:micrometer-tracing-bridge-otel'
+    implementation 'io.opentelemetry:opentelemetry-exporter-otlp'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+    implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
+    runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
+    runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.6'
     annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
 
     implementation 'net.logstash.logback:logstash-logback-encoder:8.0'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.security:spring-security-test'
     testImplementation testFixtures(project(':core'))
     testImplementation testFixtures(project(':runtime-disruptor'))
     testImplementation project(':broker-gateway')
@@ -76,6 +84,36 @@ task testFrontend(type: Exec) {
     commandLine 'npm', 'run', 'test'
     inputs.dir "${frontendDir}/src"
     inputs.file "${frontendDir}/vite.config.ts"
+}
+
+task generateApi(type: Exec) {
+    description = 'Regenerates the frontend typed API and gateway-event clients.'
+    group = 'build'
+    workingDir rootDir
+    commandLine 'bash', 'scripts/generate-api-client.sh'
+    inputs.file 'openapi.yaml'
+    inputs.file 'asyncapi.yaml'
+    outputs.dir "${frontendDir}/src/generated"
+}
+
+tasks.named('check') {
+    dependsOn generateApi
+}
+
+// ── Production smoke test (P5) ────────────────────────────────────────
+//
+// End-to-end smoke test against a fresh `prod` profile boot. Wired by
+// PRODUCTION_READINESS.md. Exits non-zero on any failure so CI can
+// fail the build before deployment.
+tasks.register('productionSmokeTest', Test) {
+    description = 'Runs the production smoke test checklist against a prod-profile boot.'
+    group = 'verification'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform {
+        includeTags 'production-smoke'
+    }
+    shouldRunAfter 'check'
 }
 
 task syncFrontend(type: Copy) {

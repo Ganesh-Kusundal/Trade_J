@@ -1,0 +1,1 @@
+Module is currently inactive in the main build. To enable: 1. Publish `OptionChainUpdated` events in `:core`. 2. Add `trading-options-analytics` to `settings.gradle`. 3. Register `GreeksCalcNode` in the DAG template.

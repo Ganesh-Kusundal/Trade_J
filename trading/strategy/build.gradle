@@ -5,6 +5,7 @@ dependencies {
     implementation project(':trading-indicators')
     implementation project(':trading-institutional-scanner')
     implementation 'org.slf4j:slf4j-api'
+    implementation 'com.fasterxml.jackson.core:jackson-databind'
 
     testImplementation testFixtures(project(':core'))
     testImplementation project(':data-historical-ingest')

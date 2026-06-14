@@ -1,0 +1,1 @@
+Provides in-process order matching with configurable slippage modeling, P&L tracking, and historical strategy backtesting for simulated trading environments.

@@ -32,7 +32,6 @@ public class ReplayController {
     }
 
     private final EventBus eventBus;
-    private final MultiTimeframeContext timeframeContext;
     private final ScheduledExecutorService executorService;
 
     private List<Candle> candles = Collections.synchronizedList(new ArrayList<>());
@@ -44,7 +43,6 @@ public class ReplayController {
 
     public ReplayController(EventBus eventBus) {
         this.eventBus = eventBus;
-        this.timeframeContext = new MultiTimeframeContext();
         this.executorService = Executors.newSingleThreadScheduledExecutor(r -> {
             Thread thread = new Thread(r, "replay-loop-worker");
             thread.setDaemon(true);
@@ -140,8 +138,7 @@ public class ReplayController {
         eventBus.publish(closed1mEvent);
 
         // 3. Process MultiTimeframe Context and emit completed higher bars
-        MultiTimeframeContext.TimeframeResult result = timeframeContext.process1mCandle(candle1m);
-        for (Candle higherBar : result.closedCandles()) {
+        for (Candle higherBar : CandleReplaySession.aggregateHigherTimeframes(candle1m)) {
             eventBus.publish(new CandleClosed(EventMetadata.root(), higherBar));
         }
 

@@ -1,0 +1,3 @@
+- Domain entities are modeled as immutable Java records with explicit canonical constructors that enforce non-null constraints and defensively copy mutable collections (e.g., Map.copyOf).
+- Lifecycle state transitions (e.g., DRAFT to PUBLISHED) are implemented by creating new record instances with updated status and timestamps rather than mutating existing objects.
+- Service methods throw `IllegalStateException` or `IllegalArgumentException` for invalid state transitions or missing resources, ensuring fail-fast behavior.

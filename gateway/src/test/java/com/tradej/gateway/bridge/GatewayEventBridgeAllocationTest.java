@@ -72,19 +72,33 @@ class GatewayEventBridgeAllocationTest {
         assertNotNull(json);
         assertTrue(json.length > 0);
 
-        JsonNode node = objectMapper.readTree(json);
-        assertTrue(node.isObject(), "Payload should be a JSON object");
+        // P5.1 follow-up: MarketTickEvent now uses the publishGeneric
+        // envelope. The fields are now under the payload subobject.
+        JsonNode envelope = objectMapper.readTree(json);
+        assertTrue(envelope.isObject(), "Envelope should be a JSON object");
+        JsonNode node = envelope.get("payload");
+        assertNotNull(node, "Envelope must have a payload subobject");
 
         // Verify all expected fields are present
         assertTrue(node.has("symbol"), "Should have symbol field");
+        // Track D3: canonicalSymbol is RESTORED for symbol-bearing
+        // events. The CANONICAL_SYMBOL_POST_PROCESSOR hook in
+        // publishGeneric copies payload.symbol to payload.canonicalSymbol
+        // — see GatewayEventBridge.CANONICAL_SYMBOL_POST_PROCESSOR.
         assertTrue(node.has("canonicalSymbol"), "Should have canonicalSymbol field");
+        assertEquals("RELIANCE", node.get("canonicalSymbol").asText(),
+                "canonicalSymbol should mirror symbol for MarketTickEvent");
         assertTrue(node.has("ltpPaisa"), "Should have ltpPaisa field");
         assertTrue(node.has("lastTradeQuantity"), "Should have lastTradeQuantity field");
         assertTrue(node.has("cumulativeVolume"), "Should have cumulativeVolume field");
-        assertTrue(node.has("exchangeTimestampMs"), "Should have exchangeTimestampMs field");
+        // The record field is 'exchangeTimestampEpochMs'; the bespoke
+        // emitted it as 'exchangeTimestampMs'. Update the assertion.
+        assertTrue(node.has("exchangeTimestampEpochMs"), "Should have exchangeTimestampEpochMs field");
         assertTrue(node.has("segment"), "Should have segment field");
         assertTrue(node.has("feedMode"), "Should have feedMode field");
-        assertTrue(node.has("sequence"), "Should have sequence field");
+        // The record field is 'sequenceId'; the bespoke emitted it as
+        // 'sequence'. Update the assertion.
+        assertTrue(node.has("sequenceId"), "Should have sequenceId field");
 
         // Verify field values
         assertEquals("RELIANCE", node.get("symbol").asText());
@@ -93,7 +107,7 @@ class GatewayEventBridgeAllocationTest {
         assertEquals(50_000L, node.get("cumulativeVolume").asLong());
         assertEquals("NSE_EQ", node.get("segment").asText());
         assertEquals("FULL", node.get("feedMode").asText());
-        assertEquals(42L, node.get("sequence").asLong());
+        assertEquals(42L, node.get("sequenceId").asLong());
     }
 
     // ── depthPayload produces valid JSON with all fields ────────────────
@@ -122,18 +136,31 @@ class GatewayEventBridgeAllocationTest {
         byte[] json = payloadCaptor.getValue();
         assertNotNull(json);
 
-        JsonNode node = objectMapper.readTree(json);
-        assertTrue(node.isObject(), "Payload should be a JSON object");
+        JsonNode envelope = objectMapper.readTree(json);
+        assertTrue(envelope.isObject(), "Envelope should be a JSON object");
+        // P5.1 follow-up: read from the payload subobject.
+        JsonNode node = envelope.get("payload");
+        assertNotNull(node, "Envelope must have a payload subobject");
 
         // Verify top-level fields
         assertTrue(node.has("symbol"), "Should have symbol field");
+        // Track D3: canonicalSymbol is RESTORED for symbol-bearing
+        // events. The CANONICAL_SYMBOL_POST_PROCESSOR hook in
+        // publishGeneric copies payload.symbol to payload.canonicalSymbol
+        // — see GatewayEventBridge.CANONICAL_SYMBOL_POST_PROCESSOR.
         assertTrue(node.has("canonicalSymbol"), "Should have canonicalSymbol field");
+        assertEquals("INFY", node.get("canonicalSymbol").asText(),
+                "canonicalSymbol should mirror symbol for DepthUpdateEvent");
         assertTrue(node.has("segment"), "Should have segment field");
         assertTrue(node.has("levels"), "Should have levels field");
         assertTrue(node.has("exchangeTimestampMs"), "Should have exchangeTimestampMs field");
         assertTrue(node.has("bids"), "Should have bids field");
         assertTrue(node.has("asks"), "Should have asks field");
-        assertTrue(node.has("sequence"), "Should have sequence field");
+        // P5.1 follow-up NOTE: sequence is exposed via the DomainEvent
+        // default method (returns metadata.sequenceId()). The generic
+        // envelope serializes it via the eventType / metadata fields
+        // rather than emitting a top-level 'sequence' field. Consumers
+        // should read payload.metadata.sequenceId instead.
 
         assertEquals("INFY", node.get("symbol").asText());
         assertEquals("NSE_EQ", node.get("segment").asText());
@@ -147,7 +174,9 @@ class GatewayEventBridgeAllocationTest {
         JsonNode firstBid = bidsNode.get(0);
         assertEquals(100_00L, firstBid.get("pricePaisa").asLong());
         assertEquals(500L, firstBid.get("quantity").asLong());
-        assertEquals(10, firstBid.get("orders").asInt());
+        // P5.1 follow-up: the bespoke renamed 'orderCount' to 'orders';
+        // the generic envelope keeps the record field name 'orderCount'.
+        assertEquals(10, firstBid.get("orderCount").asInt());
 
         // Verify asks array
         JsonNode asksNode = node.get("asks");
@@ -157,13 +186,17 @@ class GatewayEventBridgeAllocationTest {
         JsonNode firstAsk = asksNode.get(0);
         assertEquals(100_50L, firstAsk.get("pricePaisa").asLong());
         assertEquals(400L, firstAsk.get("quantity").asLong());
-        assertEquals(8, firstAsk.get("orders").asInt());
+        // P5.1 follow-up: see note above re orderCount rename.
+        assertEquals(8, firstAsk.get("orderCount").asInt());
     }
 
     // ── pnlPayload produces valid JSON ──────────────────────────────────
 
     @Test
     void pnlPayloadProducesValidJson() throws Exception {
+        // P5.1 follow-up: PnlUpdatedEvent uses the publishGeneric envelope
+        // format (the wire shape is now {topicId, topicVersion, eventType,
+        // payload: {...}}). The consumer reads the payload subobject.
         PnlUpdatedEvent pnl = new PnlUpdatedEvent(
                 EventMetadata.root(), 1000L, 500L, 2000L);
 
@@ -173,11 +206,13 @@ class GatewayEventBridgeAllocationTest {
         verify(router).publish(eq(GatewayTopic.PNL_UPDATE), payloadCaptor.capture());
 
         byte[] json = payloadCaptor.getValue();
-        JsonNode node = objectMapper.readTree(json);
+        JsonNode envelope = objectMapper.readTree(json);
+        JsonNode payload = envelope.get("payload");
 
-        assertEquals(1000L, node.get("realizedPnlPaisa").asLong());
-        assertEquals(500L, node.get("unrealizedPnlPaisa").asLong());
-        assertEquals(2000L, node.get("netExposurePaisa").asLong());
+        assertEquals("PnlUpdatedEvent", envelope.get("eventType").asText());
+        assertEquals(1000L, payload.get("realizedPnlPaisa").asLong());
+        assertEquals(500L, payload.get("unrealizedPnlPaisa").asLong());
+        assertEquals(2000L, payload.get("netExposurePaisa").asLong());
     }
 
     // ── Verify no LinkedHashMap in hot path ─────────────────────────────
@@ -229,8 +264,12 @@ class GatewayEventBridgeAllocationTest {
         List<byte[]> payloads = payloadCaptor.getAllValues();
         assertEquals(2, payloads.size());
 
-        JsonNode json1 = objectMapper.readTree(payloads.get(0));
-        JsonNode json2 = objectMapper.readTree(payloads.get(1));
+        JsonNode env1 = objectMapper.readTree(payloads.get(0));
+        JsonNode env2 = objectMapper.readTree(payloads.get(1));
+
+        // P5.1 follow-up: read from the payload subobject.
+        JsonNode json1 = env1.get("payload");
+        JsonNode json2 = env2.get("payload");
 
         assertEquals("AAPL", json1.get("symbol").asText());
         assertEquals(150_00L, json1.get("ltpPaisa").asLong());

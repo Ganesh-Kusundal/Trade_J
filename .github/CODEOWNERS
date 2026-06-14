@@ -1,0 +1,6 @@
+# Default owners for everything in this repo
+*       @Ganesh-Kusundal
+
+# Broker modules need broker-specialist review
+/broker/         @Ganesh-Kusundal
+/gateway/        @Ganesh-Kusundal

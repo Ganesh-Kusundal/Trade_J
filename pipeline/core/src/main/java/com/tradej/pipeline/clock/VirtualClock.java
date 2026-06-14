@@ -1,12 +1,21 @@
 package com.tradej.pipeline.clock;
 
+import com.tradej.core.domain.market.CandleBucketPolicy;
+import com.tradej.core.domain.time.TradingClock;
+import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * High-precision Clock abstraction supporting deterministic replay, virtual time,
  * backtest speed control, and seamless switching between Live, Replay, and Backtesting modes.
+ * <p>
+ * Implements {@link TradingClock} so it can be used as a drop-in for the OMS/MatchingEngine
+ * clock in any context that needs determinism. The pipeline-specific methods
+ * ({@link #enterLiveMode()}, {@link #enterReplayMode()}, speed control, pacing) are
+ * additional behaviors layered on top of the {@code TradingClock} contract.
  */
-public final class VirtualClock {
+public final class VirtualClock implements TradingClock {
 
     public enum Mode {
         LIVE,
@@ -31,6 +40,16 @@ public final class VirtualClock {
             return System.currentTimeMillis();
         }
         return virtualTimeMs.get();
+    }
+
+    @Override
+    public Instant instant() {
+        return Instant.ofEpochMilli(currentTimeMillis());
+    }
+
+    @Override
+    public LocalDateTime now() {
+        return LocalDateTime.ofInstant(instant(), CandleBucketPolicy.IST);
     }
 
     /**

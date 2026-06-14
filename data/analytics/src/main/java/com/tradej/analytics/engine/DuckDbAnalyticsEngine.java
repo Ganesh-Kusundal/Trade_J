@@ -84,19 +84,34 @@ public final class DuckDbAnalyticsEngine implements AutoCloseable {
 
     private void bootstrapViews() throws SQLException {
         Path barsDir = HistoricalEquityPaths.barsDir(equityRoot, INTERVAL_FOLDER);
-        if (!Files.isDirectory(barsDir)) {
-            throw new IllegalStateException("Equity warehouse bars directory missing: " + barsDir);
-        }
         Path barsGlob = barsDir.resolve("symbol=*").resolve("*.parquet").toAbsolutePath();
-        connection.createStatement().execute("""
-                create or replace view %s as
-                select
-                    symbol,
-                    case when interval in ('1minute', '1m') then '1m' else interval end as interval,
-                    bar_time_ms,
-                    open_paisa, high_paisa, low_paisa, close_paisa, volume, ingested_at_ms
-                from read_parquet('%s', hive_partitioning=true)
-                """.formatted(VIEW_EQUITY_BARS_1M, escapeSqlPath(barsGlob)));
+        if (hasAnyEquityBarsParquet(barsDir)) {
+            connection.createStatement().execute("""
+                    create or replace view %s as
+                    select
+                        symbol,
+                        case when interval in ('1minute', '1m') then '1m' else interval end as interval,
+                        bar_time_ms,
+                        open_paisa, high_paisa, low_paisa, close_paisa, volume, ingested_at_ms
+                    from read_parquet('%s', hive_partitioning=true)
+                    """.formatted(VIEW_EQUITY_BARS_1M, escapeSqlPath(barsGlob)));
+        } else {
+            log.warn("No equity bars parquet found under {} — {} view is empty", barsDir, VIEW_EQUITY_BARS_1M);
+            connection.createStatement().execute("""
+                    create or replace view %s as
+                    select
+                        cast(null as varchar) as symbol,
+                        cast(null as varchar) as interval,
+                        cast(null as bigint) as bar_time_ms,
+                        cast(null as bigint) as open_paisa,
+                        cast(null as bigint) as high_paisa,
+                        cast(null as bigint) as low_paisa,
+                        cast(null as bigint) as close_paisa,
+                        cast(null as bigint) as volume,
+                        cast(null as bigint) as ingested_at_ms
+                    where 1 = 0
+                    """.formatted(VIEW_EQUITY_BARS_1M));
+        }
 
         Path symbolsPath = HistoricalEquityPaths.symbolsParquet(equityRoot).toAbsolutePath();
         Path industryPath = HistoricalEquityPaths.industryParquet(equityRoot).toAbsolutePath();
@@ -465,6 +480,18 @@ public final class DuckDbAnalyticsEngine implements AutoCloseable {
         }
         try (var walk = Files.walk(barsDir)) {
             return walk.filter(path -> path.getFileName().toString().endsWith(".parquet")).count();
+        }
+    }
+
+    private boolean hasAnyEquityBarsParquet(Path barsDir) {
+        if (!Files.isDirectory(barsDir)) {
+            return false;
+        }
+        try (var walk = Files.walk(barsDir)) {
+            return walk.anyMatch(path -> path.getFileName().toString().endsWith(".parquet"));
+        } catch (IOException ex) {
+            log.warn("Failed to scan {} for parquet files: {}", barsDir, ex.toString());
+            return false;
         }
     }
 

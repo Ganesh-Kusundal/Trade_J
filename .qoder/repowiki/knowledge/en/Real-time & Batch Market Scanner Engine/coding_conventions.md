@@ -1,0 +1,3 @@
+- Scanning criteria implement the `ScanCriterion` interface, providing `matches`, `score`, and `reason` methods to ensure consistent evaluation and reporting.
+- Configuration and specifications are modeled as Java records (e.g., `ScanProfile`, `ScanContext`) to enforce immutability and concise data transfer.
+- Pipeline nodes extend `BasePipelineNode` and use `processEvent` to handle domain events, maintaining a consistent integration pattern with the event bus.

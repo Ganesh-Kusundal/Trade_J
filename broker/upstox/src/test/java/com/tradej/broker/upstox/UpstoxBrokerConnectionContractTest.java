@@ -4,6 +4,8 @@ import com.tradej.broker.api.IBrokerConnectionContractTest;
 import com.tradej.broker.api.port.*;
 import com.tradej.broker.upstox.adapter.UpstoxDataServicesProvider;
 import com.tradej.broker.upstox.adapter.UpstoxProfileProvider;
+import com.tradej.broker.upstox.depth.UpstoxMarketDepthProvider;
+import com.tradej.broker.upstox.depth.UpstoxTwentyDepthWebSocketClient;
 import com.tradej.broker.upstox.instrument.UpstoxInstrumentLoader;
 import com.tradej.broker.upstox.instrument.UpstoxInstrumentResolver;
 import org.junit.jupiter.api.Tag;
@@ -47,7 +49,9 @@ class UpstoxBrokerConnectionContractTest extends IBrokerConnectionContractTest {
                 mock(SliceOrderCommand.class),
                 mock(UpstoxDataServicesProvider.class),
                 mock(UpstoxProfileProvider.class),
-                mock(UpstoxInstrumentLoader.class)
+                mock(UpstoxInstrumentLoader.class),
+                mock(UpstoxTwentyDepthWebSocketClient.class),
+                mock(UpstoxMarketDepthProvider.class)
         );
     }
 }

@@ -1,0 +1,318 @@
+package com.tradej.core.domain.service;
+
+import com.tradej.core.domain.event.DomainEvent;
+import com.tradej.core.domain.event.TradeClosed;
+import com.tradej.core.domain.event.TradeOpened;
+import com.tradej.core.domain.port.NetPositionProvider;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+
+/**
+ * Canonical position service. Single source of truth for:
+ * <ul>
+ *   <li>net position per symbol (signed long)</li>
+ *   <li>average entry price (per-symbol, weighted-average cost basis)</li>
+ *   <li>realized PnL per symbol (cumulative, accumulated from {@link TradeClosed} events)</li>
+ *   <li>unrealized PnL per symbol (computed on demand against a mark price via
+ *       {@link com.tradej.core.domain.port.NetPositionProvider.Position#unrealizedPnlPaisa})</li>
+ * </ul>
+ *
+ * <p><b>Event-sourced.</b> Consumes {@link TradeOpened} / {@link TradeClosed} via
+ * {@link #onDomainEvent(DomainEvent)}. State is held in concurrent maps and is
+ * safe to call from the event-dispatch thread.
+ *
+ * <p><b>Target of the P3 migration.</b> Existing consumers
+ * ({@code com.tradej.strategy.portfolio.PortfolioEngine},
+ * {@code com.tradej.execution.risk.PositionRiskHandler}) now delegate
+ * to this class. The legacy
+ * {@code com.tradej.execution.position.EventSourcedNetPositionProvider}
+ * has been removed in P3.6 — all position state lives here.
+ *
+ * <p><b>Thread-safety.</b> All mutable state is in {@link ConcurrentHashMap}
+ * (per-symbol). The position-update logic uses {@code compute} / {@code merge}
+ * for atomic update under concurrent event delivery. Pending closes (out-of-order
+ * events) are handled with a separate buffer map.
+ */
+public final class PositionService implements NetPositionProvider {
+
+    private static final Logger log = LoggerFactory.getLogger(PositionService.class);
+
+    private final ConcurrentHashMap<String, PositionState> positions = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, TradeContribution> openContributions = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Long> openSizes = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Long> realizedPnls = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, TradeClosed> pendingCloses = new ConcurrentHashMap<>();
+    private final java.util.Set<String> closedTradeIds = ConcurrentHashMap.newKeySet();
+
+    public PositionService() {
+    }
+
+    // ── NetPositionProvider port implementation ───────────────────────
+
+    @Override
+    public Map<String, Position> getPositions() {
+        Map<String, Position> result = new HashMap<>();
+        positions.forEach((symbol, state) -> {
+            if (state.quantity() != 0) {
+                result.put(symbol, new Position(symbol, state.quantity(), state.averagePricePaisa()));
+            }
+        });
+        return Collections.unmodifiableMap(result);
+    }
+
+    // ── PnL accessors ────────────────────────────────────────────────
+
+    /**
+     * Cumulative realized PnL for a symbol (sum of {@link TradeClosed#realizedPnlPaisa}
+     * for all closed trades on that symbol).
+     */
+    public long getRealizedPnlPaisa(String symbol) {
+        return realizedPnls.getOrDefault(symbol, 0L);
+    }
+
+    /**
+     * Convenience: all-symbol realized PnL total.
+     */
+    public long getTotalRealizedPnlPaisa() {
+        return realizedPnls.values().stream().mapToLong(Long::longValue).sum();
+    }
+
+    // ── Event-sourcing entry point ──────────────────────────────────
+
+    /**
+     * Apply a domain event to the position state. Idempotent for
+     * {@link TradeClosed} (re-applying a close with the same {@code tradeId}
+     * is a no-op).
+     */
+    public void onDomainEvent(DomainEvent event) {
+        if (event instanceof TradeOpened opened) {
+            handleTradeOpened(opened);
+        } else if (event instanceof TradeClosed closed) {
+            handleTradeClosed(closed);
+        } else {
+            log.debug("PositionService ignoring event type={}", event.getClass().getSimpleName());
+        }
+    }
+
+    // ── Broker-sourced position corrections (P3.5) ─────────────────────
+    //
+    // The broker's reported position is the ground truth for what's actually
+    // filled. The reconciliation flow (ReconciliationScheduler +
+    // OrderReconciler) queries the broker periodically and emits
+    // PositionMismatch events when internal state diverges. P3.5 exposes the
+    // API for the reconciliation flow to correct the internal state to match
+    // the broker's view. Full wiring (reconciliation → applyBrokerSnapshot) is
+    // a follow-up commit.
+
+    /**
+     * Apply a broker-reported position snapshot. Overwrites the internal
+     * state for {@code symbol} with the broker's view. The {@code averagePricePaisa}
+     * is the broker's reported average (may differ from the internal weighted
+     * average due to partial fills, slippage, or sync races). Pass
+     * {@code averagePricePaisa = 0} if the broker doesn't report it.
+     *
+     * <p>Use case: reconciliation detects a mismatch and corrects the
+     * internal state to match the broker. This is a "broker wins" policy
+     * for position state; the alternative is to flag the mismatch and let
+     * a human investigate.
+     */
+    public void applyBrokerSnapshot(String symbol, long brokerQuantity, long averagePricePaisa) {
+        Objects.requireNonNull(symbol, "symbol");
+        if (brokerQuantity == 0) {
+            positions.remove(symbol);
+            // Note: openContributions and openSizes are NOT cleared here —
+            // they track per-trade state that's still in flight. If the
+            // broker says net=0 but we have open contributions, that's a
+            // sign of a missed close — log a warning for follow-up.
+            if (!openContributions.isEmpty()) {
+                log.warn("Broker reports net=0 for symbol={} but {} open contribution(s) remain; " +
+                        "this may indicate a missed close event", symbol, openContributions.size());
+            }
+            return;
+        }
+        positions.put(symbol, new PositionState(brokerQuantity, averagePricePaisa));
+        log.info("PositionService applied broker snapshot symbol={} quantity={} avgPrice={}",
+                symbol, brokerQuantity, averagePricePaisa);
+    }
+
+    private void handleTradeOpened(TradeOpened opened) {
+        String symbol = opened.symbol();
+        long size = opened.size();
+        long price = opened.entryPricePaisa();
+        var side = opened.side();
+
+        openContributions.put(opened.tradeId(),
+                new TradeContribution(symbol, side, size, price));
+        openSizes.put(opened.tradeId(), size);
+
+        positions.compute(symbol, (s, current) -> {
+            if (current == null) {
+                return new PositionState(side.isBuySide() ? size : -size, price);
+            }
+            long oldQty = current.quantity();
+            long oldAvg = current.averagePricePaisa();
+            long tradeQty = side.isBuySide() ? size : -size;
+            long newQty = oldQty + tradeQty;
+
+            if (newQty == 0) {
+                return new PositionState(0, 0);
+            }
+
+            // Institutional Weighted Average Cost Basis
+            // Update average price only if increasing the position in the same direction.
+            long newAvg;
+            if ((oldQty > 0 && tradeQty > 0) || (oldQty < 0 && tradeQty < 0)) {
+                newAvg = (Math.abs(oldQty) * oldAvg + Math.abs(tradeQty) * price) / Math.abs(newQty);
+            } else {
+                if (Math.signum(oldQty) == Math.signum(newQty)) {
+                    // Reduction in same direction — average stays the same.
+                    newAvg = oldAvg;
+                } else {
+                    // Flipped to opposite direction — new avg is the flip price.
+                    newAvg = price;
+                }
+            }
+            return new PositionState(newQty, newAvg);
+        });
+
+        log.debug("PositionService opened tradeId={} symbol={} side={} size={} price={} currentQty={}",
+                opened.tradeId(), symbol, side, size, price, getNetPosition(symbol));
+
+        // Out-of-order delivery: if a TradeClosed was buffered waiting for this open, drain it.
+        TradeClosed bufferedClose = pendingCloses.remove(opened.tradeId());
+        if (bufferedClose != null) {
+            applyTradeClose(bufferedClose);
+        }
+    }
+
+    private void handleTradeClosed(TradeClosed closed) {
+        if (closedTradeIds.contains(closed.tradeId())) {
+            return;
+        }
+        TradeContribution contribution = openContributions.get(closed.tradeId());
+        if (contribution == null) {
+            // TradeOpened not yet processed — buffer until it arrives.
+            pendingCloses.putIfAbsent(closed.tradeId(), closed);
+            return;
+        }
+        applyTradeClose(closed);
+    }
+
+    private void applyTradeClose(TradeClosed closed) {
+        TradeContribution contribution = openContributions.get(closed.tradeId());
+        closedTradeIds.add(closed.tradeId());
+
+        if (contribution == null) {
+            return;
+        }
+
+        // The TradeClosed event's `size` is the amount being closed (may be a
+        // partial close of a larger TradeOpened). Use that, not the original
+        // contribution size.
+        long closedSize = closed.size();
+        long tradeQty = contribution.side().isBuySide() ? closedSize : -closedSize;
+
+        // Accumulate realized PnL from the event (authoritative source).
+        realizedPnls.merge(contribution.symbol(), closed.realizedPnlPaisa(), Long::sum);
+
+        // Update position: subtract the closed amount.
+        positions.computeIfPresent(contribution.symbol(), (s, current) -> {
+            long newQty = current.quantity() - tradeQty;
+            if (newQty == 0) {
+                return new PositionState(0, 0);
+            }
+            return new PositionState(newQty, current.averagePricePaisa());
+        });
+
+        // Decrement the open size; remove from open bookkeeping if fully closed.
+        long newRemaining = openSizes.merge(closed.tradeId(), -closedSize, Long::sum);
+        if (newRemaining <= 0) {
+            openSizes.remove(closed.tradeId());
+            openContributions.remove(closed.tradeId());
+        }
+
+        log.debug("PositionService closed tradeId={} symbol={} closedSize={} realizedPnl={} currentQty={}",
+                closed.tradeId(), contribution.symbol(), closedSize, closed.realizedPnlPaisa(),
+                getNetPosition(contribution.symbol()));
+    }
+
+    // ── Snapshot / restore (for replay and persistence) ──────────────────
+
+    /**
+     * Captures a snapshot of all position state (per-symbol positions, open
+     * trade contributions, realized PnL, buffered closes). Used for replay
+     * boundary marking and persistence — P3.4 migrates DuckDB position
+     * persistence to use this snapshot via {@code PositionService}.
+     */
+    public StateSnapshot snapshot() {
+        return new StateSnapshot(
+                new java.util.HashMap<>(positions),
+                new java.util.HashMap<>(openContributions),
+                new java.util.HashMap<>(realizedPnls),
+                new java.util.HashMap<>(openSizes),
+                new java.util.HashMap<>(pendingCloses),
+                Set.copyOf(closedTradeIds)
+        );
+    }
+
+    /**
+     * Restores position state from a previously captured snapshot. Overwrites
+     * current state. Idempotent — safe to call multiple times.
+     */
+    public void restore(StateSnapshot state) {
+        if (state == null) {
+            return;
+        }
+        positions.clear();
+        positions.putAll(state.positions());
+        openContributions.clear();
+        openContributions.putAll(state.openContributions());
+        realizedPnls.clear();
+        realizedPnls.putAll(state.realizedPnls());
+        openSizes.clear();
+        openSizes.putAll(state.openSizes());
+        pendingCloses.clear();
+        pendingCloses.putAll(state.pendingCloses());
+        closedTradeIds.clear();
+        closedTradeIds.addAll(state.closedTradeIds());
+    }
+
+    public record PositionState(long quantity, long averagePricePaisa) {}
+
+    public record TradeContribution(
+            String symbol,
+            com.tradej.core.domain.value.Side side,
+            long size,
+            long price) {
+    }
+
+    /**
+     * Serializable snapshot of all position state. P3.4 made this the
+     * canonical persistence boundary for DuckDB position snapshots.
+     * P3.6 removed the legacy per-trade event reconstruction path.
+     */
+    public record StateSnapshot(
+            Map<String, PositionState> positions,
+            Map<String, TradeContribution> openContributions,
+            Map<String, Long> realizedPnls,
+            Map<String, Long> openSizes,
+            Map<String, TradeClosed> pendingCloses,
+            Set<String> closedTradeIds
+    ) {
+        public StateSnapshot {
+            positions = Collections.unmodifiableMap(positions);
+            openContributions = Collections.unmodifiableMap(openContributions);
+            realizedPnls = Collections.unmodifiableMap(realizedPnls);
+            openSizes = Collections.unmodifiableMap(openSizes);
+            pendingCloses = Collections.unmodifiableMap(pendingCloses);
+            closedTradeIds = Set.copyOf(closedTradeIds);
+        }
+    }
+}

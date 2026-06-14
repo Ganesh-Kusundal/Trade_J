@@ -1,0 +1,4 @@
+- Spring Boot 3.x with Actuator and Micrometer Prometheus registry.
+- LMAX Disruptor for high-throughput event bus (`RuntimeBus.DISRUPTOR`).
+- DuckDB for analytical read models and feature storage.
+- OpenHFT Chronicle Queue for audit logging and event sourcing.

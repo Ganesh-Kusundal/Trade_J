@@ -1,0 +1,1 @@
+Provides resilient multi-broker connectivity, load-balanced routing, and core market data processing capabilities including order book management and rate limiting.

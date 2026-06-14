@@ -1,0 +1,4 @@
+- **Canonical Abstraction**: Defines a unified `HistoricalDataStore` interface (`canonical/HistoricalDataStore.java`) that abstracts underlying storage mechanisms (Parquet/DuckDB) from consumers.
+- **Storage Layer**: Utilizes `DuckDbHistoricalWarehouse` for job/task tracking and rolling options storage, and `ParquetHistoricalDataStore` for high-volume candle data backed by DuckDB SQL queries on Parquet files.
+- **Ingestion Pipeline**: Features a job-based architecture (`DownloadJobService`) with task planning (`planner/`), parallel execution, and state management in DuckDB for resilient bulk downloads.
+- **Sync & Maintenance**: Includes `IncrementalSyncService` for daily updates from live broker APIs, `UniverseRefreshService` for managing tradable instrument lists, and compaction tools for storage optimization.

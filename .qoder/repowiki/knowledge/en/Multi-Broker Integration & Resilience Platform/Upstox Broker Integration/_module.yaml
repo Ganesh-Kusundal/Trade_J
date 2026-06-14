@@ -1,0 +1,8 @@
+schema_version: 1
+module_path: broker_platform/broker_upstox
+title: Upstox Broker Integration
+scope:
+    - broker/upstox/
+source_files: []
+depends_on: []
+related_to: []

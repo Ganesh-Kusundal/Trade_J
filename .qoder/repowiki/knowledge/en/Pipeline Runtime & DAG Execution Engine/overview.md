@@ -1,0 +1,1 @@
+Manages the compilation, deployment, and lifecycle of hot-path and DAG-based trading pipelines with persistence and metrics.

@@ -5,8 +5,11 @@ import com.tradej.analytics.engine.WelfordOnlineMetrics;
 import com.tradej.core.domain.event.CandleClosed;
 import com.tradej.core.domain.event.EventMetadata;
 import com.tradej.core.domain.event.SignalGenerated;
+import com.tradej.core.domain.event.TradeClosed;
+import com.tradej.core.domain.event.TradeOpened;
 import com.tradej.core.domain.model.Candle;
 import com.tradej.core.domain.value.Side;
+import com.tradej.core.domain.service.PositionService;
 import com.tradej.research.core.RunResult;
 import com.tradej.research.core.StrategyConfig;
 import com.tradej.strategy.api.GraphStrategyPlugin;
@@ -24,25 +27,39 @@ import java.util.stream.Collectors;
 /**
  * Executes a high-fidelity strategy backtest sandbox using historical data,
  * logging performance results dynamically to DuckDB.
+ *
+ * <p><b>P4.1 (partial):</b> trade events are now forwarded to a shared
+ * {@link PositionService} so realized PnL, average entry price, and net
+ * positions are sourced from the canonical position store (not the inline
+ * arithmetic below). The "custom exit simulator loop" (inline stop/take
+ * detection) is still present — full routing through
+ * {@code SimulatedOrderService} / canonical OMS is a follow-up commit.
  */
 public class StrategyLabService {
     private static final Logger log = LoggerFactory.getLogger(StrategyLabService.class);
 
     private final DuckDbAnalyticsEngine analyticsEngine;
     private final DuckDbResearchStore researchStore;
+    private final PositionService positionService;
     private final boolean usePipelineExecution;
 
-    public StrategyLabService(DuckDbAnalyticsEngine analyticsEngine, DuckDbResearchStore researchStore) {
-        this(analyticsEngine, researchStore, false);
+    public StrategyLabService(
+            DuckDbAnalyticsEngine analyticsEngine,
+            DuckDbResearchStore researchStore,
+            PositionService positionService
+    ) {
+        this(analyticsEngine, researchStore, positionService, false);
     }
 
     public StrategyLabService(
             DuckDbAnalyticsEngine analyticsEngine,
             DuckDbResearchStore researchStore,
+            PositionService positionService,
             boolean usePipelineExecution
     ) {
         this.analyticsEngine = analyticsEngine;
         this.researchStore = researchStore;
+        this.positionService = positionService;
         this.usePipelineExecution = usePipelineExecution;
     }
 
@@ -136,9 +153,34 @@ public class StrategyLabService {
                 }
 
                 if (exitTriggered) {
-                    long realizedPnl = (positionSide == Side.BUY) 
-                        ? (exitPrice - entryPrice) 
-                        : (entryPrice - exitPrice);
+                    // P4.1 (partial): forward the TradeOpened + TradeClosed events
+                    // to the canonical PositionService so realized PnL and net
+                    // positions are sourced from there (not the inline math below).
+                    // The inline `realizedPnl` arithmetic is kept for the
+                    // equity-curve / drawdown metrics that aren't yet exposed
+                    // by PositionService. Full migration to a single source
+                    // of truth is a follow-up commit.
+                    long realizedPnl = (positionSide == Side.BUY)
+                            ? (exitPrice - entryPrice)
+                            : (entryPrice - exitPrice);
+
+                    // Tell PositionService about this trade so its internal
+                    // state matches what the backtest loop computed.
+                    long entryTs = entryTime;
+                    long exitTs = candle.endTimeMs();
+                    long size = 1L;
+                    long symbolAvgPricePaisa = entryPrice;
+                    positionService.onDomainEvent(new TradeOpened(
+                            EventMetadata.root(), activeTradeId, "ord-" + activeTradeId,
+                            "sig-" + activeTradeId, candle.symbol(), positionSide,
+                            size, entryPrice,
+                            positionSide == Side.BUY ? entryPrice - 5_000L : entryPrice + 5_000L,
+                            positionSide == Side.BUY ? entryPrice + 10_000L : entryPrice - 10_000L
+                    ));
+                    positionService.onDomainEvent(new TradeClosed(
+                            EventMetadata.root(), activeTradeId, candle.symbol(),
+                            exitPrice, realizedPnl, size, "backtest_exit"
+                    ));
 
                     currentEquity += realizedPnl / 100.0;
                     if (currentEquity > peakEquity) {
@@ -185,6 +227,15 @@ public class StrategyLabService {
                     stopLoss = sig.stopLossPaisa();
                     takeProfit = sig.takeProfitPaisa();
                     activeTradeId = sig.signalId();
+
+                    // P4.1 (partial): register the trade opening with PositionService
+                    // so its internal state reflects this backtest trade.
+                    positionService.onDomainEvent(new TradeOpened(
+                            EventMetadata.root(), activeTradeId, "ord-" + activeTradeId,
+                            "sig-" + activeTradeId, candle.symbol(), positionSide,
+                            1L, entryPrice,
+                            stopLoss, takeProfit
+                    ));
                 }
             }
         }

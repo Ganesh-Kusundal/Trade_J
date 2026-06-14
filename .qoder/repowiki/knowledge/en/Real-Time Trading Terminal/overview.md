@@ -1,0 +1,1 @@
+A React-based trading terminal providing real-time market data visualization, order management, and multi-broker integration with adaptive data modes.

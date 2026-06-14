@@ -45,13 +45,13 @@ public final class ExecutionHandler implements com.tradej.core.domain.event.Doma
     private static final Logger log = LoggerFactory.getLogger(ExecutionHandler.class);
     private static final int MAX_FILL_DEFER_ATTEMPTS = FillReconciliation.MAX_FILL_DEFER_ATTEMPTS;
     private static final long FILL_DEFER_DELAY_MS = FillReconciliation.FILL_DEFER_DELAY_MS;
-    /** Default execution queue capacity — increased from 50 to 1000 (E-01 fix). */
+    /** Default execution queue capacity. */
     private static final int DEFAULT_QUEUE_CAPACITY = 1000;
 
     /** Maximum time to wait for a broker order placement response. */
     private static final long DEFAULT_ORDER_PLACEMENT_TIMEOUT_MS = 10_000L;
 
-    /** Default number of execution partitions (W1-5). */
+    /** Default number of execution partitions. */
     private static final int DEFAULT_PARTITION_COUNT = 4;
 
     private final long orderPlacementTimeoutMs;
@@ -71,6 +71,7 @@ public final class ExecutionHandler implements com.tradej.core.domain.event.Doma
     private final DeadLetterQueue deadLetterQueue;
     private final ExecutionOrderPlacer orderPlacer;
     private final ExecutionTradeEmitter tradeEmitter;
+    private final Consumer<DomainEvent> injectedDownstream;
     private final Cache<String, Boolean> tradeOpenedEmitted = Caffeine.newBuilder()
             .maximumSize(10_000)
             .expireAfterWrite(Duration.ofHours(24))
@@ -166,7 +167,7 @@ public final class ExecutionHandler implements com.tradej.core.domain.event.Doma
     }
 
     /**
-     * Processes a domain event using the constructor-injected downstream consumer (P0-6).
+     * Processes a domain event using the constructor-injected downstream consumer.
      *
      * @param event the domain event to process
      */
@@ -179,24 +180,15 @@ public final class ExecutionHandler implements com.tradej.core.domain.event.Doma
         }
     }
 
-    // P0-6: Downstream consumer is constructor-injected via ExecutionConfig.
-    // Falls back to no-op if not configured (e.g., simple constructors).
-    private final Consumer<DomainEvent> injectedDownstream;
-
-    private Consumer<DomainEvent> effectiveDownstream() {
-        if (injectedDownstream != null) return injectedDownstream;
-        return e -> {};
-    }
-
     @Override
     public void visit(SignalPendingExecution pendingExecution) {
         log.info("Signal enqueued symbol={} signalId={}", pendingExecution.orderRequest().symbol(), pendingExecution.signalId());
         int partition = partitionFor(pendingExecution.orderRequest().symbol());
-        if (!queues[partition].offer(new SignalCommand(pendingExecution, effectiveDownstream()))) {
+        if (!queues[partition].offer(new SignalCommand(pendingExecution, injectedDownstream))) {
             log.warn("Execution queue full — suppressing signal symbol={} signalId={}",
                     pendingExecution.orderRequest().symbol(), pendingExecution.signalId());
             deadLetterQueue.append("execution-handler", pendingExecution, "Execution queue full");
-            effectiveDownstream().accept(new SignalSuppressed(
+            injectedDownstream.accept(new SignalSuppressed(
                     EventMetadata.correlated(pendingExecution.signalId(), pendingExecution.sequenceId()),
                     pendingExecution.signalId(),
                     pendingExecution.orderRequest().symbol(),
@@ -209,18 +201,18 @@ public final class ExecutionHandler implements com.tradej.core.domain.event.Doma
     @Override
     public void visit(OrderFilled orderFilled) {
         int partition = partitionFor(orderFilled.order().symbol());
-        if (!queues[partition].offer(new FillCommand(orderFilled, effectiveDownstream(), 0))) {
+        if (!queues[partition].offer(new FillCommand(orderFilled, injectedDownstream, 0))) {
             log.warn("Execution queue full — deferring fill eventId={} orderId={}",
                     orderFilled.eventId(), orderFilled.order().orderId());
-            scheduleFillRetry(orderFilled, effectiveDownstream(), 0);
+            scheduleFillRetry(orderFilled, injectedDownstream, 0);
         }
     }
 
     @Override
     public void visit(com.tradej.core.domain.event.OrderPartiallyFilled partial) {
         int partition = partitionFor(partial.order().symbol());
-        if (!queues[partition].offer(new BrokerFillCommand(partial.order(), partial.metadata(), partial.fills(), false, effectiveDownstream(), 0))) {
-            scheduleBrokerFillRetry(partial.order(), partial.metadata(), partial.fills(), false, effectiveDownstream(), 0);
+        if (!queues[partition].offer(new BrokerFillCommand(partial.order(), partial.metadata(), partial.fills(), false, injectedDownstream, 0))) {
+            scheduleBrokerFillRetry(partial.order(), partial.metadata(), partial.fills(), false, injectedDownstream, 0);
         }
     }
 
@@ -228,9 +220,9 @@ public final class ExecutionHandler implements com.tradej.core.domain.event.Doma
     public void visit(com.tradej.core.domain.event.OrderFullyFilled fullyFilled) {
         int partition = partitionFor(fullyFilled.order().symbol());
         if (!queues[partition].offer(new BrokerFillCommand(
-                fullyFilled.order(), fullyFilled.metadata(), fullyFilled.fills(), true, effectiveDownstream(), 0))) {
+                fullyFilled.order(), fullyFilled.metadata(), fullyFilled.fills(), true, injectedDownstream, 0))) {
             scheduleBrokerFillRetry(
-                    fullyFilled.order(), fullyFilled.metadata(), fullyFilled.fills(), true, effectiveDownstream(), 0);
+                    fullyFilled.order(), fullyFilled.metadata(), fullyFilled.fills(), true, injectedDownstream, 0);
         }
     }
 

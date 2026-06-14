@@ -1,0 +1,1 @@
+Uses LMAX Disruptor for lock-free ring buffer concurrency; implements custom wait strategies (`BusySpinWaitStrategy` for LIVE mode, `YieldingWaitStrategy` for REPLAY/BACKTEST) to tune CPU/latency trade-offs.

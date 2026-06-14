@@ -1,0 +1,4 @@
+- Use of sealed interfaces and records for command modeling (e.g., `ExecutionCommand`, `TradingCommand`) to enforce exhaustive pattern matching.
+- Implementation of the Chain-of-Responsibility pattern for risk evaluation, where each `RiskCheck` is stateless and short-circuits on rejection.
+- Event-sourced state management where `OrderManagementService` persists `OrderEvent`s before applying them to in-memory `OrderStateMachine` instances.
+- Partitioned concurrency in `ExecutionHandler` using symbol-based hashing to ensure ordering guarantees for specific instruments while maximizing throughput.

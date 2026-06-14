@@ -1,0 +1,1 @@
+Defines the Service Provider Interface (SPI) and capability-based ports for integrating heterogeneous stock brokers into a unified trading platform.

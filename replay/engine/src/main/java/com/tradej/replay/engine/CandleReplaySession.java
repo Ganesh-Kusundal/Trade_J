@@ -3,6 +3,7 @@ package com.tradej.replay.engine;
 import com.tradej.core.domain.event.CandleClosed;
 import com.tradej.core.domain.event.EventMetadata;
 import com.tradej.core.domain.event.ReplayTimeChangedEvent;
+import com.tradej.core.domain.market.CandleBucketPolicy;
 import com.tradej.core.domain.model.Candle;
 import com.tradej.core.domain.port.EventBus;
 import com.tradej.gateway.protocol.GatewayTopic;
@@ -11,7 +12,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Instant;
+import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -144,6 +148,116 @@ public final class CandleReplaySession {
                 speedMultiplier,
                 currentTimeMs
         );
+    }
+
+    // ── Multi-timeframe aggregation (was MultiTimeframeContext) ─────────
+
+    private static final ThreadLocal<Map<String, Candle>> ACTIVE_5M =
+            ThreadLocal.withInitial(HashMap::new);
+    private static final ThreadLocal<Map<String, Candle>> ACTIVE_15M =
+            ThreadLocal.withInitial(HashMap::new);
+    private static final ThreadLocal<Map<String, Candle>> ACTIVE_DAILY =
+            ThreadLocal.withInitial(HashMap::new);
+
+    /**
+     * Consumes a 1m candle and returns any higher-timeframe candles that closed as a result.
+     * Zero look-ahead: a higher-TF candle is emitted only when its boundary has fully closed.
+     */
+    public static List<Candle> aggregateHigherTimeframes(Candle oneMinCandle) {
+        List<Candle> closed = new ArrayList<>();
+        Candle new5m = aggregateInterval(oneMinCandle, ACTIVE_5M.get(), 5, "5m", closed);
+        if (new5m != null && !new5m.closed()) {
+            // developing; not emitted
+        }
+        Candle new15m = aggregateInterval(oneMinCandle, ACTIVE_15M.get(), 15, "15m", closed);
+        if (new15m != null && !new15m.closed()) {
+            // developing; not emitted
+        }
+        aggregateDaily(oneMinCandle, ACTIVE_DAILY.get(), closed);
+        return closed;
+    }
+
+    private static Candle aggregateInterval(
+            Candle oneMin,
+            Map<String, Candle> activeMap,
+            int periodMin,
+            String intervalName,
+            List<Candle> closedList
+    ) {
+        String symbol = oneMin.symbol();
+        long minuteEpoch = oneMin.startTimeMs() / 60_000L;
+        long expectedStartMs = (minuteEpoch / periodMin) * periodMin * 60_000L;
+        Candle current = activeMap.get(symbol);
+
+        if (current != null && current.startTimeMs() != expectedStartMs) {
+            closedList.add(closeCopy(current));
+            current = null;
+        }
+
+        if (current == null) {
+            long expectedEndMs = (expectedStartMs / 60_000L + periodMin) * 60_000L - 1;
+            current = new Candle(
+                    symbol, intervalName, expectedStartMs, expectedEndMs,
+                    oneMin.openPaisa(), oneMin.highPaisa(), oneMin.lowPaisa(), oneMin.closePaisa(),
+                    oneMin.volume(), false);
+        } else {
+            current = new Candle(
+                    symbol, intervalName, current.startTimeMs(), current.endTimeMs(),
+                    current.openPaisa(),
+                    Math.max(current.highPaisa(), oneMin.highPaisa()),
+                    Math.min(current.lowPaisa(), oneMin.lowPaisa()),
+                    oneMin.closePaisa(),
+                    current.volume() + oneMin.volume(),
+                    false);
+        }
+        activeMap.put(symbol, current);
+        return current;
+    }
+
+    private static void aggregateDaily(
+            Candle oneMin,
+            Map<String, Candle> activeMap,
+            List<Candle> closedList
+    ) {
+        String symbol = oneMin.symbol();
+        LocalDate candleDate = Instant.ofEpochMilli(oneMin.startTimeMs())
+                .atZone(CandleBucketPolicy.IST)
+                .toLocalDate();
+        Candle current = activeMap.get(symbol);
+        if (current != null) {
+            LocalDate activeDate = Instant.ofEpochMilli(current.startTimeMs())
+                    .atZone(CandleBucketPolicy.IST)
+                    .toLocalDate();
+            if (!activeDate.equals(candleDate)) {
+                closedList.add(closeCopy(current));
+                current = null;
+            }
+        }
+        if (current == null) {
+            long startOfDayMs = candleDate.atStartOfDay(CandleBucketPolicy.IST).toInstant().toEpochMilli();
+            long endOfDayMs = candleDate.plusDays(1).atStartOfDay(CandleBucketPolicy.IST).toInstant().toEpochMilli() - 1;
+            current = new Candle(
+                    symbol, "Daily", startOfDayMs, endOfDayMs,
+                    oneMin.openPaisa(), oneMin.highPaisa(), oneMin.lowPaisa(), oneMin.closePaisa(),
+                    oneMin.volume(), false);
+        } else {
+            current = new Candle(
+                    symbol, "Daily", current.startTimeMs(), current.endTimeMs(),
+                    current.openPaisa(),
+                    Math.max(current.highPaisa(), oneMin.highPaisa()),
+                    Math.min(current.lowPaisa(), oneMin.lowPaisa()),
+                    oneMin.closePaisa(),
+                    current.volume() + oneMin.volume(),
+                    false);
+        }
+        activeMap.put(symbol, current);
+    }
+
+    private static Candle closeCopy(Candle current) {
+        return new Candle(
+                current.symbol(), current.interval(), current.startTimeMs(), current.endTimeMs(),
+                current.openPaisa(), current.highPaisa(), current.lowPaisa(), current.closePaisa(),
+                current.volume(), true);
     }
 
     private void scheduleNextStep() {

@@ -17,7 +17,9 @@ import com.tradej.core.domain.model.Candle;
 import com.tradej.core.domain.model.CandleHistoryRequest;
 import com.tradej.core.domain.model.InstrumentKey;
 import com.tradej.core.domain.value.ExchangeSegment;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
@@ -29,31 +31,50 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import com.tradej.broker.icici.config.IciciAuthMode;
 
+@EnabledIfEnvironmentVariable(named = "ICICI_LIVE_TEST", matches = "true")
 public class CheckSpeedLiveTest {
-    
+
+    private static final String DEFAULT_TEST_ROOT = "/Users/apple/Downloads/Trade_J";
+
     @Test
     public void testLiveSpeed() throws Exception {
         System.out.println("=========================================================================");
         System.out.println("       STARTING LIVE SPEED CHECK (ICICI API)                              ");
         System.out.println("=========================================================================");
-        
-        System.setProperty("trade.workspace.root", "/Users/apple/Downloads/Trade_J");
-        
+
+        String testRoot = System.getenv().getOrDefault("ICICI_TEST_ROOT", DEFAULT_TEST_ROOT);
+        String propertiesPath = System.getenv().getOrDefault(
+                "ICICI_TEST_PROPERTIES",
+                Path.of(testRoot, "config/icici-local.properties").toString()
+        );
+        Path testRootPath = Path.of(testRoot);
+
         java.util.Properties p = new java.util.Properties();
-        try (java.io.InputStream in = java.nio.file.Files.newInputStream(java.nio.file.Path.of("/Users/apple/Downloads/Trade_J/config/icici-local.properties"))) {
+        try (java.io.InputStream in = java.nio.file.Files.newInputStream(Path.of(propertiesPath))) {
             p.load(in);
         }
-        
+
+        Path totpFile = resolveSecretPath(testRootPath, p.getProperty("icici.totpSecretFile", "config/icici-totp-secret.txt"));
+        Path usernameFile = resolveSecretPath(testRootPath, p.getProperty("icici.usernameFile", "config/icici-username.txt"));
+        Path passwordFile = resolveSecretPath(testRootPath, p.getProperty("icici.passwordFile", "config/icici-password.txt"));
+        Path apiSessionFile = resolveSecretPath(testRootPath, p.getProperty("icici.apiSessionFile", "config/icici-api-session.txt"));
+        Path tokenStateFile = resolveSecretPath(testRootPath, p.getProperty("icici.tokenStateFile", "runtime/icici-token-state.json"));
+
+        Assumptions.assumeTrue(Files.exists(totpFile), "ICICI creds missing — set ICICI_LIVE_TEST=true + populate config/icici-* to run");
+        Assumptions.assumeTrue(Files.exists(usernameFile), "ICICI creds missing — set ICICI_LIVE_TEST=true + populate config/icici-* to run");
+        Assumptions.assumeTrue(Files.exists(passwordFile), "ICICI creds missing — set ICICI_LIVE_TEST=true + populate config/icici-* to run");
+        Assumptions.assumeTrue(Files.exists(Path.of(propertiesPath)), "ICICI creds missing — set ICICI_LIVE_TEST=true + populate config/icici-* to run");
+
         BreezeConnectionSettings settings = BreezeConnectionSettings.withDefaults(
                 p.getProperty("icici.appKey"),
                 p.getProperty("icici.secretKey"),
                 p.getProperty("icici.sessionToken"),
                 IciciAuthMode.valueOf(p.getProperty("icici.authMode", "BROWSER_AUTOMATED")),
-                Path.of("/Users/apple/Downloads/Trade_J", p.getProperty("icici.totpSecretFile", "config/icici-totp-secret.txt")),
-                Path.of("/Users/apple/Downloads/Trade_J", p.getProperty("icici.usernameFile", "config/icici-username.txt")),
-                Path.of("/Users/apple/Downloads/Trade_J", p.getProperty("icici.passwordFile", "config/icici-password.txt")),
-                Path.of("/Users/apple/Downloads/Trade_J", p.getProperty("icici.apiSessionFile", "config/icici-api-session.txt")),
-                Path.of("/Users/apple/Downloads/Trade_J", p.getProperty("icici.tokenStateFile", "runtime/icici-token-state.json")),
+                totpFile,
+                usernameFile,
+                passwordFile,
+                apiSessionFile,
+                tokenStateFile,
                 Boolean.parseBoolean(p.getProperty("icici.ordersEnabled", "false")),
                 Long.parseLong(p.getProperty("icici.refreshBufferMinutes", "10")),
                 Integer.parseInt(p.getProperty("icici.loginRedirectPort", "9080")),
@@ -61,12 +82,12 @@ public class CheckSpeedLiveTest {
                 Boolean.parseBoolean(p.getProperty("icici.browserHeadless", "true")),
                 Long.parseLong(p.getProperty("icici.browserLoginTimeoutSeconds", "120"))
         );
-        
+
         BreezeTokenManager tokenManager = new BreezeTokenManager(settings);
         tokenManager.ensureValid();
         BreezeAuthenticatedHttpClient httpClient = new BreezeAuthenticatedHttpClient(tokenManager);
         BreezeInstrumentResolver instrumentResolver = new BreezeInstrumentResolver(new BreezeInstrumentLoader());
-        
+
         Path cached = Path.of("/tmp/SecurityMaster.zip");
         if (Files.exists(cached)) {
             instrumentResolver.loadCatalog(cached);
@@ -96,10 +117,10 @@ public class CheckSpeedLiveTest {
         for (String sym : symbols) {
             keys.add(instrumentResolver.resolveNormalized(sym, ExchangeSegment.NSE_EQ).key());
         }
-        
+
         LocalDate to = LocalDate.now();
         LocalDate from = to.minusDays(30);
-        
+
         System.out.println("Simulation Configuration:");
         System.out.println(" - Symbols count: " + keys.size() + " " + java.util.Arrays.toString(symbols));
         System.out.println(" - Days of history: 30 (" + from + " to " + to + ")");
@@ -132,5 +153,10 @@ public class CheckSpeedLiveTest {
         System.out.println("=========================================================================");
         System.out.printf("TOTAL TIME TO FETCH ALL DATA: %d ms (%.2f seconds)\n", totalDurationMs, totalDurationMs / 1000.0);
         System.out.println("=========================================================================");
+    }
+
+    private static Path resolveSecretPath(Path testRoot, String configuredPath) {
+        Path p = Path.of(configuredPath);
+        return p.isAbsolute() ? p : testRoot.resolve(configuredPath);
     }
 }

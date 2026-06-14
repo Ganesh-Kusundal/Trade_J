@@ -1,6 +1,40 @@
 package com.tradej.core.domain.event;
 
-public interface DomainEvent {
+public sealed interface DomainEvent permits
+        OrderUpdateEvent,
+        BrokerAdapterError,
+        CandleClosed,
+        CandleDeveloping,
+        DepthUpdateEvent,
+        EventBusBackpressure,
+        GammaExposureComputed,
+        GreeksComputed,
+        KillSwitchEngaged,
+        MarketTickEvent,
+        MaxPainComputed,
+        OptionChainUpdated,
+        PnlUpdatedEvent,
+        PositionMismatch,
+        PositionUpdateEvent,
+        ReconciliationHaltRequired,
+        ReplayTimeChangedEvent,
+        ScanHitProduced,
+        ScanResultsPublished,
+        SignalGenerated,
+        SignalPendingExecution,
+        SignalSuppressed,
+        StrategyError,
+        StrategyMetricsSnapshot,
+        StreamHealthChanged,
+        TradeClosed,
+        TradeExecutionEvent,
+        TradeOpened,
+        TradeUpdated,
+        UnifiedKillSwitchDisengaged,
+        UnifiedKillSwitchEngaged,
+        UnrealizedPnLUpdated,
+        PoisonPillEvent,
+        TestEvent {
     EventMetadata metadata();
 
     /**

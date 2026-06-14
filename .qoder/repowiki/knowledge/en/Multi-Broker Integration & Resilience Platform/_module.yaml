@@ -1,0 +1,9 @@
+schema_version: 1
+module_path: broker_platform
+title: Multi-Broker Integration & Resilience Platform
+scope:
+    - broker/
+    - broker-gateway/
+source_files: []
+depends_on: []
+related_to: []

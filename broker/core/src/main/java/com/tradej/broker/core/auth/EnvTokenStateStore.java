@@ -67,7 +67,18 @@ public final class EnvTokenStateStore implements TokenStateStore {
             return;
         }
         this.inMemoryState = state;
-        log.info("Saved token state to in-memory cache: expiry={}, source={}",
+        // HIGH-MED-2: surface the env-var persistence limitation prominently.
+        // Process env vars are immutable. Calling save() here does NOT
+        // persist across restarts. For a container deployment, configure
+        // a sidecar/init container that updates TRADEJ_TOKEN_* and
+        // restarts the JVM, or switch to JsonTokenStateStore mounted
+        // to a writable volume.
+        log.warn(
+                "EnvTokenStateStore.save() keeps the token in process memory only. "
+                        + "The new expiry ({} ms, source={}) will be LOST on process restart. "
+                        + "Configure a sidecar/init container to rotate TRADEJ_TOKEN_EXPIRY_MS "
+                        + "and TRADEJ_TOKEN_ISSUED_MS, or switch tradej.tokens.store-type=json "
+                        + "with a writable volume.",
                 state.expiryEpochMs(), state.source());
     }
 

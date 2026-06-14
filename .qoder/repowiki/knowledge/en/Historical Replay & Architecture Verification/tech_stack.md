@@ -1,0 +1,1 @@
+Uses ArchUnit 1.4.0 and Spring Modulith Test 1.4.0 for static architecture analysis and boundary enforcement.

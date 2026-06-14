@@ -1,0 +1,3 @@
+- Core and replay engine classes avoid Spring Framework annotations and dependencies to remain portable across CLI, embedded, and test runtimes.
+- Replay sessions utilize daemon threads via `Executors.newSingleThreadScheduledExecutor` to ensure background playback does not prevent JVM shutdown.
+- Stateful replay components implement snapshot/restore patterns to capture and revert pipeline state before and after simulation runs.

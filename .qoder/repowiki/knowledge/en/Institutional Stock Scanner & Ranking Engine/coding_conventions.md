@@ -1,0 +1,4 @@
+- Use of Java records for immutable data transfer objects (e.g., `InstitutionalScanConfig`, `ScoredBar`, `BarFeatures`).
+- Static utility classes with private constructors for stateless algorithmic components (e.g., `FeaturePipeline`, `SectorRankingEngine`).
+- Configuration-driven scoring weights via `InstitutionalScanConfig.baseline()` allowing customizable master score calculation.
+- Defensive null-handling and default value provision in constructors and static methods (e.g., `InstitutionalScanConfig.baseline()` fallback).

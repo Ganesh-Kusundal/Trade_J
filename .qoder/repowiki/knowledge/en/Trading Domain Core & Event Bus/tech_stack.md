@@ -1,0 +1,1 @@
+Uses Project Reactor (`reactor-core`) for reactive primitives and SLF4J for logging, managed via Gradle with `java-test-fixtures` plugin for shared testing utilities.

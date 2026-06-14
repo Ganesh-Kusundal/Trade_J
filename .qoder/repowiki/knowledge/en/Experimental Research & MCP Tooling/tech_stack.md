@@ -1,0 +1,1 @@
+Spring AI for MCP server implementation (SSE transport); DuckDB for both analytical queries and persistent research storage; Spring WebMVC for REST endpoints.

@@ -1,0 +1,5 @@
+- The module is structured around two Service Provider Interfaces (SPIs): `IndicatorProvider` for standard numeric indicators and `TransformationProvider` for candle data transformations.
+- Implementations are discovered via Java's `ServiceLoader` mechanism, registered in `META-INF/services`, and managed by `IndicatorRegistry` and `TransformationRegistry`.
+- A dual-layer design exists: low-level reusable algorithms (e.g., `RSI`, `EMA`) are wrapped by SPI adapters (e.g., `RSIProvider`) in the `spi.builtin` package.
+- A specialized `IndicatorEngine` orchestrates a fixed set of complex, multi-output indicators (like `HalfTrend` and `CVD`) to produce an `EnrichedChart` record, bypassing the generic SPI for performance or structural reasons.
+- Dependencies are limited to the `:core` module for domain models like `Candle`.

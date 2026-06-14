@@ -1,0 +1,1 @@
+Uses Java 21+ Virtual Threads (`Executors.newVirtualThreadPerTaskExecutor`) in `GraphStrategySandbox` for high-concurrency, low-overhead strategy isolation.

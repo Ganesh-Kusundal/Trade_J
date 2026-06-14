@@ -1,0 +1,43 @@
+# Local-dev observability stack for Trade-J (OTel collector + Tempo).
+#
+# Usage:
+#   docker compose -f docker-compose.observability.yml up
+#
+# Then point the app at the collector via env (defaults already do this):
+#   OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318/v1/traces
+#
+# Grafana (separately deployed) should be configured with a Tempo data
+# source at http://tempo:3200 to query the traces collected here.
+
+services:
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    container_name: trade-j-otel-collector
+    command: ["--config=/etc/otelcol/config.yml"]
+    volumes:
+      - ./observability/otel-collector-config.yml:/etc/otelcol/config.yml:ro
+    ports:
+      - "4318:4318"   # OTLP HTTP
+      - "4317:4317"   # OTLP gRPC
+      - "8889:8889"   # Prometheus exporter (collector self-metrics)
+    networks:
+      - trade-j-obs
+
+  tempo:
+    image: grafana/tempo:latest
+    container_name: trade-j-tempo
+    command: ["-config.file=/etc/tempo/config.yml"]
+    volumes:
+      - ./observability/tempo-config.yml:/etc/tempo/config.yml:ro
+      - tempo-data:/var/tempo/traces
+    ports:
+      - "3200:3200"   # Tempo HTTP API (Grafana reads from here)
+    networks:
+      - trade-j-obs
+
+networks:
+  trade-j-obs:
+    driver: bridge
+
+volumes:
+  tempo-data:

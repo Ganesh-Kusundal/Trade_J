@@ -1,0 +1,3 @@
+- Uses `io.socket:socket.io-client` for real-time market data and order event streaming.
+- Uses `org.seleniumhq.selenium:selenium-java` for automated browser-based session capture in `BROWSER_AUTOMATED` auth mode.
+- Uses `com.eatthepath:java-otp` for TOTP generation in `TOTP_GENERATED` auth mode.

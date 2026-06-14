@@ -1,0 +1,8 @@
+schema_version: 1
+module_path: broker_platform/broker_dhan
+title: Dhan Broker Integration
+scope:
+    - broker/dhan/
+source_files: []
+depends_on: []
+related_to: []

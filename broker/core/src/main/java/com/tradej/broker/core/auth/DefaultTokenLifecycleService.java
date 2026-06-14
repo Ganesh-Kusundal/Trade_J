@@ -1,10 +1,12 @@
 package com.tradej.broker.core.auth;
 
+import com.tradej.broker.api.auth.BrokerTokenSource;
+import com.tradej.broker.api.auth.TokenAcquisitionThrottle;
 import com.tradej.broker.api.auth.TokenLifecycleService;
 import com.tradej.broker.api.auth.TokenState;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -17,6 +19,9 @@ import java.util.concurrent.locks.ReentrantLock;
  *   <li>On-disk persistence via {@link TokenStateStore}</li>
  *   <li>Refresh callback notification for client rotation</li>
  *   <li>Refresh scheduling via {@link #onExpiry} / {@link #onRefresh}</li>
+ *   <li>Acquisition throttle (shared {@link TokenAcquisitionThrottle}) so
+ *       a misbehaving revalidator / network blip can't churn the
+ *       session token 5 times in 5 minutes</li>
  * </ul>
  * <p>
  * Subclasses override {@link #doAcquire()} and {@link #doRefresh(String)}
@@ -24,15 +29,25 @@ import java.util.concurrent.locks.ReentrantLock;
  */
 public abstract class DefaultTokenLifecycleService implements TokenLifecycleService {
 
+    private static final Logger log = LoggerFactory.getLogger(DefaultTokenLifecycleService.class);
     private static final long FAILED_REFRESH_COOLDOWN_MS = 30_000L;
 
     protected final ReentrantLock lock = new ReentrantLock();
     private final TokenStateStore stateStore;
     private final long refreshBufferMs;
-    private final List<Runnable> expiryCallbacks = new CopyOnWriteArrayList<>();
-    private final List<Runnable> refreshCallbacks = new CopyOnWriteArrayList<>();
- private final AtomicLong lastFailedRefreshMs = new AtomicLong(0L);
- private final AtomicLong tokenGeneration = new AtomicLong(0L);
+    // LOW-3: use the shared, dedup-by-reference registry so duplicate
+    // onRefresh() registrations don't multiply the fan-out on each
+    // rotation. Exceptions thrown by listeners are isolated so a single
+    // bad listener cannot break the chain.
+    private final BrokerTokenSource.CallbackRegistry callbackRegistry = new BrokerTokenSource.CallbackRegistry();
+    private final AtomicLong lastFailedRefreshMs = new AtomicLong(0L);
+    private final AtomicLong tokenGeneration = new AtomicLong(0L);
+    /**
+     * Shared throttle — single source of truth for cooldown + backoff
+     * between token mints. Default: 5 min base, doubles on each
+     * consecutive failure, capped at 30 min.
+     */
+    private final TokenAcquisitionThrottle throttle = new TokenAcquisitionThrottle();
 
     protected volatile TokenState currentState;
 
@@ -83,6 +98,7 @@ public abstract class DefaultTokenLifecycleService implements TokenLifecycleServ
         }
         lock.lock();
         try {
+            TokenState previous = currentState;
             state = currentState;
             if (state == null) {
                 currentState = doAcquire();
@@ -96,6 +112,23 @@ public abstract class DefaultTokenLifecycleService implements TokenLifecycleServ
             }
             try {
                 TokenState refreshed = doRefresh(state.refreshToken());
+                // HIGH-2: a refreshed TokenState that loses the refresh token
+                // would break the next refresh cycle. Brokers like Upstox
+                // may legitimately omit the refresh_token in a response, so
+                // preserve the old one to keep the rotation chain alive.
+                if (refreshed != null
+                        && (refreshed.refreshToken() == null || refreshed.refreshToken().isBlank())
+                        && previous != null
+                        && previous.refreshToken() != null
+                        && !previous.refreshToken().isBlank()) {
+                    refreshed = new TokenState(
+                            refreshed.accessToken(),
+                            previous.refreshToken(),
+                            refreshed.expiryEpochMs(),
+                            refreshed.issuedAtEpochMs(),
+                            refreshed.source()
+                    );
+                }
                 currentState = refreshed;
                 stateStore.save(refreshed);
                 notifyRefresh();
@@ -123,12 +156,24 @@ public abstract class DefaultTokenLifecycleService implements TokenLifecycleServ
 
     @Override
     public void onExpiry(Runnable callback) {
-        expiryCallbacks.add(callback);
+        // The registry is the single sink for both expiry and refresh
+        // listeners — it deduplicates by reference identity and isolates
+        // listener exceptions. We log at debug so operators can still
+        // confirm the wiring.
+        callbackRegistry.onRefresh(callback);
+        if (log.isDebugEnabled()) {
+            log.debug("onExpiry callback registered (treated as refresh listener; {} total)",
+                    callbackRegistry.refreshListenerCount());
+        }
     }
 
     @Override
     public void onRefresh(Runnable callback) {
-        refreshCallbacks.add(callback);
+        callbackRegistry.onRefresh(callback);
+        if (log.isDebugEnabled()) {
+            log.debug("onRefresh callback registered ({} total)",
+                    callbackRegistry.refreshListenerCount());
+        }
     }
 
     /** Broker-specific token acquisition. Called under the write lock. */
@@ -159,6 +204,6 @@ public abstract class DefaultTokenLifecycleService implements TokenLifecycleServ
 
 
     private void notifyRefresh() {
-        refreshCallbacks.forEach(Runnable::run);
+        callbackRegistry.fireRefresh();
     }
 }

@@ -1,0 +1,8 @@
+schema_version: 1
+module_path: data_layer/historical_ingest
+title: Historical Market Data Ingestion & Storage
+scope:
+    - data/historical-ingest/
+source_files: []
+depends_on: []
+related_to: []

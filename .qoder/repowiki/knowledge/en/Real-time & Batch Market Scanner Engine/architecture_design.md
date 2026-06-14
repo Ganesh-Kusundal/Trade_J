@@ -1,0 +1,4 @@
+- Core orchestration is handled by `ScanEngine`, which supports both batch (`run`) and streaming (`onEvent`) execution modes.
+- Scanning logic is decoupled via the `ScanCriterion` interface, with specialized extensions like `StreamingScanCriterion` for stateful event processing and `OptionAwareCriterion` for derivatives.
+- Integration with the broader system is achieved through pipeline nodes: `ScanNode` triggers batch scans on candle closures, while `StreamingScanCriterionNode` evaluates criteria reactively against incoming domain events.
+- Data acquisition is abstracted through `SnapshotFetcher` and `OptionChainFetcher`, allowing the engine to remain agnostic to the underlying market data provider.

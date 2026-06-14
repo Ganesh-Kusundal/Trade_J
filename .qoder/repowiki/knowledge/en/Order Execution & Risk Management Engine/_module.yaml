@@ -1,0 +1,8 @@
+schema_version: 1
+module_path: trading_engine/execution
+title: Order Execution & Risk Management Engine
+scope:
+    - trading/execution/
+source_files: []
+depends_on: []
+related_to: []

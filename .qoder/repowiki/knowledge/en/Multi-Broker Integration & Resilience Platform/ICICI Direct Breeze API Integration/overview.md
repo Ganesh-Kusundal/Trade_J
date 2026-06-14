@@ -1,0 +1,1 @@
+Provides a standardized broker interface for ICICI Direct's Breeze API, supporting market data, order management, portfolio access, and real-time streaming.

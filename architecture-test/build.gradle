@@ -37,7 +37,6 @@ def researchModules = [
         ':research-lab',
         ':replay-engine',
         ':mcp-server',
-        ':research-api',
 ]
 def scannedModules = coreModules + (
         project.hasProperty('research') ? researchModules : []

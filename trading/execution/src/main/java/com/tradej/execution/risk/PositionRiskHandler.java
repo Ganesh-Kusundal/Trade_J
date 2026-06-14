@@ -11,6 +11,7 @@ import com.tradej.core.domain.event.TradeOpened;
 import com.tradej.core.domain.model.OrderRequest;
 import com.tradej.core.domain.model.RiskLimits;
 import com.tradej.core.domain.port.NetPositionProvider;
+import com.tradej.core.domain.service.PositionService;
 import com.tradej.core.domain.value.Side;
 import com.tradej.execution.bridge.SignalExecutionBridge;
 import com.tradej.strategy.portfolio.PortfolioEngine;
@@ -49,7 +50,6 @@ public final class PositionRiskHandler implements DomainEventVisitor {
     private final Set<String> symbolsWithOpenPosition = ConcurrentHashMap.newKeySet();
     private final AtomicBoolean killSwitch = new AtomicBoolean(false);
     private final AtomicBoolean reconciliationHalt = new AtomicBoolean(false);
-    private volatile StateSnapshot snapshot;
     private final ThreadLocal<Consumer<DomainEvent>> currentPublisher = new ThreadLocal<>();
 
     public PositionRiskHandler(RiskLimits limits, NetPositionProvider netPositionProvider) {
@@ -62,6 +62,31 @@ public final class PositionRiskHandler implements DomainEventVisitor {
             PortfolioEngine portfolioEngine
     ) {
         this(limits, netPositionProvider, portfolioEngine, null, null);
+    }
+
+    /**
+     * P3.3: primary constructor that takes the canonical {@link PositionService}
+     * (the event-sourced position source from {@code FullComposition}). The
+     * {@code PositionService} is also a {@link NetPositionProvider} so all existing
+     * risk-check code continues to work unchanged.
+     */
+    public PositionRiskHandler(
+            RiskLimits limits,
+            PositionService positionService,
+            PortfolioEngine portfolioEngine,
+            MarginEnforcementHandler marginEnforcement,
+            KillSwitchCoordinator killSwitchCoordinator
+    ) {
+        this.riskLimits = Objects.requireNonNull(limits, "limits");
+        this.netPositionProvider = Objects.requireNonNull(positionService, "positionService");
+        this.portfolioEngine = portfolioEngine;
+        this.marginEnforcement = marginEnforcement;
+        this.killSwitchCoordinator = killSwitchCoordinator;
+        this.riskCheckChain = new RiskCheckChain(java.util.List.of(
+                new KillSwitchRiskCheck(),
+                new DailyLossRiskCheck(),
+                new PositionLimitRiskCheck()
+        ));
     }
 
     public PositionRiskHandler(
@@ -81,6 +106,50 @@ public final class PositionRiskHandler implements DomainEventVisitor {
                 new DailyLossRiskCheck(),
                 new PositionLimitRiskCheck()
         ));
+    }
+
+    /**
+     * Creates a new builder for {@link PositionRiskHandler}. Replaces constructor
+     * telescoping — required dependencies are non-null, optional ones are explicit.
+     */
+    public static Builder builder(RiskLimits limits, NetPositionProvider netPositionProvider) {
+        return new Builder(limits, netPositionProvider);
+    }
+
+    /**
+     * Fluent builder for {@link PositionRiskHandler}.
+     */
+    public static final class Builder {
+        private final RiskLimits limits;
+        private final NetPositionProvider netPositionProvider;
+        private PortfolioEngine portfolioEngine;
+        private MarginEnforcementHandler marginEnforcement;
+        private KillSwitchCoordinator killSwitchCoordinator;
+
+        private Builder(RiskLimits limits, NetPositionProvider netPositionProvider) {
+            this.limits = Objects.requireNonNull(limits, "limits");
+            this.netPositionProvider = Objects.requireNonNull(netPositionProvider, "netPositionProvider");
+        }
+
+        public Builder withPortfolioEngine(PortfolioEngine engine) {
+            this.portfolioEngine = engine;
+            return this;
+        }
+
+        public Builder withMarginEnforcement(MarginEnforcementHandler enforcement) {
+            this.marginEnforcement = enforcement;
+            return this;
+        }
+
+        public Builder withKillSwitchCoordinator(KillSwitchCoordinator coordinator) {
+            this.killSwitchCoordinator = coordinator;
+            return this;
+        }
+
+        public PositionRiskHandler build() {
+            return new PositionRiskHandler(limits, netPositionProvider, portfolioEngine,
+                    marginEnforcement, killSwitchCoordinator);
+        }
     }
 
     public void onDomainEvent(DomainEvent event, Consumer<DomainEvent> publisher) {
@@ -320,12 +389,40 @@ public final class PositionRiskHandler implements DomainEventVisitor {
     public int getConsecutiveLosses() { return consecutiveLosses.get(); }
     public int getOpenTrades() { return openTrades.get(); }
 
+    /**
+     * Pre-trade risk gate for ad-hoc order placement paths that bypass the
+     * normal signal flow (e.g., {@link com.tradej.execution.reconcile.LiveBracketOrderCorrectionHandler}
+     * placing a drift-correction order).
+     *
+     * <p>Runs the composable {@link RiskCheckChain} (kill switch → daily loss
+     * → position limit) against a {@link RiskContext} built from the
+     * handler's current state. Returns {@code true} if all checks approve,
+     * {@code false} if any check rejects.
+     *
+     * <p>Note: this gate does NOT enforce margin, portfolio allocation, or
+     * the position-flip / max-order-value heuristics that
+     * {@link #handleSignalPending} applies. Those checks require a
+     * {@link com.tradej.core.domain.model.OrderRequest} and an
+     * {@link com.tradej.core.domain.event.SignalGenerated}, which the
+     * drift-correction path does not produce. Callers needing full risk
+     * enforcement should route through the signal flow, not this method.
+     */
+    public boolean canPlaceOrder(String symbol, Side side, long quantity) {
+        RiskContext context = new RiskContext(
+                symbol,
+                realizedLossPaisa.get(),
+                unrealizedLossPaisa.get(),
+                openTrades.get(),
+                killSwitch.get(),
+                reconciliationHalt.get(),
+                riskLimits.maxDailyLossPaisa(),
+                riskLimits.maxOpenPositionQuantity()
+        );
+        return riskCheckChain.isApproved(context);
+    }
+
     public StateSnapshot snapshot() {
-        StateSnapshot current = snapshot;
-        if (current != null) {
-            return current;
-        }
-        current = new StateSnapshot(
+        return new StateSnapshot(
                 realizedLossPaisa.get(),
                 unrealizedLossPaisa.get(),
                 consecutiveLosses.get(),
@@ -333,8 +430,6 @@ public final class PositionRiskHandler implements DomainEventVisitor {
                 killSwitch.get(),
                 reconciliationHalt.get(),
                 Set.copyOf(symbolsWithOpenPosition));
-        this.snapshot = current;
-        return current;
     }
 
     public void restore(StateSnapshot state) {
@@ -349,7 +444,6 @@ public final class PositionRiskHandler implements DomainEventVisitor {
         reconciliationHalt.set(state.reconciliationHalt());
         symbolsWithOpenPosition.clear();
         symbolsWithOpenPosition.addAll(state.symbolsWithOpenPosition());
-        this.snapshot = null;
     }
 
     public record StateSnapshot(

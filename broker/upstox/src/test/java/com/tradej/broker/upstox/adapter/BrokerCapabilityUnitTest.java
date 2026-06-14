@@ -2,6 +2,8 @@ package com.tradej.broker.upstox.adapter;
 
 import com.tradej.broker.api.port.*;
 import com.tradej.broker.upstox.UpstoxBrokerConnection;
+import com.tradej.broker.upstox.depth.UpstoxMarketDepthProvider;
+import com.tradej.broker.upstox.depth.UpstoxTwentyDepthWebSocketClient;
 import com.tradej.broker.upstox.instrument.UpstoxInstrumentLoader;
 import com.tradej.broker.upstox.instrument.UpstoxInstrumentResolver;
 import org.junit.jupiter.api.Tag;
@@ -36,6 +38,8 @@ class BrokerCapabilityUnitTest {
         UpstoxDataServicesProvider dataServicesProvider = mock(UpstoxDataServicesProvider.class);
         UpstoxProfileProvider profileProvider = mock(UpstoxProfileProvider.class);
         UpstoxInstrumentLoader instrumentLoader = mock(UpstoxInstrumentLoader.class);
+        UpstoxTwentyDepthWebSocketClient depthClient = mock(UpstoxTwentyDepthWebSocketClient.class);
+        UpstoxMarketDepthProvider marketDepthProvider = mock(UpstoxMarketDepthProvider.class);
 
         UpstoxBrokerConnection connection = new UpstoxBrokerConnection(
                 marketDataProvider,
@@ -52,7 +56,9 @@ class BrokerCapabilityUnitTest {
                 sliceOrderCommand,
                 dataServicesProvider,
                 profileProvider,
-                instrumentLoader
+                instrumentLoader,
+                depthClient,
+                marketDepthProvider
         );
 
         // Verify supported capabilities return non-empty optionals containing the mock

@@ -1,0 +1,5 @@
+- Entry Point: `TradingApplication` serves as the Spring Boot bootstrap, scanning `com.tradej` packages.
+- Composition Layer: The `composition` module provides a framework-agnostic dependency injection root (`FullComposition`, `BrokerComposition`) using SPI-based broker discovery (`ServiceLoaderBrokerRegistry`).
+- Startup Orchestration: `BrokerStartupOrchestrator` manages a phased startup sequence including token validation, instrument catalog loading, preflight checks, and WebSocket subscription via strategy-pattern implementations (`DhanStartupStrategy`, etc.).
+- Runtime Wiring: `RuntimeAndStartupConfiguration` bridges the composition root with Spring, configuring event buses (Simple or Disruptor), health indicators, and pipeline subscribers.
+- API Layer: REST controllers in `app.api` delegate to application services (`OrderApplicationService`) which enforce runtime mode and risk constraints before executing commands.

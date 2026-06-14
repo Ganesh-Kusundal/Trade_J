@@ -1,0 +1,5 @@
+- **Core Matching Logic**: `MatchingEngine` serves as the central component, implementing an in-memory order matcher that resolves fill prices using last-traded-price (LTP) data and a configurable `SlippageConfig` (spread, volatility, partial fills).
+- **State Management**: `PnLLedger` maintains per-symbol position state (net quantity, average price) and calculates realized/unrealized P&L, updated by `SimulatedOrderService` upon successful matches.
+- **Backtesting Service**: `BacktestServiceImpl` implements the `BacktestService` interface, executing strategies (e.g., SMA Crossover, Buy & Hold) against historical or simulated candle data.
+- **Observability**: `SimulationMetrics` provides thread-safe counters for match rates, slippage, and rejection stats, exposed via the `MatchingEngine`.
+- **Dependency Direction**: The module depends on `:core` for domain models (`Order`, `Trade`, `Candle`) and interfaces (`BacktestService`), keeping simulation logic isolated from live trading infrastructure.

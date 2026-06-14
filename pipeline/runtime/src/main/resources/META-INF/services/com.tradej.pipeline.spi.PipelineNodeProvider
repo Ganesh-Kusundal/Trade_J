@@ -1,0 +1,11 @@
+com.tradej.pipeline.spi.builtin.IngressNodeProvider
+com.tradej.pipeline.spi.builtin.RiskNodeProvider
+com.tradej.pipeline.spi.builtin.CandleNodeProvider
+com.tradej.pipeline.spi.builtin.FeatureNodeProvider
+com.tradej.pipeline.spi.builtin.StrategyNodeProvider
+com.tradej.pipeline.spi.builtin.PortfolioNodeProvider
+com.tradej.pipeline.spi.builtin.OmsNodeProvider
+com.tradej.pipeline.spi.builtin.ReactorNodeProvider
+com.tradej.pipeline.spi.builtin.ScanNodeProvider
+com.tradej.pipeline.spi.builtin.ScanCriterionNodeProvider
+com.tradej.pipeline.spi.builtin.ScanAggregatorNodeProvider

@@ -1,0 +1,4 @@
+- **Core Orchestration**: `TerminalDataOrchestrator` manages the lifecycle of data feeds, switching between Live (Dhan WebSocket), Historical (REST API), and Simulation modes based on market state and connectivity (`src/api/TerminalDataOrchestrator.ts`).
+- **Event Bus Pattern**: A singleton `MarketDataBus` decouples data producers from consumers, broadcasting typed events (TICK, DEPTH, CANDLE) to React hooks (`src/api/MarketDataBus.ts`, `src/hooks/useMarketData.ts`).
+- **Component Layering**: UI components (`src/components/`) are purely presentational, consuming data via custom hooks that subscribe to the bus, ensuring a unidirectional data flow.
+- **Domain Modeling**: Shared types for instruments, market states, and data contracts are centralized in `src/domain/` and `src/api/marketContracts.ts` to enforce consistency across the feed and UI layers.

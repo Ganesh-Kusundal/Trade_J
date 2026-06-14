@@ -132,11 +132,11 @@ public class GatewayTopicRouter {
         this(DEFAULT_QUEUE_CAPACITY);
     }
 
-    GatewayTopicRouter(int queueCapacity) {
+    public GatewayTopicRouter(int queueCapacity) {
         this(queueCapacity, DEFAULT_QUEUE_CAPACITY);
     }
 
-    GatewayTopicRouter(int queueCapacity, int perTransportQueueCapacity) {
+    public GatewayTopicRouter(int queueCapacity, int perTransportQueueCapacity) {
         for (GatewayTopic topic : GatewayTopic.values()) {
             topicTransports.put(topic, new CopyOnWriteArraySet<>());
         }

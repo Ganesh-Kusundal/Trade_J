@@ -1,6 +1,14 @@
 spring:
   application:
     name: trade-j
+  main:
+    # The platform deliberately registers beans in multiple
+    # configuration classes (e.g. GatewayReplayCommandProcessor is
+    # defined in both GatewayBrokerConfiguration and
+    # BrokerConfiguration depending on the active profile). Spring
+    # Boot 2.1+ disallows override by default; the platform opts
+    # back in.
+    allow-bean-definition-overriding: true
   ai:
     mcp:
       server:
@@ -37,6 +45,17 @@ management:
       enabled: true
     readinessstate:
       enabled: true
+  # ── Distributed tracing (OpenTelemetry) ──────────────────────────────
+  # Tracing is enabled by default. Set trade.tracing.enabled=false to
+  # disable (zero overhead), or OTEL_EXPORTER_OTLP_ENDPOINT to a real
+  # collector to export spans. For local dev, run
+  # `docker compose -f docker-compose.observability.yml up` to spin up
+  # a Tempo + OTel collector on :4318.
+  tracing:
+    sampling:
+      probability: ${TRACING_SAMPLE_RATE:1.0}    # 1.0 = sample everything; tune down for prod
+    otlp:
+      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4318/v1/traces}
 
 trade:
   broker-type: simulation
@@ -68,7 +87,7 @@ trade:
     analytics-enabled: false
     chain-poll-interval-ms: 60000
   tracing:
-    enabled: false
+    enabled: true
     sample-rate: 1.0
   portfolio:
     default-capital-paisa: 1000000
@@ -119,6 +138,11 @@ trade:
     sql-max-rows: ${TRADE_ANALYTICS_SQL_MAX_ROWS:10000}
     sql-max-runtime-ms: ${TRADE_ANALYTICS_SQL_MAX_RUNTIME_MS:30000}
   subscriptions: []
+  auth:
+    jwt-secret: ${TRADE_JWT_SECRET:}
+    jwt-expiration-seconds: 86400
+    admin-username: ${TRADE_ADMIN_USERNAME:admin}
+    admin-password: ${TRADE_ADMIN_PASSWORD:}
   venues:
     NSE_EQ:
       supported-feed-modes: [TICKER, QUOTE, FULL, DEPTH_20]
@@ -174,6 +198,11 @@ tradej:
     enabled: true
     websocket-path: /ws/gateway
   console:
+    # CORS is enabled by default with a permissive localhost-friendly default.
+    # Production deployments MUST set the ALLOWED_ORIGINS env var to the actual
+    # frontend origin (comma-separated list). To disable CORS entirely (e.g., when
+    # running behind a reverse proxy that handles CORS), set
+    # tradej.console.cors.enabled=false.
     cors:
-      enabled: false
-      # allowed-origins: "http://localhost:5173,https://console.example.com"
+      enabled: true
+      allowed-origins: ${ALLOWED_ORIGINS:http://localhost:3000,http://localhost:8080}

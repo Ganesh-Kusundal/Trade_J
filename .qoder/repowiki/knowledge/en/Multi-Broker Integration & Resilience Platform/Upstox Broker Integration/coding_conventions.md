@@ -1,0 +1,3 @@
+- Adapter classes in the `adapter` package implement standard broker port interfaces (e.g., `OrderCommand`, `MarketDataProvider`) and delegate to internal REST clients or mappers.
+- REST clients in the `rest` package are stateless, final classes that wrap `UpstoxJsonHttpClient` and expose methods corresponding to specific API endpoints.
+- Authentication tokens are managed via `UpstoxBearerTokenSource` implementations, allowing interchangeable use of interactive OAuth, static tokens, or extended analytics tokens.

@@ -103,8 +103,23 @@ public final class UpstoxTokenManager extends DefaultTokenLifecycleService imple
         if (currentState() != null && currentState().valid()) {
             return currentState();
         }
+        boolean hasRefresh = settings.refreshToken() != null && !settings.refreshToken().isBlank();
         if (settings.accessToken() != null && !settings.accessToken().isBlank()) {
-            return bootstrapFromConfiguredToken(settings.accessToken(), settings.refreshToken());
+            if (hasRefresh) {
+                // OAuth-style bootstrap: the refresh token is present, so future
+                // ensureValid() calls may legitimately rotate the access token.
+                return bootstrapFromConfiguredToken(settings.accessToken(), settings.refreshToken());
+            }
+            // Pure static: no refresh capability. Mark as STATIC so doRefresh
+            // is never called and the 3:30 AM IST fallback is not used.
+            long jwtExpiry = UpstoxJwtExpiry.parseExpiryEpochMs(settings.accessToken());
+            return new TokenState(
+                    settings.accessToken(),
+                    null,
+                    jwtExpiry > 0 ? jwtExpiry : UpstoxTokenExpiry.nextExpiryEpochMs(),
+                    System.currentTimeMillis(),
+                    TokenSource.STATIC
+            );
         }
         throw new UnsupportedOperationException(
                 "No Upstox access token available. Paste upstox.accessToken in config or run performInteractiveOAuth().");
@@ -197,9 +212,13 @@ public final class UpstoxTokenManager extends DefaultTokenLifecycleService imple
                 return;
             }
 
+            // Preserve the previous refresh_token. Upstox webhook payloads do
+            // not include a refresh_token, but the old one is still valid
+            // until used; the next doRefresh() will rotate to a fresh pair.
+            String preservedRefresh = current != null ? current.refreshToken() : null;
             TokenState newState = new TokenState(
                     accessToken,
-                    null, // webhook tokens don't carry refresh_token
+                    preservedRefresh,
                     expiresAtMs,
                     System.currentTimeMillis(),
                     TokenSource.OAUTH

@@ -1,0 +1,445 @@
+asyncapi: 3.0.0
+info:
+  title: Trade-J Gateway WebSocket API
+  version: 1.0.0
+  description: |
+    Binary WebSocket protocol for real-time market data, order updates, and platform events.
+
+    ## Binary Frame Format
+    ```
+    [1 byte topic wireId][8 bytes big-endian sequence][N bytes UTF-8 JSON payload]
+    ```
+
+    ## Subscribe Protocol
+    - Send single byte: topic wireId (0-16)
+    - Or send text: `SUBSCRIBE <TOPIC_NAME>` (e.g., `SUBSCRIBE MARKET_TICK`)
+    - Or send text: `SUBSCRIBE ALL`
+
+defaultContentType: application/json
+
+servers:
+  local:
+    host: localhost:8080/ws/gateway
+    protocol: ws
+    description: Local development gateway
+
+  production:
+    host: api.tradej.example.com/ws/gateway
+    protocol: wss
+    description: Production gateway
+
+channels:
+  marketTick:
+    address: MARKET_TICK
+    messages:
+      marketTickMessage:
+        $ref: '#/components/messages/MarketTickMessage'
+    description: Real-time tick data — LTP, volume, exchange timestamp.
+
+  marketDepth:
+    address: MARKET_DEPTH
+    messages:
+      marketDepthMessage:
+        $ref: '#/components/messages/MarketDepthMessage'
+    description: Level-2 market depth — bids, asks, LTP, spread.
+
+  candleDeveloping:
+    address: CANDLE_DEVELOPING
+    messages:
+      candleDevelopingMessage:
+        $ref: '#/components/messages/CandleMessage'
+    description: In-progress candle updates (partial OHLCV).
+
+  candleClosed:
+    address: CANDLE_CLOSED
+    messages:
+      candleClosedMessage:
+        $ref: '#/components/messages/CandleMessage'
+    description: Completed candle (final OHLCV).
+
+  orderUpdate:
+    address: ORDER_UPDATE
+    messages:
+      orderUpdateMessage:
+        $ref: '#/components/messages/OrderUpdateMessage'
+    description: Order state transitions — accepted, filled, rejected, cancelled.
+
+  positionUpdate:
+    address: POSITION_UPDATE
+    messages:
+      positionUpdateMessage:
+        $ref: '#/components/messages/PositionUpdateMessage'
+    description: Net position changes.
+
+  strategySignal:
+    address: STRATEGY_SIGNAL
+    messages:
+      strategySignalMessage:
+        $ref: '#/components/messages/StrategySignalMessage'
+    description: Strategy-generated trading signals.
+
+  pnlUpdate:
+    address: PNL_UPDATE
+    messages:
+      pnlUpdateMessage:
+        $ref: '#/components/messages/PnlUpdateMessage'
+    description: Realized and unrealized PnL updates.
+
+  replayControl:
+    address: REPLAY_CONTROL
+    messages:
+      replayControlMessage:
+        $ref: '#/components/messages/ReplayControlMessage'
+    description: Bidirectional replay control commands and status.
+
+  pipelineHealth:
+    address: PIPELINE_HEALTH
+    messages:
+      pipelineHealthMessage:
+        $ref: '#/components/messages/PipelineHealthMessage'
+    description: Pipeline health status and connection events.
+
+  scanCompleted:
+    address: SCAN_COMPLETED
+    messages:
+      scanCompletedMessage:
+        $ref: '#/components/messages/ScanCompletedMessage'
+    description: Scanner run completion notification.
+
+  depthImbalance:
+    address: DEPTH_IMBALANCE
+    messages:
+      depthImbalanceMessage:
+        $ref: '#/components/messages/DepthImbalanceMessage'
+    description: Order book imbalance alerts.
+
+  heatmapChunk:
+    address: HEATMAP_CHUNK
+    messages:
+      heatmapChunkMessage:
+        $ref: '#/components/messages/HeatmapChunkMessage'
+    description: Depth heatmap data chunk.
+
+  icebergAlert:
+    address: ICEBERG_ALERT
+    messages:
+      icebergAlertMessage:
+        $ref: '#/components/messages/IcebergAlertMessage'
+    description: Detected iceberg order alerts.
+
+  absorptionAlert:
+    address: ABSORPTION_ALERT
+    messages:
+      absorptionAlertMessage:
+        $ref: '#/components/messages/AbsorptionAlertMessage'
+    description: Absorption pattern alerts.
+
+  srLevelsUpdate:
+    address: SR_LEVELS_UPDATE
+    messages:
+      srLevelsUpdateMessage:
+        $ref: '#/components/messages/SrLevelsUpdateMessage'
+    description: Support/resistance level updates.
+
+  orderBookSnapshot:
+    address: ORDER_BOOK_SNAPSHOT
+    messages:
+      orderBookSnapshotMessage:
+        $ref: '#/components/messages/OrderBookSnapshotMessage'
+    description: Full order book snapshot.
+
+  strategyMetrics:
+    address: STRATEGY_METRICS
+    messages:
+      strategyMetricsMessage:
+        $ref: '#/components/messages/StrategyMetricsMessage'
+    description: Per-strategy observability counters (OK / ERROR / TIMEOUT) published by the StrategyMetricsRegistry.
+
+  maxPainUpdate:
+    address: MAX_PAIN_UPDATE
+    messages:
+      maxPainUpdateMessage:
+        $ref: '#/components/messages/MaxPainUpdateMessage'
+    description: Max-pain strike update for an underlying.
+
+  greeksUpdate:
+    address: GREEKS_UPDATE
+    messages:
+      greeksUpdateMessage:
+        $ref: '#/components/messages/GreeksUpdateMessage'
+    description: Per-instrument options greeks (delta / theta / gamma / vega / IV) update.
+
+  oiUpdate:
+    address: OI_UPDATE
+    messages:
+      oiUpdateMessage:
+        $ref: '#/components/messages/OiUpdateMessage'
+    description: Open-interest update for an option chain.
+
+  gammaExposureUpdate:
+    address: GAMMA_EXPOSURE_UPDATE
+    messages:
+      gammaExposureUpdateMessage:
+        $ref: '#/components/messages/GammaExposureUpdateMessage'
+    description: Net gamma exposure for an underlying.
+
+operations:
+  subscribeMarketTick:
+    action: receive
+    channel:
+      $ref: '#/channels/marketTick'
+    messages:
+      - $ref: '#/channels/marketTick/messages/marketTickMessage'
+
+  subscribeMarketDepth:
+    action: receive
+    channel:
+      $ref: '#/channels/marketDepth'
+    messages:
+      - $ref: '#/channels/marketDepth/messages/marketDepthMessage'
+
+  subscribeCandleDeveloping:
+    action: receive
+    channel:
+      $ref: '#/channels/candleDeveloping'
+    messages:
+      - $ref: '#/channels/candleDeveloping/messages/candleDevelopingMessage'
+
+  subscribeCandleClosed:
+    action: receive
+    channel:
+      $ref: '#/channels/candleClosed'
+    messages:
+      - $ref: '#/channels/candleClosed/messages/candleClosedMessage'
+
+  subscribeOrderUpdate:
+    action: receive
+    channel:
+      $ref: '#/channels/orderUpdate'
+    messages:
+      - $ref: '#/channels/orderUpdate/messages/orderUpdateMessage'
+
+  subscribePositionUpdate:
+    action: receive
+    channel:
+      $ref: '#/channels/positionUpdate'
+    messages:
+      - $ref: '#/channels/positionUpdate/messages/positionUpdateMessage'
+
+  subscribeStrategySignal:
+    action: receive
+    channel:
+      $ref: '#/channels/strategySignal'
+    messages:
+      - $ref: '#/channels/strategySignal/messages/strategySignalMessage'
+
+  subscribePnlUpdate:
+    action: receive
+    channel:
+      $ref: '#/channels/pnlUpdate'
+    messages:
+      - $ref: '#/channels/pnlUpdate/messages/pnlUpdateMessage'
+
+  controlReplay:
+    action: send
+    channel:
+      $ref: '#/channels/replayControl'
+    messages:
+      - $ref: '#/channels/replayControl/messages/replayControlMessage'
+
+components:
+  messages:
+    MarketTickMessage:
+      payload:
+        type: object
+        properties:
+          symbol: { type: string }
+          exchangeSegment: { type: string }
+          ltpPaisa: { type: integer }
+          lastTradeQuantity: { type: integer }
+          cumulativeVolume: { type: integer }
+          exchangeTimestampEpochMs: { type: integer }
+          openInterest: { type: integer }
+          feedMode: { type: string }
+
+    MarketDepthMessage:
+      payload:
+        type: object
+        properties:
+          symbol: { type: string }
+          bids:
+            type: array
+            items:
+              type: object
+              properties:
+                pricePaisa: { type: integer }
+                quantity: { type: integer }
+                orderCount: { type: integer }
+          asks:
+            type: array
+            items:
+              type: object
+              properties:
+                pricePaisa: { type: integer }
+                quantity: { type: integer }
+                orderCount: { type: integer }
+          ltpPaisa: { type: integer }
+          exchangeTimestampMs: { type: integer }
+
+    CandleMessage:
+      payload:
+        type: object
+        properties:
+          candle:
+            type: object
+            properties:
+              symbol: { type: string }
+              interval: { type: string }
+              startTimeMs: { type: integer }
+              endTimeMs: { type: integer }
+              openPaisa: { type: integer }
+              highPaisa: { type: integer }
+              lowPaisa: { type: integer }
+              closePaisa: { type: integer }
+              volume: { type: integer }
+              closed: { type: boolean }
+
+    OrderUpdateMessage:
+      payload:
+        type: object
+        properties:
+          orderId: { type: string }
+          symbol: { type: string }
+          status: { type: string }
+          quantity: { type: integer }
+          filledQuantity: { type: integer }
+          pricePaisa: { type: integer }
+
+    PositionUpdateMessage:
+      payload:
+        type: object
+        properties:
+          symbol: { type: string }
+          netQuantity: { type: integer }
+          avgPricePaisa: { type: integer }
+
+    StrategySignalMessage:
+      payload:
+        type: object
+        properties:
+          signalId: { type: string }
+          symbol: { type: string }
+          side: { type: string }
+          strategy: { type: string }
+          confidence: { type: number }
+
+    PnlUpdateMessage:
+      payload:
+        type: object
+        properties:
+          realizedPnlPaisa: { type: integer }
+          unrealizedPnlPaisa: { type: integer }
+          netExposurePaisa: { type: integer }
+
+    ReplayControlMessage:
+      payload:
+        type: object
+        properties:
+          command: { type: string, enum: [START, PLAY, PAUSE, STEP, STOP, SPEED] }
+          timestampMs: { type: integer }
+
+    PipelineHealthMessage:
+      payload:
+        type: string
+        description: Health status text (e.g., "connected:session-id")
+
+    ScanCompletedMessage:
+      payload:
+        type: object
+        properties:
+          runId: { type: string }
+          profileId: { type: string }
+          hitCount: { type: integer }
+
+    DepthImbalanceMessage:
+      payload:
+        type: object
+        properties:
+          symbol: { type: string }
+          imbalance: { type: number }
+          bidVolume: { type: integer }
+          askVolume: { type: integer }
+
+    HeatmapChunkMessage:
+      payload:
+        type: object
+        properties:
+          symbol: { type: string }
+          levels: { type: integer }
+          data: { type: string, description: Base64 encoded heatmap }
+
+    IcebergAlertMessage:
+      payload:
+        type: object
+        properties:
+          symbol: { type: string }
+          side: { type: string }
+          pricePaisa: { type: integer }
+          detectedQuantity: { type: integer }
+
+    AbsorptionAlertMessage:
+      payload:
+        type: object
+        properties:
+          symbol: { type: string }
+          side: { type: string }
+          pricePaisa: { type: integer }
+          absorbedVolume: { type: integer }
+
+    SrLevelsUpdateMessage:
+      payload:
+        type: object
+        properties:
+          symbol: { type: string }
+          support:
+            type: array
+            items: { type: integer, description: Price in paisa }
+          resistance:
+            type: array
+            items: { type: integer, description: Price in paisa }
+
+    OrderBookSnapshotMessage:
+      payload:
+        type: object
+        properties:
+          symbol: { type: string }
+          bids:
+            type: array
+            items:
+              type: object
+              properties:
+                pricePaisa: { type: integer }
+                quantity: { type: integer }
+                orderCount: { type: integer }
+          asks:
+            type: array
+            items:
+              type: object
+              properties:
+                pricePaisa: { type: integer }
+                quantity: { type: integer }
+                orderCount: { type: integer }
+          exchangeTimestampMs: { type: integer }
+
+  schemas:
+    GatewayFrame:
+      type: object
+      description: |
+        Binary frame format:
+        - Byte 0: topic wireId (uint8)
+        - Bytes 1-8: sequence number (uint64 big-endian)
+        - Bytes 9+: UTF-8 JSON payload
+      properties:
+        topicWireId: { type: integer, minimum: 0, maximum: 16 }
+        sequence: { type: integer }
+        payload: { type: string }

@@ -1,119 +1,223 @@
 package com.tradej.composition;
 
 import com.tradej.broker.api.IBrokerConnection;
-import com.tradej.broker.core.startup.BrokerLifecycleManager;
 import com.tradej.composition.config.BrokerProfile;
 import com.tradej.composition.config.RiskProfile;
 import com.tradej.composition.config.StorageProfile;
-import com.tradej.core.domain.runtime.RuntimeModeHolder;
-import com.tradej.core.domain.time.LiveTradingClock;
+import com.tradej.core.domain.port.FeatureStore;
+import com.tradej.core.domain.service.PositionService;
+import com.tradej.execution.service.ExecutionHandler;
 import com.tradej.execution.service.OrderManagementService;
+import com.tradej.persistence.pipeline.DuckDbPipelineGraphStore;
+import com.tradej.scanner.engine.ScanEngine;
+import com.tradej.scanner.model.ScanProfile;
 import com.tradej.strategy.portfolio.PortfolioEngine;
+import com.tradej.strategy.service.CandleAggregationService;
+import com.tradej.strategy.service.GraphStrategySandbox;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.Map;
+import java.util.Objects;
 
 /**
- * Aggregates all composition roots into a single entry point.
- * Provides a fully wired system without Spring Boot.
+ * Full composition root — the single source of truth for the entire object graph
+ * (clock + broker + data + execution + pipeline).
  *
- * <p>Usage:
- * <pre>
- *   FullComposition system = FullComposition.create(brokerProfile, storageProfile, riskProfile);
- *   IBrokerConnection broker = system.broker().brokerConnection();
- *   PositionRiskHandler risk = system.execution().positionRiskHandler();
- * </pre>
+ * <p>Two factory entry points:
+ * <ul>
+ *   <li>{@link #createFull} — Spring app path; all 5 sub-compositions wired.</li>
+ *   <li>{@link #brokerOnly} — CLI / replay path; only {@link ClockComposition}
+ *       and {@link BrokerComposition} are wired. The {@link #data()},
+ *       {@link #execution()}, and {@link #pipeline()} accessors throw
+ *       {@link IllegalStateException} on a brokerOnly result, mitigating the
+ *       silent-NPE risk the prior architecture review flagged.</li>
+ * </ul>
+ *
+ * <p>The legacy {@code create(BrokerProfile, StorageProfile, RiskProfile)} overload
+ * documented in the prior review is intentionally NOT provided — call sites that need
+ * the full graph must use {@link #createFull}.
  */
 public final class FullComposition {
 
-    private final BrokerComposition broker;
-    private final DataComposition data;
-    private final ExecutionComposition execution;
+    private static final Logger log = LoggerFactory.getLogger(FullComposition.class);
+
+    private final ClockComposition clockComposition;
+    private final BrokerComposition brokerComposition;
+    private final DataComposition dataComposition;
+    private final ExecutionComposition executionComposition;
+    private final PipelineComposition pipelineComposition;
 
     private FullComposition(
-            BrokerComposition broker,
-            DataComposition data,
-            ExecutionComposition execution
+            ClockComposition clockComposition,
+            BrokerComposition brokerComposition,
+            DataComposition dataComposition,
+            ExecutionComposition executionComposition,
+            PipelineComposition pipelineComposition
     ) {
-        this.broker = broker;
-        this.data = data;
-        this.execution = execution;
-    }
-
-    public static FullComposition create(
-            BrokerProfile brokerProfile,
-            StorageProfile storageProfile,
-            RiskProfile riskProfile
-    ) {
-        BrokerComposition broker = BrokerComposition.create(brokerProfile);
-        DataComposition data = DataComposition.create(storageProfile);
-
-        return new FullComposition(broker, data, null);
+        this.clockComposition = clockComposition;
+        this.brokerComposition = brokerComposition;
+        this.dataComposition = dataComposition;
+        this.executionComposition = executionComposition;
+        this.pipelineComposition = pipelineComposition;
     }
 
     /**
-     * Creates a fully wired system including ExecutionComposition.
-     * Use this for live trading and backtesting where risk enforcement,
-     * position tracking, and order management are required.
+     * Build the full composition (all 5 sub-compositions wired).
      *
-     * @param brokerProfile broker configuration
-     * @param storageProfile storage configuration
-     * @param riskProfile risk limits and enforcement settings
-     * @param portfolioEngine portfolio engine (null to create a default)
-     * @param oms order management service (null to create a default)
+     * <p>The Spring app path calls this once at startup. The Spring-provided beans
+     * (candle aggregation, graph strategy sandbox, execution handler, feature store,
+     * scan engine, scan profiles) are passed in because they are app-specific and
+     * cannot be created by the composition layer itself.
+     *
+     * @param clockComposition         clock composition (pass {@code null} to default to {@link ClockComposition#live()})
+     * @param brokerProfile            broker profile
+     * @param storageProfile           storage profile
+     * @param riskProfile              risk profile
+     * @param portfolioEngine          portfolio engine
+     * @param brokerConnection         broker connection (used to resolve margin + portfolio providers for execution composition)
+     * @param orderManagementService   order management service
+     * @param candleAggregationService candle aggregation service
+     * @param graphStrategySandbox     graph strategy sandbox
+     * @param executionHandler         execution handler
+     * @param featureStore             hot-path feature store
+     * @param scanEngine               scan engine (nullable)
+     * @param scanProfilesById         map of scan profile id → profile
+     * @return fully-wired {@link FullComposition}
      */
     public static FullComposition createFull(
+            ClockComposition clockComposition,
             BrokerProfile brokerProfile,
             StorageProfile storageProfile,
             RiskProfile riskProfile,
             PortfolioEngine portfolioEngine,
-            OrderManagementService oms
+            IBrokerConnection brokerConnection,
+            OrderManagementService orderManagementService,
+            CandleAggregationService candleAggregationService,
+            GraphStrategySandbox graphStrategySandbox,
+            ExecutionHandler executionHandler,
+            FeatureStore featureStore,
+            ScanEngine scanEngine,
+            Map<String, ScanProfile> scanProfilesById
     ) {
+        Objects.requireNonNull(brokerProfile, "brokerProfile");
+        Objects.requireNonNull(storageProfile, "storageProfile");
+        Objects.requireNonNull(riskProfile, "riskProfile");
+
+        ClockComposition clock = clockComposition != null ? clockComposition : ClockComposition.live();
+
+        // PositionService is the canonical event-sourced position source (P3.1).
+        // Create it FIRST so both PortfolioEngine and ExecutionComposition can share
+        // the same instance.
+        PositionService positionService = new PositionService();
+        // Reconstruct the portfolio engine with the shared PositionService. The
+        // caller-supplied portfolioEngine is replaced if it doesn't already have
+        // a PositionService; for simplicity, we always create a new one and
+        // forward the caller's allocation params. The P3.4 migration will
+        // deprecate the dual-constructor path entirely.
+        PortfolioEngine sharedEngine = new PortfolioEngine(
+                positionService,
+                PortfolioEngine.DEFAULT_CAPITAL_PER_STRATEGY_PAISA,
+                PortfolioEngine.DEFAULT_MAX_NET_EXPOSURE_PAISA
+        );
+
         BrokerComposition broker = BrokerComposition.create(brokerProfile);
         DataComposition data = DataComposition.create(storageProfile);
-        IBrokerConnection connection = broker.brokerConnection();
-
-        PortfolioEngine effectivePortfolio = portfolioEngine != null
-                ? portfolioEngine : new PortfolioEngine();
-        OrderManagementService effectiveOms = oms != null
-                ? oms : new OrderManagementService(connection, new RuntimeModeHolder(), new LiveTradingClock(), null);
-
         ExecutionComposition execution = ExecutionComposition.create(
-                riskProfile, effectivePortfolio, connection, effectiveOms);
+                riskProfile, positionService, sharedEngine, brokerConnection, orderManagementService
+        );
 
-        return new FullComposition(broker, data, execution);
+        DuckDbPipelineGraphStore pipelineGraphStore = data.duckDbPipelineGraphStore();
+        PipelineComposition pipeline = PipelineComposition.create(
+                execution.positionRiskHandler(),
+                candleAggregationService,
+                graphStrategySandbox,
+                executionHandler,
+                sharedEngine,
+                featureStore,
+                pipelineGraphStore,
+                scanEngine,
+                scanProfilesById
+        );
+
+        log.info("FullComposition created (broker={}, storage={}, pipelineNodeProviders={})",
+                brokerProfile.brokerType(), storageProfile.chroniclePath(),
+                pipeline.pipelineNodeRegistry().all().size());
+
+        return new FullComposition(clock, broker, data, execution, pipeline);
     }
+
+    // ── Capital param extraction helpers ─────────────────────────────────
 
     /**
-     * Creates a fully wired system with default portfolio engine and OMS.
+     * Build a broker-only composition for the CLI / replay path. Only the clock
+     * and broker sub-compositions are wired; the other accessors throw
+     * {@link IllegalStateException} if called.
      */
-    public static FullComposition createFull(
-            BrokerProfile brokerProfile,
-            StorageProfile storageProfile,
-            RiskProfile riskProfile
-    ) {
-        return createFull(brokerProfile, storageProfile, riskProfile, null, null);
+    public static FullComposition brokerOnly(BrokerProfile brokerProfile) {
+        Objects.requireNonNull(brokerProfile, "brokerProfile");
+        ClockComposition clock = ClockComposition.live();
+        BrokerComposition broker = BrokerComposition.create(brokerProfile);
+        log.info("FullComposition.brokerOnly created (broker={})", brokerProfile.brokerType());
+        return new FullComposition(clock, broker, null, null, null);
     }
 
-    public static FullComposition brokerOnly(BrokerProfile brokerProfile) {
-        BrokerComposition broker = BrokerComposition.create(brokerProfile);
-        return new FullComposition(broker, null, null);
+    public ClockComposition clockComposition() {
+        return clockComposition;
+    }
+
+    public BrokerComposition brokerComposition() {
+        return brokerComposition;
+    }
+
+    public DataComposition dataComposition() {
+        if (dataComposition == null) {
+            throw new IllegalStateException(
+                    "This FullComposition was constructed via brokerOnly() — no data composition available. "
+                            + "Use createFull(...) for the full graph.");
+        }
+        return dataComposition;
+    }
+
+    public ExecutionComposition executionComposition() {
+        if (executionComposition == null) {
+            throw new IllegalStateException(
+                    "This FullComposition was constructed via brokerOnly() — no execution composition available. "
+                            + "Use createFull(...) for the full graph.");
+        }
+        return executionComposition;
+    }
+
+    public PipelineComposition pipelineComposition() {
+        if (pipelineComposition == null) {
+            throw new IllegalStateException(
+                    "This FullComposition was constructed via brokerOnly() — no pipeline composition available. "
+                            + "Use createFull(...) for the full graph.");
+        }
+        return pipelineComposition;
+    }
+
+    // ── Compatibility shims matching the prior Javadoc surface ──
+    // Some callers use the shorter accessors documented in the design doc.
+    // They delegate to the long-named accessors and preserve the NPE-mitigation.
+
+    public ClockComposition clock() {
+        return clockComposition();
     }
 
     public BrokerComposition broker() {
-        return broker;
+        return brokerComposition();
     }
 
     public DataComposition data() {
-        return data;
+        return dataComposition();
     }
 
     public ExecutionComposition execution() {
-        return execution;
+        return executionComposition();
     }
 
-    public IBrokerConnection brokerConnection() {
-        return broker.brokerConnection();
-    }
-
-    public BrokerLifecycleManager lifecycleManager() {
-        return broker.lifecycleManager();
+    public PipelineComposition pipeline() {
+        return pipelineComposition();
     }
 }

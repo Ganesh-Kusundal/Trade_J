@@ -1,0 +1,1 @@
+Provides a pluggable strategy framework with isolated execution sandboxes and centralized portfolio-level capital and exposure management.

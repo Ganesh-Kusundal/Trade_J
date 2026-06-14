@@ -1,0 +1,4 @@
+- Pure Java orchestration: Hot-path components (`MarketDataPipeline`, `OrderPipeline`, `TokenBucket`) are implemented without Spring annotations or proxies to eliminate container overhead and facilitate benchmarking.
+- Re-entrancy guarding: A `ThreadLocal` flag (`IN_DISPATCH`) is used in `DisruptorEventBus` to detect calls from within subscriber callbacks, routing re-entrant publishes to a downstream queue to prevent ring buffer deadlocks.
+- Poison-pill shutdown: The `AsyncDispatchHandler` uses a sentinel `PoisonPill` event to gracefully unblock the background dispatch thread's `take()` operation during shutdown, avoiding reliance on interrupts or timeouts.
+- Lock-free rate monitoring: Pipelines use `AtomicLong` and `Double.doubleToRawLongBits` with CAS loops to compute exponential moving average (EMA) rates without blocking the hot path with synchronized blocks.

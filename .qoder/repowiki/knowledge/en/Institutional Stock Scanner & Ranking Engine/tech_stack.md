@@ -1,0 +1,1 @@
+Java 21+ (records, switch expressions implied by style), Gradle multi-project build (depends on `:core`, `:data-historical-ingest`), SLF4J for logging.

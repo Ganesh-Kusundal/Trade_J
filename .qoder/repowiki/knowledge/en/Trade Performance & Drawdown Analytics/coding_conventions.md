@@ -1,0 +1,3 @@
+- Use Java records for all data transfer objects and report structures to ensure immutability.
+- Perform financial calculations using `BigDecimal` with explicit `MathContext` for rounding and precision.
+- Return empty or zero-filled report objects via static factory methods (e.g., `PerformanceReport.empty`) for null or edge-case inputs.

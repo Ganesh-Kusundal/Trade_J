@@ -54,6 +54,37 @@ public interface IndicatorProvider {
     List<Double> calculate(List<Candle> candles);
 
     /**
+     * Typed result variant for providers whose underlying indicator emits
+     * multi-field records (e.g. {@code HalfTrend.Point}, {@code CVD.Point},
+     * {@code BollingerSqueeze.Point}, {@code SwingHighLow.Marker},
+     * {@code HighProbabilityOrderBlock.Zone}) that the untyped
+     * {@link #calculate(List)} contract cannot faithfully represent.
+     *
+     * <p>The default implementation throws
+     * {@link UnsupportedOperationException}; only providers that own a
+     * multi-field typed result need to override it. The simple single-value
+     * providers (RSI, EMA, SMA, ATR, VWAP, OBV) keep using
+     * {@link #calculate(List)} unchanged.
+     *
+     * <p>{@code recordType} lets the caller declare the expected record
+     * type at the call site so the provider can return a
+     * {@code List<HalfTrend.Point>} (etc.) that the caller can cast without
+     * a raw-type warning at the call boundary.
+     *
+     * @param candles    ordered list of candles (oldest first)
+     * @param recordType the expected record class; providers should use this
+     *                   to validate the request and reject mismatched types
+     * @param <T>        the record type produced by this provider
+     * @return typed per-candle records
+     * @throws UnsupportedOperationException if this provider does not support
+     *                                       typed results
+     */
+    default <T> List<T> calculateTyped(List<Candle> candles, Class<T> recordType) {
+        throw new UnsupportedOperationException(
+                name() + " does not support typed results; use calculate()");
+    }
+
+    /**
      * Semantic version of this indicator provider.
      */
     default String version() {

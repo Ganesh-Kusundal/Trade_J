@@ -1,0 +1,2 @@
+- Caffeine for high-performance idempotency caching (`CaffeineIdempotencyCache`).
+- Gradle with project dependencies on `:core`, `:broker-api`, and `:data-persistence`.

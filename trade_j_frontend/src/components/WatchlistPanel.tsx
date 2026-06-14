@@ -61,12 +61,11 @@ export default function WatchlistPanel({ onSelectSymbol, currentSymbol, segment 
 
   useEffect(() => {
     const pollAll = async () => {
+      const { marketApi } = await import("../generated/api");
       const updated = await Promise.all(items.map(async (item) => {
         try {
           const itemSegment = ({ NSE: "NSE_EQ", BSE: "BSE_EQ", NFO: "NSE_FNO", MCX: "MCX_COMM", CDS: "NSE_CURRENCY" } as Record<string, string>)[item.exchange] || segment;
-          const res = await fetch(`/api/v1/market/ltp?symbol=${item.symbol}&exchangeSegment=${itemSegment}`);
-          if (!res.ok) return item;
-          const data = await res.json();
+          const data = await marketApi.ltp(item.symbol, itemSegment);
           const ltp = data.ltpPaisa / 100;
           const rawChange = item.ltp > 0 ? ((ltp - item.ltp) / item.ltp) * 100 : 0;
           const change = clampChange(rawChange, item.exchange);

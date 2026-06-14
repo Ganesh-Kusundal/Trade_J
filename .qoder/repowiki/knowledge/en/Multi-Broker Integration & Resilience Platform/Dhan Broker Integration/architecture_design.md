@@ -1,0 +1,6 @@
+- Entry Point: `DhanBrokerProvider` implements the `BrokerProvider` SPI, registered via `META-INF/services` for ServiceLoader discovery.
+- Facade Pattern: `DhanBrokerConnection` acts as the central facade, implementing `IBrokerConnection` and delegating to specialized adapters (e.g., `DhanOrderCommandAdapter`, `DhanMarketDataProvider`).
+- Adapter Layer: The `adapter` package contains implementations of domain ports (e.g., `OrderCommand`, `PortfolioProvider`) that translate generic domain models to Dhan-specific API calls.
+- Client Layer: Low-level HTTP and WebSocket clients (e.g., `DhanRestOrderClient`, `DhanWebSocketMultiplexer`) handle transport, authentication, and binary parsing.
+- Authentication: `DhanTokenManager` manages token lifecycle, supporting STATIC, TOTP, and WEB_RENEWABLE modes with persistent state storage.
+- Dependency Direction: Adapters depend on `DhanAdapterContext` which aggregates `DhanClientHolder`, `DhanInstrumentResolver`, and `DhanRetryExecutor` for cross-cutting concerns like rate limiting and resilience.

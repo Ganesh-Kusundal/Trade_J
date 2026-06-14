@@ -3,6 +3,7 @@ package com.tradej.disruptor.config;
 import com.lmax.disruptor.EventHandler;
 import com.tradej.core.domain.event.DomainEvent;
 import com.tradej.core.domain.event.EventMetadata;
+import com.tradej.core.domain.event.PoisonPillEvent;
 import com.tradej.core.domain.port.DeadLetterQueue;
 import com.tradej.core.domain.port.DomainEventHandler;
 import com.tradej.core.support.MdcHelper;
@@ -56,19 +57,7 @@ public final class AsyncDispatchHandler implements EventHandler<MutableDomainEve
     // ── Poison-pill sentinel for shutdown signaling ──
     // Used instead of InterruptedException or poll(timeout) so that drainLoop()
     // can block on take() for zero-latency event delivery (fixes A-01).
-    private static final class PoisonPill implements DomainEvent {
-        @Override
-        public EventMetadata metadata() {
-            return EventMetadata.root();
-        }
-
-        @Override
-        public void accept(com.tradej.core.domain.event.DomainEventVisitor visitor) {
-            // PoisonPill is internal and doesn't need to be visited by risk/engine
-        }
-    }
-
-    private static final PoisonPill POISON_PILL = new PoisonPill();
+    private static final PoisonPillEvent POISON_PILL = new PoisonPillEvent();
 
     /**
      * Creates an async dispatch handler with the given subscriber map and
@@ -206,6 +195,7 @@ public final class AsyncDispatchHandler implements EventHandler<MutableDomainEve
         if (!remaining.isEmpty()) {
             log.info("Draining {} remaining events on shutdown", remaining.size());
             for (DomainEvent event : remaining) {
+                if (event instanceof PoisonPillEvent) continue;
                 dispatch(event);
             }
         }
@@ -246,7 +236,7 @@ public final class AsyncDispatchHandler implements EventHandler<MutableDomainEve
             try {
                 DomainEvent event = dispatchQueue.take();
                 // Check for poison pill sentinel before dispatch
-                if (event instanceof PoisonPill) {
+                if (event instanceof PoisonPillEvent) {
                     break;
                 }
                 dispatch(event);

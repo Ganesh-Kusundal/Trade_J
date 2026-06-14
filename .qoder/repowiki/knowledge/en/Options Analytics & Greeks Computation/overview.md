@@ -1,0 +1,1 @@
+Computes Black-Scholes pricing, implied volatility, and option Greeks for European options, integrating with the trading pipeline via event-driven nodes.

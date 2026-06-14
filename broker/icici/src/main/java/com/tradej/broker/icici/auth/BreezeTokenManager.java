@@ -19,7 +19,8 @@ import java.util.concurrent.locks.ReentrantLock;
 
 public final class BreezeTokenManager implements BreezeTokenProvider, TokenLifecycleService {
     private static final Logger log = LoggerFactory.getLogger(BreezeTokenManager.class);
-    private static final long SESSION_ACQUISITION_COOLDOWN_MS = 30_000L;
+    /** Base cooldown between session mints. 5 minutes. */
+    private static final long SESSION_ACQUISITION_COOLDOWN_MS = 5L * 60_000L;
     /** Clock skew tolerance in milliseconds (30 seconds) */
     private static final long CLOCK_SKEW_TOLERANCE_MS = 30_000L;
     private final BreezeConnectionSettings settings;
@@ -28,6 +29,8 @@ public final class BreezeTokenManager implements BreezeTokenProvider, TokenLifec
     private final BreezeBrowserSessionCapture browserSessionCapture;
     private final BreezeTokenStateStore stateStore;
     private final Clock clock;
+    private final com.tradej.broker.api.auth.TokenAcquisitionThrottle throttle =
+            new com.tradej.broker.api.auth.TokenAcquisitionThrottle();
     private final ReentrantLock refreshLock = new ReentrantLock();
     private final AtomicLong sessionGeneration = new AtomicLong(0);
     private final AtomicLong lastAcquisitionAttemptMs = new AtomicLong(0L);
@@ -211,13 +214,22 @@ public final class BreezeTokenManager implements BreezeTokenProvider, TokenLifec
     }
 
     private BreezeSession resolveSession(long now) {
-        long lastAttempt = lastAcquisitionAttemptMs.get();
-        if (lastAttempt > 0 && now - lastAttempt < SESSION_ACQUISITION_COOLDOWN_MS) {
-            long retryInSec = (SESSION_ACQUISITION_COOLDOWN_MS - (now - lastAttempt)) / 1000;
+        com.tradej.broker.api.auth.TokenAcquisitionThrottle.AcquireResult r =
+                throttle.tryAcquire("icici-breeze");
+        if (!r.allowed()) {
+            throttle.recordFailure();
             throw new IllegalStateException(
-                    "ICICI session acquisition cooldown active; retry after " + retryInSec + "s");
+                    "ICICI session acquisition cooldown active ("
+                            + r.currentCooldownMs() / 1000L + "s, "
+                            + "consecutive failures=" + throttle.consecutiveFailures()
+                            + "); retry in " + (r.retryAfterMs() / 1000L) + "s");
         }
         lastAcquisitionAttemptMs.set(now);
+        log.warn(
+                "ICICI session MINT #{} — source={}, throttle-failures={}, cooldown-remaining=0ms",
+                sessionGeneration.get() + 1,
+                settings.authMode(),
+                throttle.consecutiveFailures());
         String sessionInput = resolveSessionInput();
         BreezeSession session = sessionExchange.exchange(settings.appKey(), sessionInput);
         if (session.expiresAtEpochMs() <= now) {

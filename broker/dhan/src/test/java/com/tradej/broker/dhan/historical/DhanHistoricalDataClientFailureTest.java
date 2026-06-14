@@ -113,6 +113,11 @@ class DhanHistoricalDataClientFailureTest {
             public void ensureValid() {
                 // static token provider for test transport.
             }
+
+            @Override
+            public long expiryEpochMs() {
+                return System.currentTimeMillis() + 60_000L;
+            }
         };
     }
 }

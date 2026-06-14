@@ -3,14 +3,14 @@ package com.tradej.app.config;
 import com.tradej.broker.api.IBrokerConnection;
 import com.tradej.core.domain.event.EventMetadataFactory;
 import com.tradej.core.domain.port.EventBus;
-import com.tradej.core.domain.port.NetPositionProvider;
 import com.tradej.core.domain.runtime.RuntimeMode;
 import com.tradej.core.domain.runtime.RuntimeModeHolder;
+import com.tradej.core.domain.time.TradingClock;
 import com.tradej.execution.reconcile.OrderReconciler;
 import com.tradej.execution.reconcile.ReconciliationAlertLogger;
 import com.tradej.execution.reconcile.ReconciliationScheduler;
+import com.tradej.execution.reconcile.LiveBracketOrderCorrectionHandler;
 import com.tradej.execution.risk.DailyRiskResetScheduler;
-import com.tradej.execution.risk.PositionRiskHandler;
 import com.tradej.persistence.oms.EventSourcedOrderRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -80,14 +80,71 @@ public class AdminConfiguration {
     ReconciliationScheduler reconciliationScheduler(
             OrderReconciler orderReconciler,
             EventBus eventBus,
-            NetPositionProvider netPositionProvider
+            com.tradej.composition.FullComposition fullComposition,
+            ReconciliationScheduler.MismatchHandler mismatchHandler
     ) {
-        return new ReconciliationScheduler(orderReconciler, eventBus, netPositionProvider);
+        return new ReconciliationScheduler(
+                orderReconciler, eventBus,
+                fullComposition.executionComposition().positionService(),
+                mismatchHandler);
+    }
+
+    /**
+     * Default {@link ReconciliationScheduler.MismatchHandler} bean. Logs
+     * WARN on detected {@link com.tradej.core.domain.event.PositionMismatch}
+     * but does NOT auto-correct. This is the safe default for sandbox /
+     * non-production deployments.
+     *
+     * <p>When the property {@code trade.reconciliation.live-correction=true}
+     * is set, the {@link LiveBracketOrderCorrectionHandler} bean is wired
+     * instead, which logs a structured "WOULD PLACE" message for the
+     * OMS path to pick up.
+     */
+    @Bean
+    @org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(
+            name = "trade.reconciliation.live-correction",
+            havingValue = "false",
+            matchIfMissing = true
+    )
+    ReconciliationScheduler.MismatchHandler defaultMismatchHandler() {
+        return ReconciliationScheduler.MismatchHandler.logging();
+    }
+
+    /**
+     * LIVE-mode {@link ReconciliationScheduler.MismatchHandler} bean.
+     * Wired only when {@code trade.reconciliation.live-correction=true}.
+     * The {@link com.tradej.execution.reconcile.DriftAlerter} is
+     * injected (the {@code @Primary} Slack variant wins when the
+     * webhook property is set, else the always-available logging
+     * variant). The alert threshold is
+     * {@code trade.drift-alerting.threshold-qty} (default 100 qty).
+     * See {@link LiveBracketOrderCorrectionHandler} for the full
+     * design and {@link DriftAlertingConfiguration} for the alerter
+     * wiring.
+     */
+    @Bean
+    @org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(
+            name = "trade.reconciliation.live-correction",
+            havingValue = "true"
+    )
+    ReconciliationScheduler.MismatchHandler liveBracketOrderCorrectionHandler(
+            com.tradej.execution.reconcile.DriftAlerter driftAlerter,
+            com.tradej.execution.service.OrderManagementService orderManagementService,
+            com.tradej.composition.FullComposition fullComposition,
+            @org.springframework.beans.factory.annotation.Value(
+                    "${trade.drift-alerting.threshold-qty:100}") long alertThresholdQty
+    ) {
+        return new LiveBracketOrderCorrectionHandler(
+                driftAlerter,
+                LiveBracketOrderCorrectionHandler.DEFAULT_TOLERANCE_QTY,
+                alertThresholdQty,
+                orderManagementService,
+                fullComposition.executionComposition().positionRiskHandler());
     }
 
     @Bean
-    DailyRiskResetScheduler dailyRiskResetScheduler(PositionRiskHandler positionRiskHandler) {
-        return new DailyRiskResetScheduler(positionRiskHandler);
+    DailyRiskResetScheduler dailyRiskResetScheduler(com.tradej.composition.FullComposition fullComposition) {
+        return new DailyRiskResetScheduler(fullComposition.executionComposition().positionRiskHandler());
     }
 
     // ── Scheduled triggers ──

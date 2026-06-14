@@ -16,6 +16,8 @@ import com.tradej.pipeline.runtime.BasePipelineNode;
 import com.tradej.pipeline.runtime.IngressNode;
 import com.tradej.pipeline.runtime.PipelineNode;
 import com.tradej.pipeline.runtime.PipelineNodeTypes;
+import com.tradej.pipeline.spi.PipelineNodeProvider;
+import com.tradej.pipeline.spi.PipelineNodeRegistry;
 import com.tradej.scanner.criterion.ScanCriterion;
 import com.tradej.scanner.criterion.ScanCriterionRegistry;
 import com.tradej.scanner.engine.ScanEngine;
@@ -32,15 +34,18 @@ import com.tradej.strategy.service.GraphStrategySandbox;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Function;
 
 public final class PipelineNodeFactory {
 
     private static final Logger log = LoggerFactory.getLogger(PipelineNodeFactory.class);
 
     private final NodeRegistry nodeRegistry;
+    private final PipelineNodeRegistry nodeProviderRegistry;
     private final PositionRiskHandler positionRiskHandler;
     private final CandleAggregationService candleAggregationService;
     private final GraphStrategySandbox graphStrategySandbox;
@@ -63,7 +68,7 @@ public final class PipelineNodeFactory {
             ScanEngine scanEngine,
             Map<String, ScanProfile> scanProfilesById
     ) {
-        this(nodeRegistry, positionRiskHandler, candleAggregationService, null,
+        this(nodeRegistry, null, positionRiskHandler, candleAggregationService, null,
                 executionHandler, portfolioEngine, hotPathFeatureStore, reactorBridge, scanEngine, scanProfilesById);
     }
 
@@ -79,7 +84,25 @@ public final class PipelineNodeFactory {
             ScanEngine scanEngine,
             Map<String, ScanProfile> scanProfilesById
     ) {
+        this(nodeRegistry, null, positionRiskHandler, candleAggregationService, graphStrategySandbox,
+                executionHandler, portfolioEngine, hotPathFeatureStore, reactorBridge, scanEngine, scanProfilesById);
+    }
+
+    public PipelineNodeFactory(
+            NodeRegistry nodeRegistry,
+            PipelineNodeRegistry nodeProviderRegistry,
+            PositionRiskHandler positionRiskHandler,
+            CandleAggregationService candleAggregationService,
+            GraphStrategySandbox graphStrategySandbox,
+            ExecutionHandler executionHandler,
+            PortfolioEngine portfolioEngine,
+            FeatureStore hotPathFeatureStore,
+            ReactorBridge reactorBridge,
+            ScanEngine scanEngine,
+            Map<String, ScanProfile> scanProfilesById
+    ) {
         this.nodeRegistry = Objects.requireNonNull(nodeRegistry, "nodeRegistry");
+        this.nodeProviderRegistry = nodeProviderRegistry;
         this.positionRiskHandler = Objects.requireNonNull(positionRiskHandler);
         this.candleAggregationService = Objects.requireNonNull(candleAggregationService);
         this.graphStrategySandbox = graphStrategySandbox;
@@ -95,6 +118,34 @@ public final class PipelineNodeFactory {
     }
 
     private void registerNodeFactories() {
+        // SPI-driven registration: if a PipelineNodeRegistry is provided, each
+        // discovered provider registers its real factory via the wiring config.
+        // This is the preferred path; new node types should be added by
+        // implementing PipelineNodeProvider and listing it in META-INF/services.
+        if (nodeProviderRegistry != null && !nodeProviderRegistry.all().isEmpty()) {
+            Map<String, Object> wiring = new HashMap<>();
+            wiring.put(PipelineNodeProvider.CONFIG_KEY_POSITION_RISK_HANDLER, positionRiskHandler);
+            wiring.put(PipelineNodeProvider.CONFIG_KEY_CANDLE_AGGREGATION_SERVICE, candleAggregationService);
+            wiring.put(PipelineNodeProvider.CONFIG_KEY_GRAPH_STRATEGY_SANDBOX, graphStrategySandbox);
+            wiring.put(PipelineNodeProvider.CONFIG_KEY_EXECUTION_HANDLER, executionHandler);
+            wiring.put(PipelineNodeProvider.CONFIG_KEY_PORTFOLIO_ENGINE, portfolioEngine);
+            wiring.put(PipelineNodeProvider.CONFIG_KEY_FEATURE_STORE, hotPathFeatureStore);
+            wiring.put(PipelineNodeProvider.CONFIG_KEY_REACTOR_BRIDGE, reactorBridge);
+            wiring.put(PipelineNodeProvider.CONFIG_KEY_SCAN_ENGINE, scanEngine);
+            wiring.put(PipelineNodeProvider.CONFIG_KEY_SCAN_PROFILES, scanProfilesById);
+            wiring.put(PipelineNodeProvider.CONFIG_KEY_SCAN_CRITERION_RESOLVER,
+                    (Function<String, ScanCriterion>) this::resolveCriterion);
+            for (PipelineNodeProvider provider : nodeProviderRegistry.all()) {
+                provider.registerFactory(nodeRegistry, wiring);
+            }
+            log.info("Registered {} node factories via PipelineNodeProvider SPI (nodeProviderRegistry)",
+                    nodeProviderRegistry.all().size());
+        }
+
+        // Legacy fallback: prefer PipelineNodeProvider SPI
+        // The body below preserves the original hard-coded registrations so
+        // that callers which don't supply a PipelineNodeRegistry (e.g. the
+        // composition root) keep working unchanged.
         nodeRegistry.register(factoryDescriptor(PipelineNodeTypes.INGRESS, def -> new IngressNode()));
         nodeRegistry.register(factoryDescriptor(PipelineNodeTypes.RISK, def -> new RiskNode(positionRiskHandler)));
         nodeRegistry.register(factoryDescriptor(PipelineNodeTypes.CANDLE, def -> new CandleNode(candleAggregationService)));

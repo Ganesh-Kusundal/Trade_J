@@ -1,0 +1,3 @@
+- Financial values are internally normalized from 'paisa' (integer cents) to decimal currency units before computation.
+- Numerical utilities are implemented as final classes with private constructors and static methods only.
+- Defensive checks return sentinel values (e.g., `OptionGreeks.UNKNOWN`, `Double.NaN`) for invalid inputs like negative time or volatility.

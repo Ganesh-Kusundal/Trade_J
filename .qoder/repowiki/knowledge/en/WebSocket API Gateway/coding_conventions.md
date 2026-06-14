@@ -1,0 +1,4 @@
+- All public classes are declared `final` to enforce immutability and prevent unintended subclassing.
+- Every class with logging uses the pattern `private static final Logger log = LoggerFactory.getLogger(ThisClass.class)`.
+- Domain event-to-topic mapping is centralized in a single immutable `Map.ofEntries` builder inside `GatewayEventBridge.buildSerializerMap()`, avoiding scattered switch/if-else chains.
+- Per-client isolation is achieved through dedicated `ArrayBlockingQueue` instances and drain threads in `GatewayTopicRouter.TransportWriteQueue`, ensuring a slow client cannot block other transports or the shared publisher.

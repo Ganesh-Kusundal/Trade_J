@@ -1,0 +1,4 @@
+- Adopts a Hexagonal/Ports-and-Adapters architecture where `domain` packages (event, oms, model, value) define business logic and `port` interfaces (EventBus, FeatureStore, MarketDataIngressPort) define boundaries for infrastructure.
+- Implements a synchronous, type-safe Event Bus pattern (`SimpleEventBus`) using the Visitor pattern (`DomainEventVisitor`) for polymorphic event dispatching without instanceof checks.
+- Features a deterministic `OrderStateMachine` that enforces valid order lifecycle transitions via a static lookup table, ensuring consistency in Order Management System (OMS) operations.
+- Utilizes Value Objects (e.g., `PriceMath`, `InstrumentKey`) and immutable Records for domain entities to enforce encapsulation and thread-safety.

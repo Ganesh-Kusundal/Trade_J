@@ -1,0 +1,3 @@
+- Adapters consistently receive a `DhanAdapterContext` object in their constructor to access shared clients, resolvers, and retry executors rather than injecting each dependency individually.
+- Domain-specific exceptions are wrapped using `DhanExceptionUtil` or extended from `DhanBrokerException` to maintain a consistent error handling model across the module.
+- WebSocket clients and multiplexers use a listener-based pattern (e.g., `addListener`) to decouple event reception from business logic processing.

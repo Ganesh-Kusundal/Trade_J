@@ -1,0 +1,1 @@
+Provides a dual-mode CLI (standalone and attach) for trading operations, market data analysis, historical replay, and platform maintenance via Picocli and JLine.

@@ -13,6 +13,34 @@ trade:
     rest-base-url: ${dhan.restBaseUrl:}
     auth-mode: ${dhan.authMode:TOTP_GENERATED}
     token-state-file: ${dhan.tokenStateFile:runtime-prod/dhan-token-state.json}
+
+  # ── Risk gates (ENFORCED ONLY IN THE prod profile) ────────────────────────
+  # The prod profile flips these on so a runaway strategy cannot blow past
+  # the margin cap or the unrealized-loss cap. The default profile (used by
+  # dev / test / paper / replay) keeps them off so developer workflows are
+  # not interrupted by risk checks. Gates are verified working in
+  # MarginEnforcementComponentTest.
+  risk:
+    enforce-margin: true
+    enforce-unrealized-loss: true
+
+  # ── Auth (REQUIRED IN prod) ──────────────────────────────────────────────
+  # Both TRADE_JWT_SECRET and TRADE_ADMIN_PASSWORD MUST be set in the prod
+  # profile. If either is blank the app fails to start with a clear error
+  # (see JwtTokenService + AuthController). The dev profile auto-generates
+  # these on first boot (runtime/jwt-secret.txt + runtime/auth-admin-password.txt).
+  auth:
+    jwt-secret: ${TRADE_JWT_SECRET}
+    admin-password: ${TRADE_ADMIN_PASSWORD}
+
+  # ── Tracing (ON by default; tune for prod) ─────────────────────────────
+  # Prod MUST set OTEL_EXPORTER_OTLP_ENDPOINT to a real collector
+  # (Tempo, Jaeger, Honeycomb, etc.), or the app will silently drop
+  # spans at the default localhost endpoint. Tracing is enabled by
+  # default; set trade.tracing.enabled=false to disable in prod if no
+  # collector is available. Tune TRACING_SAMPLE_RATE (default 1.0) down
+  # (e.g. 0.1) for cost control in high-traffic environments.
+
   storage:
     chronicle-path: runtime-prod/chronicle
     duckdb-path: runtime-prod/trade.duckdb

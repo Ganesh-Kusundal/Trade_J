@@ -1,0 +1,3 @@
+- Nodes follow a Template Method pattern where `BasePipelineNode` handles lifecycle hooks (`onInit`, `processEvent`, `onDestroy`) and automatic metrics recording, while subclasses implement specific logic.
+- Graph compilation uses a two-phase approach: first resolving topological order and routing tables, then initializing node instances with context-aware publishing strategies (hot-path vs DAG).
+- Runtime modes (LIVE, REPLAY, BACKTEST) are managed by a shared `VirtualClock` that monotonically advances time during replay/backtest sequences to ensure deterministic event processing.

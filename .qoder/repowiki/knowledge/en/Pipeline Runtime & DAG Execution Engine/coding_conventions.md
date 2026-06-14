@@ -1,0 +1,3 @@
+- Services expose `metricsSnapshot()` methods that aggregate per-node execution statistics (processed count, error count, latency) into a unified map payload.
+- Graph reloading methods (`reload`, `reloadFromApi`) are synchronized to ensure thread-safe updates to the active execution plan or instance map.
+- Node factories provide fallback 'noop' implementations when optional dependencies (like FeatureStore or ScanEngine) are unavailable, preventing runtime crashes.

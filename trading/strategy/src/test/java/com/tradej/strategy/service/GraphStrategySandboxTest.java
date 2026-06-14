@@ -214,6 +214,60 @@ class GraphStrategySandboxTest {
         assertInstanceOf(SignalGenerated.class, emitted.get(0));
     }
 
+    /**
+     * Verifies that {@link GraphStrategySandbox#pluginCount()} matches the number of
+     * plugins explicitly passed to its constructor.
+     *
+     * <p><b>STATUS: FAILING (Type C — pre-existing real bug in production code,
+     * out of scope for the immediate plan)</b>
+     *
+     * <p><b>Failure mode:</b> expected {@code <2>} but was {@code <6>}. The test passes
+     * 2 plugins; the sandbox reports 6.
+     *
+     * <p><b>Root cause:</b> {@code GraphStrategySandbox} constructor at
+     * {@code trading/strategy/src/main/java/com/tradej/strategy/service/GraphStrategySandbox.java:65}
+     * unconditionally appends {@code ServiceLoader.load(GraphStrategyPlugin.class)} to
+     * the constructor-supplied list:
+     * <pre>
+     * this.plugins = new ArrayList<>();
+     * if (plugins != null) {
+     *     this.plugins.addAll(plugins);
+     * }
+     * ServiceLoader.load(GraphStrategyPlugin.class).forEach(this.plugins::add);  // ← line 65
+     * </pre>
+     * The {@code META-INF/services/com.tradej.strategy.api.GraphStrategyPlugin} file
+     * registers 4 plugins (OptionsContextStrategyPlugin, MLStrategyPlugin,
+     * TickPriceChangeStrategy, DepthImbalanceStrategy), so every constructor call
+     * silently appends those 4 to the caller's 2 — total 6. This is state-leak
+     * across tests in the same JVM: any test that builds a fresh sandbox with an
+     * explicit list will also see the ServiceLoader plugins.
+     *
+     * <p><b>Suggested fix:</b> Remove the {@code ServiceLoader.load(...)} call from
+     * the 4-arg constructor (line 65), or move it behind a separate
+     * {@code withServiceLoaderPlugins()} builder flag. Callers who want ServiceLoader
+     * plugins should opt in explicitly. Production wiring in
+     * {@code trading/strategy/src/main/java/com/tradej/strategy/spi/StrategyRegistry.java:47}
+     * and {@code trading/strategy/src/main/java/com/tradej/strategy/certification/StrategyReplayParityReporter.java:125}
+     * already calls {@code ServiceLoader.load(GraphStrategyPlugin.class)} itself, so
+     * they can pass the merged list to the sandbox.
+     * <pre>
+     * // Before (GraphStrategySandbox.java:61-65):
+     * this.plugins = new ArrayList<>();
+     * if (plugins != null) {
+     *     this.plugins.addAll(plugins);
+     * }
+     * ServiceLoader.load(GraphStrategyPlugin.class).forEach(this.plugins::add);
+     * // After:
+     * this.plugins = new ArrayList<>();
+     * if (plugins != null) {
+     *     this.plugins.addAll(plugins);
+     * }
+     * </pre>
+     *
+     * <p><b>Effort:</b> 1 file, 1 line removed (plus a follow-up to verify that
+     * {@code StrategyRegistry} / {@code StrategyReplayParityReporter} still receive
+     * the ServiceLoader plugins via their own explicit calls).
+     */
     @Test
     void pluginCountMatchesRegisteredPlugins() {
         var p1 = new GraphStrategyPlugin() {

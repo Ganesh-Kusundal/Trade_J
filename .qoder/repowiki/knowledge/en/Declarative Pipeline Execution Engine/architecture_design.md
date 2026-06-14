@@ -1,0 +1,4 @@
+- **Compilation Layer**: `GraphCompiler` transforms a declarative `PipelineGraph` (nodes/edges) into a topologically sorted `ExecutionPlan` using Kahn's algorithm for cycle detection.
+- **Runtime Orchestration**: `PipelineRuntime` acts as the unified entry point, managing mode switching via `VirtualClock` and delegating to `GraphRuntime` for event propagation through ingress nodes or sequential processing.
+- **Node Abstraction**: `PipelineNode` defines the execution contract, with `BasePipelineNode` providing a template method pattern for metrics tracking and state management. `PartitionedNode` implements a sharding decorator for symbol-level parallelism.
+- **Validation & Integration**: `PipelineGraphValidator` enforces structural and semantic rules (e.g., hot-path requirements). `ReactorBridge` integrates Project Reactor for offloading cold-path events to asynchronous subscribers.

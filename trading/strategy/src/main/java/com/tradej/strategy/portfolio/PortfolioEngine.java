@@ -1,5 +1,6 @@
 package com.tradej.strategy.portfolio;
 
+import com.tradej.core.domain.service.PositionService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.tradej.core.domain.event.DomainEvent;
@@ -11,6 +12,7 @@ import com.tradej.core.domain.event.TradeClosed;
 import com.tradej.core.domain.event.TradeOpened;
 import com.tradej.core.domain.value.Side;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -50,10 +52,17 @@ public final class PortfolioEngine {
 
     private final DefaultCapitalReservationService capitalService;
     private final DefaultExposureTracker exposureTracker;
+    private final PositionService positionService;
     private final long defaultCapitalPaisa;
 
     // Trade → trade info: tradeId → TradeInfo (for TradeClosed cleanup)
     private final ConcurrentHashMap<String, TradeInfo> openTrades = new ConcurrentHashMap<>();
+
+    // Running realized PnL: every TradeClosed event appends a new point
+    // whose realizedPnlPaisa is the cumulative sum across all closed trades.
+    private final java.util.List<EquityPoint> equityCurve =
+            java.util.Collections.synchronizedList(new ArrayList<>());
+    private final AtomicLong cumulativeRealizedPnlPaisa = new AtomicLong();
 
     // P0-7: Dedicated thread infrastructure to move processing off the ring buffer thread
     private static final int DEFAULT_QUEUE_CAPACITY = 1024;
@@ -66,10 +75,23 @@ public final class PortfolioEngine {
     private final AtomicLong droppedEventCount = new AtomicLong();
     private volatile boolean running;
 
-    public PortfolioEngine(long defaultCapitalPaisa, long maxNetExposurePaisa) {
+    /**
+     * Primary constructor — shares the given {@link PositionService} with the
+     * composition. P3.2 migration target.
+     */
+    public PortfolioEngine(PositionService positionService, long defaultCapitalPaisa, long maxNetExposurePaisa) {
+        this.positionService = java.util.Objects.requireNonNull(positionService, "positionService");
         this.defaultCapitalPaisa = defaultCapitalPaisa;
         this.capitalService = new DefaultCapitalReservationService(defaultCapitalPaisa);
         this.exposureTracker = new DefaultExposureTracker(maxNetExposurePaisa);
+    }
+
+    /**
+     * Backward-compat: 2-arg constructor creates a local {@link PositionService}.
+     * Prefer the 3-arg constructor that accepts a shared {@link PositionService}.
+     */
+    public PortfolioEngine(long defaultCapitalPaisa, long maxNetExposurePaisa) {
+        this(new PositionService(), defaultCapitalPaisa, maxNetExposurePaisa);
     }
 
     public PortfolioEngine() {
@@ -185,6 +207,13 @@ public final class PortfolioEngine {
         return capitalService.allocatedCapitalPaisa(strategyName);
     }
 
+    /**
+     * Returns the projected net position for {@code symbol}, including
+     * reserved-but-not-yet-filled signal deltas. Used by the exposure-limit
+     * check inside {@code reserveSignal}. P3.4 will deprecate this in favor
+     * of a split API: {@link #actualNetPosition(String)} for the canonical
+     * filled net, and a separate accessor for the projection.
+     */
     public long netPosition(String symbol) {
         return exposureTracker.netPosition(symbol);
     }
@@ -197,10 +226,63 @@ public final class PortfolioEngine {
         return capitalService.allocationsSnapshot();
     }
 
+    // ── PositionService-backed accessors (P3.2) ────────────────────────
+    //
+    // These delegate to the canonical PositionService for callers that want
+    // the actual filled position (as opposed to the projected net above).
+    // The exposure-limit check above continues to use exposureTracker because
+    // it needs the projection (signal deltas + actual fills).
+
+    /**
+     * Returns the canonical ACTUAL filled net position for {@code symbol}
+     * (P3.2: delegates to {@link PositionService}). Does NOT include reserved
+     * signal deltas — those are still tracked by the exposure tracker.
+     */
+    public long actualNetPosition(String symbol) {
+        return positionService.getNetPosition(symbol);
+    }
+
+    /**
+     * Returns the canonical ACTUAL filled positions across all symbols
+     * (P3.2: delegates to {@link PositionService}).
+     */
+    public Map<String, Long> actualPositionsSnapshot() {
+        Map<String, Long> result = new java.util.HashMap<>();
+        positionService.getPositions().forEach((sym, pos) -> result.put(sym, pos.quantity()));
+        return result;
+    }
+
+    /**
+     * Cumulative realized PnL for a symbol (P3.2: delegates to
+     * {@link PositionService#getRealizedPnlPaisa}).
+     */
+    public long realizedPnlPaisa(String symbol) {
+        return positionService.getRealizedPnlPaisa(symbol);
+    }
+
+    /**
+     * Total cumulative realized PnL across all symbols (P3.2: delegates to
+     * {@link PositionService#getTotalRealizedPnlPaisa}).
+     */
+    public long totalRealizedPnlPaisa() {
+        return positionService.getTotalRealizedPnlPaisa();
+    }
+
+    /**
+     * Snapshot of the running equity curve as (timestampMs, realizedPnlPaisa)
+     * pairs. The curve is fed by every {@link TradeClosed} event processed
+     * since the engine was constructed. Callers should treat the returned
+     * list as immutable.
+     */
+    public java.util.List<EquityPoint> equityCurveSnapshot() {
+        return java.util.List.copyOf(equityCurve);
+    }
+
     public void reset() {
         capitalService.reset();
         exposureTracker.reset();
         openTrades.clear();
+        equityCurve.clear();
     }
 
     // ── Replay state isolation ──
@@ -243,6 +325,12 @@ public final class PortfolioEngine {
             Map<String, String> orderIdToSignalId,
             Map<String, TradeInfo> openTrades
     ) {}
+
+    /**
+     * Single point on the realized-PnL equity curve. The curve is appended
+     * to on every {@link com.tradej.core.domain.event.TradeClosed} event.
+     */
+    public record EquityPoint(long timestampMs, long realizedPnlPaisa) {}
 
     // ── Signal pass-through ──
 
@@ -342,6 +430,11 @@ public final class PortfolioEngine {
         long sd = signalDelta != null ? signalDelta : 0L;
         exposureTracker.onTradeOpened(trade, actualTradeDelta, sd);
 
+        // P3.2: Forward to the canonical position service so the actual filled
+        // position is tracked there (PortfolioEngine's netPosition() /
+        // netPositionsSnapshot() now delegate to positionService).
+        positionService.onDomainEvent(trade);
+
         openTrades.put(trade.tradeId(), new TradeInfo(
                 strategyName, trade.symbol(), trade.side(), trade.size(), trade.entryPricePaisa()
         ));
@@ -362,20 +455,23 @@ public final class PortfolioEngine {
         capitalService.freeTradeCapital(info.strategyName(), info.capitalPaisa());
         exposureTracker.onTradeClosed(trade, info.symbol(), info.netDelta());
 
+        // P3.2: Forward to the canonical position service.
+        positionService.onDomainEvent(trade);
+
+        // Append to running realized-PnL equity curve.
+        long pnl = trade.realizedPnlPaisa();
+        long total = cumulativeRealizedPnlPaisa.addAndGet(pnl);
+        long ts = trade.metadata() != null
+                ? trade.metadata().timestampMs()
+                : System.currentTimeMillis();
+        equityCurve.add(new EquityPoint(ts, total));
+
         log.info("Portfolio freed trade strategy={} symbol={} pnl={} reason={}",
                 info.strategyName(), trade.symbol(), trade.realizedPnlPaisa(), trade.reason());
         downstream.accept(trade);
     }
 
     // ── Helpers ──
-
-    private static String extractStrategyName(SignalGenerated signal) {
-        Object name = signal.attributes().get(ATTR_STRATEGY_NAME);
-        if (name instanceof String s && !s.isBlank()) {
-            return s;
-        }
-        return "unknown";
-    }
 
     public static long extractQuantity(SignalGenerated signal) {
         Object qty = signal.attributes().get(ATTR_QUANTITY);

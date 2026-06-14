@@ -1,0 +1,3 @@
+- Services in the `lab` package inject both `DuckDbAnalyticsEngine` for data retrieval and `DuckDbResearchStore` for result persistence.
+- REST controllers in `research/api` delegate complex logic to service layers or engines and return `ResponseEntity` with simple DTOs or Maps.
+- MCP tools in `mcp-server/tools` are implemented as `@Component` classes with methods annotated by `@Tool`, returning formatted string representations of query results.

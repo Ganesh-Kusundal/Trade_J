@@ -1,0 +1,5 @@
+- Entry point: `TradeCli` defines the root Picocli command with ~80+ subcommands, delegating execution to `CliOperations`.
+- Context management: `CliContext` acts as a lazy factory for `AttachClient` (HTTP-based trade-app integration) and `BrokerSession` (standalone broker SPI via `BrokerSessionFactory`).
+- Operation layering: `CliOperations` aggregates domain-specific command handlers (e.g., `CliAttachCommands`, `CliBrokerCommands`, `CliDownloadCommands`) which extend `CliCommandSupport` for shared utilities like output formatting and session access.
+- Interactive mode: `InteractiveShell` uses JLine3 and Picocli's shell integration to provide a REPL with persistent history, tab completion, and custom macro/alias support.
+- Standalone broker abstraction: `BrokerSession` implementations (Dhan, Upstox, ICICI) encapsulate broker-specific SPI connections and instrument catalog management.

@@ -260,7 +260,9 @@ class UpstoxNewsIntegrationTest {
                 null, // sliceOrderCommand - not needed for news test
                 null, // dataServicesProvider - not needed for news test
                 null, // profileProvider - not needed for news test
-                instrumentLoader
+                instrumentLoader,
+                null, // depthClient - not needed for news test
+                null  // marketDepthProvider - not needed for news test
         );
 
         // Test news accessor via IBrokerConnection interface

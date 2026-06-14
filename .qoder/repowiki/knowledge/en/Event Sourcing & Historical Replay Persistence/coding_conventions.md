@@ -1,0 +1,4 @@
+- Inject `LongSupplier` for timestamps to enable deterministic testing across event stores and replay services.
+- Implement `AutoCloseable` for resources managing Chronicle Queue or DuckDB connections to ensure proper lifecycle management.
+- Use `ReentrantLock` or synchronized blocks to serialize write access to shared DuckDB connections.
+- Map domain events to persistence records via switch expressions on event type in both SQL stores and replay services.

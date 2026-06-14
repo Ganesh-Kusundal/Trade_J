@@ -1,0 +1,1 @@
+Defines the core contract and standard implementations for executable nodes within the trading pipeline system.

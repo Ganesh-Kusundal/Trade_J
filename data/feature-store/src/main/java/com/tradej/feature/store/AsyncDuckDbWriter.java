@@ -1,6 +1,7 @@
 package com.tradej.feature.store;
 
 import com.tradej.core.domain.event.DomainEvent;
+import com.tradej.core.domain.event.PoisonPillEvent;
 import com.tradej.core.domain.port.DomainEventHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -51,19 +52,7 @@ public final class AsyncDuckDbWriter implements DomainEventHandler<DomainEvent>,
     private volatile Thread workerThread;
 
     /** Poison-pill sentinel for shutdown. */
-    private static final class PoisonPill implements DomainEvent {
-        @Override
-        public com.tradej.core.domain.event.EventMetadata metadata() {
-            return com.tradej.core.domain.event.EventMetadata.root();
-        }
-
-        @Override
-        public void accept(com.tradej.core.domain.event.DomainEventVisitor visitor) {
-            // PoisonPill is internal and doesn't need to be visited by risk/engine
-        }
-    }
-
-    private static final PoisonPill POISON_PILL = new PoisonPill();
+    private static final PoisonPillEvent POISON_PILL = new PoisonPillEvent();
 
     /**
      * Creates an async writer with default queue capacity (4096), batch size (64),
@@ -169,7 +158,7 @@ public final class AsyncDuckDbWriter implements DomainEventHandler<DomainEvent>,
                 if (first == null) {
                     continue; // timed out — loop back and check running flag
                 }
-                if (first instanceof PoisonPill) {
+                if (first instanceof PoisonPillEvent) {
                     break;
                 }
                 batch.add(first);
@@ -200,7 +189,7 @@ public final class AsyncDuckDbWriter implements DomainEventHandler<DomainEvent>,
             log.info("Draining {} remaining events on shutdown", remaining.size());
             for (DomainEvent event : remaining) {
                 // Skip poison pill — it's a shutdown sentinel, not a real event
-                if (event instanceof PoisonPill) {
+                if (event instanceof PoisonPillEvent) {
                     continue;
                 }
                 try {

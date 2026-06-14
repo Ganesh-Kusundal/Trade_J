@@ -22,6 +22,8 @@ import com.tradej.broker.upstox.adapter.UpstoxCoverOrderAdapter;
 import com.tradej.broker.upstox.adapter.UpstoxDataServicesProvider;
 import com.tradej.broker.upstox.adapter.UpstoxMarketStatusProvider;
 import com.tradej.broker.upstox.adapter.UpstoxProfileProvider;
+import com.tradej.broker.upstox.depth.UpstoxMarketDepthProvider;
+import com.tradej.broker.upstox.depth.UpstoxTwentyDepthWebSocketClient;
 import com.tradej.broker.upstox.instrument.UpstoxInstrumentLoader;
 import com.tradej.broker.upstox.instrument.UpstoxInstrumentResolver;
 
@@ -54,6 +56,8 @@ public final class UpstoxBrokerConnection implements IBrokerConnection {
     private final UpstoxProfileProvider profileProvider;
     private final UpstoxInstrumentLoader instrumentLoader;
     private final UpstoxInstrumentResolver upstoxInstrumentResolver;
+    private final UpstoxMarketDepthProvider marketDepthProvider;
+    private final UpstoxTwentyDepthWebSocketClient depthClient;
     private final MarketStatusProvider marketStatusProvider;
     private final CoverOrderProvider coverOrderProvider;
     private final Map<Class<?>, Object> capabilityMap;
@@ -75,7 +79,9 @@ public final class UpstoxBrokerConnection implements IBrokerConnection {
             SliceOrderCommand sliceOrderCommand,
             UpstoxDataServicesProvider dataServicesProvider,
             UpstoxProfileProvider profileProvider,
-            UpstoxInstrumentLoader instrumentLoader
+            UpstoxInstrumentLoader instrumentLoader,
+            UpstoxTwentyDepthWebSocketClient depthClient,
+            UpstoxMarketDepthProvider marketDepthProvider
     ) {
         this.marketDataProvider = Objects.requireNonNull(marketDataProvider);
         this.orderCommand = Objects.requireNonNull(orderCommand);
@@ -93,6 +99,8 @@ public final class UpstoxBrokerConnection implements IBrokerConnection {
         this.profileProvider = profileProvider;
         this.instrumentLoader = Objects.requireNonNull(instrumentLoader);
         this.upstoxInstrumentResolver = Objects.requireNonNull(instrumentResolver);
+        this.depthClient = Objects.requireNonNull(depthClient);
+        this.marketDepthProvider = Objects.requireNonNull(marketDepthProvider);
         this.marketStatusProvider = new UpstoxMarketStatusProvider();
         this.coverOrderProvider = new UpstoxCoverOrderAdapter();
         this.capabilityMap = buildCapabilityMap();
@@ -203,6 +211,14 @@ public final class UpstoxBrokerConnection implements IBrokerConnection {
         return newsProvider;
     }
 
+    public UpstoxTwentyDepthWebSocketClient depthClient() {
+        return depthClient;
+    }
+
+    public UpstoxMarketDepthProvider marketDepthProvider() {
+        return marketDepthProvider;
+    }
+
     @Override
     public com.tradej.broker.api.spi.BrokerSource source() {
         return com.tradej.broker.api.spi.BrokerSource.UPSTOX;
@@ -249,6 +265,8 @@ public final class UpstoxBrokerConnection implements IBrokerConnection {
         putIfNotNull(map, UpstoxDataServicesProvider.class, dataServicesProvider);
         putIfNotNull(map, UpstoxProfileProvider.class, profileProvider);
         putIfNotNull(map, ConditionalAlertProvider.class, conditionalAlertProvider);
+        putIfNotNull(map, UpstoxMarketDepthProvider.class, marketDepthProvider);
+        putIfNotNull(map, UpstoxTwentyDepthWebSocketClient.class, depthClient);
         return map;
     }
 

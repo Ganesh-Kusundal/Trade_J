@@ -1,0 +1,1 @@
+Uses DuckDB via `DuckDbPipelineGraphStore` for pipeline graph persistence. Relies on `VirtualClock` for deterministic time-based execution in both hot-path and DAG modes.

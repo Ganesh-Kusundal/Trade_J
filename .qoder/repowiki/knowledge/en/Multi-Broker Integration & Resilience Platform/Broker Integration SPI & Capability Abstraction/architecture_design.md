@@ -1,0 +1,5 @@
+- **Core Facade**: `IBrokerConnection` serves as the primary entry point, exposing broker-specific capabilities (e.g., `OrderCommand`, `MarketDataProvider`) via a type-safe `getCapability` mechanism.
+- **SPI Layer**: `BrokerProvider` and `BrokerRegistry` (with `ServiceLoader` discovery in `ServiceLoaderBrokerRegistry`) enable plug-and-play registration of new broker implementations without core changes.
+- **Port-Based Capabilities**: Functional domains are split into fine-grained interfaces in the `port` package (e.g., `FuturesProvider`, `WebSocketMultiplexer`), allowing partial implementation support per broker.
+- **Shared Infrastructure Contracts**: Standardizes cross-cutting concerns like authentication (`TokenLifecycleService`) and WebSocket resilience (`WebSocketSupervisor`) to decouple adapter logic from lifecycle management.
+- **Dependency Direction**: Depends on `:core` for domain models; exposed as an `api` dependency for adapter modules (e.g., `broker-dhan`) to implement against.

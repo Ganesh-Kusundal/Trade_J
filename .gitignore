@@ -50,3 +50,6 @@ data/feature-store/build/
 /REFERANCE/
 /poc/
 /.cline/
+# Editor backup files (emacs, vim, etc.)
+*.java-e
+*.java~

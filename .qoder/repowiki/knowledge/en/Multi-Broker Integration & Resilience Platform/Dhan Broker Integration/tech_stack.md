@@ -1,0 +1,3 @@
+- Uses `com.eatthepath:java-otp` for TOTP-based authentication generation.
+- Leverages `Jackson` for JSON mapping and binary payload normalization.
+- Implements custom binary parsers for Dhan's specific WebSocket market depth and feed protocols.

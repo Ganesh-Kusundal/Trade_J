@@ -1,4 +1,4 @@
-import type { ReadModelSnapshot } from "./backend-contracts";
+import type { ReadModelSnapshot } from "../generated/models";
 
 type Listener = (snapshot: ReadModelSnapshot) => void;
 

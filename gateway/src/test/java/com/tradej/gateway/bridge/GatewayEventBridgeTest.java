@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tradej.core.domain.event.DomainEvent;
 import com.tradej.core.domain.event.DomainEventVisitor;
 import com.tradej.core.domain.event.EventMetadata;
+import com.tradej.core.domain.event.TestEvent;
 import com.tradej.core.domain.event.PnlUpdatedEvent;
 import com.tradej.gateway.protocol.GatewayTopic;
 import com.tradej.gateway.router.GatewayTopicRouter;
@@ -46,10 +47,7 @@ class GatewayEventBridgeTest {
         bridge.close();
     }
 
-    private record TestEvent(EventMetadata metadata) implements DomainEvent {
-        @Override
-        public void accept(DomainEventVisitor visitor) { }
-    }
+
 
     private static TestEvent eventWithId(String eventId) {
         return new TestEvent(new EventMetadata(eventId, 0L, 0L, 0L, "", 1));

@@ -12,9 +12,8 @@ import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Tracks broker API failures by counting {@link BrokerAdapterError} events
- * and recording the most recent error details. Designed to be consumed by
- * {@link BrokerHealthIndicator} for exposing error information via the
- * Spring Boot Actuator health endpoint.
+ * and recording the most recent error details. Exposes its counters to the
+ * Spring Boot Actuator health endpoint via {@link PlatformHealthIndicator}.
  */
 @Service
 public final class BrokerErrorTracker implements DomainEventHandler<DomainEvent> {

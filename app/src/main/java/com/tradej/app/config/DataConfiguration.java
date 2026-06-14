@@ -28,9 +28,7 @@ import com.tradej.core.domain.value.ExchangeSegment;
 import com.tradej.core.infrastructure.WorkspacePaths;
 import com.tradej.execution.identity.OrderIdentityRehydrator;
 import com.tradej.execution.identity.OrderIdentityRegistry;
-import com.tradej.execution.position.EventSourcedNetPositionProvider;
 import com.tradej.execution.readmodel.ReadModelStore;
-import com.tradej.execution.risk.PositionRiskHandler;
 import com.tradej.execution.service.OrderManagementService;
 import com.tradej.feature.store.AsyncDuckDbWriter;
 import com.tradej.feature.store.DuckDbFeatureStore;
@@ -48,6 +46,7 @@ import com.tradej.options.surface.VolatilitySurfaceBuilder;
 import com.tradej.persistence.chronicle.ChronicleAuditLogWriter;
 import com.tradej.persistence.chronicle.ChronicleDeadLetterQueue;
 import com.tradej.persistence.duckdb.AsyncDuckDbEventStore;
+import com.tradej.persistence.duckdb.DuckDbConnectionPool;
 import com.tradej.persistence.duckdb.DuckDbEventStore;
 import com.tradej.persistence.oms.EventSourcedOrderRepository;
 import com.tradej.persistence.pipeline.DuckDbPipelineGraphStore;
@@ -127,9 +126,15 @@ public class DataConfiguration {
         return new ChronicleAuditLogWriter(Path.of(properties.storage().chroniclePath()));
     }
 
+    @Bean(destroyMethod = "close")
+    @Primary
+    DuckDbConnectionPool duckDbConnectionPool(TradingProperties properties) {
+        return DuckDbConnectionPool.create(Path.of(properties.storage().duckdbPath()));
+    }
+
     @Bean
-    DuckDbEventStore duckDbEventStore(TradingProperties properties) {
-        return new DuckDbEventStore(Path.of(properties.storage().duckdbPath()));
+    DuckDbEventStore duckDbEventStore(DuckDbConnectionPool pool) {
+        return new DuckDbEventStore(pool);
     }
 
     @Bean(destroyMethod = "close")
@@ -147,13 +152,13 @@ public class DataConfiguration {
     }
 
     @Bean(name = "localHistoricalRangeService")
-    HistoricalRangeService localHistoricalRangeService(TradingProperties properties) {
-        return new HistoricalRangeService(Path.of(properties.storage().duckdbPath()));
+    HistoricalRangeService localHistoricalRangeService(DuckDbConnectionPool pool) {
+        return new HistoricalRangeService(pool);
     }
 
     @Bean
-    DuckDbPipelineGraphStore duckDbPipelineGraphStore(TradingProperties properties) {
-        return new DuckDbPipelineGraphStore(Path.of(properties.storage().duckdbPath()));
+    DuckDbPipelineGraphStore duckDbPipelineGraphStore(DuckDbConnectionPool pool) {
+        return new DuckDbPipelineGraphStore(pool);
     }
 
     @Bean(destroyMethod = "close")
@@ -164,16 +169,15 @@ public class DataConfiguration {
     @Bean
     ReplayStateManager replayStateManager(
             PortfolioEngine portfolioEngine,
-            EventSourcedNetPositionProvider netPositionProvider,
-            PositionRiskHandler positionRiskHandler,
+            com.tradej.composition.FullComposition fullComposition,
             CandleAggregationService candleAggregationService,
             ReadModelStore readModelStore,
             OrderManagementService orderManagementService
     ) {
         return new IsolatedReplayStateManager(
                 portfolioEngine,
-                netPositionProvider,
-                positionRiskHandler,
+                fullComposition.executionComposition().positionService(),
+                fullComposition.executionComposition().positionRiskHandler(),
                 candleAggregationService,
                 readModelStore,
                 orderManagementService

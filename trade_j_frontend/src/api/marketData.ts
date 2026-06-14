@@ -1,26 +1,21 @@
-import { fetchJson } from "./client";
+import { marketApi } from "../generated/api";
 import type {
   SymbolsResponse,
   LtpResponse,
   DepthResponse,
   CandleResponse,
-} from "./backend-contracts";
+} from "../generated/models";
 
 export function fetchSymbols(exchangeSegment?: string, search?: string) {
-  const params = new URLSearchParams();
-  if (exchangeSegment) params.set("exchangeSegment", exchangeSegment);
-  if (search) params.set("search", search);
-  return fetchJson<SymbolsResponse>(`/symbols?${params}`);
+  return marketApi.symbols(false) as Promise<SymbolsResponse>;
 }
 
 export function fetchLtp(symbol: string, exchangeSegment: string) {
-  return fetchJson<LtpResponse>(
-    `/market/ltp?symbol=${encodeURIComponent(symbol)}&exchangeSegment=${exchangeSegment}`
-  );
+  return marketApi.ltp(symbol, exchangeSegment) as Promise<LtpResponse>;
 }
 
 export function fetchDepth(symbol: string) {
-  return fetchJson<DepthResponse>(`/market/depth/${encodeURIComponent(symbol)}`);
+  return marketApi.depth(symbol) as Promise<DepthResponse>;
 }
 
 export function fetchCandles(
@@ -31,6 +26,5 @@ export function fetchCandles(
   to: string,
   source = "broker"
 ) {
-  const params = new URLSearchParams({ symbol, exchangeSegment, interval, from, to, source });
-  return fetchJson<CandleResponse>(`/market/historical/candles?${params}`);
+  return marketApi.candles({ symbol, exchangeSegment, interval, from, to, source }) as Promise<CandleResponse>;
 }

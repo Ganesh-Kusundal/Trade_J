@@ -1,76 +1,92 @@
 package com.tradej.composition;
 
 import com.tradej.composition.config.StorageProfile;
+import com.tradej.core.domain.port.DeadLetterQueue;
 import com.tradej.persistence.chronicle.ChronicleAuditLogWriter;
 import com.tradej.persistence.chronicle.ChronicleDeadLetterQueue;
 import com.tradej.persistence.duckdb.AsyncDuckDbEventStore;
 import com.tradej.persistence.duckdb.DuckDbConnectionPool;
 import com.tradej.persistence.duckdb.DuckDbEventStore;
 import com.tradej.persistence.duckdb.DuckDbScanStore;
-import com.tradej.persistence.oms.EventSourcedOrderRepository;
 import com.tradej.persistence.pipeline.DuckDbPipelineGraphStore;
-import com.tradej.persistence.replay.HistoricalRangeService;
-import com.tradej.persistence.replay.ReplayRunner;
-import com.tradej.core.domain.port.DeadLetterQueue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.nio.file.Path;
+import java.util.Objects;
 
-public final class DataComposition {
+/**
+ * Data composition root — owns the canonical persistence layer
+ * (Chronicle queues for audit + DLQ, DuckDB for events, scans, and pipeline graphs).
+ *
+ * <p>Mirrors the bean wiring that {@code app/.../config/DataConfiguration.java:120-165}
+ * historically performed.
+ */
+public final class DataComposition implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(DataComposition.class);
-    private static final String OMS_QUEUE_SUBDIR = "oms";
+
     private static final String DLQ_QUEUE_SUBDIR = "dlq";
 
-    private final StorageProfile storageProfile;
+    private final StorageProfile profile;
     private final DeadLetterQueue deadLetterQueue;
     private final ChronicleAuditLogWriter chronicleAuditLogWriter;
-    private final DuckDbConnectionPool duckDbPool;
+    private final DuckDbConnectionPool duckDbConnectionPool;
     private final DuckDbEventStore duckDbEventStore;
     private final AsyncDuckDbEventStore asyncDuckDbEventStore;
-    private final DuckDbPipelineGraphStore pipelineGraphStore;
-    private final DuckDbScanStore scanStore;
+    private final DuckDbPipelineGraphStore duckDbPipelineGraphStore;
+    private final DuckDbScanStore duckDbScanStore;
 
     private DataComposition(
-            StorageProfile storageProfile,
+            StorageProfile profile,
             DeadLetterQueue deadLetterQueue,
             ChronicleAuditLogWriter chronicleAuditLogWriter,
-            DuckDbConnectionPool duckDbPool,
+            DuckDbConnectionPool duckDbConnectionPool,
             DuckDbEventStore duckDbEventStore,
             AsyncDuckDbEventStore asyncDuckDbEventStore,
-            DuckDbPipelineGraphStore pipelineGraphStore,
-            DuckDbScanStore scanStore
+            DuckDbPipelineGraphStore duckDbPipelineGraphStore,
+            DuckDbScanStore duckDbScanStore
     ) {
-        this.storageProfile = storageProfile;
+        this.profile = profile;
         this.deadLetterQueue = deadLetterQueue;
         this.chronicleAuditLogWriter = chronicleAuditLogWriter;
-        this.duckDbPool = duckDbPool;
+        this.duckDbConnectionPool = duckDbConnectionPool;
         this.duckDbEventStore = duckDbEventStore;
         this.asyncDuckDbEventStore = asyncDuckDbEventStore;
-        this.pipelineGraphStore = pipelineGraphStore;
-        this.scanStore = scanStore;
+        this.duckDbPipelineGraphStore = duckDbPipelineGraphStore;
+        this.duckDbScanStore = duckDbScanStore;
     }
 
-    public static DataComposition create(StorageProfile storageProfile) {
-        Path chroniclePath = storageProfile.chroniclePath();
-        Path duckdbPath = storageProfile.duckdbPath();
+    /**
+     * Build the data composition from a {@link StorageProfile}.
+     *
+     * @param profile storage profile (chronicle path + duckdb path)
+     * @return fully-wired {@link DataComposition}
+     * @throws NullPointerException if {@code profile} is null
+     */
+    public static DataComposition create(StorageProfile profile) {
+        Objects.requireNonNull(profile, "profile");
 
-        DeadLetterQueue dlq = new ChronicleDeadLetterQueue(chroniclePath.resolve(DLQ_QUEUE_SUBDIR));
-        ChronicleAuditLogWriter auditLog = new ChronicleAuditLogWriter(chroniclePath);
+        Path dlqPath = profile.chroniclePath().resolve(DLQ_QUEUE_SUBDIR);
+        ChronicleDeadLetterQueue dlq = new ChronicleDeadLetterQueue(dlqPath);
+        ChronicleAuditLogWriter audit = new ChronicleAuditLogWriter(profile.chroniclePath());
 
-        DuckDbConnectionPool pool = DuckDbConnectionPool.create(duckdbPath);
+        DuckDbConnectionPool pool = DuckDbConnectionPool.create(profile.duckdbPath());
         DuckDbEventStore eventStore = new DuckDbEventStore(pool);
         AsyncDuckDbEventStore asyncEventStore = new AsyncDuckDbEventStore(eventStore);
-        DuckDbPipelineGraphStore graphStore = new DuckDbPipelineGraphStore(pool);
-        DuckDbScanStore scanStore = new DuckDbScanStore(pool);
+        asyncEventStore.start();
 
-        log.info("Data composition created: chronicle={} duckdb={} (shared pool)", chroniclePath, duckdbPath);
-        return new DataComposition(storageProfile, dlq, auditLog, pool, eventStore, asyncEventStore, graphStore, scanStore);
+        DuckDbPipelineGraphStore pipelineGraphStore = new DuckDbPipelineGraphStore(pool);
+        DuckDbScanStore scanStore = new DuckDbScanStore(profile.duckdbPath());
+
+        log.info("DataComposition created (chronicle={}, duckdb={})",
+                profile.chroniclePath(), profile.duckdbPath());
+
+        return new DataComposition(profile, dlq, audit, pool, eventStore, asyncEventStore, pipelineGraphStore, scanStore);
     }
 
-    public StorageProfile storageProfile() {
-        return storageProfile;
+    public StorageProfile profile() {
+        return profile;
     }
 
     public DeadLetterQueue deadLetterQueue() {
@@ -81,6 +97,10 @@ public final class DataComposition {
         return chronicleAuditLogWriter;
     }
 
+    public DuckDbConnectionPool duckDbConnectionPool() {
+        return duckDbConnectionPool;
+    }
+
     public DuckDbEventStore duckDbEventStore() {
         return duckDbEventStore;
     }
@@ -89,15 +109,30 @@ public final class DataComposition {
         return asyncDuckDbEventStore;
     }
 
-    public DuckDbPipelineGraphStore pipelineGraphStore() {
-        return pipelineGraphStore;
+    public DuckDbPipelineGraphStore duckDbPipelineGraphStore() {
+        return duckDbPipelineGraphStore;
     }
 
-    public DuckDbConnectionPool duckDbPool() {
-        return duckDbPool;
+    public DuckDbScanStore duckDbScanStore() {
+        return duckDbScanStore;
     }
 
-    public DuckDbScanStore scanStore() {
-        return scanStore;
+    @Override
+    public void close() throws Exception {
+        try {
+            asyncDuckDbEventStore.close();
+        } catch (Exception e) {
+            log.warn("Failed to close asyncDuckDbEventStore: {}", e.getMessage());
+        }
+        try {
+            duckDbScanStore.close();
+        } catch (Exception e) {
+            log.warn("Failed to close duckDbScanStore: {}", e.getMessage());
+        }
+        try {
+            duckDbConnectionPool.close();
+        } catch (Exception e) {
+            log.warn("Failed to close duckDbConnectionPool: {}", e.getMessage());
+        }
     }
 }

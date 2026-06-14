@@ -28,10 +28,12 @@ import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 /**
  * Manages order lifecycle with state-machine validation.
@@ -84,6 +86,55 @@ public final class OrderManagementService {
         this.clock = clock;
         this.orderRepository = orderRepository;
         this.circuitBreaker = circuitBreaker;
+    }
+
+    /**
+     * Creates a new builder for constructing an {@link OrderManagementService}
+     * with explicit, non-null required dependencies.
+     */
+    public static Builder builder(IBrokerConnection brokerConnection,
+                                  RuntimeModeHolder runtimeModeHolder,
+                                  TradingClock clock,
+                                  EventSourcedOrderRepository orderRepository) {
+        return new Builder(brokerConnection, runtimeModeHolder, clock, orderRepository);
+    }
+
+    /**
+     * Fluent builder for {@link OrderManagementService}. Replaces constructor telescoping —
+     * required dependencies are non-null and optional ones are explicit.
+     */
+    public static final class Builder {
+        private final IBrokerConnection brokerConnection;
+        private final RuntimeModeHolder runtimeModeHolder;
+        private final TradingClock clock;
+        private final EventSourcedOrderRepository orderRepository;
+        private SimulatedOrderService simulatedOrderService;
+        private TradingCircuitBreaker circuitBreaker;
+
+        private Builder(IBrokerConnection brokerConnection,
+                        RuntimeModeHolder runtimeModeHolder,
+                        TradingClock clock,
+                        EventSourcedOrderRepository orderRepository) {
+            this.brokerConnection = Objects.requireNonNull(brokerConnection, "brokerConnection");
+            this.runtimeModeHolder = Objects.requireNonNull(runtimeModeHolder, "runtimeModeHolder");
+            this.clock = Objects.requireNonNull(clock, "clock");
+            this.orderRepository = Objects.requireNonNull(orderRepository, "orderRepository");
+        }
+
+        public Builder withSimulatedOrderService(SimulatedOrderService service) {
+            this.simulatedOrderService = service;
+            return this;
+        }
+
+        public Builder withCircuitBreaker(TradingCircuitBreaker breaker) {
+            this.circuitBreaker = breaker;
+            return this;
+        }
+
+        public OrderManagementService build() {
+            return new OrderManagementService(
+                    brokerConnection, runtimeModeHolder, simulatedOrderService, clock, orderRepository, circuitBreaker);
+        }
     }
 
     /**
@@ -192,23 +243,28 @@ public final class OrderManagementService {
     }
 
     /**
+     * Returns orders filtered by the given terminal-state predicate.
+     * Use {@link LifecycleState#isFinal()} composed as needed.
+     */
+    public List<OrderProjection> ordersBy(Predicate<LifecycleState> stateFilter) {
+        return stateMachines.values().stream()
+                .map(OrderStateMachine::toProjection)
+                .filter(p -> stateFilter.test(p.status()))
+                .toList();
+    }
+
+    /**
      * Lists all orders that are not in a terminal state.
      */
     public List<OrderProjection> getActiveOrders() {
-        return stateMachines.values().stream()
-                .map(OrderStateMachine::toProjection)
-                .filter(p -> !p.status().isFinal())
-                .toList();
+        return ordersBy(state -> !state.isFinal());
     }
 
     /**
      * Lists all orders in a terminal state.
      */
     public List<OrderProjection> getCompletedOrders() {
-        return stateMachines.values().stream()
-                .map(OrderStateMachine::toProjection)
-                .filter(p -> p.status().isFinal())
-                .toList();
+        return ordersBy(LifecycleState::isFinal);
     }
 
     /**

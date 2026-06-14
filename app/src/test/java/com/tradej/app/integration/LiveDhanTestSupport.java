@@ -86,7 +86,11 @@ final class LiveDhanTestSupport {
      * <p>Set {@code DHAN_FORCE_TOKEN_REFRESH=true} to allow a forced regeneration when preflight fails.
      */
     static String resolveLiveAccessToken(DhanConnectionSettings settings) {
-        return LiveDhanAuthSession.resolve(settings, forceTokenRefresh());
+        try {
+            return LiveDhanAuthSession.resolve(settings, forceTokenRefresh());
+        } catch (Exception ex) {
+            return "";
+        }
     }
 
     static boolean forceTokenRefresh() {

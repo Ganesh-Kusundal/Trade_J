@@ -1,0 +1,1 @@
+Routes domain events from the internal event bus to WebSocket clients via topic-based pub/sub with binary framing and backpressure handling.
