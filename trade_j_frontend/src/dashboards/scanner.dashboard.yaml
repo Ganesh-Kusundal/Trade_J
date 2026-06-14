@@ -1,0 +1,32 @@
+id: scanner
+title: Scanner
+description: Real-time scanner — watchlist, scan hits, signals, top movers by signal strength
+layout:
+  kind: grid
+  cols: 2
+  gap: 8
+widgets:
+  - id: watchlist
+    type: signals-table
+    title: Watchlist (signals last 5m)
+    dataSource:
+      kind: readmodel.signals
+      window: 5m
+  - id: scan-hits
+    type: scan-hits
+    title: Scan Hits
+    dataSource:
+      kind: readmodel.signals
+      minStrength: 0.5
+  - id: depth
+    type: depth-snapshot
+    title: Top of Book (best signal)
+    dataSource:
+      kind: readmodel.depths
+      pickFirst: true
+  - id: signal-stream
+    type: signal-stream
+    title: Live Signal Stream
+    dataSource:
+      kind: readmodel.signals
+      live: true

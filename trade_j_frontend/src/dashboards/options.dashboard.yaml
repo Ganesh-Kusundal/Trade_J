@@ -1,0 +1,43 @@
+id: options
+title: Options
+description: Options analytics view — chain-equivalent read model (depth, signals, pnl) plus the option strategy sandbox
+layout:
+  kind: tabs
+  tabs: [overview, greeks, smile, oi]
+widgets:
+  - id: option-depth
+    type: depth-snapshot
+    title: ATM Option Depth
+    dataSource:
+      kind: readmodel.depths
+      instrument: ${selectedOptionInstrument}
+  - id: option-signals
+    type: signals-table
+    title: Option Signals
+    dataSource:
+      kind: readmodel.signals
+      instrument: ${selectedOptionInstrument}
+  - id: option-pnl
+    type: pnl-curve
+    title: Option P&L Curve
+    dataSource:
+      kind: readmodel.pnl
+      instrument: ${selectedOptionInstrument}
+  - id: option-equity
+    type: equity-curve
+    title: Option Equity Curve
+    dataSource:
+      kind: readmodel.pnl
+      instrument: ${selectedOptionInstrument}
+  - id: option-heatmap
+    type: heatmap
+    title: Strike × Expiry Heatmap
+    dataSource:
+      kind: readmodel.depths
+      groupBy: strikeExpiry
+  - id: option-scan-hits
+    type: scan-hits
+    title: OI Build / Unwind
+    dataSource:
+      kind: readmodel.signals
+      kindFilter: oi-build

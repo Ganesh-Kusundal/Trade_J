@@ -1,0 +1,36 @@
+id: replay
+title: Replay
+description: Historical replay studio — candles, replay time, signal events, order/fill reconstruction
+layout:
+  kind: split
+  direction: vertical
+  ratio: 0.6
+widgets:
+  - id: replay-events
+    type: signal-stream
+    title: Replay Events (signals, orders, fills)
+    dataSource:
+      kind: readmodel.signals
+      since: ${replayFromMs}
+      until: ${replayToMs}
+  - id: replay-fills
+    type: scan-hits
+    title: Reconstructed Fills
+    dataSource:
+      kind: readmodel.positions
+      since: ${replayFromMs}
+      until: ${replayToMs}
+  - id: replay-equity
+    type: equity-curve
+    title: Equity Curve (during replay)
+    dataSource:
+      kind: readmodel.pnl
+      since: ${replayFromMs}
+      until: ${replayToMs}
+  - id: replay-drawdown
+    type: drawdown
+    title: Drawdown (during replay)
+    dataSource:
+      kind: readmodel.pnl
+      since: ${replayFromMs}
+      until: ${replayToMs}
