@@ -210,6 +210,45 @@ public class DataConfiguration {
         return new PositionStateRebuilder(replayOrchestrator);
     }
 
+    @Bean
+    com.tradej.replay.engine.ScenarioRunner scenarioRunner(
+            com.tradej.core.domain.port.EventBus eventBus,
+            com.tradej.replay.engine.CandleReplaySession candleSession,
+            com.tradej.replay.engine.BacktestExecutionService backtestService,
+            com.tradej.core.domain.port.HistoricalBarRepository barRepository,
+            org.springframework.beans.factory.ObjectProvider<com.tradej.persistence.replay.HistoricalQueryService> queryServiceProvider
+    ) {
+        // The ScenarioRunner is the single entry point for replay,
+        // backtest, and scanner-on-replay. The strategyHash is empty
+        // and the seed is 42L (deterministic). A production
+        // deployment would parameterize these.
+        //
+        // HistoricalQueryService is not yet a Spring bean in dev
+        // mode (it requires a DuckDB Connection); the
+        // ObjectProvider lets us wire the runner anyway. The
+        // REPLAY_TICKS path returns a graceful error if no query
+        // service is present — see ScenarioRunner.runTickReplay.
+        com.tradej.persistence.replay.HistoricalQueryService qs = queryServiceProvider.getIfAvailable();
+        return new com.tradej.replay.engine.ScenarioRunner(
+                eventBus, candleSession, backtestService, barRepository,
+                qs, "", 42L);
+    }
+
+    @Bean
+    com.tradej.replay.engine.AdminReplayAdapter adminReplayAdapter(
+            com.tradej.replay.engine.ScenarioRunner scenarioRunner
+    ) {
+        // Bridge from the admin path inputs (symbol, from, to,
+        // offset, batchSize) to the unified ScenarioRunner. The
+        // /admin/historical/replay/ticks path is the first to
+        // route through this adapter; the other three paths still
+        // route through the orchestrator until their Kinds
+        // (REPLAY_CANDLES via candle session facade, REPLAY_EVENTS
+        // for projection-store path) are added in follow-up
+        // commits.
+        return new com.tradej.replay.engine.AdminReplayAdapter(scenarioRunner);
+    }
+
     // ── Feature store ──
 
     private static final String FEATURES_DB = "-features.duckdb";

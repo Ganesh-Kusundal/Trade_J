@@ -80,6 +80,13 @@ public interface Scenario {
         REPLAY_CANDLES,
         /** Domain-event replay from the projection store. */
         REPLAY_EVENTS,
+        /** Tick replay — query {@code market_ticks} and publish
+         *  {@code MarketTickEvent}s into the bus. The admin
+         *  {@code /admin/historical/replay/ticks} path used to
+         *  route through {@code HistoricalEventReplayService}
+         *  directly; with this kind the path goes through
+         *  {@link ScenarioRunner} like every other scenario. */
+        REPLAY_TICKS,
         /** Backtest with deterministic fill model. */
         BACKTEST,
         /** Live scanner using real-time ticks. */

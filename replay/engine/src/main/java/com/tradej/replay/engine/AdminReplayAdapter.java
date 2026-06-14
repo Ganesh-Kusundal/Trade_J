@@ -54,30 +54,46 @@ public final class AdminReplayAdapter {
 
     public ReplayResult replayTicks(String symbol, long fromMs, long toMs,
                                     int offset, int batchSize) {
-        return run(buildScenario("admin-ticks-" + symbol, "Admin: ticks " + symbol,
-                symbol, null, fromMs, toMs), batchSize);
+        return run(buildTickScenario("admin-ticks-" + symbol, "Admin: ticks " + symbol,
+                symbol, fromMs, toMs, batchSize));
     }
 
     public ReplayResult replayCandles(String symbol, String interval,
                                       long fromMs, long toMs) {
         return run(buildScenario("admin-candles-" + symbol, "Admin: candles " + symbol,
-                symbol, interval, fromMs, toMs), 0);
+                symbol, interval, fromMs, toMs, Scenario.Kind.REPLAY_CANDLES));
     }
 
     public ReplayResult replayFillEvents(String symbolOrNull, long fromMs, long toMs) {
         String sym = (symbolOrNull == null || symbolOrNull.isBlank()) ? "*" : symbolOrNull;
         return run(buildScenario("admin-fills-" + sym, "Admin: fills " + sym,
-                sym, null, fromMs, toMs), 0);
+                sym, null, fromMs, toMs, Scenario.Kind.REPLAY_EVENTS));
     }
 
     public ReplayResult replayOrders(String symbolOrNull, long fromMs, long toMs) {
         String sym = (symbolOrNull == null || symbolOrNull.isBlank()) ? "*" : symbolOrNull;
         return run(buildScenario("admin-orders-" + sym, "Admin: orders " + sym,
-                sym, null, fromMs, toMs), 0);
+                sym, null, fromMs, toMs, Scenario.Kind.REPLAY_EVENTS));
+    }
+
+    /**
+     * The tick path carries a {@code batchSize} tag the runner
+     * uses for the {@code LIMIT} on the tick query.
+     */
+    private Scenario buildTickScenario(String id, String label, String symbol,
+                                       long fromMs, long toMs, int batchSize) {
+        return buildScenario(id, label, symbol, null, fromMs, toMs,
+                Scenario.Kind.REPLAY_TICKS, Map.of("batchSize", Integer.toString(batchSize)));
     }
 
     private Scenario buildScenario(String id, String label, String symbol, String interval,
-                                   long fromMs, long toMs) {
+                                   long fromMs, long toMs, Scenario.Kind kind) {
+        return buildScenario(id, label, symbol, interval, fromMs, toMs, kind, Map.of());
+    }
+
+    private Scenario buildScenario(String id, String label, String symbol, String interval,
+                                   long fromMs, long toMs, Scenario.Kind kind,
+                                   Map<String, String> extraTags) {
         return new Scenario() {
             @Override
             public String id() {
@@ -89,11 +105,12 @@ public final class AdminReplayAdapter {
             }
             @Override
             public Kind kind() {
-                // All four admin paths are domain-event replays from
-                // the projection store. The orchestrator's source is
-                // the same DuckDB historical range service; the
-                // scenario runner subsumes that path.
-                return Kind.REPLAY_EVENTS;
+                // Each admin path maps to a specific runner kind:
+                //   ticks     → REPLAY_TICKS   (runTickReplay)
+                //   candles   → REPLAY_CANDLES (candle session facade)
+                //   fills     → REPLAY_EVENTS  (runEventReplay)
+                //   orders    → REPLAY_EVENTS  (runEventReplay)
+                return kind;
             }
             @Override
             public Window window() {
@@ -118,12 +135,13 @@ public final class AdminReplayAdapter {
                 t.put("source", "admin-controller");
                 t.put("symbol", symbol);
                 if (interval != null) t.put("interval", interval);
+                t.putAll(extraTags);
                 return t;
             }
         };
     }
 
-    private ReplayResult run(Scenario scenario, int batchSize) {
+    private ReplayResult run(Scenario scenario) {
         Scenario.Result result = runner.run(scenario);
         long replayed = result.eventsPublished() == null ? 0L : result.eventsPublished().size();
         long failed = result.errors() == null ? 0L : result.errors().size();

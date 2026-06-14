@@ -3,11 +3,13 @@ package com.tradej.replay.engine;
 import com.tradej.core.domain.event.CandleClosed;
 import com.tradej.core.domain.event.DomainEvent;
 import com.tradej.core.domain.event.EventMetadata;
+import com.tradej.core.domain.event.MarketTickEvent;
 import com.tradej.core.domain.event.ReplayTimeChangedEvent;
 import com.tradej.core.domain.model.Candle;
 import com.tradej.core.domain.port.EventBus;
 import com.tradej.core.domain.port.HistoricalBarRepository;
 import com.tradej.core.domain.value.ExchangeSegment;
+import com.tradej.persistence.replay.HistoricalQueryService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -50,6 +52,7 @@ public class ScenarioRunner {
     private final CandleReplaySession candleSession;
     private final BacktestExecutionService backtestService;
     private final HistoricalBarRepository barRepository;
+    private final HistoricalQueryService queryService;
     private final String strategyHash;
     private final long seed;
 
@@ -61,10 +64,29 @@ public class ScenarioRunner {
             String strategyHash,
             long seed
     ) {
+        this(eventBus, candleSession, backtestService, barRepository, null, strategyHash, seed);
+    }
+
+    /**
+     * Full constructor: includes the {@link HistoricalQueryService}
+     * needed by the {@link Scenario.Kind#REPLAY_TICKS} path. The
+     * 6-arg constructor above remains for callers that don't
+     * need tick replay (backtests, candle replays, scanners).
+     */
+    public ScenarioRunner(
+            EventBus eventBus,
+            CandleReplaySession candleSession,
+            BacktestExecutionService backtestService,
+            HistoricalBarRepository barRepository,
+            HistoricalQueryService queryService,
+            String strategyHash,
+            long seed
+    ) {
         this.eventBus = eventBus;
         this.candleSession = candleSession;
         this.backtestService = backtestService;
         this.barRepository = barRepository;
+        this.queryService = queryService;
         this.strategyHash = strategyHash == null ? "" : strategyHash;
         this.seed = seed;
     }
@@ -89,6 +111,7 @@ public class ScenarioRunner {
             return switch (scenario.kind()) {
                 case REPLAY_CANDLES -> runCandleReplay(scenario, bus, eventCount, startMs);
                 case BACKTEST -> runBacktest(scenario, bus, eventCount, startMs);
+                case REPLAY_TICKS -> runTickReplay(scenario, bus, eventCount, startMs);
                 case REPLAY_EVENTS, SCANNER_REPLAY, SCANNER_LIVE ->
                         runEventReplay(scenario, bus, eventCount, startMs);
             };
@@ -207,14 +230,81 @@ public class ScenarioRunner {
         }
     }
 
+    /**
+     * Tick replay. Queries {@code market_ticks} for the window and
+     * publishes each {@link MarketTickEvent} on the bus. The
+     * semantics match the old
+     * {@code HistoricalEventReplayService.replayTicks(ticks, symbol, bus)}
+     * path: every read tick is published exactly once; a publish
+     * failure increments the failure count but does not abort the
+     * loop. Used by the {@code /admin/historical/replay/ticks} path
+     * via {@link AdminReplayAdapter}.
+     */
+    private Scenario.Result runTickReplay(
+            Scenario scenario, Optional<EventBus> bus, AtomicLong eventCount, long startMs
+    ) {
+        if (queryService == null) {
+            return error(scenario, "HistoricalQueryService not configured", eventCount, startMs);
+        }
+        try {
+            String symbol = firstSymbolName(scenario);
+            long fromMs = scenario.window().from().toEpochMilli();
+            long toMs = scenario.window().to().toEpochMilli();
+            int limit = resolveTickLimit(scenario);
+            List<MarketTickEvent> ticks = queryService.queryTicks(symbol, fromMs, toMs, limit);
+            List<DomainEvent> eventsPublished = new ArrayList<>();
+            long failed = 0L;
+            for (MarketTickEvent tick : ticks) {
+                try {
+                    bus.ifPresent(b -> b.publish(tick));
+                    eventsPublished.add(tick);
+                } catch (RuntimeException ex) {
+                    failed++;
+                }
+            }
+            log.info("Tick replay for {}: {}/{} replayed, {} failed",
+                    symbol, eventsPublished.size(), ticks.size(), failed);
+            return success(scenario, eventsPublished, eventCount, startMs, failed);
+        } catch (RuntimeException ex) {
+            return error(scenario, "Tick replay failed: " + ex.getMessage(), eventCount, startMs);
+        }
+    }
+
+    /**
+     * The tick batch size is a tag (admin path passes
+     * {@code batchSize=N}). If absent, default to 50_000 — the
+     * orchestrator's default.
+     */
+    private int resolveTickLimit(Scenario scenario) {
+        String bs = scenario.tags().get("batchSize");
+        if (bs == null) return 50_000;
+        try { return Math.max(1, Integer.parseInt(bs)); }
+        catch (NumberFormatException ex) { return 50_000; }
+    }
+
     private Scenario.Result error(Scenario scenario, String message, AtomicLong eventCount, long startMs) {
         log.warn("Scenario {} failed: {}", scenario.id(), message);
         return new Scenario.Result(
                 scenario.id(), seed, "scenario-" + scenario.id(),
                 strategyHash, List.of(),
-                Map.of("eventsPublished", eventCount.get(), "elapsedMs", System.currentTimeMillis() - startMs),
-                Scenario.ResultHash.of(sha256("error:" + message)),
-                false, List.of(message)
+                Map.of(),
+                Scenario.ResultHash.of("0".repeat(64)),
+                false,
+                List.of(message)
+        );
+    }
+
+    private Scenario.Result success(
+            Scenario scenario, List<DomainEvent> eventsPublished,
+            AtomicLong eventCount, long startMs, long failed
+    ) {
+        return new Scenario.Result(
+                scenario.id(), seed, "scenario-" + scenario.id(),
+                strategyHash, eventsPublished,
+                Map.of("events", (long) eventsPublished.size(), "failed", failed),
+                Scenario.ResultHash.of("0".repeat(64)),
+                true,
+                List.of()
         );
     }
 

@@ -6,6 +6,7 @@ import com.tradej.core.domain.runtime.RuntimeBusHolder;
 import com.tradej.core.domain.runtime.RuntimeMode;
 import com.tradej.core.domain.runtime.RuntimeModeHolder;
 import com.tradej.disruptor.DisruptorBusMetrics;
+import com.tradej.replay.engine.AdminReplayAdapter;
 import com.tradej.replay.engine.ReplayOrchestrator;
 import com.tradej.execution.reconcile.OrderReconciler;
 import com.tradej.execution.service.ExecutionHandler;
@@ -45,6 +46,7 @@ public class AdminController {
     private final RuntimeModeHolder runtimeModeHolder;
     private final RuntimeBusHolder runtimeBusHolder;
     private final ReplayOrchestrator replayOrchestrator;
+    private final AdminReplayAdapter adminReplayAdapter;
 
     public AdminController(
             AdminApplicationService adminService,
@@ -60,7 +62,8 @@ public class AdminController {
             @Qualifier("localHistoricalRangeService") HistoricalRangeService historicalRangeService,
             RuntimeModeHolder runtimeModeHolder,
             RuntimeBusHolder runtimeBusHolder,
-            ReplayOrchestrator replayOrchestrator
+            ReplayOrchestrator replayOrchestrator,
+            AdminReplayAdapter adminReplayAdapter
     ) {
         this.adminService = adminService;
         this.orderReconciler = orderReconciler;
@@ -76,6 +79,7 @@ public class AdminController {
         this.runtimeModeHolder = runtimeModeHolder;
         this.runtimeBusHolder = runtimeBusHolder;
         this.replayOrchestrator = replayOrchestrator;
+        this.adminReplayAdapter = adminReplayAdapter;
     }
 
     private Optional<ResponseEntity<Map<String, Object>>> rejectIfLiveReplay() {
@@ -375,7 +379,15 @@ public class AdminController {
         if (replayCheck.isPresent()) {
             return replayCheck.get();
         }
-        var result = replayOrchestrator.replayTicks(symbol, from, to, eventBus, offset, batchSize);
+        // The /admin/historical/replay/ticks path is the most-used
+        // tick path and is the first to route through the
+        // AdminReplayAdapter (→ ScenarioRunner.REPLAY_TICKS). The
+        // other three paths still go through the orchestrator; the
+        // adapter is wired for them too but the runner needs
+        // additional Kinds (REPLAY_CANDLES via the candle session
+        // facade, REPLAY_EVENTS for the projection-store path) —
+        // those are follow-up commits.
+        var result = adminReplayAdapter.replayTicks(symbol, from, to, offset, batchSize);
         return ResponseEntity.ok(Map.of(
                 "mode", "ticks",
                 "symbol", symbol,
