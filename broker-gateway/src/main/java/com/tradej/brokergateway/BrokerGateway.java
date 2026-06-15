@@ -2,7 +2,7 @@ package com.tradej.brokergateway;
 
 import com.tradej.broker.api.IBrokerConnection;
 import com.tradej.broker.api.spi.BrokerSource;
-import com.tradej.composition.BrokerComposition;
+import com.tradej.brokergateway.wiring.BrokerComposition;
 
 import java.util.Set;
 

@@ -219,13 +219,13 @@ public final class StrategyRegistry {
             // by the yaml map (by name + type). Most strategies have a
             // single 0-arg ctor + getters; the registry supports a
             // simple 1-arg ctor with named primitives.
+            // First pass: try parameterized constructors that match ALL yaml parameters.
+            // This ensures yaml descriptors take precedence over the 0-arg default.
+            boolean hasParams = !params.isEmpty();
             for (java.lang.reflect.Constructor<?> ctor : ctors) {
                 Class<?>[] paramTypes = ctor.getParameterTypes();
+                if (paramTypes.length == 0) continue; // skip 0-arg ctor for now
                 java.lang.reflect.Parameter[] ps = ctor.getParameters();
-                if (paramTypes.length == 0) {
-                    ctor.setAccessible(true);
-                    return (GraphStrategyPlugin) ctor.newInstance();
-                }
                 Object[] args = new Object[paramTypes.length];
                 boolean allSatisfied = true;
                 for (int i = 0; i < paramTypes.length; i++) {
@@ -234,7 +234,6 @@ public final class StrategyRegistry {
                     if (val == null) { allSatisfied = false; break; }
                     Class<?> want = wrap(paramTypes[i]);
                     if (!want.isInstance(val)) {
-                        // try a coercion for int <-> Integer / long <-> Long
                         val = coerce(val, want);
                         if (val == null) { allSatisfied = false; break; }
                     }
@@ -243,6 +242,15 @@ public final class StrategyRegistry {
                 if (allSatisfied) {
                     ctor.setAccessible(true);
                     return (GraphStrategyPlugin) ctor.newInstance(args);
+                }
+            }
+            // Second pass: if no yaml parameters, try the 0-arg constructor.
+            if (!hasParams) {
+                for (java.lang.reflect.Constructor<?> ctor : ctors) {
+                    if (ctor.getParameterCount() == 0) {
+                        ctor.setAccessible(true);
+                        return (GraphStrategyPlugin) ctor.newInstance();
+                    }
                 }
             }
             throw new IllegalArgumentException("no constructor on " + clazz.getName() + " is satisfiable by " + params);

@@ -1,6 +1,6 @@
 package com.tradej.app.scanner;
 
-import com.tradej.composition.config.ScanProperties;
+import com.tradej.app.config.ScanProperties;
 import com.tradej.scanner.criterion.ScanCriterion;
 import com.tradej.scanner.criterion.ScanCriterionFactory;
 import com.tradej.scanner.model.OptionScanSpec;

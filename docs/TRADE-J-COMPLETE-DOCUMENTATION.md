@@ -245,7 +245,9 @@ graph TB
 
 ## 4. Module Structure & File Hierarchy
 
-### 4.1 Gradle Modules (30 Modules)
+### 4.1 Gradle Modules (27 Modules)
+
+> **Note:** Composition module and trade-node-library deleted in P3 simplification (June 2026).
 
 | Module | Gradle ID | Responsibility | Package |
 |--------|-----------|---------------|---------|
@@ -272,10 +274,10 @@ graph TB
 | Data Analytics | `data-analytics` | DuckDB analytics engine | `com.tradej.analytics` |
 | Trade Pipeline Platform | `trade-pipeline-platform` | Pipeline composition | `com.tradej.platform` |
 | Pipeline Runtime | `pipeline-runtime` | Pipeline execution engine | `com.tradej.pipelineruntime` |
-| Trade Node Library | `trade-node-library` | Self-describing pipeline nodes | `com.tradej.node` |
+| Trade Node Library | `trade-node-library` | ✅ DELETED (P3 simplification) | — |
 | Trade Analytics | `trade-analytics` | Trade performance analytics | `com.tradej.pipeline.analytics` |
 | Replay Engine | `replay-engine` | Historical replay engine | `com.tradej.replay` |
-| Composition | `composition` | DI-free composition roots | `com.tradej.composition` |
+| Composition | `composition` | ✅ DELETED (P3 simplification; configs → core/broker-gateway/app) | — |
 | App | `app` | Spring Boot application | `com.tradej.app` |
 | Gateway | `gateway` | WebSocket bridge to frontend | `com.tradej.gateway` |
 | CLI | `cli` | Operator CLI tool | `com.tradej.cli` |
@@ -1388,7 +1390,7 @@ app
 | **SPI Pattern** | BrokerProvider | `broker-gateway/` |
 | **Chain of Responsibility** | EventRouter | `core/routing/` |
 | **Specification Pattern** | ScanProfile | `trading/scanner/` |
-| **Adapter Pattern** | NodeAdapterFactory | `nodes/trade-node-library/` |
+| **Adapter Pattern** | NodeAdapterFactory | `trading/strategy/` |
 | **Visitor Pattern** | DomainEventVisitor | `core/domain/event/` |
 | **Observer Pattern** | EventBus | `core/infrastructure/` |
 | **Circuit Breaker** | CircuitBreaker | `broker/core/resilience/` |

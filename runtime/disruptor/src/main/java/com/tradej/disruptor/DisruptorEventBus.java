@@ -52,8 +52,11 @@ import java.util.function.Consumer;
         private static final Logger log = LoggerFactory.getLogger(DisruptorEventBus.class);
 
         private static final int MAX_SEEN_EVENTS = 200_000;
-        private static final int DOWNSTREAM_QUEUE_CAPACITY = 4096;
-        static final int DEFAULT_DISPATCH_QUEUE_CAPACITY = 4096;
+        // Increased from 4096 to 65536 to handle CandleDeveloping bursts from
+        // the graph pipeline (CandleDeveloping emitted on every tick per symbol).
+        // Previously 3600 ticks could overflow 4096-capacity queue and drop events.
+        private static final int DOWNSTREAM_QUEUE_CAPACITY = 65536;
+        static final int DEFAULT_DISPATCH_QUEUE_CAPACITY = 65536;
 
         private final Map<Class<? extends DomainEvent>, List<DomainEventHandler<? extends DomainEvent>>> subscribers = new ConcurrentHashMap<>();
 
@@ -128,8 +131,12 @@ import java.util.function.Consumer;
                 if (!downstreamQueue.offer(event)) {
                     this.deadLetterQueue.append("downstream-queue", event,
                             "Downstream event queue full (capacity=" + DOWNSTREAM_QUEUE_CAPACITY + ")");
-                    log.warn("Downstream event queue full — dropping event type={} eventId={}",
-                            event.getClass().getSimpleName(), event.eventId());
+                    log.error("DOWNSTREAM QUEUE FULL — dropping event type={} eventId={} queueSize={} capacity={} — THIS SHOULD TRIGGER PAGER",
+                            event.getClass().getSimpleName(), event.eventId(),
+                            downstreamQueue.size(), DOWNSTREAM_QUEUE_CAPACITY);
+                } else if (downstreamQueue.size() > DOWNSTREAM_QUEUE_CAPACITY * 0.75) {
+                    log.warn("Downstream queue nearing capacity: {} / {} events — latency risk",
+                            downstreamQueue.size(), DOWNSTREAM_QUEUE_CAPACITY);
                 }
             };
 
@@ -195,7 +202,7 @@ import java.util.function.Consumer;
             if (!downstreamQueue.offer(event)) {
                 deadLetterQueue.append("reentrant-queue", event,
                         "Re-entrant downstream queue full (capacity=" + DOWNSTREAM_QUEUE_CAPACITY + ")");
-                log.warn("Re-entrant downstream queue full — dropping event type={} eventId={}",
+                log.error("RE-ENTRANT DOWNSTREAM QUEUE FULL — dropping event type={} eventId={} — PAGER",
                         event.getClass().getSimpleName(), event.eventId());
             }
             return;

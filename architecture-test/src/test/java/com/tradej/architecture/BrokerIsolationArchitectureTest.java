@@ -39,7 +39,7 @@ class BrokerIsolationArchitectureTest {
         List<String> violations = new ArrayList<>();
         for (JavaClass javaClass : allClasses) {
             String pkg = javaClass.getPackageName();
-            if (!pkg.startsWith("com.tradej.composition")) {
+            if (!pkg.startsWith("com.tradej.brokergateway")) {
                 continue;
             }
             if (javaClass.getSimpleName().equals("BrokerComposition")

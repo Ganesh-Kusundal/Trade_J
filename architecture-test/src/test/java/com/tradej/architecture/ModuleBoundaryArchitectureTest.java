@@ -38,7 +38,6 @@ class ModuleBoundaryArchitectureTest {
                         "com.tradej.institutional..",
                         "com.tradej.indicators..",
                         "com.tradej.historical..",
-                        "com.tradej.composition..",
                         "com.tradej.pipeline..",
                         "com.tradej.app.."
                 )
@@ -58,7 +57,6 @@ class ModuleBoundaryArchitectureTest {
                         "com.tradej.execution..",
                         "com.tradej.strategy..",
                         "com.tradej.persistence..",
-                        "com.tradej.composition..",
                         "com.tradej.app.."
                 )
                 .allowEmptyShould(false)
@@ -83,15 +81,6 @@ class ModuleBoundaryArchitectureTest {
                         "com.tradej.broker.upstox..",
                         "com.tradej.broker.icici.."
                 )
-                .allowEmptyShould(true)
-                .check(allClasses);
-    }
-
-    @Test
-    void compositionMustNotDependOnApp() {
-        noClasses()
-                .that().resideInAPackage("com.tradej.composition..")
-                .should().dependOnClassesThat().resideInAnyPackage("com.tradej.app..")
                 .allowEmptyShould(true)
                 .check(allClasses);
     }
@@ -126,7 +115,6 @@ class ModuleBoundaryArchitectureTest {
                         "com.tradej.scanner..",
                         "com.tradej.institutional..",
                         "com.tradej.indicators..",
-                        "com.tradej.composition..",
                         "com.tradej.app.."
                 )
                 .allowEmptyShould(true)

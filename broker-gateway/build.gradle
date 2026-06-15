@@ -2,7 +2,9 @@ dependencies {
     api project(':core')
     api project(':broker-api')
     implementation project(':broker-core')
-    implementation project(':composition')
+    implementation project(':broker-dhan')
+    implementation project(':broker-upstox')
+    implementation project(':broker-icici')
 
     testImplementation project(':broker-dhan')
     testImplementation project(':broker-upstox')

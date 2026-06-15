@@ -1,6 +1,6 @@
 package com.tradej.app.scanner;
 
-import com.tradej.composition.config.ScanProperties;
+import com.tradej.app.config.ScanProperties;
 import com.tradej.app.config.TradingProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

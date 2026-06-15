@@ -54,8 +54,6 @@ project(':data-analytics').projectDir = file('data/analytics')
 include 'architecture-test'
 project(':architecture-test').projectDir = file('architecture-test')
 
-include 'composition'
-project(':composition').projectDir = file('composition')
 
 include 'app'
 project(':app').projectDir = file('app')
@@ -70,8 +68,6 @@ project(':trade-pipeline-platform').projectDir = file('pipeline/platform/trade-p
 include 'pipeline-runtime'
 project(':pipeline-runtime').projectDir = file('pipeline/runtime')
 
-include 'trade-node-library'
-project(':trade-node-library').projectDir = file('nodes/trade-node-library')
 
 include 'trade-analytics'
 project(':trade-analytics').projectDir = file('pipeline/analytics/trade-analytics')

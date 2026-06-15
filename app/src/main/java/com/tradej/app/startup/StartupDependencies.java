@@ -4,7 +4,7 @@ import com.tradej.app.admin.RuntimeHealthState;
 import com.tradej.app.health.BrokerErrorTracker;
 import com.tradej.broker.api.IBrokerConnection;
 import com.tradej.broker.api.model.BrokerCapabilities;
-import com.tradej.composition.config.ScanProperties;
+import com.tradej.app.config.ScanProperties;
 import com.tradej.app.config.TradingProperties;
 import com.tradej.core.domain.port.EventBus;
 import com.tradej.execution.position.EventSourcedNetPositionProvider;

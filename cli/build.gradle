@@ -19,7 +19,6 @@ dependencies {
     implementation project(':data-persistence')
     implementation project(':data-historical-ingest')
     implementation project(':data-analytics')
-    implementation project(':composition')
     implementation project(':broker-gateway')
 
     implementation 'info.picocli:picocli:4.7.6'

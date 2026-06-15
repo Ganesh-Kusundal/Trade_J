@@ -62,7 +62,7 @@ class BrokerCompositionArchitectureTest {
                         "com.tradej.broker.dhan",
                         "com.tradej.broker.upstox",
                         "com.tradej.broker.icici",
-                        "com.tradej.composition",
+                        "com.tradej.brokergateway.wiring",
                         "com.tradej.app.config",
                         "com.tradej.brokergateway",
                         "com.tradej.cli"
@@ -73,7 +73,7 @@ class BrokerCompositionArchitectureTest {
         brokerDhanClasses = new ClassFileImporter().importPackages("com.tradej.broker.dhan");
         brokerUpstoxClasses = new ClassFileImporter().importPackages("com.tradej.broker.upstox");
         brokerIciciClasses = new ClassFileImporter().importPackages("com.tradej.broker.icici");
-        compositionClasses = new ClassFileImporter().importPackages("com.tradej.composition");
+        compositionClasses = new ClassFileImporter().importPackages("com.tradej.brokergateway.wiring");
         appConfigClasses = new ClassFileImporter().importPackages("com.tradej.app.config");
         gatewayClasses = new ClassFileImporter().importPackages("com.tradej.brokergateway");
     }
@@ -216,7 +216,7 @@ class BrokerCompositionArchitectureTest {
                     .should().onlyDependOnClassesThat(
                             resideInAPackage("com.tradej.broker.api..")
                                     .or(resideInAPackage("com.tradej.core.."))
-                                    .or(resideInAPackage("com.tradej.composition.."))
+                                    .or(resideInAPackage("com.tradej.brokergateway.wiring.."))
                                     .or(resideInAPackage("java.."))
                                     .or(resideInAPackage("org.springframework.."))
                                     .or(resideInAPackage("org.slf4j.."))
@@ -336,7 +336,7 @@ class BrokerCompositionArchitectureTest {
                     .should().onlyDependOnClassesThat(
                             resideInAPackage("com.tradej.broker.api..")
                                     .or(resideInAPackage("com.tradej.broker.core.."))
-                                    .or(resideInAPackage("com.tradej.composition.config.."))
+                                    .or(resideInAPackage("com.tradej.core.config.."))
                                     .or(resideInAPackage("java.."))
                                     .or(resideInAPackage("org.slf4j.."))
                     );
@@ -382,7 +382,7 @@ class BrokerCompositionArchitectureTest {
             
             ArchRule rule = noClasses()
                     .that().resideInAPackage("com.tradej.app.config")
-                    .or().resideInAPackage("com.tradej.composition")
+                    .or().resideInAPackage("com.tradej.brokergateway.wiring")
                     .or().resideInAPackage("com.tradej.cli")
                     .should().dependOnClassesThat(
                             resideInAPackage("..auth.TokenManager")
@@ -399,7 +399,7 @@ class BrokerCompositionArchitectureTest {
         void webSocketManagementEncapsulated() {
             ArchRule rule = noClasses()
                     .that().resideInAPackage("com.tradej.app.config")
-                    .or().resideInAPackage("com.tradej.composition")
+                    .or().resideInAPackage("com.tradej.brokergateway.wiring")
                     .should().dependOnClassesThat(
                             resideInAPackage("..websocket.WebSocketMultiplexer")
                     );
@@ -422,7 +422,7 @@ class BrokerCompositionArchitectureTest {
         void noExternalSettingsCreation() {
             ArchRule rule = noClasses()
                     .that().resideInAPackage("com.tradej.app.config")
-                    .or().resideInAPackage("com.tradej.composition")
+                    .or().resideInAPackage("com.tradej.brokergateway.wiring")
                     .or().resideInAPackage("com.tradej.cli.standalone")
                     .should().dependOnClassesThat(
                             resideInAPackage("..DhanConnectionSettings")
@@ -451,7 +451,7 @@ class BrokerCompositionArchitectureTest {
             
             ArchRule rule = noClasses()
                     .that().resideInAPackage("com.tradej.app..")
-                    .or().resideInAPackage("com.tradej.composition..")
+                    .or().resideInAPackage("com.tradej.brokergateway.wiring..")
                     .or().resideInAPackage("com.tradej.cli..")
                     .or().resideInAPackage("com.tradej.brokergateway..")
                     .and().haveSimpleNameNotEndingWith("Test")

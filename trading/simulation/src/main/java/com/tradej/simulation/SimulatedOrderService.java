@@ -1,9 +1,11 @@
 package com.tradej.simulation;
 
+import com.tradej.core.domain.id.IdGenerator;
+import com.tradej.core.domain.id.UuidIdGenerator;
 import com.tradej.core.domain.instrument.ContractSymbolNormalizer;
 import com.tradej.core.domain.model.OrderRequest;
 
-import java.util.UUID;
+import java.util.Objects;
 
 /**
  * Service that routes simulated order placement through the in-process
@@ -14,10 +16,16 @@ public final class SimulatedOrderService {
 
     private final MatchingEngine matchingEngine;
     private final PnLLedger pnlLedger;
+    private final IdGenerator idGenerator;
 
     public SimulatedOrderService(MatchingEngine matchingEngine, PnLLedger pnlLedger) {
+        this(matchingEngine, pnlLedger, new UuidIdGenerator());
+    }
+
+    public SimulatedOrderService(MatchingEngine matchingEngine, PnLLedger pnlLedger, IdGenerator idGenerator) {
         this.matchingEngine = matchingEngine;
         this.pnlLedger = pnlLedger;
+        this.idGenerator = Objects.requireNonNullElse(idGenerator, new UuidIdGenerator());
     }
 
     /**
@@ -41,7 +49,7 @@ public final class SimulatedOrderService {
                 request.validity(),
                 request.correlationId()
         );
-        String orderId = "SIM-" + UUID.randomUUID();
+        String orderId = idGenerator.generateOrderId();
         MatchingEngine.MatchResult result = matchingEngine.match(normalizedRequest, orderId);
 
         if (!result.rejected()) {

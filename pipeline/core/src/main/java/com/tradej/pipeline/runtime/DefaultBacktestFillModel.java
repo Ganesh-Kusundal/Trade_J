@@ -3,24 +3,31 @@ package com.tradej.pipeline.runtime;
 import com.tradej.core.domain.event.DomainEvent;
 import com.tradej.core.domain.event.EventMetadata;
 import com.tradej.core.domain.event.TradeExecutionEvent;
+import com.tradej.core.domain.id.IdGenerator;
+import com.tradej.core.domain.id.UuidIdGenerator;
 import com.tradej.core.domain.model.OrderRequest;
 import com.tradej.core.domain.value.OrderType;
 
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
-import java.util.UUID;
 
 public final class DefaultBacktestFillModel implements BacktestFillModel {
 
     private final double slippagePct;
     private final long latencyMs;
     private final double fillRatio;
+    private final IdGenerator idGenerator;
 
     public DefaultBacktestFillModel(double slippagePct, long latencyMs, double fillRatio) {
+        this(slippagePct, latencyMs, fillRatio, new UuidIdGenerator());
+    }
+
+    public DefaultBacktestFillModel(double slippagePct, long latencyMs, double fillRatio, IdGenerator idGenerator) {
         this.slippagePct = slippagePct;
         this.latencyMs = latencyMs;
         this.fillRatio = fillRatio;
+        this.idGenerator = Objects.requireNonNullElse(idGenerator, new UuidIdGenerator());
     }
 
     public DefaultBacktestFillModel() {
@@ -42,8 +49,8 @@ public final class DefaultBacktestFillModel implements BacktestFillModel {
 
         TradeExecutionEvent fill = new TradeExecutionEvent(
                 EventMetadata.correlated(request.correlationId(), 1L),
-                UUID.randomUUID().toString(),
-                UUID.randomUUID().toString(),
+                idGenerator.generateFillId(),
+                idGenerator.generateTradeId(),
                 request.symbol(),
                 request.exchangeSegment(),
                 request.side(),

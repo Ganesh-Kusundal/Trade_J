@@ -96,7 +96,6 @@ class SpringFreeArchitectureTest {
                         "com.tradej.pipeline.compiler..",
                         "com.tradej.pipeline.state..",
                         "com.tradej.replay.engine..",
-                        "com.tradej.composition..",
                         "com.tradej.research.core..",
                         "com.tradej.research.lab.."
                 )

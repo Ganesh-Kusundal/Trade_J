@@ -206,17 +206,12 @@ public class ObservabilityConfiguration {
 
         Gauge.builder("event.bus.ring.buffer.remaining_capacity",
                         disruptorBusMetrics, DisruptorBusMetrics::ringBufferRemainingCapacity)
-                .description("Configured event bus ring-buffer remaining capacity; zero for SimpleEventBus")
+                .description("Disruptor ring-buffer remaining capacity")
                 .register(meterRegistry);
 
         Gauge.builder("event.bus.ring.buffer.size",
                         disruptorBusMetrics, DisruptorBusMetrics::ringBufferSize)
-                .description("Configured event bus ring-buffer size; zero for SimpleEventBus")
-                .register(meterRegistry);
-
-        Gauge.builder("event.bus.instance",
-                        eventBus, bus -> bus instanceof com.tradej.core.domain.event.SimpleEventBus ? 1.0 : 2.0)
-                .description("Configured event bus implementation (1 = SimpleEventBus, 2 = DisruptorEventBus)")
+                .description("Disruptor ring-buffer size")
                 .register(meterRegistry);
 
         // ── Execution queue ──

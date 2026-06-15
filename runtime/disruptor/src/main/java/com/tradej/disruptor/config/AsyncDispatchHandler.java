@@ -40,7 +40,10 @@ import java.util.concurrent.atomic.AtomicLong;
 public final class AsyncDispatchHandler implements EventHandler<MutableDomainEventEnvelope> {
 
     private static final Logger log = LoggerFactory.getLogger(AsyncDispatchHandler.class);
-    private static final int DEFAULT_QUEUE_CAPACITY = 4096;
+    // Increased from 4096 to 65536 to handle CandleDeveloping bursts from
+    // the graph pipeline without dropping events. 65k events at 1000 ticks/sec
+    // per symbol provides a ~65-second buffer before any overflow.
+    private static final int DEFAULT_QUEUE_CAPACITY = 65536;
     private static final long STOP_TIMEOUT_SECONDS = 10;
 
     private final Map<Class<? extends DomainEvent>, List<DomainEventHandler<? extends DomainEvent>>> subscribers;
@@ -184,11 +187,11 @@ public final class AsyncDispatchHandler implements EventHandler<MutableDomainEve
             int consecutive = consecutiveDrops.incrementAndGet();
             deadLetterQueue.append("async-dispatch", event, "Dispatch queue full");
             if (consecutive >= ERROR_LOG_THRESHOLD) {
-                log.error("Dispatch queue full — dropping event ({} consecutive drops) type={} eventId={} droppedTotal={}",
-                        consecutive, event.getClass().getSimpleName(), event.eventId(), total);
+                log.error("DISPATCH QUEUE FULL — dropping event ({} consecutive drops) type={} eventId={} droppedTotal={} queueSize={} — PAGER",
+                        consecutive, event.getClass().getSimpleName(), event.eventId(), total, dispatchQueue.size());
             } else {
-                log.warn("Dispatch queue full — dropping event type={} eventId={} droppedTotal={} consecutiveDrops={}",
-                        event.getClass().getSimpleName(), event.eventId(), total, consecutive);
+                log.warn("Dispatch queue full — dropping event type={} eventId={} droppedTotal={} consecutiveDrops={} queueSize={}",
+                        event.getClass().getSimpleName(), event.eventId(), total, consecutive, dispatchQueue.size());
             }
         } else {
             consecutiveDrops.set(0);

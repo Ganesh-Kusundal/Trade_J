@@ -4,6 +4,8 @@ import com.tradej.core.domain.event.CandleClosed;
 import com.tradej.core.domain.event.DomainEvent;
 import com.tradej.core.domain.event.EventMetadata;
 import com.tradej.core.domain.event.SignalGenerated;
+import com.tradej.core.domain.id.IdGenerator;
+import com.tradej.core.domain.id.UuidIdGenerator;
 import com.tradej.core.domain.value.Side;
 import com.tradej.feature.store.OptionsAwareFeatureStore;
 import com.tradej.strategy.api.GraphStrategyPlugin;
@@ -11,7 +13,6 @@ import com.tradej.strategy.api.GraphStrategyPlugin;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
 
 /**
  * Example options-aware strategy: emits a signal when IV and delta context are present
@@ -20,9 +21,15 @@ import java.util.UUID;
 public final class OptionsContextStrategyPlugin implements GraphStrategyPlugin {
 
     private final OptionsAwareFeatureStore featureStore;
+    private final IdGenerator idGenerator;
 
     public OptionsContextStrategyPlugin(OptionsAwareFeatureStore featureStore) {
+        this(featureStore, new UuidIdGenerator());
+    }
+
+    public OptionsContextStrategyPlugin(OptionsAwareFeatureStore featureStore, IdGenerator idGenerator) {
         this.featureStore = featureStore;
+        this.idGenerator = idGenerator != null ? idGenerator : new UuidIdGenerator();
     }
 
     @Override
@@ -55,7 +62,7 @@ public final class OptionsContextStrategyPlugin implements GraphStrategyPlugin {
         }
         return Optional.of(new SignalGenerated(
                 EventMetadata.root(),
-                UUID.randomUUID().toString(),
+                idGenerator.generateSignalId(),
                 symbol,
                 closed.candle().interval(),
                 Side.BUY,

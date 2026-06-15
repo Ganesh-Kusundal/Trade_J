@@ -3,10 +3,10 @@ package com.tradej.core.testing;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * Deterministic ID generator using a seeded counter.
- * Replaces {@link java.util.UUID#randomUUID()} in simulation/replay contexts
- * to guarantee same seed → same IDs across runs.
+ * @deprecated Use {@link com.tradej.core.domain.id.DeterministicIdGenerator} instead.
+ * This class remains for backward compatibility with existing test code.
  */
+@Deprecated
 public final class DeterministicIdGenerator {
 
     private final AtomicLong counter;

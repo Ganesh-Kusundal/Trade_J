@@ -2,7 +2,7 @@ package com.tradej.app.startup;
 
 import com.tradej.app.admin.RuntimeHealthState;
 import com.tradej.app.config.BrokerTransportProfile;
-import com.tradej.composition.config.ScanProperties;
+import com.tradej.app.config.ScanProperties;
 import com.tradej.app.config.TradingProperties;
 import org.springframework.core.env.Environment;
 import com.tradej.app.health.BrokerErrorTracker;

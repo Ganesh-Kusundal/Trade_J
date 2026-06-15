@@ -21,7 +21,7 @@ import com.tradej.pipeline.service.PipelineNodeFactory;
 import com.tradej.pipeline.service.PipelineRuntimeService;
 import com.tradej.scanner.engine.ScanEngine;
 import com.tradej.scanner.model.ScanProfile;
-import com.tradej.composition.config.ScanProperties;
+import com.tradej.app.config.ScanProperties;
 import com.tradej.app.scanner.ScanProfileMapper;
 import com.tradej.strategy.portfolio.PortfolioEngine;
 import com.tradej.strategy.service.CandleAggregationService;

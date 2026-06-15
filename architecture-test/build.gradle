@@ -25,10 +25,8 @@ def coreModules = [
         ':runtime-disruptor',
         ':runtime-hotpath',
         ':pipeline-runtime',
-        ':composition',
         ':gateway',
         ':cli',
-        ':trade-node-library',
         ':trade-pipeline-platform',
         ':app',
 ]

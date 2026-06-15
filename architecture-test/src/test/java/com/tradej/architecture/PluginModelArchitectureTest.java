@@ -63,14 +63,14 @@ class PluginModelArchitectureTest {
     }
 
     @Test
-    @DisplayName("Broker modules must not depend on composition module")
-    void brokerModulesMustNotDependOnComposition() {
+    @DisplayName("Broker modules must not depend on broker-gateway internals")
+    void brokerModulesMustNotDependOnBrokerGatewayInternals() {
         noClasses()
                 .that().resideInAPackage("com.tradej.broker.dhan..")
                 .or().resideInAPackage("com.tradej.broker.upstox..")
                 .or().resideInAPackage("com.tradej.broker.icici..")
                 .should().dependOnClassesThat()
-                .resideInAPackage("com.tradej.composition..")
+                .resideInAPackage("com.tradej.brokergateway.wiring..")
                 .allowEmptyShould(true)
                 .check(allClasses);
     }

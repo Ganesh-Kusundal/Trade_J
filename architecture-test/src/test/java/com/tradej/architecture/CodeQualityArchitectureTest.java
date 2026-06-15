@@ -68,8 +68,7 @@ class CodeQualityArchitectureTest {
             // Allowed packages: broker adapters, broker-core, CLI (adapter layer), app (composition root)
             if (pkg.startsWith("com.tradej.broker.")
                     || pkg.startsWith("com.tradej.cli.")
-                    || pkg.startsWith("com.tradej.app.")
-                    || pkg.startsWith("com.tradej.composition.")) {
+                    || pkg.startsWith("com.tradej.app.")) {
                 continue;
             }
             for (JavaMethod method : javaClass.getMethods()) {

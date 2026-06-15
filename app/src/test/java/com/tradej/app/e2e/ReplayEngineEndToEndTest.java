@@ -10,7 +10,7 @@ import com.tradej.core.domain.model.Candle;
 import com.tradej.core.domain.port.EventBus;
 import com.tradej.core.domain.value.ExchangeSegment;
 import com.tradej.core.domain.value.FeedMode;
-import com.tradej.persistence.replay.ReplayClock;
+import com.tradej.pipeline.clock.VirtualClock;
 import com.tradej.persistence.replay.ReplayMetrics;
 import com.tradej.persistence.replay.ReplayResult;
 import com.tradej.persistence.replay.ReplayRunner;
@@ -36,14 +36,14 @@ class ReplayEngineEndToEndTest {
     Path tempDir;
 
     private EventBus eventBus;
-    private ReplayClock replayClock;
+    private VirtualClock virtualClock;
     private final List<DomainEvent> capturedEvents = new CopyOnWriteArrayList<>();
     private final List<ReplayTimeChangedEvent> clockEvents = new CopyOnWriteArrayList<>();
 
     @BeforeEach
     void setUp() {
         eventBus = new SimpleEventBus();
-        replayClock = new ReplayClock(eventBus);
+        virtualClock = new VirtualClock(VirtualClock.Mode.REPLAY, eventBus);
 
         eventBus.subscribe(MarketTickEvent.class, capturedEvents::add);
         eventBus.subscribe(CandleClosed.class, capturedEvents::add);
@@ -56,7 +56,6 @@ class ReplayEngineEndToEndTest {
     @AfterEach
     void tearDown() {
         eventBus.stop();
-        replayClock.close();
     }
 
     @Test
@@ -141,9 +140,9 @@ class ReplayEngineEndToEndTest {
     @Test
     void replayClockAdvancesToNewTimestamp() {
         long start = System.currentTimeMillis() + 1_000_000L;
-        replayClock.advanceTo(start);
+        virtualClock.advanceVirtualTimeMs(start);
 
-        assertThat(replayClock.currentTimeMs()).isEqualTo(start);
+        assertThat(virtualClock.currentTimeMillis()).isEqualTo(start);
         assertThat(clockEvents).hasSize(1);
         assertThat(clockEvents.get(0).currentTimeMs()).isEqualTo(start);
     }
@@ -151,10 +150,10 @@ class ReplayEngineEndToEndTest {
     @Test
     void replayClockAdvancesToHigherTimestamp() {
         long start = System.currentTimeMillis() + 1_000_000L;
-        replayClock.advanceTo(start);
-        replayClock.advanceTo(start + 5_000L);
+        virtualClock.advanceVirtualTimeMs(start);
+        virtualClock.advanceVirtualTimeMs(start + 5_000L);
 
-        assertThat(replayClock.currentTimeMs()).isEqualTo(start + 5_000L);
+        assertThat(virtualClock.currentTimeMillis()).isEqualTo(start + 5_000L);
         assertThat(clockEvents).hasSize(2);
         assertThat(clockEvents.get(1).currentTimeMs()).isEqualTo(start + 5_000L);
     }
@@ -162,10 +161,10 @@ class ReplayEngineEndToEndTest {
     @Test
     void replayClockDoesNotAdvanceBackward() {
         long start = System.currentTimeMillis() + 1_000_000L;
-        replayClock.advanceTo(start);
-        replayClock.advanceTo(start - 1_000L);
+        virtualClock.advanceVirtualTimeMs(start);
+        virtualClock.advanceVirtualTimeMs(start - 1_000L);
 
-        assertThat(replayClock.currentTimeMs()).isEqualTo(start);
+        assertThat(virtualClock.currentTimeMillis()).isEqualTo(start);
         assertThat(clockEvents).hasSize(1);
         assertThat(clockEvents.get(0).currentTimeMs()).isEqualTo(start);
     }
@@ -173,24 +172,24 @@ class ReplayEngineEndToEndTest {
     @Test
     void replayClockSameTimestampDoesNotPublishDuplicate() {
         long start = System.currentTimeMillis() + 1_000_000L;
-        replayClock.advanceTo(start);
-        replayClock.advanceTo(start);
+        virtualClock.advanceVirtualTimeMs(start);
+        virtualClock.advanceVirtualTimeMs(start);
 
         assertThat(clockEvents).hasSize(1);
     }
 
     @Test
     void replayClockSpeedNanosIsConfigurable() {
-        replayClock.setReplaySpeedNanos(2_000_000L);
-        assertThat(replayClock.replaySpeedNanos()).isEqualTo(2_000_000L);
+        virtualClock.setSpeed(2L);
+        assertThat(virtualClock.speedMultiplier() * 1_000_000L).isEqualTo(2_000_000L);
 
-        replayClock.setReplaySpeedNanos(500_000L);
-        assertThat(replayClock.replaySpeedNanos()).isEqualTo(500_000L);
+        virtualClock.setSpeed(0L);
+        assertThat(virtualClock.speedMultiplier() * 1_000_000L).isEqualTo(0L);
     }
 
     @Test
     void replayClockGetCurrentTimeReturnsReasonableValue() {
-        long before = replayClock.currentTimeMs();
+        long before = virtualClock.currentTimeMillis();
         long now = System.currentTimeMillis();
         assertThat(before).isBetween(now - 1000, now + 1000);
     }
@@ -198,8 +197,8 @@ class ReplayEngineEndToEndTest {
     @Test
     void replayClockTimeChangedEventContainsSpeedNanos() {
         long start = System.currentTimeMillis() + 2_000_000L;
-        replayClock.setReplaySpeedNanos(3_000_000L);
-        replayClock.advanceTo(start);
+        virtualClock.setSpeed(3L);
+        virtualClock.advanceVirtualTimeMs(start);
 
         assertThat(clockEvents).hasSize(1);
         assertThat(clockEvents.get(0).currentTimeMs()).isEqualTo(start);
@@ -271,8 +270,8 @@ class ReplayEngineEndToEndTest {
         long start = System.currentTimeMillis() + 1_000_000L;
         List<Long> timestamps = new ArrayList<>();
         for (int i = 0; i < 5; i++) {
-            replayClock.advanceTo(start + i * 1_000L);
-            timestamps.add(replayClock.currentTimeMs());
+            virtualClock.advanceVirtualTimeMs(start + i * 1_000L);
+            timestamps.add(virtualClock.currentTimeMillis());
         }
 
         for (int i = 1; i < timestamps.size(); i++) {

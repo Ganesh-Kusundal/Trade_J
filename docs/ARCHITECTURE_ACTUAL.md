@@ -191,13 +191,7 @@ Trade-J is a **multi-broker algorithmic trading platform** for Indian equity and
 ### Module: `composition`
 
 - **Gradle ID**: `composition`
-
-- **Responsibility**: DI-free composition roots — creates and wires the entire object graph without Spring
-- **Package**: `com.tradej.composition`
-- **Public APIs**: `FullComposition`, `BrokerComposition`, `DataComposition`, `ExecutionComposition`, `PipelineComposition`, `ClockComposition`, `BrokerProfile`, `ConfigLoader`
-- **Dependencies**: All broker modules, data modules, trading modules
-- **Consumers**: `cli`, `app`
-- **Status**: Active, primary composition mechanism
+- **Status**: ✅ DELETED (P3 simplification). Config classes migrated to `core/config/`, `app/config/`, and `broker-gateway/config/`. `BrokerComposition` moved to `broker-gateway/wiring/`. CLI now uses `BrokerComposition.create()` directly.
 
 ### Module: `pipeline-core`
 
@@ -398,13 +392,7 @@ Trade-J is a **multi-broker algorithmic trading platform** for Indian equity and
 ### Module: `trade-node-library`
 
 - **Gradle ID**: `trade-node-library`
-
-- **Responsibility**: Self-describing pipeline node implementations
-- **Package**: `com.tradej.node`
-- **Public APIs**: `NodeExecutor`, `NodeDescriptor`, `NodeResult`, `HistoricalDataNode`, `FeatureNode`, `ScannerNode`, `OutputNode`
-- **Dependencies**: `pipeline-core`
-- **Consumers**: `pipeline-runtime`
-- **Status**: Stable
+- **Status**: ✅ DELETED (P3 simplification — zero external references, no active implementations)
 
 ### Module: `trade-institutional-scanner`
 
@@ -1362,7 +1350,7 @@ The Spring configuration classes create beans that mirror the composition layer:
 
 ### How to Add a New Pipeline Node
 
-1. **Implement `NodeExecutor`** in `nodes/trade-node-library/`
+1. **Implement `NodeExecutor`** in `trading/strategy/` or `trading/execution/` (the `trade-node-library` was deleted)
 2. **Define `NodeDescriptor`** with ports and properties
 3. **Register** in `PipelineConfiguration.nodeRegistry()`
 4. **Available** in DAG pipeline composition

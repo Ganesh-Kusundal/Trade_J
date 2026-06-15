@@ -1,5 +1,7 @@
 package com.tradej.simulation;
 
+import com.tradej.core.domain.id.IdGenerator;
+import com.tradej.core.domain.id.UuidIdGenerator;
 import com.tradej.core.domain.instrument.ExchangeTickSizeRegistry;
 import com.tradej.core.domain.model.Order;
 import com.tradej.core.domain.model.OrderRequest;
@@ -14,7 +16,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -37,6 +38,7 @@ public final class MatchingEngine {
     private final Map<String, AtomicReference<Long>> lastPriceVarianceBySymbol = new ConcurrentHashMap<>();
     private final SlippageConfig slippageConfig;
     private final TradingClock clock;
+    private final IdGenerator idGenerator;
     private final SimulationMetrics metrics;
 
     public MatchingEngine() {
@@ -48,8 +50,13 @@ public final class MatchingEngine {
     }
 
     public MatchingEngine(SlippageConfig slippageConfig, TradingClock clock) {
+        this(slippageConfig, clock, new UuidIdGenerator());
+    }
+
+    public MatchingEngine(SlippageConfig slippageConfig, TradingClock clock, IdGenerator idGenerator) {
         this.slippageConfig = Objects.requireNonNullElse(slippageConfig, SlippageConfig.DEFAULT);
         this.clock = Objects.requireNonNullElse(clock, new LiveTradingClock());
+        this.idGenerator = Objects.requireNonNullElse(idGenerator, new UuidIdGenerator());
         this.metrics = new SimulationMetrics();
     }
 
@@ -175,7 +182,7 @@ public final class MatchingEngine {
 
         List<Trade> fills = new ArrayList<>();
         fills.add(new Trade(
-                "FILL-" + UUID.randomUUID(),
+                idGenerator.generateFillId(),
                 orderId,
                 request.symbol(),
                 request.exchangeSegment(),

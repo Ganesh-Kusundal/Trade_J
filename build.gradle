@@ -517,7 +517,6 @@ tasks.register('generateArchitectureDiagram') {
             else if (name.startsWith('runtime')) group = 'runtime'
             else if (name.startsWith('pipeline')) group = 'pipeline'
             else if (name == 'app' || name == 'cli' || name == 'gateway') group = 'entry'
-            else if (name == 'composition') group = 'composition'
             else if (name == 'core') group = 'core'
             lines << "    ${safeName}[\"${label}\"]:::${group}"
         }
@@ -537,7 +536,6 @@ tasks.register('generateArchitectureDiagram') {
         lines << '    classDef runtime fill:#fff3e0,stroke:#f57c00'
         lines << '    classDef pipeline fill:#fce4ec,stroke:#c62828'
         lines << '    classDef entry fill:#fafafa,stroke:#424242'
-        lines << '    classDef composition fill:#f1f8e9,stroke:#558b2f'
         lines << '    classDef core fill:#e0f2f1,stroke:#00695c'
         lines << '    classDef other fill:#f5f5f5,stroke:#9e9e9e'
         lines << '```'

@@ -1,7 +1,7 @@
 # Trade-J — Leaf File Index (generated from repo)
 
-> **Audit date:** 2026-06-04 (updated: removed trade-experiments, trade-optimization)  
-> **Totals:** 635 main Java · 205 test Java (+ 1 architecture-test)  
+> **Audit date:** 2026-06-15 (updated: removed composition module, trade-node-library, NoOp classes)  
+> **Totals:** 623 main Java · 201 test Java (+ 1 architecture-test)  
 > **Canonical architecture:** [ARCHITECTURE_REPORT.md](ARCHITECTURE_REPORT.md)
 
 Per-module listing of every `src/main/java` compilation unit, grouped by package.
@@ -215,15 +215,6 @@ Per-module listing of every `src/main/java` compilation unit, grouped by package
 ### `:trade-analytics` — `pipeline/analytics/trade-analytics/` (9 main · 6 test)
 - **`com/tradej/analytics`** (9): DefaultDrawdownAnalytics, DefaultPerformanceAnalytics, DrawdownAnalytics, DrawdownReport, EquityPoint, PerformanceAnalytics, PerformanceReport, TradeRecord, package-info
 - **tests:** com/tradej/analytics/DefaultDrawdownAnalyticsTest, com/tradej/analytics/DefaultPerformanceAnalyticsTest, com/tradej/analytics/DrawdownReportTest, com/tradej/analytics/PerformanceReportTest, com/tradej/analytics/PerformanceReportUnitTest, com/tradej/analytics/TradeRecordTest
-
-### `:trade-node-library` — `nodes/trade-node-library/` (12 main · 4 test)
-- **`com/tradej/node`** (7): NodeCategory, NodeContext, NodeDescriptor, NodeExecutor, NodeResult, PortDescriptor, package-info
-- **`com/tradej/node/adapter`** (1): NodeAdapterFactory
-- **`com/tradej/node/data`** (1): HistoricalDataNode
-- **`com/tradej/node/feature`** (1): FeatureNode
-- **`com/tradej/node/output`** (1): OutputNode
-- **`com/tradej/node/scanner`** (1): ScannerNode
-- **tests:** com/tradej/node/NodeDescriptorTest, com/tradej/node/NodeResultTest, com/tradej/node/output/OutputNodeTest, com/tradej/node/scanner/ScannerNodeTest
 
 ### `:architecture-test` — `architecture-test/` (0 main · 1 test)
 - `com/tradej/architecture/ModuleBoundaryArchitectureTest.java`

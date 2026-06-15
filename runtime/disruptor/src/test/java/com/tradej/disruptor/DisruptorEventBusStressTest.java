@@ -206,19 +206,23 @@ class DisruptorEventBusStressTest {
         });
         bus.start();
 
-        // Publish 5000 events — dispatch queue (4096 capacity) will overflow
-        for (int i = 0; i < 5000; i++) {
+        // Publish 70_000 events — dispatch queue (65536 capacity) will overflow.
+        // The ring buffer (8192) acts as a natural throttle; the dispatcher
+        // consumer thread drains the ring buffer into the dispatch queue until
+        // the queue is full, then drops subsequent events.
+        int eventCount = 70_000;
+        for (int i = 0; i < eventCount; i++) {
             bus.publish(new MarketTickEvent(EventMetadata.correlated("dlq-test", i), 0L, "SBIN", ExchangeSegment.NSE_EQ, FeedMode.TICKER, 100_00L, 10L, 10L, 1000L, Optional.empty(), 0L, 0L));
         }
 
         // Poll for DLQ overflow with timeout (replaces fixed sleep to avoid flakiness)
-        long deadline = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(5);
+        long deadline = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(30);
         while (dropCount.get() == 0 && System.currentTimeMillis() < deadline) {
-            Thread.sleep(50);
+            Thread.sleep(100);
         }
 
         assertTrue(dropCount.get() > 0,
-                "Events should have been dropped to DLQ when dispatch queue overflowed");
+                "Events should have been dropped to DLQ when dispatch queue overflowed (capacity=65536, published=" + eventCount + ")");
         assertTrue(droppedEvents.contains("async-dispatch"),
                 "Dropped events should come from async-dispatch source");
 

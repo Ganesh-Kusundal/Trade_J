@@ -2,8 +2,8 @@ package com.tradej.brokergateway;
 
 import com.tradej.broker.api.IBrokerConnection;
 import com.tradej.broker.api.spi.BrokerSource;
-import com.tradej.composition.BrokerComposition;
-import com.tradej.composition.config.BrokerProfile;
+import com.tradej.brokergateway.wiring.BrokerComposition;
+import com.tradej.brokergateway.config.BrokerProfile;
 
 import java.util.LinkedHashMap;
 import java.util.Map;

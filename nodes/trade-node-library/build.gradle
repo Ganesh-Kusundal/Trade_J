@@ -1,9 +1,0 @@
-dependencies {
-    implementation project(':core')
-    implementation project(':pipeline-core')
-    implementation project(':data-historical-ingest')
-    implementation project(':trade-pipeline-platform')
-
-    testImplementation 'org.junit.jupiter:junit-jupiter'
-    testImplementation testFixtures(project(':core'))
-}

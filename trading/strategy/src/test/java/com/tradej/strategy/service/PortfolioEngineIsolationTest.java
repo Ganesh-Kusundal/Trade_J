@@ -138,12 +138,14 @@ class PortfolioEngineIsolationTest {
     }
 
     @Test
-    void queueFullDropsAreCounted() throws Exception {
+    void queueBackpressureBlocksProducerWhenFull() throws Exception {
         engine = new PortfolioEngine();
 
         // Block the processing thread by using a downstream that blocks until released
         CountDownLatch firstEventProcessing = new CountDownLatch(1);
         CountDownLatch releaseAll = new CountDownLatch(1);
+        CountDownLatch producerBlocked = new CountDownLatch(1);
+        CountDownLatch producerReleased = new CountDownLatch(1);
 
         java.util.function.Consumer<DomainEvent> blockingDownstream = event -> {
             firstEventProcessing.countDown();
@@ -161,21 +163,34 @@ class PortfolioEngineIsolationTest {
         assertTrue(firstEventProcessing.await(5, TimeUnit.SECONDS),
                 "First event should start processing");
 
-        // Now flood the queue (capacity 1024). The processing thread is blocked,
-        // so the queue will fill up and events will be dropped.
-        int totalSubmissions = 1024 + 100; // More than queue capacity
-        for (int i = 0; i < totalSubmissions; i++) {
-            engine.onDomainEvent(createSignal("sig-flood-" + i), blockingDownstream);
-        }
+        // Fill the queue to capacity + 1 (4097 events) to guarantee the producer
+        // blocks on put() once the queue is full. Use a separate thread so we can
+        // observe the blocking behavior.
+        Thread producer = new Thread(() -> {
+            for (int i = 0; i < 4097; i++) {
+                engine.onDomainEvent(createSignal("sig-flood-" + i), blockingDownstream);
+            }
+            producerReleased.countDown();
+        }, "test-producer");
+        producer.start();
 
-        // Some events should have been dropped
-        long dropped = engine.droppedEventCount();
-        assertTrue(dropped > 0,
-                "Events should be dropped when queue is full, but droppedCount=" + dropped);
+        // Wait for the queue to reach capacity — the producer will block on the 4097th put()
+        int depth;
+        long deadline = System.currentTimeMillis() + 5000;
+        do {
+            Thread.sleep(50);
+            depth = engine.queueDepth();
+        } while (depth < 4096 && System.currentTimeMillis() < deadline);
 
+        assertTrue(depth >= 4096,
+                "Queue should be nearly full (depth=" + depth + ")");
+        assertTrue(producer.isAlive(),
+                "Producer should be blocked on put() when queue is full");
+
+        // Release the consumer — producer should unblock and finish
         releaseAll.countDown();
-
-        // Allow engine to drain
-        Thread.sleep(500);
+        assertTrue(producerReleased.await(10, TimeUnit.SECONDS),
+                "Producer should complete after consumer drains queue");
+        producer.join(5000);
     }
 }

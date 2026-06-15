@@ -1,6 +1,8 @@
 package com.tradej.execution.service;
 
 import com.tradej.broker.api.IBrokerConnection;
+import com.tradej.core.domain.id.IdGenerator;
+import com.tradej.core.domain.id.UuidIdGenerator;
 import com.tradej.core.domain.instrument.ContractSymbolNormalizer;
 import com.tradej.core.domain.model.ModifyOrderRequest;
 import com.tradej.core.domain.model.Order;
@@ -29,7 +31,6 @@ import org.slf4j.LoggerFactory;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
@@ -51,6 +52,7 @@ public final class OrderManagementService {
     private final TradingClock clock;
     private final EventSourcedOrderRepository orderRepository;
     private final TradingCircuitBreaker circuitBreaker;
+    private final IdGenerator idGenerator;
     private final ConcurrentHashMap<String, OrderStateMachine> stateMachines = new ConcurrentHashMap<>();
     private volatile MatchingEngine.MatchResult lastSimulatedMatch;
 
@@ -78,12 +80,24 @@ public final class OrderManagementService {
             TradingClock clock,
             EventSourcedOrderRepository orderRepository,
             TradingCircuitBreaker circuitBreaker) {
+        this(brokerConnection, runtimeModeHolder, simulatedOrderService, clock, orderRepository, circuitBreaker, new UuidIdGenerator());
+    }
+
+    public OrderManagementService(
+            IBrokerConnection brokerConnection,
+            RuntimeModeHolder runtimeModeHolder,
+            SimulatedOrderService simulatedOrderService,
+            TradingClock clock,
+            EventSourcedOrderRepository orderRepository,
+            TradingCircuitBreaker circuitBreaker,
+            IdGenerator idGenerator) {
         this.brokerConnection = brokerConnection;
         this.runtimeModeHolder = runtimeModeHolder;
         this.simulatedOrderService = simulatedOrderService;
         this.clock = clock;
         this.orderRepository = orderRepository;
         this.circuitBreaker = circuitBreaker;
+        this.idGenerator = idGenerator != null ? idGenerator : new UuidIdGenerator();
     }
 
     /**
@@ -294,9 +308,9 @@ public final class OrderManagementService {
         });
     }
 
-    private static Order legacySimulatedOpenOrder(OrderRequest request, TradingClock clock) {
+    private Order legacySimulatedOpenOrder(OrderRequest request, TradingClock clock) {
         return new Order(
-                "SIM-" + UUID.randomUUID(),
+                idGenerator.generateOrderId(),
                 request.correlationId(),
                 request.symbol(),
                 request.exchangeSegment(),

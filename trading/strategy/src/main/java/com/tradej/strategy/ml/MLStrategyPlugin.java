@@ -4,6 +4,8 @@ import com.tradej.core.domain.event.CandleClosed;
 import com.tradej.core.domain.event.DomainEvent;
 import com.tradej.core.domain.event.EventMetadata;
 import com.tradej.core.domain.event.SignalGenerated;
+import com.tradej.core.domain.id.IdGenerator;
+import com.tradej.core.domain.id.UuidIdGenerator;
 import com.tradej.core.domain.model.FeatureVector;
 import com.tradej.core.domain.model.InferenceResult;
 import com.tradej.core.domain.port.FeatureStore;
@@ -16,7 +18,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
 
 /**
  * {@link GraphStrategyPlugin} adapter that bridges the ML inference pipeline
@@ -42,6 +43,7 @@ public final class MLStrategyPlugin implements GraphStrategyPlugin {
     private final MLInferenceEngine inferenceEngine;
     private final String interval;
     private final int lookback;
+    private final IdGenerator idGenerator;
 
     /**
      * @param name             unique plugin name
@@ -57,11 +59,31 @@ public final class MLStrategyPlugin implements GraphStrategyPlugin {
             String interval,
             int lookback
     ) {
+        this(name, featureStore, inferenceEngine, interval, lookback, new UuidIdGenerator());
+    }
+
+    /**
+     * @param name             unique plugin name
+     * @param featureStore     feature store for retrieving feature vectors
+     * @param inferenceEngine  ML inference engine to evaluate features
+     * @param interval         candle interval to query (e.g. "5m", "1d")
+     * @param lookback         number of historical candles for feature computation
+     * @param idGenerator      ID generator for signal IDs (deterministic in replay)
+     */
+    public MLStrategyPlugin(
+            String name,
+            FeatureStore featureStore,
+            MLInferenceEngine inferenceEngine,
+            String interval,
+            int lookback,
+            IdGenerator idGenerator
+    ) {
         this.name = name;
         this.featureStore = featureStore;
         this.inferenceEngine = inferenceEngine;
         this.interval = interval;
         this.lookback = lookback;
+        this.idGenerator = idGenerator != null ? idGenerator : new UuidIdGenerator();
     }
 
     @Override
@@ -102,7 +124,7 @@ public final class MLStrategyPlugin implements GraphStrategyPlugin {
     }
 
     private SignalGenerated toSignal(CandleClosed event, FeatureVector features, InferenceResult result) {
-        String signalId = UUID.randomUUID().toString();
+        String signalId = idGenerator.generateSignalId();
         Map<String, Object> attrs = Map.of(
                 "confidence", result.confidence(),
                 "setup", result.setup(),

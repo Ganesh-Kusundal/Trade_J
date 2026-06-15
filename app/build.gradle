@@ -28,7 +28,6 @@ dependencies {
     implementation project(':data-analytics')
     implementation project(':pipeline-runtime')
     implementation project(':replay-engine')
-    implementation project(':composition')
 
     implementation 'org.springframework.boot:spring-boot-starter'
     implementation 'org.springframework.boot:spring-boot-starter-web'

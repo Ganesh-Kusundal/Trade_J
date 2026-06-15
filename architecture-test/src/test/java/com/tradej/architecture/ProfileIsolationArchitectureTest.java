@@ -19,7 +19,6 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
  *   <li>{@code ClockConfiguration} must be annotated with {@code @Profile}
  *       to avoid conflicting with {@code TimeConfiguration}'s profile-managed beans.</li>
  *   <li>{@code ReplayTradingClock} is in the {@code core} module — safe from auto-scanning.</li>
- *   <li>{@code ReplayClock} (replay clock driver) is in the {@code persistence} module.</li>
  * </ul>
  */
 @Tag("architecture")
@@ -45,12 +44,12 @@ class ProfileIsolationArchitectureTest {
                 .check(allClasses);
     }
 
-    /** ReplayClock (replay clock driver) is in persistence module, not app. */
+    /** VirtualClock (replay clock driver) is in pipeline-core module, not app. */
     @Test
-    void replayClockIsInPersistenceModule() {
+    void virtualClockIsInPipelineCoreModule() {
         classes()
-                .that().haveSimpleName("ReplayClock")
-                .should().resideInAPackage("com.tradej.persistence..")
+                .that().haveSimpleName("VirtualClock")
+                .should().resideInAPackage("com.tradej.pipeline.clock")
                 .allowEmptyShould(false)
                 .check(allClasses);
     }

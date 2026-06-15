@@ -2,8 +2,8 @@ package com.tradej.app.integration;
 
 import com.tradej.broker.api.IBrokerConnection;
 import com.tradej.broker.icici.config.BreezeConnectionSettings;
-import com.tradej.composition.BrokerComposition;
-import com.tradej.composition.config.BrokerProfile;
+import com.tradej.brokergateway.wiring.BrokerComposition;
+import com.tradej.brokergateway.config.BrokerProfile;
 import com.tradej.core.domain.model.OptionChainSnapshot;
 import com.tradej.core.domain.value.ExchangeSegment;
 import org.junit.jupiter.api.AfterAll;

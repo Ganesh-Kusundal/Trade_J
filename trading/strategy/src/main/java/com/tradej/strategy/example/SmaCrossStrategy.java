@@ -5,6 +5,8 @@ import com.tradej.core.domain.event.DomainEvent;
 import com.tradej.core.domain.event.EventMetadata;
 import com.tradej.core.domain.event.SignalGenerated;
 import com.tradej.core.domain.value.Side;
+import com.tradej.core.domain.id.IdGenerator;
+import com.tradej.core.domain.id.UuidIdGenerator;
 import com.tradej.strategy.api.GraphStrategyPlugin;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,7 +17,6 @@ import java.util.Deque;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -41,6 +42,7 @@ public class SmaCrossStrategy implements GraphStrategyPlugin {
 
     private final int fastPeriod;
     private final int slowPeriod;
+    private final IdGenerator idGenerator;
     private final Map<String, Deque<Double>> closes = new ConcurrentHashMap<>();
 
     public SmaCrossStrategy() {
@@ -48,12 +50,17 @@ public class SmaCrossStrategy implements GraphStrategyPlugin {
     }
 
     public SmaCrossStrategy(int fastPeriod, int slowPeriod) {
+        this(fastPeriod, slowPeriod, new UuidIdGenerator());
+    }
+
+    public SmaCrossStrategy(int fastPeriod, int slowPeriod, IdGenerator idGenerator) {
         if (fastPeriod < 1) throw new IllegalArgumentException("fastPeriod must be >= 1");
         if (slowPeriod <= fastPeriod) {
             throw new IllegalArgumentException("slowPeriod must be > fastPeriod");
         }
         this.fastPeriod = fastPeriod;
         this.slowPeriod = slowPeriod;
+        this.idGenerator = idGenerator != null ? idGenerator : new UuidIdGenerator();
     }
 
     @Override
@@ -88,7 +95,7 @@ public class SmaCrossStrategy implements GraphStrategyPlugin {
             if (fast > slow) {
                 return Optional.of(new SignalGenerated(
                         EventMetadata.root(),
-                        UUID.randomUUID().toString(),
+                        idGenerator.generateSignalId(),
                         symbol,
                         closed.candle().interval(),
                         Side.BUY,
@@ -101,7 +108,7 @@ public class SmaCrossStrategy implements GraphStrategyPlugin {
             } else if (fast < slow) {
                 return Optional.of(new SignalGenerated(
                         EventMetadata.root(),
-                        UUID.randomUUID().toString(),
+                        idGenerator.generateSignalId(),
                         symbol,
                         closed.candle().interval(),
                         Side.SELL,

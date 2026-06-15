@@ -4,6 +4,10 @@ import com.tradej.core.domain.event.DomainEvent;
 import com.tradej.core.domain.event.EventMetadata;
 import com.tradej.core.domain.event.MarketTickEvent;
 import com.tradej.core.domain.event.SignalGenerated;
+import com.tradej.core.domain.id.IdGenerator;
+import com.tradej.core.domain.id.UuidIdGenerator;
+import com.tradej.core.domain.time.TradingClock;
+import com.tradej.core.domain.time.LiveTradingClock;
 import com.tradej.core.domain.value.Side;
 import com.tradej.strategy.api.GraphStrategyPlugin;
 import org.slf4j.Logger;
@@ -12,8 +16,8 @@ import org.slf4j.LoggerFactory;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
-import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -36,6 +40,8 @@ public final class TickPriceChangeStrategy implements GraphStrategyPlugin {
     private final String name;
     private final long thresholdPaisa;
     private final long cooldownMs;
+    private final IdGenerator idGenerator;
+    private final TradingClock clock;
     private final ConcurrentHashMap<String, TickState> symbolStates = new ConcurrentHashMap<>();
 
     /**
@@ -44,9 +50,22 @@ public final class TickPriceChangeStrategy implements GraphStrategyPlugin {
      * @param cooldownMs     minimum interval between signals for the same symbol
      */
     public TickPriceChangeStrategy(String name, long thresholdPaisa, long cooldownMs) {
+        this(name, thresholdPaisa, cooldownMs, new UuidIdGenerator(), new LiveTradingClock());
+    }
+
+    /**
+     * @param name           unique plugin name
+     * @param thresholdPaisa minimum price change in paisa to trigger a signal
+     * @param cooldownMs     minimum interval between signals for the same symbol
+     * @param idGenerator    ID generator for signal IDs (deterministic in replay)
+     * @param clock          trading clock (deterministic in REPLAY mode)
+     */
+    public TickPriceChangeStrategy(String name, long thresholdPaisa, long cooldownMs, IdGenerator idGenerator, TradingClock clock) {
         this.name = name;
         this.thresholdPaisa = thresholdPaisa;
         this.cooldownMs = cooldownMs;
+        this.idGenerator = idGenerator != null ? idGenerator : new UuidIdGenerator();
+        this.clock = Objects.requireNonNullElseGet(clock, LiveTradingClock::new);
     }
 
     @Override
@@ -68,7 +87,7 @@ public final class TickPriceChangeStrategy implements GraphStrategyPlugin {
         String symbol = tick.symbol();
         long ltp = tick.ltpPaisa();
         long exchangeTs = tick.exchangeTimestampEpochMs();
-        long now = exchangeTs > 0 ? exchangeTs : System.currentTimeMillis();
+        long now = exchangeTs > 0 ? exchangeTs : clock.millis();
 
         TickState state = symbolStates.compute(symbol, (key, existing) -> {
             if (existing == null) {
@@ -92,7 +111,7 @@ public final class TickPriceChangeStrategy implements GraphStrategyPlugin {
         // If lastSignalMs was updated to now, this tick triggered a signal
         if (state.lastSignalMs == now) {
             Side side = ltp > state.referencePrice ? Side.BUY : Side.SELL;
-            String signalId = UUID.randomUUID().toString();
+            String signalId = idGenerator.generateSignalId();
             long entryPrice = ltp;
 
             Map<String, Object> attrs = Map.of(

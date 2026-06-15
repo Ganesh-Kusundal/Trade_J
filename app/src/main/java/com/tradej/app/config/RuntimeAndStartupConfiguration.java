@@ -10,10 +10,10 @@ import com.tradej.broker.api.model.BrokerCapabilities;
 import com.tradej.broker.core.startup.BrokerLifecycleManager;
 import com.tradej.broker.dhan.auth.DhanTokenProvider;
 import com.tradej.broker.icici.auth.BreezeTokenProvider;
-import com.tradej.composition.config.ScanProperties;
+import com.tradej.app.config.ScanProperties;
 import com.tradej.core.domain.event.DomainEvent;
 import com.tradej.core.domain.event.EventMetadataFactory;
-import com.tradej.core.domain.event.SimpleEventBus;
+
 import com.tradej.core.domain.port.DeadLetterQueue;
 import com.tradej.core.domain.port.EventBus;
 import com.tradej.core.domain.port.FeatureStore;
@@ -131,28 +131,26 @@ public class RuntimeAndStartupConfiguration {
             DeadLetterQueue deadLetterQueue,
             PipelineRuntimeBridge pipelineRuntimeBridge
     ) {
-        RuntimeBus bus = properties.runtime() == null ? RuntimeBus.SIMPLE : properties.runtime().bus();
+        RuntimeBus bus = (properties.runtime() == null || properties.runtime().bus() == null)
+                ? RuntimeBus.DISRUPTOR
+                : properties.runtime().bus();
         runtimeBusHolder.setMode(bus);
-        if (bus == RuntimeBus.DISRUPTOR) {
-            DisruptorEventBus disruptorEventBus = new DisruptorEventBus(
-                    new com.tradej.disruptor.config.DisruptorPipelineConfig(
-                            positionRiskHandler,
-                            candleAggregationService,
-                            graphStrategySandbox,
-                            executionHandler,
-                            portfolioEngine,
-                            stageTimings,
-                            featureStore,
-                            deadLetterQueue,
-                            pipelineRuntimeBridge,
-                            true,
-                            properties.runtime() == null ? com.tradej.core.domain.runtime.RuntimeMode.LIVE : properties.runtime().mode(),
-                            com.tradej.core.domain.port.EventWriteAheadLog.noop()
-                    )
-            );
-            return disruptorEventBus;
-        }
-        return new SimpleEventBus();
+        return new DisruptorEventBus(
+                new com.tradej.disruptor.config.DisruptorPipelineConfig(
+                        positionRiskHandler,
+                        candleAggregationService,
+                        graphStrategySandbox,
+                        executionHandler,
+                        portfolioEngine,
+                        stageTimings,
+                        featureStore,
+                        deadLetterQueue,
+                        pipelineRuntimeBridge,
+                        true,
+                        properties.runtime() == null ? com.tradej.core.domain.runtime.RuntimeMode.LIVE : properties.runtime().mode(),
+                        com.tradej.core.domain.port.EventWriteAheadLog.noop()
+                )
+        );
     }
 
     @Lazy
@@ -179,10 +177,14 @@ public class RuntimeAndStartupConfiguration {
         if (eventBus instanceof DisruptorBusMetrics metrics) {
             return metrics;
         }
-        if (eventBus instanceof SimpleEventBus simple) {
-            return new SimpleBusMetrics(simple);
-        }
-        return new NoOpBusMetrics();
+        return new DisruptorBusMetrics() {
+            @Override public long ringBufferRemainingCapacity() { return 0; }
+            @Override public int ringBufferSize() { return 0; }
+            @Override public int dispatchQueueDepth() { return 0; }
+            @Override public long dispatchDroppedEventCount() { return 0; }
+            @Override public int subscriberCount() { return 0; }
+            @Override public boolean isStarted() { return false; }
+        };
     }
 
     @Lazy

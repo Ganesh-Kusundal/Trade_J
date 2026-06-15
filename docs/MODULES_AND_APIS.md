@@ -4,6 +4,7 @@
 > **Platform:** Java 21, Spring Boot 3.4.13, Gradle Multi-Module  
 > **Brokers:** Dhan, Upstox, ICICI Direct (Breeze)  
 > **Market:** NSE Equity, NSE F&O, BSE Equity, BSE F&O, MCX Commodity, Indices
+> **Modules:** 27 subprojects (was 28; composition and trade-node-library deleted)
 
 ---
 
@@ -86,7 +87,6 @@
 | `:gateway` | `gateway/` | WebSocket gateway: binary protocol, topic pub/sub for frontend |
 | `:cli` | `cli/` | Operator CLI (picocli): interactive shell, standalone broker mode |
 | `:trade-pipeline-platform` | `pipeline/platform/` | Pipeline template/definition/catalog services, validation, versioning |
-| `:trade-node-library` | `nodes/` | Reusable pipeline nodes: scanner, output, feature, historical |
 | `:trade-analytics` | `pipeline/analytics/` | Performance analytics: equity curve, drawdown, trade records |
 
 | `:architecture-test` | `architecture-test/` | ArchUnit tests enforcing module boundaries |

@@ -2,8 +2,8 @@ package com.tradej.cli.standalone;
 
 import com.tradej.broker.api.IBrokerConnection;
 import com.tradej.broker.dhan.config.DhanConfigPaths;
-import com.tradej.composition.FullComposition;
-import com.tradej.composition.config.BrokerProfile;
+import com.tradej.brokergateway.wiring.BrokerComposition;
+import com.tradej.brokergateway.config.BrokerProfile;
 import com.tradej.cli.config.CliConfig;
 
 import java.nio.file.Files;
@@ -14,7 +14,7 @@ public final class IciciBrokerSession implements BrokerSession {
 
     private final CliConfig.Profile profile;
     private final BrokerProfile.IciciConfig iciciConfig;
-    private FullComposition composition;
+    private BrokerComposition composition;
     private boolean catalogLoaded;
     private Path lastCatalogPath;
 
@@ -34,11 +34,11 @@ public final class IciciBrokerSession implements BrokerSession {
     }
 
     @Override
-    public FullComposition fullComposition() {
+    public BrokerComposition fullComposition() {
         if (composition == null) {
             BrokerProfile brokerProfile = new BrokerProfile(
                     BrokerProfile.BrokerType.ICICI, null, null, iciciConfig);
-            composition = FullComposition.brokerOnly(brokerProfile);
+            composition = BrokerComposition.create(brokerProfile);
         }
         return composition;
     }

@@ -2,7 +2,7 @@ package com.tradej.cli.standalone;
 
 import com.tradej.broker.api.IBrokerConnection;
 import com.tradej.cli.config.CliConfig;
-import com.tradej.composition.FullComposition;
+import com.tradej.brokergateway.wiring.BrokerComposition;
 
 import java.nio.file.Path;
 
@@ -11,7 +11,7 @@ public interface BrokerSession extends AutoCloseable {
 
     CliConfig.Profile profile();
 
-    FullComposition fullComposition();
+    BrokerComposition fullComposition();
 
     default IBrokerConnection connection() {
         return fullComposition().brokerConnection();

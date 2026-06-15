@@ -1,7 +1,7 @@
 package com.tradej.app.scanner;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.tradej.composition.config.ScanProperties;
+import com.tradej.app.config.ScanProperties;
 import com.tradej.core.domain.model.InstrumentKey;
 import com.tradej.core.domain.port.HistoricalBarRepository;
 import com.tradej.core.domain.value.ExchangeSegment;
@@ -55,11 +55,11 @@ public final class ScanService {
         this.scanProperties = scanProperties;
         this.scanEngine = new ScanEngine(scanDependencies);
         this.optionLiquidityScanner = new OptionLiquidityScanner(scanDependencies.optionsProvider());
-        this.institutionalScanEngine = institutionalScanEngine != null ? institutionalScanEngine : new com.tradej.institutional.NoOpInstitutionalScanEngine();
-        this.historicalBarRepository = historicalBarRepository != null ? historicalBarRepository : new com.tradej.core.domain.port.NoOpHistoricalBarRepository();
+        this.institutionalScanEngine = institutionalScanEngine;
+        this.historicalBarRepository = historicalBarRepository;
         this.scanStore = scanStore;
         this.subscriptionManager = subscriptionManager;
-        this.gatewayRouter = gatewayRouter != null ? gatewayRouter : new com.tradej.gateway.router.NoOpGatewayTopicRouter();
+        this.gatewayRouter = gatewayRouter;
         this.objectMapper = objectMapper;
     }
 
@@ -78,10 +78,10 @@ public final class ScanService {
     }
 
     private ScanResult runInstitutionalScan(ScanProfile profile) {
-        if (institutionalScanEngine instanceof com.tradej.institutional.NoOpInstitutionalScanEngine) {
+        if (institutionalScanEngine == null) {
             throw new IllegalStateException("Institutional scan engine is not configured");
         }
-        if (historicalBarRepository instanceof com.tradej.core.domain.port.NoOpHistoricalBarRepository) {
+        if (historicalBarRepository == null) {
             throw new IllegalStateException("Historical bar repository is not configured");
         }
         LocalDate scanDate = historicalBarRepository.latestAvailableTradingDay(0)
@@ -179,7 +179,7 @@ public final class ScanService {
     }
 
     private void publishGateway(ScanResult result) {
-        if (!(gatewayRouter instanceof com.tradej.gateway.router.NoOpGatewayTopicRouter)) {
+        if (gatewayRouter != null) {
             try {
                 Map<String, Object> payload = new LinkedHashMap<>();
                 payload.put("runId", result.run().runId());

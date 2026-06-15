@@ -7,7 +7,7 @@ import com.tradej.broker.api.spi.BrokerRegistry;
 import com.tradej.broker.api.spi.DefaultBrokerRegistry;
 import com.tradej.broker.api.spi.ServiceLoaderBrokerRegistry;
 import com.tradej.broker.api.spi.BrokerSource;
-import com.tradej.composition.config.BrokerProfile;
+import com.tradej.brokergateway.config.BrokerProfile;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;

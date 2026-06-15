@@ -7,7 +7,7 @@ import com.tradej.app.scanner.ScanService;
 import com.tradej.broker.api.IBrokerConnection;
 import com.tradej.broker.api.port.WebSocketMultiplexer;
 import com.tradej.broker.core.reconnect.ReconnectListenerRegistry;
-import com.tradej.composition.config.ScanProperties;
+import com.tradej.app.config.ScanProperties;
 import com.tradej.core.domain.port.HistoricalBarRepository;
 import com.tradej.execution.subscription.SubscriptionCoordinator;
 import com.tradej.execution.subscription.SubscriptionManager;

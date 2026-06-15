@@ -1,6 +1,9 @@
 package com.tradej.execution.service;
 
+import com.tradej.core.domain.time.TradingClock;
+import com.tradej.core.domain.time.LiveTradingClock;
 
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -28,6 +31,7 @@ public final class TradingCircuitBreaker {
     private final AtomicInteger consecutiveFailures = new AtomicInteger();
     private final AtomicLong openUntilMs = new AtomicLong(0L);
     private final AtomicInteger halfOpenProbes = new AtomicInteger();
+    private final TradingClock clock;
 
     public TradingCircuitBreaker() {
         this(5, 30_000L, 3);
@@ -38,9 +42,14 @@ public final class TradingCircuitBreaker {
     }
 
     public TradingCircuitBreaker(int failureThreshold, long openDurationMs, int maxHalfOpenProbes) {
+        this(failureThreshold, openDurationMs, maxHalfOpenProbes, new LiveTradingClock());
+    }
+
+    public TradingCircuitBreaker(int failureThreshold, long openDurationMs, int maxHalfOpenProbes, TradingClock clock) {
         this.failureThreshold = failureThreshold;
         this.openDurationMs = openDurationMs;
         this.maxHalfOpenProbes = maxHalfOpenProbes;
+        this.clock = Objects.requireNonNull(clock, "clock");
     }
 
     /**
@@ -55,7 +64,7 @@ public final class TradingCircuitBreaker {
             return true;
         }
         if (current == State.OPEN) {
-            if (System.currentTimeMillis() >= openUntilMs.get()) {
+            if (clock.millis() >= openUntilMs.get()) {
                 // Try to transition to HALF_OPEN — only one thread will succeed
                 if (state.compareAndSet(State.OPEN, State.HALF_OPEN)) {
                     halfOpenProbes.set(1);
@@ -101,20 +110,20 @@ public final class TradingCircuitBreaker {
             State current = state.get();
             if (current == State.CLOSED) {
                 if (state.compareAndSet(State.CLOSED, State.OPEN)) {
-                    openUntilMs.set(System.currentTimeMillis() + openDurationMs);
+                    openUntilMs.set(clock.millis() + openDurationMs);
                 } else {
                     // Another thread raced — still record the timeout extension
-                    openUntilMs.set(System.currentTimeMillis() + openDurationMs);
+                    openUntilMs.set(clock.millis() + openDurationMs);
                 }
             } else if (current == State.HALF_OPEN) {
                 if (state.compareAndSet(State.HALF_OPEN, State.OPEN)) {
-                    openUntilMs.set(System.currentTimeMillis() + openDurationMs);
+                    openUntilMs.set(clock.millis() + openDurationMs);
                 } else {
-                    openUntilMs.set(System.currentTimeMillis() + openDurationMs);
+                    openUntilMs.set(clock.millis() + openDurationMs);
                 }
             } else if (current == State.OPEN) {
                 // Extend the open window
-                openUntilMs.set(System.currentTimeMillis() + openDurationMs);
+                openUntilMs.set(clock.millis() + openDurationMs);
             }
         }
     }

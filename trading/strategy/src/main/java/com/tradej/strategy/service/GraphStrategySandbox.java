@@ -15,6 +15,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.ServiceLoader;
 import java.util.concurrent.CancellationException;
@@ -46,6 +47,7 @@ public final class GraphStrategySandbox {
     private final long timeoutMs;
     private final PositionSizer positionSizer;
     private final EventMetadataFactory eventMetadataFactory;
+    private final boolean synchronous;
 
     public GraphStrategySandbox(List<GraphStrategyPlugin> plugins, EventMetadataFactory eventMetadataFactory) {
         this(plugins, DEFAULT_TIMEOUT_MS, new DefaultPositionSizer(), eventMetadataFactory);
@@ -56,15 +58,32 @@ public final class GraphStrategySandbox {
     }
 
     public GraphStrategySandbox(List<GraphStrategyPlugin> plugins, long timeoutMs, PositionSizer positionSizer, EventMetadataFactory eventMetadataFactory) {
+        this(plugins, timeoutMs, positionSizer, eventMetadataFactory, false);
+    }
+
+    /**
+     * Creates a sandbox with configurable executor strategy.
+     *
+     * @param plugins            strategy plugins to evaluate
+     * @param timeoutMs          per-plugin timeout in milliseconds (ignored in synchronous mode)
+     * @param positionSizer      position sizer for fallback quantity computation
+     * @param eventMetadataFactory  event metadata factory
+     * @param synchronous        if true, process all plugins synchronously on the caller thread
+     *                           with deterministic ordering; use for REPLAY/BACKTEST modes.
+     *                           If false, use virtual threads (LIVE mode).
+     */
+    public GraphStrategySandbox(List<GraphStrategyPlugin> plugins, long timeoutMs, PositionSizer positionSizer,
+                                 EventMetadataFactory eventMetadataFactory, boolean synchronous) {
         this.plugins = new ArrayList<>();
         if (plugins != null) {
             this.plugins.addAll(plugins);
         }
         ServiceLoader.load(GraphStrategyPlugin.class).forEach(this.plugins::add);
-        this.executor = Executors.newVirtualThreadPerTaskExecutor();
+        this.executor = synchronous ? null : Executors.newVirtualThreadPerTaskExecutor();
         this.timeoutMs = timeoutMs;
         this.positionSizer = positionSizer != null ? positionSizer : new DefaultPositionSizer();
         this.eventMetadataFactory = eventMetadataFactory;
+        this.synchronous = synchronous;
         this.plugins.forEach(GraphStrategyPlugin::onStart);
     }
 
@@ -86,64 +105,75 @@ public final class GraphStrategySandbox {
             long correlationSeq = event.sequenceId();
             String correlationId = event.correlationId();
 
-            CompletableFuture<Optional<SignalGenerated>> future =
-                    CompletableFuture.supplyAsync(() -> runPlugin(plugin, event), executor);
+            if (synchronous) {
+                // Deterministic ordered evaluation — no thread scheduling, no timeouts.
+                // Used in REPLAY/BACKTEST modes for reproducible plugin ordering.
+                Optional<SignalGenerated> result = runPlugin(plugin, event);
+                result.ifPresent(signal -> emitSignal(signal, pluginName, event, downstream));
+            } else {
+                CompletableFuture<Optional<SignalGenerated>> future =
+                        CompletableFuture.supplyAsync(() -> runPlugin(plugin, event), executor);
 
-            future
-                    .orTimeout(timeoutMs, TimeUnit.MILLISECONDS)
-                    .handle((optSignal, error) -> {
-                        if (error == null && optSignal != null) {
-                            optSignal.ifPresent(signal -> {
-                                var enrichedAttrs = new HashMap<>(signal.attributes());
-                                enrichedAttrs.put("strategyName", pluginName);
-                                enrichedAttrs.put("triggerEvent", event.getClass().getSimpleName());
-                                if (!enrichedAttrs.containsKey(ATTR_QUANTITY)) {
-                                    long computedQty = positionSizer.computeQuantity(signal);
-                                    if (computedQty > 0) {
-                                        enrichedAttrs.put(ATTR_QUANTITY, computedQty);
-                                    }
+                future
+                        .orTimeout(timeoutMs, TimeUnit.MILLISECONDS)
+                        .handle((optSignal, error) -> {
+                            if (error == null && optSignal != null) {
+                                optSignal.ifPresent(signal -> emitSignal(signal, pluginName, event, downstream));
+                            } else if (error != null) {
+                                if (error instanceof CancellationException) {
+                                    return null;
                                 }
-                                downstream.accept(new SignalGenerated(
-                                        signal.metadata(),
-                                        signal.signalId(),
-                                        signal.symbol(),
-                                        signal.interval(),
-                                        signal.side(),
-                                        signal.entryPricePaisa(),
-                                        signal.stopLossPaisa(),
-                                        signal.takeProfitPaisa(),
-                                        signal.setup(),
-                                        Collections.unmodifiableMap(enrichedAttrs)
-                                ));
-                            });
-                        } else if (error != null) {
-                            if (error instanceof CancellationException) {
-                                return null;
+                                String detail;
+                                Throwable cause = error instanceof CompletionException ce
+                                        ? ce.getCause() : error;
+                                if (cause instanceof TimeoutException) {
+                                    detail = "Timed out after " + timeoutMs + "ms";
+                                    log.warn("Graph strategy plugin {} timed out", pluginName);
+                                } else {
+                                    detail = cause.getMessage() != null
+                                            ? cause.getMessage()
+                                            : cause.getClass().getSimpleName();
+                                    log.error("Graph strategy plugin {} failed: {}", pluginName, detail, cause);
+                                }
+                                downstream.accept(new StrategyError(
+                                        eventMetadataFactory.correlated(correlationId, correlationSeq),
+                                        pluginName, "", detail));
                             }
-                            String detail;
-                            Throwable cause = error instanceof CompletionException ce
-                                    ? ce.getCause() : error;
-                            if (cause instanceof TimeoutException) {
-                                detail = "Timed out after " + timeoutMs + "ms";
-                                log.warn("Graph strategy plugin {} timed out", pluginName);
-                            } else {
-                                detail = cause.getMessage() != null
-                                        ? cause.getMessage()
-                                        : cause.getClass().getSimpleName();
-                                log.error("Graph strategy plugin {} failed: {}", pluginName, detail, cause);
-                            }
-                            downstream.accept(new StrategyError(
-                                    eventMetadataFactory.correlated(correlationId, correlationSeq),
-                                    pluginName, "", detail));
-                        }
-                        return null;
-                    });
+                            return null;
+                        });
+            }
         }
+    }
+
+    private void emitSignal(SignalGenerated signal, String pluginName, DomainEvent event, Consumer<DomainEvent> downstream) {
+        var enrichedAttrs = new HashMap<>(signal.attributes());
+        enrichedAttrs.put("strategyName", pluginName);
+        enrichedAttrs.put("triggerEvent", event.getClass().getSimpleName());
+        if (!enrichedAttrs.containsKey(ATTR_QUANTITY)) {
+            long computedQty = positionSizer.computeQuantity(signal);
+            if (computedQty > 0) {
+                enrichedAttrs.put(ATTR_QUANTITY, computedQty);
+            }
+        }
+        downstream.accept(new SignalGenerated(
+                signal.metadata(),
+                signal.signalId(),
+                signal.symbol(),
+                signal.interval(),
+                signal.side(),
+                signal.entryPricePaisa(),
+                signal.stopLossPaisa(),
+                signal.takeProfitPaisa(),
+                signal.setup(),
+                Collections.unmodifiableMap(enrichedAttrs)
+        ));
     }
 
     public void shutdown() {
         plugins.forEach(GraphStrategyPlugin::onStop);
-        executor.shutdownNow();
+        if (executor != null) {
+            executor.shutdownNow();
+        }
     }
 
     public int pluginCount() {

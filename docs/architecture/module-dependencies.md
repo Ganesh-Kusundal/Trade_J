@@ -13,20 +13,19 @@ graph TD
     broker_icici["broker-icici"]:::broker
     broker_upstox["broker-upstox"]:::broker
     cli["cli"]:::entry
-    composition["composition"]:::composition
     core["core"]:::core
     data_analytics["data-analytics"]:::data
     data_feature_store["data-feature-store"]:::data
     data_historical_ingest["data-historical-ingest"]:::data
     data_persistence["data-persistence"]:::data
     gateway["gateway"]:::entry
+    mcp_server["mcp-server"]:::other
     pipeline_core["pipeline-core"]:::pipeline
     pipeline_runtime["pipeline-runtime"]:::pipeline
     replay_engine["replay-engine"]:::other
     runtime_disruptor["runtime-disruptor"]:::runtime
     runtime_hotpath["runtime-hotpath"]:::runtime
     trade_analytics["trade-analytics"]:::other
-    trade_node_library["trade-node-library"]:::other
     trade_pipeline_platform["trade-pipeline-platform"]:::other
     trading_execution["trading-execution"]:::trading
     trading_indicators["trading-indicators"]:::trading
@@ -41,7 +40,6 @@ graph TD
     app --> broker_gateway
     app --> broker_icici
     app --> broker_upstox
-    app --> composition
     app --> core
     app --> data_analytics
     app --> data_feature_store
@@ -68,7 +66,6 @@ graph TD
     architecture_test --> broker_icici
     architecture_test --> broker_upstox
     architecture_test --> cli
-    architecture_test --> composition
     architecture_test --> core
     architecture_test --> data_analytics
     architecture_test --> data_feature_store
@@ -79,7 +76,6 @@ graph TD
     architecture_test --> pipeline_runtime
     architecture_test --> runtime_disruptor
     architecture_test --> runtime_hotpath
-    architecture_test --> trade_node_library
     architecture_test --> trade_pipeline_platform
     architecture_test --> trading_execution
     architecture_test --> trading_indicators
@@ -102,7 +98,6 @@ graph TD
     broker_gateway --> broker_dhan
     broker_gateway --> broker_icici
     broker_gateway --> broker_upstox
-    broker_gateway --> composition
     broker_gateway --> core
     broker_icici --> broker_api
     broker_icici --> broker_core
@@ -113,7 +108,6 @@ graph TD
     cli --> broker_gateway
     cli --> broker_icici
     cli --> broker_upstox
-    cli --> composition
     cli --> core
     cli --> data_analytics
     cli --> data_historical_ingest
@@ -121,26 +115,6 @@ graph TD
     cli --> trading_indicators
     cli --> trading_scanner
     cli --> trading_simulation
-    composition --> broker_api
-    composition --> broker_core
-    composition --> broker_dhan
-    composition --> broker_icici
-    composition --> broker_upstox
-    composition --> core
-    composition --> data_analytics
-    composition --> data_feature_store
-    composition --> data_historical_ingest
-    composition --> data_persistence
-    composition --> pipeline_core
-    composition --> pipeline_runtime
-    composition --> replay_engine
-    composition --> runtime_disruptor
-    composition --> runtime_hotpath
-    composition --> trading_execution
-    composition --> trading_options_analytics
-    composition --> trading_scanner
-    composition --> trading_simulation
-    composition --> trading_strategy
     core --> core
     data_analytics --> core
     data_analytics --> data_historical_ingest
@@ -156,6 +130,11 @@ graph TD
     gateway --> broker_api
     gateway --> core
     gateway --> runtime_hotpath
+    mcp_server --> core
+    mcp_server --> data_analytics
+    mcp_server --> data_historical_ingest
+    mcp_server --> data_persistence
+    mcp_server --> replay_engine
     pipeline_core --> core
     pipeline_runtime --> core
     pipeline_runtime --> data_feature_store
@@ -191,10 +170,6 @@ graph TD
     trade_analytics --> core
     trade_analytics --> pipeline_core
     trade_analytics --> trade_pipeline_platform
-    trade_node_library --> core
-    trade_node_library --> data_historical_ingest
-    trade_node_library --> pipeline_core
-    trade_node_library --> trade_pipeline_platform
     trade_pipeline_platform --> core
     trade_pipeline_platform --> pipeline_core
     trading_execution --> broker_api
@@ -228,7 +203,6 @@ graph TD
     classDef runtime fill:#fff3e0,stroke:#f57c00
     classDef pipeline fill:#fce4ec,stroke:#c62828
     classDef entry fill:#fafafa,stroke:#424242
-    classDef composition fill:#f1f8e9,stroke:#558b2f
     classDef core fill:#e0f2f1,stroke:#00695c
     classDef other fill:#f5f5f5,stroke:#9e9e9e
 ```

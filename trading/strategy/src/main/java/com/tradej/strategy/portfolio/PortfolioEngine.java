@@ -56,15 +56,19 @@ public final class PortfolioEngine {
     private final ConcurrentHashMap<String, TradeInfo> openTrades = new ConcurrentHashMap<>();
 
     // P0-7: Dedicated thread infrastructure to move processing off the ring buffer thread
-    private static final int DEFAULT_QUEUE_CAPACITY = 1024;
+    // P2-VENKAT: Increased from 1024 to 4096 to prevent queue overflow during burst scenarios.
+    // All ledger events use put() (blocking) — non-ledger events also use put() to prevent silent drops.
+    private static final int DEFAULT_QUEUE_CAPACITY = 4096;
     private final BlockingQueue<PortfolioCommand> eventQueue = new ArrayBlockingQueue<>(DEFAULT_QUEUE_CAPACITY);
     private final ExecutorService portfolioExecutor = Executors.newSingleThreadExecutor(r -> {
         Thread thread = new Thread(r, "portfolio-engine");
         thread.setDaemon(true);
         return thread;
     });
-    private final AtomicLong droppedEventCount = new AtomicLong();
+    // droppedEventCount field removed per Venkat review (P2): put() is used for all events,
+    // so events are never dropped. Backpressure is applied via blocking put().
     private volatile boolean running;
+    private volatile boolean forceSync;
 
     public PortfolioEngine(long defaultCapitalPaisa, long maxNetExposurePaisa) {
         this.defaultCapitalPaisa = defaultCapitalPaisa;
@@ -102,8 +106,14 @@ public final class PortfolioEngine {
     /**
      * Returns the number of events dropped due to a full queue (P0-7).
      */
+    /**
+     * @deprecated Always returns 0 since P2 Venkat review — put() is used for all events,
+     * so events are never dropped. Backpressure is applied via blocking put().
+     * Retained for binary compatibility only.
+     */
+    @Deprecated(since = "P2", forRemoval = true)
     public long droppedEventCount() {
-        return droppedEventCount.get();
+        return 0L;
     }
 
     /**
@@ -114,35 +124,33 @@ public final class PortfolioEngine {
     }
 
     /**
+     * Forces synchronous event processing even when {@link #start()} has been called.
+     * Call this before running REPLAY or BACKTEST to prevent async queue drops
+     * from causing non-deterministic portfolio state.
+     */
+    public void setForceSync(boolean forceSync) {
+        this.forceSync = forceSync;
+    }
+
+    /**
      * Dispatches a domain event for portfolio processing.
      * <p>
-     * When the engine is {@linkplain #start() started}, the event is enqueued for
-     * async processing on the dedicated {@code portfolio-engine} thread, keeping
-     * the caller (e.g. Disruptor ring buffer) unblocked. If the queue is full,
-     * the event is dropped and a WARN is logged.
+     * When the engine is {@linkplain #start() started} and {@link #forceSync} is false,
+     * the event is enqueued for async processing on the dedicated {@code portfolio-engine}
+     * thread, keeping the caller unblocked. Uses {@link BlockingQueue#put} (blocking) for
+     * ALL event types to prevent silent data loss — trading events must never be dropped.
      * <p>
-     * When the engine is <em>not</em> started (default), processing is synchronous
-     * on the caller thread for backward compatibility.
+     * When forceSync is true (REPLAY/BACKTEST) or the engine is not started,
+     * processing is synchronous on the caller thread for deterministic execution.
      */
     public void onDomainEvent(DomainEvent event, Consumer<DomainEvent> downstream) {
-        if (running) {
-            boolean isLedgerEvent = event instanceof TradeOpened
-                    || event instanceof TradeClosed
-                    || event instanceof OrderAccepted
-                    || event instanceof OrderRejected;
-            if (isLedgerEvent) {
-                try {
-                    eventQueue.put(new PortfolioCommand(event, downstream));
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    log.error("Interrupted while putting ledger event into PortfolioEngine queue", e);
-                }
-            } else {
-                if (!eventQueue.offer(new PortfolioCommand(event, downstream))) {
-                    long dropped = droppedEventCount.incrementAndGet();
-                    log.warn("PortfolioEngine queue full — dropping event type={} droppedCount={}",
-                            event.getClass().getSimpleName(), dropped);
-                }
+        if (running && !forceSync) {
+            try {
+                eventQueue.put(new PortfolioCommand(event, downstream));
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                log.error("Interrupted while enqueuing event into PortfolioEngine queue type={}",
+                        event.getClass().getSimpleName(), e);
             }
         } else {
             processEvent(event, downstream);

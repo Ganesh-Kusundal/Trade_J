@@ -106,9 +106,10 @@ class StrategyRegistryTest {
         // reflection and checking its subscribedEventTypes().
         try {
             Class<?> depth = Class.forName("com.tradej.strategy.example.DepthImbalanceStrategy");
-            java.lang.reflect.Constructor<?> ctor = depth.getDeclaredConstructors()[0];
+            // Use the 3-arg constructor explicitly (name + 2 primitives)
+            java.lang.reflect.Constructor<?> ctor = depth.getDeclaredConstructor(String.class, double.class, long.class);
             ctor.setAccessible(true);
-            Object instance = ctor.newInstance(new Object[ctor.getParameterCount() == 0 ? 0 : new Object[ctor.getParameterCount()]);
+            Object instance = ctor.newInstance("test-depth", 0.3, 1000L);
             // The SmaCross contract is easier to verify; the
             // built-in defaults are a fallback, not a guarantee.
             // The contract test is now: SmaCross subscribes to

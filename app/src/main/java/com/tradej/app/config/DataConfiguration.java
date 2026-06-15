@@ -52,7 +52,6 @@ import com.tradej.persistence.duckdb.DuckDbEventStore;
 import com.tradej.persistence.oms.EventSourcedOrderRepository;
 import com.tradej.persistence.pipeline.DuckDbPipelineGraphStore;
 import com.tradej.persistence.replay.HistoricalRangeService;
-import com.tradej.persistence.replay.ReplayClock;
 import com.tradej.persistence.replay.ReplayRunner;
 import com.tradej.persistence.replay.ReplayStateManager;
 import com.tradej.pipeline.clock.VirtualClock;
@@ -181,10 +180,10 @@ public class DataConfiguration {
         );
     }
 
-    @Bean(destroyMethod = "close")
+    @Bean
     @Profile("replay")
-    ReplayClock replayClock(EventBus eventBus) {
-        return new ReplayClock(eventBus);
+    VirtualClock replayClock(EventBus eventBus) {
+        return new VirtualClock(VirtualClock.Mode.REPLAY, eventBus);
     }
 
     @Bean

@@ -1,10 +1,18 @@
 package com.tradej.pipeline.clock;
 
+import com.tradej.core.domain.event.EventMetadata;
+import com.tradej.core.domain.event.ReplayTimeChangedEvent;
+import com.tradej.core.domain.port.EventBus;
+
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * High-precision Clock abstraction supporting deterministic replay, virtual time,
  * backtest speed control, and seamless switching between Live, Replay, and Backtesting modes.
+ * <p>
+ * When an {@link EventBus} is provided, {@link #advanceVirtualTimeMs} also publishes
+ * {@link ReplayTimeChangedEvent} so downstream consumers (e.g. gateway, read model)
+ * stay synchronized with replay progress — previously split across clock abstractions.
  */
 public final class VirtualClock {
 
@@ -15,15 +23,27 @@ public final class VirtualClock {
 
     private volatile Mode mode;
     private final AtomicLong virtualTimeMs = new AtomicLong();
+    private final EventBus eventBus;
     /**
      * Speed multiplier for backtest/replay wall-clock pacing.
      * 0 = instant (no pacing), 1 = real-time, N = Nx real-time.
      */
     private final AtomicLong speedMultiplier = new AtomicLong(1);
 
-    public VirtualClock(Mode mode) {
+    /**
+     * Creates a VirtualClock bound to an EventBus for {@link ReplayTimeChangedEvent} publishing.
+     *
+     * @param mode     initial clock mode
+     * @param eventBus optional event bus (may be null); when set, time-change events are published
+     */
+    public VirtualClock(Mode mode, EventBus eventBus) {
         this.mode = mode;
+        this.eventBus = eventBus;
         this.virtualTimeMs.set(System.currentTimeMillis());
+    }
+
+    public VirtualClock(Mode mode) {
+        this(mode, null);
     }
 
     public long currentTimeMillis() {
@@ -44,12 +64,24 @@ public final class VirtualClock {
 
     /**
      * Advances replay time monotonically — never moves backward during a replay session.
+     * When an {@link EventBus} was provided at construction time, also publishes
+     * {@link ReplayTimeChangedEvent} so downstream consumers stay synchronized.
      */
     public void advanceVirtualTimeMs(long timestampMs) {
         if (mode == Mode.LIVE) {
             return;
         }
-        virtualTimeMs.updateAndGet(current -> Math.max(current, timestampMs));
+        long previous = virtualTimeMs.getAndUpdate(current -> Math.max(current, timestampMs));
+        long updated = virtualTimeMs.get();
+        // Only publish when time actually advanced (monotonic guard — no duplicates,
+        // no backward events, no re-publishing the same timestamp).
+        if (updated > previous && eventBus != null) {
+            eventBus.publish(new ReplayTimeChangedEvent(
+                    EventMetadata.root(),
+                    updated,
+                    speedMultiplier.get() * 1_000_000L
+            ));
+        }
     }
 
     /**

@@ -6,7 +6,7 @@ import com.tradej.broker.dhan.config.DhanAuthMode;
 import com.tradej.broker.dhan.config.DhanConfigPaths;
 import com.tradej.broker.dhan.config.DhanConnectionSettings;
 import com.tradej.broker.upstox.config.UpstoxConnectionSettings;
-import com.tradej.composition.config.BrokerProfile;
+import com.tradej.brokergateway.config.BrokerProfile;
 
 import java.io.IOException;
 import java.io.InputStream;
