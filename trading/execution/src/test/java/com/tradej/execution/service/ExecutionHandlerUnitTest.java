@@ -492,10 +492,15 @@ class ExecutionHandlerUnitTest {
         String omsOrderId = "ORD-TEST-001";
         var osmEvent = domainEvent.toOsmEvent(omsOrderId);
 
-        assertEquals("Insufficient margin", osmEvent.reason(),
+        assertEquals("Insufficient margin", ((com.tradej.core.domain.oms.OrderRejected) osmEvent).reason(),
                 "OSM event reason must match domain event reason");
         assertEquals(omsOrderId, osmEvent.orderId(),
                 "OSM event orderId must match the provided OSM order ID");
+
+        // Also test parameterless overload
+        var osmEvent2 = domainEvent.toOsmEvent();
+        assertEquals("EX-001", osmEvent2.orderId(),
+                "Parameterless toOsmEvent should use the broker exchange order ID");
     }
 
     @Test
