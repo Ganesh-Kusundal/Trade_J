@@ -8,6 +8,7 @@ import com.tradej.cli.CliContext;
 import com.tradej.cli.TradeCli;
 import com.tradej.cli.output.Ansi;
 import com.tradej.cli.output.RichTable;
+import com.tradej.core.domain.config.DefaultSegments;
 import com.tradej.core.domain.value.ExchangeSegment;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
@@ -46,7 +47,7 @@ public final class CliCertifyCommand implements Callable<Integer> {
     @Parameters(index = "1", arity = "0..1", defaultValue = "RELIANCE")
     String symbol;
 
-    @Parameters(index = "2", arity = "0..1", defaultValue = "NSE_EQ")
+    @Parameters(index = "2", arity = "0..1", defaultValue = DefaultSegments.DEFAULT_EQUITY_SEGMENT)
     String segment;
 
     @Option(names = "--store", description = "Store certification artifacts to disk")

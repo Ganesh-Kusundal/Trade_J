@@ -10,12 +10,14 @@ import com.tradej.core.domain.model.CandleHistoryRequest;
 import com.tradej.core.domain.model.InstrumentKey;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
 import java.util.List;
 
+@Component
 public final class UpstoxStartupStrategy implements BrokerStartupStrategy {
 
     private static final Logger log = LoggerFactory.getLogger(UpstoxStartupStrategy.class);

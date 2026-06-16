@@ -1,6 +1,7 @@
 package com.tradej.app.api;
 
 import com.tradej.app.scanner.OptionScanService;
+import com.tradej.core.domain.config.DefaultSegments;
 import com.tradej.core.domain.value.ExchangeSegment;
 import com.tradej.core.domain.value.OptionType;
 import com.tradej.scanner.option.OptionContractHit;
@@ -35,7 +36,7 @@ public class OptionScanController {
     @PostMapping(produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<Map<String, Object>> scan(
             @RequestParam String underlying,
-            @RequestParam(defaultValue = "IDX_I") String segment,
+            @RequestParam(defaultValue = DefaultSegments.DEFAULT_INDEX_SEGMENT) ExchangeSegment exchangeSegment,
             @RequestParam(required = false) String expiry,
             @RequestParam(required = false) LocalDate expiryDate,
             @RequestParam(defaultValue = "both") String side,
@@ -45,7 +46,6 @@ public class OptionScanController {
             @RequestParam(defaultValue = "300") double maxSpreadBps,
             @RequestParam(defaultValue = "false") boolean strictSpread
     ) {
-        ExchangeSegment exchangeSegment = ExchangeSegment.valueOf(segment);
         OptionExpiryPolicy expiryPolicy = resolveExpiryPolicy(expiry, expiryDate);
         LocalDate explicitExpiry = expiryDate != null ? expiryDate : parseExplicitExpiry(expiry);
 
@@ -67,13 +67,12 @@ public class OptionScanController {
     @GetMapping(value = "/expiries", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<Map<String, Object>> expiries(
             @RequestParam String underlying,
-            @RequestParam(defaultValue = "IDX_I") String segment
+            @RequestParam(defaultValue = DefaultSegments.DEFAULT_INDEX_SEGMENT) ExchangeSegment segment
     ) {
-        ExchangeSegment exchangeSegment = ExchangeSegment.valueOf(segment);
-        List<LocalDate> expiries = optionScanService.expiries(underlying, exchangeSegment);
+        List<LocalDate> expiries = optionScanService.expiries(underlying, segment);
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("underlying", underlying);
-        body.put("segment", exchangeSegment.name());
+        body.put("segment", segment.name());
         body.put("expiries", expiries.stream().map(LocalDate::toString).toList());
         return ResponseEntity.ok(body);
     }

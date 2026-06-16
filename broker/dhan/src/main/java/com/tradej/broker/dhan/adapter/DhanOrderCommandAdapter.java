@@ -20,6 +20,7 @@ import com.tradej.core.domain.value.ProductType;
 import com.tradej.core.domain.value.Side;
 import com.tradej.core.domain.value.Validity;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -28,6 +29,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public final class DhanOrderCommandAdapter implements OrderCommand {
     private static final int MAX_MODIFICATIONS_PER_ORDER = 25;
+    private static final int MAX_ORDERS_PER_DAY = 5000;
 
     private final DhanAdapterContext context;
     private final DhanInstrumentResolver resolver;
@@ -37,6 +39,8 @@ public final class DhanOrderCommandAdapter implements OrderCommand {
     private final DhanOrderValidator validator;
     private final ConcurrentHashMap<String, Object> correlationLocks = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, AtomicInteger> modificationCounts = new ConcurrentHashMap<>();
+    private final AtomicInteger ordersToday = new AtomicInteger(0);
+    private volatile int todayOrdinal = LocalDate.now().getDayOfYear();
 
     public DhanOrderCommandAdapter(
             DhanAdapterContext context,
@@ -83,6 +87,12 @@ public final class DhanOrderCommandAdapter implements OrderCommand {
     }
 
     private Order doPlaceOrder(OrderRequest request) {
+        resetDailyIfNeeded();
+        if (ordersToday.incrementAndGet() > MAX_ORDERS_PER_DAY) {
+            ordersToday.decrementAndGet();
+            throw new IllegalStateException(
+                    "Dhan daily order limit of " + MAX_ORDERS_PER_DAY + " reached");
+        }
         DhanInstrumentDefinition instrument = resolveInstrument(request);
         if (settings.isSandbox()) {
             return restOrderClient.placeOrder(request, instrument);
@@ -179,5 +189,13 @@ public final class DhanOrderCommandAdapter implements OrderCommand {
             return instrument;
         }
         throw new IllegalArgumentException("Dhan instrument resolution: invalid venue metadata for " + request.symbol());
+    }
+
+    private void resetDailyIfNeeded() {
+        int currentOrdinal = LocalDate.now().getDayOfYear();
+        if (todayOrdinal != currentOrdinal) {
+            todayOrdinal = currentOrdinal;
+            ordersToday.set(0);
+        }
     }
 }

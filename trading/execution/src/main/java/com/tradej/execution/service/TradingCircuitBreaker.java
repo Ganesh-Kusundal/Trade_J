@@ -1,5 +1,6 @@
 package com.tradej.execution.service;
 
+import com.tradej.broker.core.resilience.CircuitBreaker;
 import com.tradej.core.domain.time.TradingClock;
 import com.tradej.core.domain.time.LiveTradingClock;
 
@@ -50,6 +51,9 @@ public final class TradingCircuitBreaker {
         this.openDurationMs = openDurationMs;
         this.maxHalfOpenProbes = maxHalfOpenProbes;
         this.clock = Objects.requireNonNull(clock, "clock");
+        // Self-register so that CircuitBreaker.snapshotAllCircuitStates() and
+        // Micrometer gauges include the trading execution circuit state.
+        CircuitBreaker.registerExternalCircuit("trading:execution", this::isOpen);
     }
 
     /**

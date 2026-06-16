@@ -7,6 +7,7 @@ import com.tradej.broker.api.port.WebSocketMultiplexer;
 import com.tradej.broker.icici.auth.BreezeTokenProvider;
 import com.tradej.broker.icici.constants.BreezeApiEndpoints;
 import com.tradej.broker.icici.instrument.BreezeInstrumentResolver;
+import com.tradej.broker.core.reconnect.ReconnectDefaults;
 import com.tradej.broker.core.reconnect.ReconnectListenerRegistry;
 import com.tradej.core.domain.event.EventMetadataFactory;
 import com.tradej.core.domain.event.MarketTickEvent;
@@ -72,8 +73,8 @@ public final class BreezeWebSocketMultiplexer implements WebSocketMultiplexer {
     private long circuitOpenUntilMs;
     private static final int WS_RECONNECT_FAILURE_THRESHOLD = 10;
     private static final long WS_RECONNECT_CIRCUIT_OPEN_MS = 60_000L; // 1 minute
-    private static final long WS_RECONNECT_BASE_DELAY_MS = 1_000L; // 1 second
-    private static final long WS_RECONNECT_MAX_DELAY_MS = 30_000L; // 30 seconds
+    private static final long WS_RECONNECT_BASE_DELAY_MS = ReconnectDefaults.DEFAULT_BASE_DELAY_MS; // shared default
+    private static final long WS_RECONNECT_MAX_DELAY_MS = ReconnectDefaults.DEFAULT_MAX_DELAY_MS; // shared default
     private volatile java.util.concurrent.ScheduledExecutorService reconnectScheduler;
 
     public BreezeWebSocketMultiplexer(

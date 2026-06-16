@@ -1,6 +1,7 @@
 package com.tradej.app.health;
 
 import com.tradej.broker.api.IBrokerConnection;
+import com.tradej.broker.core.resilience.CircuitBreaker;
 import com.tradej.execution.service.TradingCircuitBreaker;
 import org.springframework.boot.actuate.health.Health;
 import org.springframework.boot.actuate.health.HealthIndicator;
@@ -8,6 +9,7 @@ import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
+import java.util.Map;
 
 @Component
 public class BrokerHealthIndicator implements HealthIndicator {
@@ -33,7 +35,11 @@ public class BrokerHealthIndicator implements HealthIndicator {
 
     @Override
     public Health health() {
-        boolean isUp = brokerConnection.websocket().isConnected() && !tradingCircuitBreaker.isOpen();
+        Map<String, Boolean> allCircuitStates = CircuitBreaker.snapshotAllCircuitStates();
+        boolean anyBrokerCircuitOpen = allCircuitStates.values().stream().anyMatch(Boolean::booleanValue);
+        boolean isUp = brokerConnection.websocket().isConnected()
+                && !tradingCircuitBreaker.isOpen()
+                && !anyBrokerCircuitOpen;
         Health.Builder builder = isUp ? Health.up() : Health.down();
 
         builder
@@ -41,6 +47,10 @@ public class BrokerHealthIndicator implements HealthIndicator {
                 .withDetail("websocketConnected", brokerConnection.websocket().isConnected())
                 .withDetail("circuitBreakerOpen", tradingCircuitBreaker.isOpen())
                 .withDetail("subscriptions", brokerConnection.websocket().subscriptions().size());
+
+        if (!allCircuitStates.isEmpty()) {
+            builder.withDetail("brokerCircuitStates", allCircuitStates);
+        }
 
         long totalErrors = errorTracker.totalErrors();
         builder.withDetail("errorCount", totalErrors);
@@ -52,9 +62,17 @@ public class BrokerHealthIndicator implements HealthIndicator {
         }
 
         if (!isUp) {
-            String reason = !brokerConnection.websocket().isConnected()
-                    ? "WebSocket disconnected"
-                    : "Circuit breaker open";
+            String reason;
+            if (!brokerConnection.websocket().isConnected()) {
+                reason = "WebSocket disconnected";
+            } else if (tradingCircuitBreaker.isOpen()) {
+                reason = "Trading circuit breaker open";
+            } else {
+                reason = "Broker circuit(s) open: " + allCircuitStates.entrySet().stream()
+                        .filter(Map.Entry::getValue)
+                        .map(Map.Entry::getKey)
+                        .toList();
+            }
             alertManager.critical("broker-" + brokerType, reason);
         }
 

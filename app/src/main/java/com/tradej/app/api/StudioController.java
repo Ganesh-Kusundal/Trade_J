@@ -2,6 +2,7 @@ package com.tradej.app.api;
 
 import com.tradej.strategy.studio.StudioChartService;
 import com.tradej.core.domain.model.RollingOptionSeriesRequest;
+import com.tradej.core.domain.config.DefaultSegments;
 import com.tradej.core.domain.value.ExchangeSegment;
 import com.tradej.core.domain.value.OptionType;
 import org.springframework.http.MediaType;
@@ -40,7 +41,7 @@ public class StudioController {
     @GetMapping(value = "/chart", produces = MediaType.APPLICATION_JSON_VALUE)
     ResponseEntity<Map<String, Object>> chart(
             @RequestParam String symbol,
-            @RequestParam(defaultValue = "NSE_EQ") ExchangeSegment exchangeSegment,
+            @RequestParam(defaultValue = DefaultSegments.DEFAULT_EQUITY_SEGMENT) ExchangeSegment exchangeSegment,
             @RequestParam(defaultValue = "5m") String interval,
             @RequestParam LocalDate from,
             @RequestParam LocalDate to,

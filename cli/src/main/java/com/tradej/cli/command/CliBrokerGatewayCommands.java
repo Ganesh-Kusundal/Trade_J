@@ -2,6 +2,7 @@ package com.tradej.cli.command;
 
 import com.tradej.cli.CliOperations;
 import com.tradej.cli.TradeCli;
+import com.tradej.core.domain.config.DefaultSegments;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
@@ -48,28 +49,28 @@ public final class CliBrokerGatewayCommands {
     @Command(name = "quote", description = "Get quote from Dhan")
     static final class DhanQuoteCmd extends DhanAction {
         @Parameters(index = "0") String symbol;
-        @Parameters(index = "1", defaultValue = "IDX_I") String segment;
+        @Parameters(index = "1", defaultValue = DefaultSegments.DEFAULT_INDEX_SEGMENT) String segment;
         @Override void run(CliOperations ops) { ops.gatewayQuote("dhan", symbol, segment); }
     }
 
     @Command(name = "depth", description = "Get market depth from Dhan")
     static final class DhanDepthCmd extends DhanAction {
         @Parameters(index = "0") String symbol;
-        @Parameters(index = "1", defaultValue = "IDX_I") String segment;
+        @Parameters(index = "1", defaultValue = DefaultSegments.DEFAULT_INDEX_SEGMENT) String segment;
         @Override void run(CliOperations ops) { ops.gatewayDepth("dhan", symbol, segment); }
     }
 
     @Command(name = "ltp", description = "Get LTP from Dhan")
     static final class DhanLtpCmd extends DhanAction {
         @Parameters(index = "0") String symbol;
-        @Parameters(index = "1", defaultValue = "IDX_I") String segment;
+        @Parameters(index = "1", defaultValue = DefaultSegments.DEFAULT_INDEX_SEGMENT) String segment;
         @Override void run(CliOperations ops) { ops.gatewayLtp("dhan", symbol, segment); }
     }
 
     @Command(name = "chain", description = "Get option chain from Dhan")
     static final class DhanChainCmd extends DhanAction {
         @Parameters(index = "0") String underlying;
-        @Parameters(index = "1", defaultValue = "IDX_I") String segment;
+        @Parameters(index = "1", defaultValue = DefaultSegments.DEFAULT_INDEX_SEGMENT) String segment;
         @Option(names = "--expiry") String expiry;
         @Override void run(CliOperations ops) { ops.gatewayOptionChain("dhan", underlying, segment, expiry); }
     }
@@ -77,7 +78,7 @@ public final class CliBrokerGatewayCommands {
     @Command(name = "historical", description = "Get historical candles from Dhan")
     static final class DhanHistoricalCmd extends DhanAction {
         @Parameters(index = "0") String symbol;
-        @Parameters(index = "1", defaultValue = "IDX_I") String segment;
+        @Parameters(index = "1", defaultValue = DefaultSegments.DEFAULT_INDEX_SEGMENT) String segment;
         @Option(names = "--interval", defaultValue = "5m") String interval;
         @Option(names = "--from") LocalDate from;
         @Option(names = "--to") LocalDate to;
@@ -123,28 +124,28 @@ public final class CliBrokerGatewayCommands {
     @Command(name = "quote", description = "Get quote from Upstox")
     static final class UpstoxQuoteCmd extends UpstoxAction {
         @Parameters(index = "0") String symbol;
-        @Parameters(index = "1", defaultValue = "NSE_EQ") String segment;
+        @Parameters(index = "1", defaultValue = DefaultSegments.DEFAULT_EQUITY_SEGMENT) String segment;
         @Override void run(CliOperations ops) { ops.gatewayQuote("upstox", symbol, segment); }
     }
 
     @Command(name = "depth", description = "Get market depth from Upstox")
     static final class UpstoxDepthCmd extends UpstoxAction {
         @Parameters(index = "0") String symbol;
-        @Parameters(index = "1", defaultValue = "NSE_EQ") String segment;
+        @Parameters(index = "1", defaultValue = DefaultSegments.DEFAULT_EQUITY_SEGMENT) String segment;
         @Override void run(CliOperations ops) { ops.gatewayDepth("upstox", symbol, segment); }
     }
 
     @Command(name = "ltp", description = "Get LTP from Upstox")
     static final class UpstoxLtpCmd extends UpstoxAction {
         @Parameters(index = "0") String symbol;
-        @Parameters(index = "1", defaultValue = "NSE_EQ") String segment;
+        @Parameters(index = "1", defaultValue = DefaultSegments.DEFAULT_EQUITY_SEGMENT) String segment;
         @Override void run(CliOperations ops) { ops.gatewayLtp("upstox", symbol, segment); }
     }
 
     @Command(name = "chain", description = "Get option chain from Upstox")
     static final class UpstoxChainCmd extends UpstoxAction {
         @Parameters(index = "0") String underlying;
-        @Parameters(index = "1", defaultValue = "IDX_I") String segment;
+        @Parameters(index = "1", defaultValue = DefaultSegments.DEFAULT_INDEX_SEGMENT) String segment;
         @Option(names = "--expiry") String expiry;
         @Override void run(CliOperations ops) { ops.gatewayOptionChain("upstox", underlying, segment, expiry); }
     }
@@ -152,7 +153,7 @@ public final class CliBrokerGatewayCommands {
     @Command(name = "historical", description = "Get historical candles from Upstox")
     static final class UpstoxHistoricalCmd extends UpstoxAction {
         @Parameters(index = "0") String symbol;
-        @Parameters(index = "1", defaultValue = "NSE_EQ") String segment;
+        @Parameters(index = "1", defaultValue = DefaultSegments.DEFAULT_EQUITY_SEGMENT) String segment;
         @Option(names = "--interval", defaultValue = "1m") String interval;
         @Option(names = "--from") LocalDate from;
         @Option(names = "--to") LocalDate to;
@@ -198,28 +199,28 @@ public final class CliBrokerGatewayCommands {
     @Command(name = "quote", description = "Get quote from ICICI")
     static final class IciciQuoteCmd extends IciciAction {
         @Parameters(index = "0") String symbol;
-        @Parameters(index = "1", defaultValue = "NSE_EQ") String segment;
+        @Parameters(index = "1", defaultValue = DefaultSegments.DEFAULT_EQUITY_SEGMENT) String segment;
         @Override void run(CliOperations ops) { ops.gatewayQuote("icici", symbol, segment); }
     }
 
     @Command(name = "depth", description = "Get market depth from ICICI")
     static final class IciciDepthCmd extends IciciAction {
         @Parameters(index = "0") String symbol;
-        @Parameters(index = "1", defaultValue = "NSE_EQ") String segment;
+        @Parameters(index = "1", defaultValue = DefaultSegments.DEFAULT_EQUITY_SEGMENT) String segment;
         @Override void run(CliOperations ops) { ops.gatewayDepth("icici", symbol, segment); }
     }
 
     @Command(name = "ltp", description = "Get LTP from ICICI")
     static final class IciciLtpCmd extends IciciAction {
         @Parameters(index = "0") String symbol;
-        @Parameters(index = "1", defaultValue = "NSE_EQ") String segment;
+        @Parameters(index = "1", defaultValue = DefaultSegments.DEFAULT_EQUITY_SEGMENT) String segment;
         @Override void run(CliOperations ops) { ops.gatewayLtp("icici", symbol, segment); }
     }
 
     @Command(name = "chain", description = "Get option chain from ICICI")
     static final class IciciChainCmd extends IciciAction {
         @Parameters(index = "0") String underlying;
-        @Parameters(index = "1", defaultValue = "IDX_I") String segment;
+        @Parameters(index = "1", defaultValue = DefaultSegments.DEFAULT_INDEX_SEGMENT) String segment;
         @Option(names = "--expiry") String expiry;
         @Override void run(CliOperations ops) { ops.gatewayOptionChain("icici", underlying, segment, expiry); }
     }
@@ -227,7 +228,7 @@ public final class CliBrokerGatewayCommands {
     @Command(name = "historical", description = "Get historical candles from ICICI")
     static final class IciciHistoricalCmd extends IciciAction {
         @Parameters(index = "0") String symbol;
-        @Parameters(index = "1", defaultValue = "NSE_EQ") String segment;
+        @Parameters(index = "1", defaultValue = DefaultSegments.DEFAULT_EQUITY_SEGMENT) String segment;
         @Option(names = "--interval", defaultValue = "5m") String interval;
         @Option(names = "--from") LocalDate from;
         @Option(names = "--to") LocalDate to;
@@ -259,7 +260,7 @@ public final class CliBrokerGatewayCommands {
     static final class ValidateCmd extends NamedBrokerCmd {
         @Parameters(index = "0", defaultValue = "dhan") String brokerName;
         @Parameters(index = "1", defaultValue = "RELIANCE") String symbol;
-        @Parameters(index = "2", defaultValue = "NSE_EQ") String segment;
+        @Parameters(index = "2", defaultValue = DefaultSegments.DEFAULT_EQUITY_SEGMENT) String segment;
         @Override void run(CliOperations ops) { ops.gatewayValidate(brokerName, symbol, segment); }
     }
 

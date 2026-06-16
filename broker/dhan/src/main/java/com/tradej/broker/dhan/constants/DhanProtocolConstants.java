@@ -1,6 +1,7 @@
 package com.tradej.broker.dhan.constants;
 
 import com.tradej.broker.core.rate.MultiBucketRateLimiter;
+import com.tradej.broker.core.reconnect.ReconnectDefaults;
 import com.tradej.broker.core.rate.RateLimitConfig;
 
 import java.util.Map;
@@ -32,10 +33,10 @@ public final class DhanProtocolConstants {
     public static final long FEED_HEALTH_CHECK_INTERVAL_MS = 5_000L;
 
     /** Base delay (ms) for WebSocket reconnection backoff. */
-    public static final long WS_RECONNECT_BASE_DELAY_MS = 1_000L;
+    public static final long WS_RECONNECT_BASE_DELAY_MS = ReconnectDefaults.DEFAULT_BASE_DELAY_MS;
 
     /** Maximum delay (ms) for WebSocket reconnection backoff. */
-    public static final long WS_RECONNECT_MAX_DELAY_MS = 30_000L;
+    public static final long WS_RECONNECT_MAX_DELAY_MS = ReconnectDefaults.DEFAULT_MAX_DELAY_MS;
 
     /** Consecutive reconnection failures before the circuit opens. */
     public static final int WS_RECONNECT_FAILURE_THRESHOLD = 3;

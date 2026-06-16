@@ -8,10 +8,12 @@ import com.tradej.broker.core.startup.BrokerLifecycleManager;
 import com.tradej.core.domain.model.InstrumentKey;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
 
 import java.nio.file.Path;
 import java.util.List;
 
+@Component
 public final class SimulationStartupStrategy implements BrokerStartupStrategy {
 
     private static final Logger log = LoggerFactory.getLogger(SimulationStartupStrategy.class);

@@ -6,7 +6,9 @@ import com.tradej.core.domain.model.Instrument;
 import com.tradej.core.domain.model.InstrumentKey;
 import com.tradej.core.domain.value.ExchangeSegment;
 
+import java.nio.file.Path;
 import java.util.List;
+import java.util.Optional;
 
 public interface InstrumentResolver {
     Instrument resolve(InstrumentKey key);
@@ -85,4 +87,18 @@ public interface InstrumentResolver {
      * Returns the number of instruments currently in the catalog.
      */
     int catalogSize();
+
+    /**
+     * Downloads the instrument catalog from the broker API and loads it into
+     * this resolver. Returns the path to the downloaded snapshot if successful.
+     *
+     * <p>Default implementation returns {@link Optional#empty()} — brokers that
+     * support API-based catalog download (e.g. Dhan) override this.
+     *
+     * @param cacheDir directory to cache the downloaded instrument master file
+     * @return path to the loaded snapshot, or empty if download is unsupported
+     */
+    default Optional<Path> downloadCatalog(Path cacheDir) {
+        return Optional.empty();
+    }
 }

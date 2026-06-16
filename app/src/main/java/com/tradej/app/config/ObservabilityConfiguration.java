@@ -7,11 +7,13 @@ import com.tradej.app.health.PagerDutyAlertChannel;
 import com.tradej.app.health.SlackAlertChannel;
 import com.tradej.app.health.WebhookAlertChannel;
 import com.tradej.broker.api.IBrokerConnection;
+import com.tradej.core.domain.port.DeadLetterQueue;
 import com.tradej.core.domain.port.EventBus;
 import com.tradej.core.domain.runtime.RuntimeBus;
 import com.tradej.core.domain.runtime.RuntimeBusHolder;
 import com.tradej.core.tracing.SpanFactory;
 import com.tradej.disruptor.DisruptorBusMetrics;
+import com.tradej.disruptor.DisruptorEventBus;
 import com.tradej.disruptor.config.StageTiming;
 import com.tradej.disruptor.config.StageTimings;
 import com.tradej.execution.service.ExecutionHandler;
@@ -20,6 +22,7 @@ import com.tradej.gateway.bridge.GatewayEventBridge;
 import com.tradej.gateway.router.GatewayTopicRouter;
 import com.tradej.hotpath.MarketDataPipeline;
 import com.tradej.hotpath.OrderPipeline;
+import com.tradej.persistence.chronicle.ChronicleDeadLetterQueue;
 import com.tradej.persistence.duckdb.AsyncDuckDbEventStore;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.Meter;
@@ -146,6 +149,7 @@ public class ObservabilityConfiguration {
 
     /**
      * Registers Micrometer gauge metrics that track runtime state of the trading system.
+     * Also wires the AlertManager into DisruptorEventBus for critical queue saturation paging.
      * Replaces the former MicrometerConfiguration class.
      */
     @Bean
@@ -157,12 +161,22 @@ public class ObservabilityConfiguration {
             EventBus eventBus,
             MarketDataPipeline marketDataPipeline,
             OrderPipeline orderPipeline,
+            AlertManager alertManager,
+            DeadLetterQueue deadLetterQueue,
             MeterRegistry meterRegistry,
             ObjectProvider<GatewayEventBridge> gatewayEventBridge,
             ObjectProvider<GatewayTopicRouter> gatewayTopicRouter,
             ObjectProvider<AsyncDuckDbEventStore> asyncDuckDbEventStore,
             ObjectProvider<AsyncDuckDbWriter> asyncDuckDbWriter
     ) {
+        // Wire AlertManager into DisruptorEventBus for queue saturation / DLQ paging
+        if (eventBus instanceof DisruptorEventBus disruptor) {
+            disruptor.setAlertCallback(
+                    msg -> alertManager.critical("disruptor-event-bus", msg),
+                    msg -> alertManager.warning("disruptor-event-bus", msg)
+            );
+            log.info("AlertManager wired into DisruptorEventBus for critical queue/DLQ paging");
+        }
         // ── Broker health ──
         Gauge.builder("dhan.websocket.connected",
                         brokerConnection, conn -> conn.websocket().isConnected() ? 1.0 : 0.0)
@@ -223,6 +237,17 @@ public class ObservabilityConfiguration {
         Gauge.builder("execution.queue.remaining_capacity",
                         executionHandler, ExecutionHandler::queueRemainingCapacity)
                 .description("Remaining capacity of the execution command queue")
+                .register(meterRegistry);
+
+        Gauge.builder("execution.dropped.fill.count",
+                        executionHandler, ExecutionHandler::droppedFillCount)
+                .description("Cumulative number of fills dropped due to identity resolution failure")
+                .register(meterRegistry);
+
+        // ── Disruptor downstream queue (re-entrant event storm detection) ──
+        Gauge.builder("disruptor.downstream.queue.depth",
+                        disruptorBusMetrics, DisruptorBusMetrics::downstreamQueueDepth)
+                .description("Number of events waiting in the downstream re-entrant queue")
                 .register(meterRegistry);
 
         // ── Disruptor ring buffer ──
@@ -287,6 +312,13 @@ public class ObservabilityConfiguration {
                 .register(meterRegistry));
         asyncDuckDbWriter.ifAvailable(writer -> Gauge.builder("featurestore.events.dropped", writer, AsyncDuckDbWriter::droppedEventCount)
                 .register(meterRegistry));
+
+        // ── Chronicle DLQ append count (silent failure detection) ──
+        if (deadLetterQueue instanceof ChronicleDeadLetterQueue chronicleDlq) {
+            Gauge.builder("chronicle.dlq.append.count", chronicleDlq, ChronicleDeadLetterQueue::appendCount)
+                    .description("Cumulative events written to the Chronicle Dead Letter Queue")
+                    .register(meterRegistry);
+        }
 
         log.info("Micrometer gauge metrics registered");
         return new Object();

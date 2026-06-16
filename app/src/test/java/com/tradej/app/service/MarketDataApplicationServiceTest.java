@@ -1,5 +1,6 @@
 package com.tradej.app.service;
 
+import com.tradej.core.testsupport.TestSymbols;
 import com.tradej.broker.api.port.MarketDataProvider;
 import com.tradej.brokergateway.MarketGateway;
 import com.tradej.core.domain.model.Candle;
@@ -25,7 +26,7 @@ class MarketDataApplicationServiceTest {
     private static final long LTP_PAISA = 750_00L;
     private static final long FALLBACK_LTP_PAISA = 751_00L;
 
-    private final InstrumentKey instrument = new InstrumentKey("SBIN", ExchangeSegment.NSE_EQ);
+    private final InstrumentKey instrument = new InstrumentKey(TestSymbols.SBIN, ExchangeSegment.NSE_EQ);
     private final MarketGateway marketGateway = mock(MarketGateway.class);
 
     @Test
@@ -66,7 +67,7 @@ class MarketDataApplicationServiceTest {
     void queryCandlesUsesAnalyticsForParquetSource() {
         HistoricalAnalyticsService analytics = mock(HistoricalAnalyticsService.class);
         CandleHistoryRequest request = request();
-        Candle candle = new Candle("SBIN", "5m", 1L, 2L, 3L, 4L, 5L, 6L, 7L, true);
+        Candle candle = new Candle(TestSymbols.SBIN, "5m", 1L, 2L, 3L, 4L, 5L, 6L, 7L, true);
         when(analytics.queryEquityCandles(request)).thenReturn(List.of(candle));
 
         MarketDataApplicationService service = new MarketDataApplicationService(
@@ -85,7 +86,7 @@ class MarketDataApplicationServiceTest {
         MarketDataProvider directProvider = mock(MarketDataProvider.class);
         BrokerHistoricalQueryService brokerHistoricalQueryService = new BrokerHistoricalQueryService(failingBrokerProvider);
         CandleHistoryRequest request = request();
-        Candle candle = new Candle("SBIN", "5m", 1L, 2L, 3L, 4L, 5L, 6L, 7L, true);
+        Candle candle = new Candle(TestSymbols.SBIN, "5m", 1L, 2L, 3L, 4L, 5L, 6L, 7L, true);
         when(failingBrokerProvider.getCandles(request)).thenThrow(new RuntimeException("broker unavailable"));
         when(directProvider.getCandles(request)).thenReturn(List.of(candle));
 
@@ -100,6 +101,6 @@ class MarketDataApplicationServiceTest {
     }
 
     private static CandleHistoryRequest request() {
-        return new CandleHistoryRequest(new InstrumentKey("SBIN", ExchangeSegment.NSE_EQ), "5m", LocalDate.now(), LocalDate.now());
+        return new CandleHistoryRequest(new InstrumentKey(TestSymbols.SBIN, ExchangeSegment.NSE_EQ), "5m", LocalDate.now(), LocalDate.now());
     }
 }

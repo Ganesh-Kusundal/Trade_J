@@ -143,6 +143,12 @@ export interface CandleData {
   volume: number;
 }
 
+export interface ReadModelPnl {
+  realizedPnlPaisa: number;
+  unrealizedPnlPaisa: number;
+  netExposurePaisa: number;
+}
+
 export interface ReadModelSnapshot {
   signals: unknown[];
   positions: unknown[];
@@ -151,11 +157,7 @@ export interface ReadModelSnapshot {
   ticks: unknown[];
   orders: unknown[];
   depths: unknown[];
-  pnl: {
-    realizedPnlPaisa: number;
-    unrealizedPnlPaisa: number;
-    netExposurePaisa: number;
-  };
+  pnl: ReadModelPnl;
 }
 
 export interface HealthResponse {

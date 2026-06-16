@@ -11,6 +11,7 @@ import com.tradej.core.domain.model.RollingOptionBar;
 import com.tradej.core.domain.model.RollingOptionSeriesRequest;
 import com.tradej.core.domain.model.UniverseEntry;
 import com.tradej.core.domain.port.HistoricalAnalyticsService;
+import com.tradej.core.domain.config.DefaultSegments;
 import com.tradej.core.domain.value.ExchangeSegment;
 import com.tradej.core.domain.value.OptionType;
 import org.springframework.http.MediaType;
@@ -52,7 +53,7 @@ public class AnalyticsController {
     @GetMapping(value = "/equity/candles", produces = MediaType.APPLICATION_JSON_VALUE)
     ResponseEntity<Map<String, Object>> equityCandles(
             @RequestParam String symbol,
-            @RequestParam(defaultValue = "NSE_EQ") ExchangeSegment exchangeSegment,
+            @RequestParam(defaultValue = DefaultSegments.DEFAULT_EQUITY_SEGMENT) ExchangeSegment exchangeSegment,
             @RequestParam String interval,
             @RequestParam LocalDate from,
             @RequestParam LocalDate to,

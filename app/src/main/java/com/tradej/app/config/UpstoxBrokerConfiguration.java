@@ -1,7 +1,6 @@
 package com.tradej.app.config;
 
 import com.tradej.broker.api.IBrokerConnection;
-import com.tradej.broker.api.model.BrokerCapabilities;
 import com.tradej.broker.api.model.BrokerTransportCapabilities;
 import com.tradej.broker.api.port.ConditionalAlertProvider;
 import com.tradej.broker.api.port.FuturesProvider;
@@ -212,11 +211,6 @@ public class UpstoxBrokerConfiguration {
     ) {
         UpstoxInstrumentResolver resolver = (UpstoxInstrumentResolver) conn.instruments();
         return new UpstoxExpiredOptionService(restClient, mapper, resolver);
-    }
-
-    @Bean
-    BrokerCapabilities upstoxBrokerCapabilities(TradingProperties properties) {
-        return PropertiesBrokerCapabilities.from(properties.venues());
     }
 
     @Bean

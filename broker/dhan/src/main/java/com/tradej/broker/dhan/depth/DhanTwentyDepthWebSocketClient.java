@@ -7,6 +7,7 @@ import com.tradej.broker.dhan.auth.DhanTokenProvider;
 import com.tradej.broker.dhan.config.DhanConnectionSettings;
 import com.tradej.broker.dhan.instrument.DhanInstrumentDefinition;
 import com.tradej.broker.dhan.mapper.DhanApiConverters;
+import com.tradej.broker.core.reconnect.ReconnectDefaults;
 import com.tradej.core.domain.event.DepthUpdateEvent;
 import com.tradej.core.domain.event.EventMetadataFactory;
 import com.tradej.core.domain.model.DepthLevel;
@@ -56,8 +57,8 @@ public final class DhanTwentyDepthWebSocketClient implements AutoCloseable {
             });
 
     private static final int MAX_RECONNECT_ATTEMPTS = 5;
-    private static final long RECONNECT_BASE_DELAY_MS = 1_000L;
-    private static final long RECONNECT_MAX_DELAY_MS = 30_000L;
+    private static final long RECONNECT_BASE_DELAY_MS = ReconnectDefaults.DEFAULT_BASE_DELAY_MS;
+    private static final long RECONNECT_MAX_DELAY_MS = ReconnectDefaults.DEFAULT_MAX_DELAY_MS;
 
     private volatile java.net.http.WebSocket webSocket;
     private volatile boolean connected;

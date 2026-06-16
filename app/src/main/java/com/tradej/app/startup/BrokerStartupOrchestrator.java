@@ -67,18 +67,16 @@ public final class BrokerStartupOrchestrator {
     public BrokerStartupOrchestrator(
             Environment environment,
             TradingProperties tradingProperties,
-            BrokerLifecycleManager lifecycleManager
+            BrokerLifecycleManager lifecycleManager,
+            List<BrokerStartupStrategy> strategies
     ) {
         this.environment = environment;
         this.tradingProperties = tradingProperties;
         this.lifecycleManager = lifecycleManager;
-        this.strategies = List.of(
-                new UpstoxStartupStrategy(),
-                new IciciStartupStrategy(),
-                new GatewayStartupStrategy(),
-                new SimulationStartupStrategy(),
-                new DhanStartupStrategy()
-        );
+        // Spring auto-discovers all @Component BrokerStartupStrategy beans.
+        // Adding a new broker now requires only adding a new strategy @Component —
+        // no edits to this orchestrator. Defensive copy for thread-safety.
+        this.strategies = strategies == null ? List.of() : List.copyOf(strategies);
     }
 
     public void runStartup(

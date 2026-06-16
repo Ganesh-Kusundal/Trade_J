@@ -1,0 +1,76 @@
+# Trade-J Production Alert Definitions
+# Validate: promtool check rules config/alerts.yml
+groups:
+  - name: tradej_broker
+    rules:
+      # ── Circuit Breaker ──────────────────────────────────────────
+      - alert: BrokerCircuitOpen
+        expr: broker_circuit_breaker_open > 0
+        for: 60s
+        labels:
+          severity: P1
+          component: broker
+        annotations:
+          summary: "Circuit breaker open for {{ $labels.operation }}"
+          description: "The circuit breaker for {{ $labels.operation }} has been open for >60s. Broker REST calls for this operation are being rejected."
+          runbook: "Check broker API health. Verify rate limits not exceeded. Inspect logs for repeated failures on {{ $labels.operation }}."
+
+      # ── WebSocket Disconnect ─────────────────────────────────────
+      - alert: BrokerWebSocketDisconnected
+        expr: up{job="tradej"} == 0
+        for: 120s
+        labels:
+          severity: P1
+          component: broker
+        annotations:
+          summary: "Broker health endpoint DOWN for >2 minutes"
+          description: "The Trade-J broker health check has been failing for >120s. WebSocket may be disconnected or circuit breaker may be open."
+          runbook: "Check /actuator/health for broker component status. Verify token validity. Restart if auto-reconnect fails."
+
+      # ── Order Latency Spike ──────────────────────────────────────
+      - alert: HighOrderLatency
+        expr: histogram_quantile(0.99, rate(active_order_latency_seconds_bucket{action="placeOrder"}[5m])) > 5
+        for: 120s
+        labels:
+          severity: P2
+          component: orders
+        annotations:
+          summary: "p99 order placement latency > 5s over 5 minutes"
+          description: "Order placement p99 latency is {{ $value }}s. Broker API may be degraded or rate-limited."
+          runbook: "Check broker API response times. Verify network latency. Check circuit breaker and retry logs."
+
+      # ── Heap Memory ──────────────────────────────────────────────
+      - alert: HighHeapUsage
+        expr: jvm_memory_used_bytes{area="heap"} / jvm_memory_max_bytes{area="heap"} > 0.80
+        for: 300s
+        labels:
+          severity: P2
+          component: jvm
+        annotations:
+          summary: "JVM heap usage > 80% for 5 minutes"
+          description: "Heap at {{ $value | humanizePercentage }}. Risk of GC pressure and OOM."
+          runbook: "Check for memory leak. Verify Chronicle/Disruptor ring buffer sizing. Check DuckDB writer queue depth."
+
+      # ── Stale Market Data ────────────────────────────────────────
+      - alert: StaleMarketData
+        expr: rate(active_marketdata_calls_total{method="getLtpPaisa"}[2m]) == 0
+        for: 60s
+        labels:
+          severity: P1
+          component: marketdata
+        annotations:
+          summary: "No market data REST calls for >60 seconds"
+          description: "Zero market data calls in the last 2 minutes. The hot path (WebSocket ticks) may be fine, but REST queries are failing."
+          runbook: "Check WebSocket connection health. Verify the Disruptor event bus is processing ticks. Check /actuator/health marketData component."
+
+      # ── Upstox / Dhan Auth Token Expiry ──────────────────────────
+      - alert: BrokerTokenExpiringSoon
+        expr: broker_auth_token_remaining_seconds < 600
+        for: 60s
+        labels:
+          severity: P2
+          component: auth
+        annotations:
+          summary: "Broker auth token expires in < 10 minutes"
+          description: "Auth token has only {{ $value }}s remaining. If not refreshed, broker connectivity will fail."
+          runbook: "Run refresh-tokens.sh or restart the gateway with fresh credentials."

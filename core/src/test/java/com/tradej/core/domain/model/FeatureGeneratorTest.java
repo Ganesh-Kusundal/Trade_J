@@ -1,5 +1,6 @@
 package com.tradej.core.domain.model;
 
+import com.tradej.core.testsupport.TestSymbols;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
@@ -22,20 +23,20 @@ class FeatureGeneratorTest {
     @Test
     void computeReturnsEmptyForTooFewCandles() {
         List<Candle> candles = List.of(
-                candle("SBIN", 1_710_000_000_000L, 75_000L, 75_200L, 10_000L)
+                candle(TestSymbols.SBIN, 1_710_000_000_000L, 75_000L, 75_200L, 10_000L)
         );
         assertFalse(FeatureGenerator.compute(candles, 14).isPresent());
     }
 
     @Test
     void computeReturnsFeaturesForSufficientCandles() {
-        List<Candle> candles = sixCandles("SBIN");
+        List<Candle> candles = sixCandles(TestSymbols.SBIN);
 
         Optional<FeatureVector> result = FeatureGenerator.compute(candles, 14);
 
         assertTrue(result.isPresent());
         FeatureVector fv = result.get();
-        assertEquals("SBIN", fv.symbol());
+        assertEquals(TestSymbols.SBIN, fv.symbol());
         assertEquals("5m", fv.interval());
         assertEquals(1_710_001_800_000L, fv.timestampMs());
         assertTrue(fv.rsi() > 0 && fv.rsi() < 100);
@@ -49,7 +50,7 @@ class FeatureGeneratorTest {
 
     @Test
     void rsiOnUpwardTrendIsBullish() {
-        List<Candle> candles = monotonicCandles("RELIANCE", 100_000L, 500L, 200L, 15);
+        List<Candle> candles = monotonicCandles(TestSymbols.RELIANCE, 100_000L, 500L, 200L, 15);
 
         Optional<FeatureVector> fv = FeatureGenerator.compute(candles, 14);
 
@@ -59,7 +60,7 @@ class FeatureGeneratorTest {
 
     @Test
     void rsiOnDownwardTrendIsBearish() {
-        List<Candle> candles = monotonicCandles("RELIANCE", 100_000L, -500L, -200L, 15);
+        List<Candle> candles = monotonicCandles(TestSymbols.RELIANCE, 100_000L, -500L, -200L, 15);
 
         Optional<FeatureVector> fv = FeatureGenerator.compute(candles, 14);
 
@@ -150,7 +151,7 @@ class FeatureGeneratorTest {
 
     @Test
     void computeIsDeterministic() {
-        List<Candle> candles = sixCandles("SBIN");
+        List<Candle> candles = sixCandles(TestSymbols.SBIN);
         Optional<FeatureVector> a = FeatureGenerator.compute(candles, 14);
         Optional<FeatureVector> b = FeatureGenerator.compute(candles, 14);
         assertTrue(a.isPresent());

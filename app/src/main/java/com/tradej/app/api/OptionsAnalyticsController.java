@@ -1,6 +1,8 @@
 package com.tradej.app.api;
 
 import com.tradej.app.service.OptionsAnalyticsApplicationService;
+import com.tradej.core.domain.config.DefaultSegments;
+import com.tradej.core.domain.value.ExchangeSegment;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -23,7 +25,7 @@ public class OptionsAnalyticsController {
     @GetMapping("/volatility-surface")
     public ResponseEntity<Map<String, Object>> volatilitySurface(
             @RequestParam String underlying,
-            @RequestParam(defaultValue = "NSE_FNO") String segment,
+            @RequestParam(defaultValue = DefaultSegments.DEFAULT_FNO_SEGMENT) ExchangeSegment segment,
             @RequestParam(required = false) LocalDate expiry
     ) {
         Map<String, Object> result = optionsService.getVolatilitySurface(underlying, segment, expiry);
@@ -36,7 +38,7 @@ public class OptionsAnalyticsController {
     @GetMapping("/chain")
     public ResponseEntity<Map<String, Object>> optionChain(
             @RequestParam String underlying,
-            @RequestParam(defaultValue = "NSE_FNO") String segment,
+            @RequestParam(defaultValue = DefaultSegments.DEFAULT_FNO_SEGMENT) ExchangeSegment segment,
             @RequestParam(required = false) LocalDate expiry,
             @RequestParam(required = false) Integer depth
     ) {

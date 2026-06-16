@@ -1,0 +1,11 @@
+# Sample Nifty-heavy universe for intraday scan (extend with full index list)
+NIFTY
+BANKNIFTY
+RELIANCE
+TCS
+HDFCBANK
+INFY
+ICICIBANK
+SBIN
+BHARTIARTL
+ITC

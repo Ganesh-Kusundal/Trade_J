@@ -1,5 +1,7 @@
 package com.tradej.app.config;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import com.tradej.app.admin.RuntimeHealthState;
 import com.tradej.app.health.BrokerErrorTracker;
 import com.tradej.app.health.MarketDataHealthIndicator;
@@ -66,6 +68,8 @@ import java.util.function.Consumer;
  */
 @Configuration
 public class RuntimeAndStartupConfiguration {
+
+    private static final Logger log = LoggerFactory.getLogger(RuntimeAndStartupConfiguration.class);
 
     // ── Time and clocks ──
 
@@ -135,6 +139,11 @@ public class RuntimeAndStartupConfiguration {
                 ? RuntimeBus.DISRUPTOR
                 : properties.runtime().bus();
         runtimeBusHolder.setMode(bus);
+        log.info("Event bus mode: {} (actual implementation: DisruptorEventBus)", bus);
+        if (bus == RuntimeBus.SIMPLE) {
+            log.warn("STARTUP WARNING: runtime.bus=SIMPLE but actual EventBus is DisruptorEventBus. "
+                    + "Set trade.runtime.bus=DISRUPTOR in application.yml for consistency.");
+        }
         return new DisruptorEventBus(
                 new com.tradej.disruptor.config.DisruptorPipelineConfig(
                         positionRiskHandler,
@@ -181,6 +190,7 @@ public class RuntimeAndStartupConfiguration {
             @Override public long ringBufferRemainingCapacity() { return 0; }
             @Override public int ringBufferSize() { return 0; }
             @Override public int dispatchQueueDepth() { return 0; }
+            @Override public int downstreamQueueDepth() { return 0; }
             @Override public long dispatchDroppedEventCount() { return 0; }
             @Override public int subscriberCount() { return 0; }
             @Override public boolean isStarted() { return false; }

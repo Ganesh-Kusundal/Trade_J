@@ -1,0 +1,39 @@
+<?xml version="1.0"?>
+<!DOCTYPE suppressions PUBLIC
+    "-//Checkstyle//DTD SuppressionFilter Configuration 1.2//EN"
+    "https://checkstyle.org/dtds/suppressions_1_2.dtd">
+
+<suppressions>
+    <!-- picocli CLI: annotations commonly appear on the same line as field declarations -->
+    <suppress files="TradeCli\.java$" checks="AnnotationLocation"/>
+
+    <!-- Empty switch case blocks (e.g. `case Foo ignored -> {}`) are idiomatic Java 21 -->
+    <suppress files="OrderStateMachine\.java$" checks="WhitespaceAround"/>
+    <suppress files="EventSourcedOrderRepository\.java$" checks="WhitespaceAround"/>
+
+    <!-- One-line getter methods on PnLLedger.Position are intentional -->
+    <suppress files="PnLLedger\.java$" checks="LeftCurly"/>
+    <suppress files="PnLLedger\.java$" checks="EmptyLineSeparator"/>
+
+    <!-- Try/catch resource cleanup idiomatic pattern -->
+    <suppress files="DuckDbFeatureStore\.java$" checks="LeftCurly" lines="68-68"/>
+    <suppress files="DuckDbEventStore\.java$" checks="LeftCurly" lines="59-59"/>
+    <suppress files="DuckDbFeatureStore\.java$" checks="WhitespaceAround" lines="68-68"/>
+    <suppress files="DuckDbEventStore\.java$" checks="WhitespaceAround" lines="59-59"/>
+
+    <!-- Ternary if-else with simple SQL strings in HistoricalRangeService -->
+    <suppress files="HistoricalRangeService\.java$" checks="LeftCurly" lines="558-564"/>
+    <suppress files="HistoricalRangeService\.java$" checks="RightCurly" lines="558-564"/>
+    <suppress files="HistoricalRangeService\.java$" checks="WhitespaceAround" lines="558-564"/>
+
+    <!-- Threshold defaults are intentionally inline literal constants -->
+    <suppress files="ThresholdMLInferenceEngine\.java$" checks="MagicNumber"/>
+
+    <!-- Stored connection close pattern -->
+    <suppress files="DuckDbFeatureStore\.java$" checks="NeedBraces" lines="65-65"/>
+
+    <!-- Upstox broker module: wildcard imports from UpstoxEndpoints and domain model
+         are idiomatic since the constants class is co-located in the same module
+         and includes/excludes change frequently during development. -->
+    <suppress files="[\\/]trade-broker-upstox[\\/]" checks="AvoidStarImport"/>
+</suppressions>

@@ -1,0 +1,269 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FindBugsFilter>
+    <!-- Test code: allow mutable static fields for test fixtures -->
+    <Match>
+        <Source name="~.*Test.*\.java"/>
+        <Bug pattern="MS_MUTABLE_STATIC_STATE,ST_WRITE_TO_STATIC_FROM_INSTANCE_METHOD"/>
+    </Match>
+
+    <!-- Spring Boot configuration: transient fields in injected beans -->
+    <Match>
+        <Class name="~.*\.\w+Configuration"/>
+        <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+    </Match>
+
+    <!-- Spring Boot command-line runners often store injected beans in static fields -->
+    <Match>
+        <Class name="~.*StartupConfiguration"/>
+        <Bug pattern="ST_WRITE_TO_STATIC_FROM_INSTANCE_METHOD"/>
+    </Match>
+
+    <!-- Disruptor event envelopes: mutable fields by design (zero-GC) -->
+    <Match>
+        <Class name="~com\.tradej\.disruptor\..*"/>
+        <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2,MS_MUTABLE_ARRAY,MU_WRONG_STUBS_TO_MUTABLE_COLLECTION"/>
+    </Match>
+
+    <!-- Event bus handlers: event envelopes are reused for performance -->
+    <Match>
+        <Class name="~com\.tradej\.hotpath\..*"/>
+        <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+    </Match>
+
+    <!-- Chronicle Queue binary codec: uses direct buffer manipulation -->
+    <Match>
+        <Class name="~com\.tradej\.persistence\.chronicle\..*"/>
+        <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2,MS_MUTABLE_ARRAY"/>
+    </Match>
+
+    <!-- Low-level network I/O in gateway: reads/writes raw byte arrays -->
+    <Match>
+        <Class name="~com\.tradej\.gateway\..*"/>
+        <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+    </Match>
+
+    <!-- SLF4J loggers declared as non-static or non-final are common in hand-rolled classes -->
+    <Match>
+        <Bug pattern="SLF4J_LOGGER_SHOULD_BE_NON_STATIC,SLF4J_LOGGER_SHOULD_BE_FINAL"/>
+    </Match>
+
+    <!-- Broker connection clients: URL connections to known broker endpoints are safe -->
+    <Match>
+        <Class name="~com\.tradej\.broker\.(dhan|upstox)\.(http|websocket)\..*"/>
+        <Bug pattern="URLCONNECTION_SSRF_FD"/>
+    </Match>
+
+    <!-- DhanJsonResponse: sentinel instance is a convenience, not a singleton pattern -->
+    <Match>
+        <Class name="~com\.tradej\.broker\.dhan\.mapper\.DhanJsonResponse"/>
+        <Bug pattern="SING_SINGLETON_HAS_NONPRIVATE_CONSTRUCTOR"/>
+    </Match>
+
+    <!-- DhanInstrumentCatalog: all private methods are called reflectively or via interface -->
+    <Match>
+        <Class name="~com\.tradej\.broker\.dhan\.instrument\.DhanInstrumentCatalog"/>
+        <Bug pattern="UPM_UNCALLED_PRIVATE_METHOD,BX_UNBOXING_IMMEDIATELY_REBOXED"/>
+    </Match>
+
+    <!-- UpstoxOrderQueryAdapter: getOrder() defensive null checks against future mapper changes -->
+    <Match>
+        <Class name="~com\.tradej\.broker\.upstox\.adapter\.UpstoxOrderQueryAdapter"/>
+        <Bug pattern="RCN_REDUNDANT_NULLCHECK_OF_NONNULL_VALUE"/>
+    </Match>
+
+    <!-- CircuitBreaker: ConcurrentHashMap provides happens-before guarantees -->
+    <Match>
+        <Class name="~com\.tradej\.broker\.core\.resilience\.CircuitBreaker"/>
+        <Bug pattern="IS2_INCONSISTENT_SYNC"/>
+    </Match>
+
+    <!-- UpstoxBinaryParser: length param kept for future protocol evolution -->
+    <Match>
+        <Class name="~com\.tradej\.broker\.upstox\.websocket\.UpstoxBinaryParser"/>
+        <Bug pattern="DLS_DEAD_LOCAL_STORE"/>
+    </Match>
+
+    <!-- FeatureStoreConfiguration: Spring Boot guarantees non-null injection -->
+    <Match>
+        <Class name="~com\.tradej\.app\.config\.FeatureStoreConfiguration"/>
+        <Bug pattern="NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE"/>
+    </Match>
+
+    <!-- TradingProperties: Spring @ConfigurationProperties record; accessors return internal fields by record contract -->
+    <Match>
+        <Class name="~com\.tradej\.app\.config\.TradingProperties(\$.*)?"/>
+        <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+    </Match>
+
+    <!-- ReadModelStore inner records: Java records expose fields by design; snapshot() already uses List.copyOf() -->
+    <Match>
+        <Class name="~com\.tradej\.app\.readmodel\.ReadModelStore\$.+"/>
+        <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+    </Match>
+
+    <!-- AdminController/ReadModelController: Spring-injected beans, intentionally shared across application context -->
+    <Match>
+        <Class name="~com\.tradej\.app\.(admin\.AdminController|api\.ReadModelController)"/>
+        <Bug pattern="EI_EXPOSE_REP2"/>
+    </Match>
+
+    <!-- ObservableMarketDataProvider/ObservableOrderCommand: decorator wrappers around Spring beans -->
+    <Match>
+        <Class name="~com\.tradej\.app\.metrics\.Observable(OrderCommand|MarketDataProvider)"/>
+        <Bug pattern="EI_EXPOSE_REP2"/>
+    </Match>
+
+    <!-- DuckDB stores: AutoCloseable handles connection lifecycle -->
+    <Match>
+        <Class name="~com\.tradej\.(persistence\.duckdb|feature\.store)\.DuckDb.*"/>
+        <Bug pattern="ODR_OPEN_DATABASE_RESOURCE,OBL_UNSATISFIED_OBLIGATION"/>
+    </Match>
+
+    <!-- Pipeline graph, registry, runtime, and compiler classes: Java records with mutable
+         List/Map components are inherent to the record design. Single-JVM trading app — no
+         untrusted callers. -->
+    <Match>
+        <Class name="~com\.tradej\.pipeline\..*"/>
+        <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+    </Match>
+
+    <!-- Domain event records: published on the event bus and consumed by subscribers.
+         Mutable List/Map components by design. -->
+    <Match>
+        <Class name="~com\.tradej\.core\.domain\.event\..*"/>
+        <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+    </Match>
+
+    <!-- Domain model records: data holders with mutable List components.
+         Java records expose components by design. -->
+    <Match>
+        <Class name="~com\.tradej\.core\.domain\.model\..*"/>
+        <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+    </Match>
+
+    <!-- BasePipelineNode.definition: protected field set by init(), read by 16+ subclasses
+         across other modules (execution, strategy, scanner, feature-store). False positive
+         from cross-module analysis. -->
+    <Match>
+        <Class name="~com\.tradej\.pipeline\.runtime\.BasePipelineNode"/>
+        <Bug pattern="URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD"/>
+    </Match>
+
+    <!-- Upstox broker package: injected service beans are not mutated by external callers.
+         Uses <Class> matcher (not <Package>) because UpstoxBrokerConnection lives in the root
+         package com.tradej.broker.upstox — same rationale as the Dhan broker exclusion. -->
+    <Match>
+        <Class name="~com\.tradej\.broker\.upstox\..*"/>
+        <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+    </Match>
+
+    <!-- Dhan broker package: injected service beans (adapters, HTTP clients, auth, WS multiplexer,
+         historical/options/order clients) are created by DhanBrokerConnection and shared across
+         the broker port. No external callers modify these beans. -->
+    <Match>
+        <Class name="~com\.tradej\.broker\.dhan\..*"/>
+        <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+    </Match>
+
+    <!-- ParsedFeedFrame: depth arrays are hot-path data; copying adds GC pressure -->
+    <Match>
+        <Class name="~com\.tradej\.broker\.upstox\.websocket\.ParsedFeedFrame"/>
+        <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+    </Match>
+
+    <!-- UpstoxWebSocketMultiplexer.orderWs: placeholder for future order stream -->
+    <Match>
+        <Class name="~com\.tradej\.broker\.upstox\.websocket\.UpstoxWebSocketMultiplexer"/>
+        <Bug pattern="UWF_NULL_FIELD"/>
+    </Match>
+
+    <!-- Execution handler: runtimeModeHolder and omsRepo are well-known injected beans -->
+    <Match>
+        <Class name="~com\.tradej\.execution\.(service|reconcile)\..*"/>
+        <Bug pattern="EI_EXPOSE_REP2"/>
+    </Match>
+
+    <!-- Execution nodes: Spring-injected beans stored in constructors (FillReconciliationNode,
+         OmsNode, OrderPlacementNode, SignalGateNode, RiskNode). Single-JVM app. -->
+    <Match>
+        <Class name="~com\.tradej\.execution\.node\..*"/>
+        <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+    </Match>
+
+    <!-- ReplayRunner: VirtualClock is shared mutable clock across PipelineRuntime,
+         ReplayOrchestrator, etc. Defensive copy would break advanceVirtualTimeMs() propagation. -->
+    <Match>
+        <Class name="~com\.tradej\.persistence\.replay\.ReplayRunner"/>
+        <Bug pattern="EI_EXPOSE_REP2"/>
+    </Match>
+
+    <!-- Broker core observability: ObservableMarketDataProvider and ObservableOrderCommand
+         are decorator wrappers around injected Spring beans and MeterRegistry. -->
+    <Match>
+        <Class name="~com\.tradej\.broker\.core\.observability\..*"/>
+        <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+    </Match>
+
+    <!-- AsyncDispatchHandler: return value of ExecutorService.submit() is intentionally
+         not tracked — lifecycle is managed by running AtomicBoolean and poison-pill pattern.
+         BlockingQueue.offer() in stop() for poison pill is an optimization to unblock take();
+         shutdownNow() is the fallback if the queue is full. -->
+    <Match>
+        <Class name="~com\.tradej\.disruptor\.config\.AsyncDispatchHandler"/>
+        <Bug pattern="RV_RETURN_VALUE_IGNORED,RV_RETURN_VALUE_IGNORED_BAD_PRACTICE"/>
+    </Match>
+
+    <!-- MatchingEngine$MatchResult: Java record with List<Trade> fills.
+         Record exposes mutable List component by design. -->
+    <Match>
+        <Class name="~com\.tradej\.simulation\.MatchingEngine\$MatchResult"/>
+        <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+    </Match>
+
+    <!-- SnapshotFetcher$FetchResult: Java record with Map<InstrumentKey, Quote> quotes.
+         Record exposes mutable Map component by design. -->
+    <Match>
+        <Class name="~com\.tradej\.scanner\.fetch\.SnapshotFetcher\$FetchResult"/>
+        <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+    </Match>
+
+    <!-- CliContext and MenuContext: CLI context holders store lazily-initialized
+         AttachClient, StandaloneBrokerSession, LineReader — single-threaded CLI use. -->
+    <Match>
+        <Class name="~com\.tradej\.cli\.(CliContext|interactive\.MenuContext)"/>
+        <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+    </Match>
+
+    <!-- CircuitBreaker$CircuitState: inner class accessed only through CircuitBreaker methods;
+         all public methods on CircuitState are synchronized. -->
+    <Match>
+        <Class name="~com\.tradej\.broker\.core\.resilience\.CircuitBreaker(\$.*)?"/>
+        <Bug pattern="IS2_INCONSISTENT_SYNC,EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+    </Match>
+
+    <!-- Broker API model records: BrokerCapabilities and VenueCapability are Java records
+         with mutable Map/Set fields — inherent to record design. -->
+    <Match>
+        <Class name="~com\.tradej\.broker\.api\.model\..*"/>
+        <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+    </Match>
+
+    <!-- trade-app config: ScanProperties inner records with List fields exposed by record contract -->
+    <Match>
+        <Class name="~com\.tradej\.app\.config\.ScanProperties(\$.*)?"/>
+        <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+    </Match>
+
+    <!-- trade-app pipeline: Spring-injected beans (PipelineNodeFactory, PipelineRuntimeService,
+         ReplayOrchestrator, ReactorColdPathRegistry) stored in constructors -->
+    <Match>
+        <Class name="~com\.tradej\.app\.pipeline\..*"/>
+        <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+    </Match>
+
+    <!-- trade-app scanner: ScanService stores injected ObjectMapper -->
+    <Match>
+        <Class name="~com\.tradej\.app\.scanner\..*"/>
+        <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+    </Match>
+</FindBugsFilter>

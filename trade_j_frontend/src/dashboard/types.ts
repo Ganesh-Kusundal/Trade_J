@@ -38,6 +38,7 @@ export interface DashboardSpec {
 
 export interface WidgetProps {
   spec: WidgetSpec;
+  key?: string; // React uses key for reconciliation; not passed at runtime
 }
 
 export type WidgetRenderer = React.ComponentType<WidgetProps>;

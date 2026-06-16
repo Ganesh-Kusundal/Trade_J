@@ -1,5 +1,6 @@
 package com.tradej.core.domain.oms;
 
+import com.tradej.core.testsupport.TestSymbols;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
@@ -14,7 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class OrderStateMachinePropertyTest {
 
     private static final String ORDER_ID = "ORD-PROP";
-    private static final String SYMBOL = "SBIN";
+    private static final String SYMBOL = TestSymbols.SBIN;
 
     @Test
     void randomValidFillSequencesRespectInvariants() {

@@ -65,8 +65,6 @@ public final class PortfolioEngine {
         thread.setDaemon(true);
         return thread;
     });
-    // droppedEventCount field removed per Venkat review (P2): put() is used for all events,
-    // so events are never dropped. Backpressure is applied via blocking put().
     private volatile boolean running;
     private volatile boolean forceSync;
 
@@ -101,19 +99,6 @@ public final class PortfolioEngine {
     public void stop() {
         running = false;
         portfolioExecutor.shutdownNow();
-    }
-
-    /**
-     * Returns the number of events dropped due to a full queue (P0-7).
-     */
-    /**
-     * @deprecated Always returns 0 since P2 Venkat review — put() is used for all events,
-     * so events are never dropped. Backpressure is applied via blocking put().
-     * Retained for binary compatibility only.
-     */
-    @Deprecated(since = "P2", forRemoval = true)
-    public long droppedEventCount() {
-        return 0L;
     }
 
     /**

@@ -1,5 +1,6 @@
 package com.tradej.core.domain.oms;
 
+import com.tradej.core.testsupport.TestSymbols;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
@@ -11,7 +12,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class OrderStateMachineUnitTest {
 
     private static final String ORDER_ID = "ORD-001";
-    private static final String SYMBOL = "SBIN";
+    private static final String SYMBOL = TestSymbols.SBIN;
     private static final long TOTAL_QTY = 100;
 
     // ── Happy path: full lifecycle ──────────────────────────────────────────

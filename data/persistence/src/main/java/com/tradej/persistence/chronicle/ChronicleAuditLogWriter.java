@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tradej.core.domain.event.DomainEvent;
 import com.tradej.core.domain.port.DomainEventHandler;
 import net.openhft.chronicle.queue.ChronicleQueue;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
@@ -19,6 +21,7 @@ import java.nio.file.Path;
  * <p>This fixes RP-01 (Chronicle replay deserializes all events as same type).
  */
 public final class ChronicleAuditLogWriter implements DomainEventHandler<DomainEvent>, AutoCloseable {
+    private static final Logger log = LoggerFactory.getLogger(ChronicleAuditLogWriter.class);
     private final ChronicleQueue queue;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -41,5 +44,17 @@ public final class ChronicleAuditLogWriter implements DomainEventHandler<DomainE
     @Override
     public void close() {
         queue.close();
+    }
+
+    /**
+     * Deletes Chronicle queue files older than the specified number of days,
+     * preserving the currently active file.
+     * Delegates to {@link ChronicleRetention#cleanupOldFiles}.
+     *
+     * @param retentionDays files older than this many days are deleted
+     * @return number of files deleted
+     */
+    public int cleanupOldFiles(long retentionDays) {
+        return ChronicleRetention.cleanupOldFiles(queue, retentionDays, log);
     }
 }

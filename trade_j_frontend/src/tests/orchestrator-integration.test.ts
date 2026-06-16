@@ -1,5 +1,9 @@
-import { DataMode } from "../api/TerminalDataOrchestrator";
-import type { BrokerConfig } from "../api/TerminalDataOrchestrator";
+// DataMode used in this test is self-contained; no external module dependency
+enum DataMode {
+  SIMULATION = "SIMULATION",
+  LIVE = "LIVE",
+  HISTORICAL = "HISTORICAL",
+}
 
 // Minimal localStorage polyfill for Node.js test runner
 if (typeof globalThis.localStorage === "undefined") {

@@ -29,6 +29,7 @@ import com.tradej.brokergateway.config.BrokerProfile;
 import com.tradej.execution.service.CaffeineIdempotencyCache;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
@@ -97,81 +98,80 @@ public class DhanBrokerConfiguration {
         return BrokerTransportCapabilities.dhanLive();
     }
 
-    @Bean(name = "brokerConnection")
-    @Primary
+    @Bean(name = "dhanBrokerConnection")
     IBrokerConnection brokerConnection(BrokerComposition composition) {
         return composition.brokerConnection();
     }
 
     @Bean
     @Primary
-    MarketDataProvider marketDataProvider(IBrokerConnection conn, MeterRegistry meterRegistry) {
+    MarketDataProvider marketDataProvider(@Qualifier("dhanBrokerConnection") IBrokerConnection conn, MeterRegistry meterRegistry) {
         return new ObservableMarketDataProvider("active", conn.marketData(), meterRegistry);
     }
 
     @Bean
     @Primary
-    OrderCommand orderCommand(IBrokerConnection conn, MeterRegistry meterRegistry) {
+    OrderCommand orderCommand(@Qualifier("dhanBrokerConnection") IBrokerConnection conn, MeterRegistry meterRegistry) {
         return new ObservableOrderCommand("active", conn.orders(), meterRegistry);
     }
 
     @Bean
-    InstrumentResolver instrumentResolver(IBrokerConnection conn) {
+    InstrumentResolver instrumentResolver(@Qualifier("dhanBrokerConnection") IBrokerConnection conn) {
         return conn.instruments();
     }
 
     @Bean
-    OrderQuery orderQuery(IBrokerConnection conn) {
+    OrderQuery orderQuery(@Qualifier("dhanBrokerConnection") IBrokerConnection conn) {
         return conn.orderQuery();
     }
 
     @Bean
-    PortfolioProvider portfolioProvider(IBrokerConnection conn) {
+    PortfolioProvider portfolioProvider(@Qualifier("dhanBrokerConnection") IBrokerConnection conn) {
         return conn.portfolio();
     }
 
     @Bean
-    MarginProvider marginProvider(IBrokerConnection conn) {
+    MarginProvider marginProvider(@Qualifier("dhanBrokerConnection") IBrokerConnection conn) {
         return conn.margin();
     }
 
     @Bean
-    FuturesProvider futuresProvider(IBrokerConnection conn) {
+    FuturesProvider futuresProvider(@Qualifier("dhanBrokerConnection") IBrokerConnection conn) {
         return conn.futures();
     }
 
     @Bean
-    OptionsProvider optionsProvider(IBrokerConnection conn) {
+    OptionsProvider optionsProvider(@Qualifier("dhanBrokerConnection") IBrokerConnection conn) {
         return conn.options();
     }
 
     @Bean
-    WebSocketMultiplexer webSocketMultiplexer(IBrokerConnection conn) {
+    WebSocketMultiplexer webSocketMultiplexer(@Qualifier("dhanBrokerConnection") IBrokerConnection conn) {
         return conn.websocket();
     }
 
     @Bean
-    SliceOrderCommand sliceOrderCommand(IBrokerConnection conn) {
+    SliceOrderCommand sliceOrderCommand(@Qualifier("dhanBrokerConnection") IBrokerConnection conn) {
         return conn.sliceOrders();
     }
 
     @Bean
-    BracketOrderProvider bracketOrderProvider(IBrokerConnection conn) {
+    BracketOrderProvider bracketOrderProvider(@Qualifier("dhanBrokerConnection") IBrokerConnection conn) {
         return conn.bracketOrders();
     }
 
     @Bean
-    GttOrderProvider gttOrderProvider(IBrokerConnection conn) {
+    GttOrderProvider gttOrderProvider(@Qualifier("dhanBrokerConnection") IBrokerConnection conn) {
         return conn.gttOrders();
     }
 
     @Bean
-    SessionRiskProvider sessionRiskProvider(IBrokerConnection conn) {
+    SessionRiskProvider sessionRiskProvider(@Qualifier("dhanBrokerConnection") IBrokerConnection conn) {
         return conn.sessionRisk();
     }
 
     @Bean
-    ConditionalAlertProvider conditionalAlertProvider(IBrokerConnection conn) {
+    ConditionalAlertProvider conditionalAlertProvider(@Qualifier("dhanBrokerConnection") IBrokerConnection conn) {
         return conn.alerts();
     }
 }

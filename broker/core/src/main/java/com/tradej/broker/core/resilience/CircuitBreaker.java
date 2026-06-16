@@ -4,6 +4,11 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Supplier;
 
 /**
  * Per-operation circuit breaker.
@@ -14,8 +19,21 @@ import java.util.concurrent.ConcurrentMap;
  * <p>
  * When constructed with a {@link CircuitBreakerConfig}, the config values take
  * precedence over any parameters passed to {@link #onFailure(String, int, long)}.
+ * <p>
+ * Instances auto-register with a static registry so that external consumers
+ * (e.g. Micrometer gauges) can poll circuit states without holding direct references.
  */
 public final class CircuitBreaker {
+
+    private static final List<CircuitBreaker> LIVE_INSTANCES = new CopyOnWriteArrayList<>();
+
+    /**
+     * Externally registered circuit state suppliers — allows non-{@link CircuitBreaker}
+     * implementations (e.g. {@code TradingCircuitBreaker}) to contribute their state to
+     * {@link #snapshotAllCircuitStates()} so that Micrometer gauges and health indicators
+     * see a unified view.
+     */
+    private static final ConcurrentMap<String, Supplier<Boolean>> EXTERNAL_CIRCUITS = new ConcurrentHashMap<>();
 
     private final ConcurrentMap<String, CircuitState> circuits = new ConcurrentHashMap<>();
     private final CircuitBreakerConfig config;
@@ -40,6 +58,7 @@ public final class CircuitBreaker {
     public CircuitBreaker(CircuitBreakerConfig config, Optional<CircuitBreakerMetrics> metrics) {
         this.config = Objects.requireNonNull(config, "config must not be null");
         this.metrics = Objects.requireNonNull(metrics, "metrics must not be null");
+        LIVE_INSTANCES.add(this);
     }
 
     public CircuitBreakerConfig config() {
@@ -113,6 +132,45 @@ public final class CircuitBreaker {
             return false;
         }
         return state.isOpen();
+    }
+
+    /**
+     * Registers an external circuit state supplier so that
+     * {@link #snapshotAllCircuitStates()} includes it. Callers that
+     * implement their own circuit breaker logic (e.g.
+     * {@code TradingCircuitBreaker}) should register here on construction.
+     *
+     * @param key circuit identifier (e.g. "trading:execution")
+     * @param isOpenSupplier supplier that returns {@code true} when the circuit is open
+     */
+    public static void registerExternalCircuit(String key, Supplier<Boolean> isOpenSupplier) {
+        EXTERNAL_CIRCUITS.put(key, isOpenSupplier);
+    }
+
+    /**
+     * Returns a snapshot of all circuit states across all live instances
+     * <em>and</em> all externally registered circuits.
+     * Each entry key is "broker:operation" and value is {@code true} if open.
+     * Useful for Micrometer MultiGauge registration.
+     */
+    public static Map<String, Boolean> snapshotAllCircuitStates() {
+        Map<String, Boolean> result = new HashMap<>();
+        for (CircuitBreaker breaker : LIVE_INSTANCES) {
+            for (Map.Entry<String, CircuitState> entry : breaker.circuits.entrySet()) {
+                String key = entry.getKey();
+                boolean isOpen = entry.getValue().isOpen();
+                result.merge(key, isOpen, Boolean::logicalOr);
+            }
+        }
+        // Merge externally registered circuit states
+        EXTERNAL_CIRCUITS.forEach((key, supplier) ->
+                result.merge(key, supplier.get(), Boolean::logicalOr));
+        return Map.copyOf(result);
+    }
+
+    /** Returns the number of live circuit breaker instances (for diagnostics). */
+    public static int liveInstanceCount() {
+        return LIVE_INSTANCES.size();
     }
 
     private static String resolveBroker(String operation) {

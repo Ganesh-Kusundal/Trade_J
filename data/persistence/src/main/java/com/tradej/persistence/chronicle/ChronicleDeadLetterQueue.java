@@ -53,6 +53,18 @@ public final class ChronicleDeadLetterQueue implements DeadLetterQueue, AutoClos
         return appendCount.get();
     }
 
+    /**
+     * Deletes Chronicle queue files older than the specified number of days,
+     * preserving the currently active file.
+     * Delegates to {@link ChronicleRetention#cleanupOldFiles}.
+     *
+     * @param retentionDays files older than this many days are deleted
+     * @return number of files deleted
+     */
+    public int cleanupOldFiles(long retentionDays) {
+        return ChronicleRetention.cleanupOldFiles(queue, retentionDays, log);
+    }
+
     @Override
     public void close() {
         queue.close();

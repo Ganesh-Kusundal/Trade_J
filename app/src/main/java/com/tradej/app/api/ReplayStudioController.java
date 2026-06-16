@@ -4,6 +4,7 @@ import com.tradej.replay.engine.CandleReplaySession;
 import com.tradej.core.domain.model.Candle;
 import com.tradej.core.domain.model.InstrumentKey;
 import com.tradej.core.domain.port.HistoricalBarRepository;
+import com.tradej.core.domain.config.DefaultSegments;
 import com.tradej.core.domain.value.ExchangeSegment;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -30,14 +31,13 @@ public class ReplayStudioController {
     @PostMapping("/start")
     public ResponseEntity<CandleReplaySession.ReplayStatus> start(
             @RequestParam String symbol,
-            @RequestParam(defaultValue = "NSE_EQ") String exchange,
+            @RequestParam(defaultValue = DefaultSegments.DEFAULT_EQUITY_SEGMENT) ExchangeSegment exchange,
             @RequestParam String from,
             @RequestParam String to,
             @RequestParam(defaultValue = "1m") String interval
     ) {
-        ExchangeSegment segment = ExchangeSegment.valueOf(exchange);
         List<Candle> candles = barRepository.queryCandles(
-                InstrumentKey.of(symbol, segment),
+                InstrumentKey.of(symbol, exchange),
                 interval,
                 LocalDate.parse(from),
                 LocalDate.parse(to)

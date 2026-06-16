@@ -32,6 +32,32 @@ function formatVol(v: number, unit: string): string {
 const safeNum = (v: any, fallback = 0): number =>
   typeof v === 'number' && isFinite(v) ? v : fallback;
 
+function sma(bars: OHLCVBar[], period: number): Array<{ time: number; value: number }> {
+  if (bars.length < period) return [];
+  const result: Array<{ time: number; value: number }> = [];
+  let sum = 0;
+  for (let i = 0; i < period; i++) sum += bars[i].close;
+  result.push({ time: bars[period - 1].time, value: sum / period });
+  for (let i = period; i < bars.length; i++) {
+    sum += bars[i].close - bars[i - period].close;
+    result.push({ time: bars[i].time, value: sum / period });
+  }
+  return result;
+}
+
+function computeVWAP(bars: OHLCVBar[]): Array<{ time: number; value: number }> {
+  const result: Array<{ time: number; value: number }> = [];
+  let cumVol = 0;
+  let cumPv = 0;
+  for (const bar of bars) {
+    const typical = (bar.high + bar.low + bar.close) / 3;
+    cumPv += typical * bar.volume;
+    cumVol += bar.volume;
+    result.push({ time: bar.time, value: cumVol > 0 ? cumPv / cumVol : bar.close });
+  }
+  return result;
+}
+
 export default function CandlestickChart({ instrument, timeframe, setTimeframe, bars, loading, marketState, ltp }: ChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<any>(null);
@@ -51,10 +77,11 @@ export default function CandlestickChart({ instrument, timeframe, setTimeframe, 
   const [showMA99, setShowMA99] = useState(false);
   const [showVWAP, setShowVWAP] = useState(true);
 
-  const [ma25Data, setMa25Data] = useState<Array<{ time: number; value: number }>>([]);
-  const [ma99Data, setMa99Data] = useState<Array<{ time: number; value: number }>>([]);
-  const [vwapData, setVwapData] = useState<Array<{ time: number; value: number }>>([]);
-  const [indicatorsLoading, setIndicatorsLoading] = useState(false);
+  // Moving averages and VWAP — purely derived from bars, no state needed
+  const ma7Data = useMemo(() => sma(bars, 7), [bars]);
+  const ma25Data = useMemo(() => sma(bars, 25), [bars]);
+  const ma99Data = useMemo(() => sma(bars, 99), [bars]);
+  const vwapData = useMemo(() => computeVWAP(bars), [bars]);
 
   const activeBar = hoverBar || (bars.length > 0 ? bars[bars.length - 1] : null);
   const prevClose = bars.length > 1 ? bars[bars.length - 2].close : activeBar?.open ?? 0;

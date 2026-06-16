@@ -102,6 +102,11 @@ public final class ShardedDisruptorEventBus implements EventBus, DisruptorBusMet
     }
 
     @Override
+    public int downstreamQueueDepth() {
+        return shards.stream().mapToInt(DisruptorEventBus::downstreamQueueDepth).sum();
+    }
+
+    @Override
     public long dispatchDroppedEventCount() {
         return shards.stream().mapToLong(DisruptorEventBus::dispatchDroppedEventCount).sum();
     }

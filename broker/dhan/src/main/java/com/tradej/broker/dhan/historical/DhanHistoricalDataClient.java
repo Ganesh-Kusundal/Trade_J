@@ -19,10 +19,14 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.util.List;
 
 public final class DhanHistoricalDataClient {
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern(DhanProtocolConstants.HISTORICAL_TIME_FORMAT);
+    private static final Logger log = LoggerFactory.getLogger(DhanHistoricalDataClient.class);
 
     private final ObjectMapper objectMapper;
     private final DhanAuthenticatedHttpClient httpClient;
@@ -63,6 +67,7 @@ public final class DhanHistoricalDataClient {
     /**
      * Fetch historical candles over large ranges by splitting into API-safe windows.
      * Callers get one payload per window and may merge downstream.
+     * Inserts a brief delay between windows to avoid burst-rate violations.
      */
     public List<DhanJsonResponse> fetchRange(CandleHistoryRequest request, DhanInstrumentDefinition definition) {
         DateWindow resolved = resolveDateRange(request.fromDate(), request.toDate());
@@ -72,7 +77,8 @@ public final class DhanHistoricalDataClient {
                 : DhanProtocolConstants.HISTORICAL_INTRADAY_MAX_DAYS;
         List<DateWindow> windows = splitDateWindows(resolved.fromDate(), resolved.toDate(), maxDays);
         List<DhanJsonResponse> responses = new ArrayList<>(windows.size());
-        for (DateWindow window : windows) {
+        for (int i = 0; i < windows.size(); i++) {
+            DateWindow window = windows.get(i);
             CandleHistoryRequest chunk = new CandleHistoryRequest(
                     request.instrument(),
                     request.interval(),
@@ -80,6 +86,16 @@ public final class DhanHistoricalDataClient {
                     window.toDate()
             );
             responses.add(fetch(chunk, definition));
+            if (i < windows.size() - 1) {
+                try {
+                    Thread.sleep(250L);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    log.warn("Historical fetch interrupted after {}/{} windows for {}; results may be incomplete",
+                            i + 1, windows.size(), request.instrument());
+                    break;
+                }
+            }
         }
         return responses;
     }

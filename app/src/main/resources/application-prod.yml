@@ -6,6 +6,16 @@ spring:
 trade:
   broker-type: dhan
 
+  runtime:
+    mode: LIVE
+    bus: DISRUPTOR
+
+  reconciliation:
+    auto-halt: true
+
+  risk:
+    enforce-margin: true
+
   broker:
     client-id: ${dhan.clientId:${DHAN_CLIENT_ID:}}
     access-token: ${dhan.accessToken:${DHAN_ACCESS_TOKEN:}}

@@ -1,14 +1,17 @@
 package com.tradej.broker.dhan.adapter;
 
+import com.tradej.broker.dhan.config.DhanBrokerStartup;
 import com.tradej.broker.dhan.instrument.DhanInstrumentCatalog;
 import com.tradej.broker.dhan.instrument.DhanInstrumentDefinition;
 import com.tradej.core.domain.model.Instrument;
 import com.tradej.core.domain.model.InstrumentKey;
 import com.tradej.core.domain.value.ExchangeSegment;
 
+import java.nio.file.Path;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 
 public final class InMemoryInstrumentResolver implements DhanInstrumentResolver {
     private final DhanInstrumentCatalog catalog = new DhanInstrumentCatalog();
@@ -121,5 +124,11 @@ public final class InMemoryInstrumentResolver implements DhanInstrumentResolver 
             com.tradej.core.domain.value.OptionType optionType
     ) {
         return catalog.findOptionContract(underlying.toUpperCase(Locale.ENGLISH), exchangeSegment, expiry, strikePricePaisa, optionType);
+    }
+
+    @Override
+    public Optional<Path> downloadCatalog(Path cacheDir) {
+        Path snapshot = DhanBrokerStartup.loadDailyInstrumentCatalog(this, cacheDir, false);
+        return Optional.of(snapshot);
     }
 }

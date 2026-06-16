@@ -277,6 +277,17 @@ subprojects {
         shouldRunAfter tasks.named('brokerOrderTest')
     }
 
+    tasks.register('chaosTest', Test) {
+        description = 'Runs chaos/resilience tests (WebSocket kills, reconnect storms, network partitions).'
+        group = 'verification'
+        testClassesDirs = sourceSets.test.output.classesDirs
+        classpath = sourceSets.test.runtimeClasspath
+        useJUnitPlatform {
+            includeTags 'chaos'
+        }
+        shouldRunAfter tasks.named('crossLayerRegressionTest')
+    }
+
     tasks.register('brokerParityTest') {
         description = 'Runs full Tradehull parity verification suite.'
         group = 'verification'
@@ -335,7 +346,7 @@ subprojects {
 }
 
 tasks.register('fullRegressionTest') {
-    description = 'Runs full-stack regression: unit, component, preflight, broker, runtime, cross-layer.'
+    description = 'Runs full-stack regression: unit, component, preflight, broker, runtime, cross-layer, chaos.'
     group = 'verification'
     dependsOn subprojects.collect { project ->
         project.tasks.matching { it.name == 'unitTest' || it.name == 'componentTest' }
@@ -346,6 +357,7 @@ tasks.register('fullRegressionTest') {
     dependsOn ':app:brokerOrderTest'
     dependsOn ':app:runtimeE2eTest'
     dependsOn ':app:crossLayerRegressionTest'
+    dependsOn ':app:chaosTest'
 }
 
 def jacocoProjects = subprojects.findAll { it.plugins.hasPlugin('jacoco') }

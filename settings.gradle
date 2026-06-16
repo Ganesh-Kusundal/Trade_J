@@ -54,6 +54,8 @@ project(':data-analytics').projectDir = file('data/analytics')
 include 'architecture-test'
 project(':architecture-test').projectDir = file('architecture-test')
 
+// NOTE: test-fixtures module removed — broker Fake/NoOp fixtures were unused
+// and TestSymbols was migrated to core/src/testFixtures/.
 
 include 'app'
 project(':app').projectDir = file('app')

@@ -6,7 +6,7 @@ public enum RuntimeBus {
 
     public static RuntimeBus fromString(String value) {
         if (value == null || value.isBlank()) {
-            return SIMPLE;
+            return DISRUPTOR;
         }
         return RuntimeBus.valueOf(value.trim().toUpperCase());
     }

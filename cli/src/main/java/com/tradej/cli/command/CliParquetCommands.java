@@ -8,9 +8,9 @@ import com.tradej.historical.ingest.canonical.ParquetHistoricalDataStore;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
-import picocli.CommandLine.ParentCommand;
-
 import com.tradej.cli.TradeCli;
+import com.tradej.core.domain.config.DefaultSegments;
+import picocli.CommandLine.ParentCommand;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -44,7 +44,7 @@ public final class CliParquetCommands implements Callable<Integer> {
 
     @Command(name = "summary", description = "Show data platform summary (symbols, bars, intervals)")
     static final class SummaryCmd implements Callable<Integer> {
-        @Option(names = "--segment", defaultValue = "NSE_EQ") String segment;
+        @Option(names = "--segment", defaultValue = DefaultSegments.DEFAULT_EQUITY_SEGMENT) String segment;
         @Option(names = "--data-root", defaultValue = "data") Path dataRoot;
 
         @Override
@@ -121,7 +121,7 @@ public final class CliParquetCommands implements Callable<Integer> {
     @Command(name = "intervals", description = "List available intervals for a symbol")
     static final class IntervalsCmd implements Callable<Integer> {
         @Parameters(index = "0") String symbol;
-        @Option(names = "--segment", defaultValue = "NSE_EQ") String segment;
+        @Option(names = "--segment", defaultValue = DefaultSegments.DEFAULT_EQUITY_SEGMENT) String segment;
         @Option(names = "--data-root", defaultValue = "data") Path dataRoot;
 
         @Override
@@ -147,7 +147,7 @@ public final class CliParquetCommands implements Callable<Integer> {
     static final class ResampleCmd implements Callable<Integer> {
         @Option(names = "--symbol") String symbol;
         @Option(names = "--all", description = "Resample all symbols") boolean all;
-        @Option(names = "--segment", defaultValue = "NSE_EQ") String segment;
+        @Option(names = "--segment", defaultValue = DefaultSegments.DEFAULT_EQUITY_SEGMENT) String segment;
         @Option(names = "--from", required = true) LocalDate from;
         @Option(names = "--to", required = true) LocalDate to;
         @Option(names = "--data-root", defaultValue = "data") Path dataRoot;
@@ -183,7 +183,7 @@ public final class CliParquetCommands implements Callable<Integer> {
     static final class QueryCmd implements Callable<Integer> {
         @Parameters(index = "0") String symbol;
         @Option(names = "--interval", defaultValue = "1m") String interval;
-        @Option(names = "--segment", defaultValue = "NSE_EQ") String segment;
+        @Option(names = "--segment", defaultValue = DefaultSegments.DEFAULT_EQUITY_SEGMENT) String segment;
         @Option(names = "--from", required = true) LocalDate from;
         @Option(names = "--to", required = true) LocalDate to;
         @Option(names = "--limit", defaultValue = "50") int limit;
@@ -226,7 +226,7 @@ public final class CliParquetCommands implements Callable<Integer> {
         @Option(names = "--symbol") String symbol;
         @Option(names = "--all", description = "Check all symbols") boolean all;
         @Option(names = "--interval", defaultValue = "1m") String interval;
-        @Option(names = "--segment", defaultValue = "NSE_EQ") String segment;
+        @Option(names = "--segment", defaultValue = DefaultSegments.DEFAULT_EQUITY_SEGMENT) String segment;
         @Option(names = "--from", required = true) LocalDate from;
         @Option(names = "--to", required = true) LocalDate to;
         @Option(names = "--data-root", defaultValue = "data") Path dataRoot;
@@ -285,7 +285,7 @@ public final class CliParquetCommands implements Callable<Integer> {
         @ParentCommand CliParquetCommands parent;
         @Option(names = "--from", required = true) LocalDate from;
         @Option(names = "--to", required = true) LocalDate to;
-        @Option(names = "--segment", defaultValue = "NSE_EQ") String segment;
+        @Option(names = "--segment", defaultValue = DefaultSegments.DEFAULT_EQUITY_SEGMENT) String segment;
         @Option(names = "--data-root", defaultValue = "data/historical-equity") Path dataRoot;
         @Option(names = "--dry-run", description = "Show sync plan without executing") boolean dryRun;
 

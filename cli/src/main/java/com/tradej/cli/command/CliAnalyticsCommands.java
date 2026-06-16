@@ -2,6 +2,7 @@ package com.tradej.cli.command;
 
 import com.tradej.cli.CliOperations;
 import com.tradej.cli.TradeCli;
+import com.tradej.core.domain.config.DefaultSegments;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
@@ -29,14 +30,14 @@ public final class CliAnalyticsCommands {
     @Command(name = "pcr", description = "Put-Call Ratio for underlying")
     static final class PcrCmd extends AnalyticsBase {
         @Parameters(index = "0") String underlying;
-        @Parameters(index = "1", defaultValue = "IDX_I") String segment;
+        @Parameters(index = "1", defaultValue = DefaultSegments.DEFAULT_INDEX_SEGMENT) String segment;
         @Override void run(CliOperations ops) { ops.marketPcr(underlying, segment); }
     }
 
     @Command(name = "top-oi", description = "Top open interest strikes")
     static final class TopOiCmd extends AnalyticsBase {
         @Parameters(index = "0") String underlying;
-        @Parameters(index = "1", defaultValue = "IDX_I") String segment;
+        @Parameters(index = "1", defaultValue = DefaultSegments.DEFAULT_INDEX_SEGMENT) String segment;
         @Option(names = "--top", defaultValue = "10") int top;
         @Override void run(CliOperations ops) { ops.marketTopOi(underlying, segment, top); }
     }
@@ -44,7 +45,7 @@ public final class CliAnalyticsCommands {
     @Command(name = "top-volume", description = "Top volume strikes")
     static final class TopVolumeCmd extends AnalyticsBase {
         @Parameters(index = "0") String underlying;
-        @Parameters(index = "1", defaultValue = "IDX_I") String segment;
+        @Parameters(index = "1", defaultValue = DefaultSegments.DEFAULT_INDEX_SEGMENT) String segment;
         @Option(names = "--top", defaultValue = "10") int top;
         @Override void run(CliOperations ops) { ops.marketTopVolume(underlying, segment, top); }
     }
@@ -52,14 +53,14 @@ public final class CliAnalyticsCommands {
     @Command(name = "max-pain", description = "Max pain strike for underlying")
     static final class MaxPainCmd extends AnalyticsBase {
         @Parameters(index = "0") String underlying;
-        @Parameters(index = "1", defaultValue = "IDX_I") String segment;
+        @Parameters(index = "1", defaultValue = DefaultSegments.DEFAULT_INDEX_SEGMENT) String segment;
         @Override void run(CliOperations ops) { ops.marketMaxPain(underlying, segment); }
     }
 
     @Command(name = "support", description = "Support/resistance levels")
     static final class SupportCmd extends AnalyticsBase {
         @Parameters(index = "0") String underlying;
-        @Parameters(index = "1", defaultValue = "IDX_I") String segment;
+        @Parameters(index = "1", defaultValue = DefaultSegments.DEFAULT_INDEX_SEGMENT) String segment;
         @Override void run(CliOperations ops) { ops.marketSupport(underlying, segment); }
     }
 }

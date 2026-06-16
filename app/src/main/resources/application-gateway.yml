@@ -54,3 +54,29 @@ trade:
   instruments:
     cache-directory: runtime-prod/instruments
     auto-download: true
+
+  subscriptions:
+    - symbol: NIFTY
+      exchange-segment: IDX_I
+      feed-mode: TICKER
+    - symbol: BANKNIFTY
+      exchange-segment: IDX_I
+      feed-mode: TICKER
+    - symbol: RELIANCE
+      exchange-segment: NSE_EQ
+      feed-mode: QUOTE
+    - symbol: SBIN
+      exchange-segment: NSE_EQ
+      feed-mode: QUOTE
+    - symbol: GOLD
+      exchange-segment: MCX_COMM
+      feed-mode: TICKER
+    - symbol: CRUDEOIL
+      exchange-segment: MCX_COMM
+      feed-mode: TICKER
+    - symbol: SILVER
+      exchange-segment: MCX_COMM
+      feed-mode: TICKER
+    - symbol: NATURALGAS
+      exchange-segment: MCX_COMM
+      feed-mode: TICKER

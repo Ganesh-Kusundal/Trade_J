@@ -1,6 +1,7 @@
 package com.tradej.app.service;
 
 import com.tradej.broker.api.IBrokerConnection;
+import com.tradej.broker.core.resilience.CircuitBreaker;
 import com.tradej.core.domain.runtime.RuntimeBus;
 import com.tradej.core.domain.runtime.RuntimeMode;
 import com.tradej.execution.service.TradingCircuitBreaker;
@@ -30,6 +31,10 @@ public class AdminApplicationService {
         Map<String, Object> status = new LinkedHashMap<>();
         status.put("websocketConnected", brokerConnection.websocket().isConnected());
         status.put("circuitBreakerOpen", tradingCircuitBreaker.isOpen());
+        Map<String, Boolean> brokerCircuits = CircuitBreaker.snapshotAllCircuitStates();
+        if (!brokerCircuits.isEmpty()) {
+            status.put("brokerCircuitStates", brokerCircuits);
+        }
         status.put("subscriptions", brokerConnection.websocket().subscriptions().size());
         status.put("catalogLoaded", catalogLoaded);
         status.put("catalogSize", catalogSize);

@@ -3,6 +3,7 @@ package com.tradej.cli.command;
 import com.tradej.cli.CliOperations;
 import com.tradej.cli.TradeCli;
 import com.tradej.cli.output.Ansi;
+import com.tradej.core.domain.config.DefaultSegments;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
@@ -37,7 +38,7 @@ public final class CliComputeCommand {
     abstract static class ComputeBase implements Callable<Integer> {
         @ParentCommand CliComputeCommand compute;
         @Parameters(index = "0") String symbol;
-        @Parameters(index = "1", defaultValue = "NSE_EQ") String segment;
+        @Parameters(index = "1", defaultValue = DefaultSegments.DEFAULT_EQUITY_SEGMENT) String segment;
         @Option(names = "--interval", defaultValue = "5m") String interval;
         @Option(names = "--from") LocalDate from;
         @Option(names = "--to") LocalDate to;

@@ -1,0 +1,9 @@
+dhan.sandbox.clientId=2505162156
+dhan.sandbox.accessToken=replace-with-sandbox-jwt
+dhan.sandbox.restBaseUrl=https://sandbox.dhan.co/v2
+dhan.testOrderSymbol=TCS
+dhan.testOrderSecurityId=11536
+dhan.testOrderSegment=NSE_EQ
+dhan.testOrderExchange=NSE
+dhan.testOrderQuantity=1
+dhan.testOrderPricePaise=10000

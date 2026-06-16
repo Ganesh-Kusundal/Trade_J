@@ -51,6 +51,13 @@ import java.util.function.Consumer;
     public final class DisruptorEventBus implements EventBus, DisruptorBusMetrics {
         private static final Logger log = LoggerFactory.getLogger(DisruptorEventBus.class);
 
+        /**
+         * Optional alert callback for paging on critical queue saturation and DLQ overflow.
+         * Set via {@link #setAlertCallback(Consumer, Consumer)} after construction.
+         */
+        private volatile Consumer<String> criticalAlertCallback;
+        private volatile Consumer<String> warningAlertCallback;
+
         private static final int MAX_SEEN_EVENTS = 200_000;
         // Increased from 4096 to 65536 to handle CandleDeveloping bursts from
         // the graph pipeline (CandleDeveloping emitted on every tick per symbol).
@@ -131,12 +138,14 @@ import java.util.function.Consumer;
                 if (!downstreamQueue.offer(event)) {
                     this.deadLetterQueue.append("downstream-queue", event,
                             "Downstream event queue full (capacity=" + DOWNSTREAM_QUEUE_CAPACITY + ")");
-                    log.error("DOWNSTREAM QUEUE FULL — dropping event type={} eventId={} queueSize={} capacity={} — THIS SHOULD TRIGGER PAGER",
+                    log.error("DOWNSTREAM QUEUE FULL — dropping event type={} eventId={} queueSize={} capacity={} — PAGING",
                             event.getClass().getSimpleName(), event.eventId(),
                             downstreamQueue.size(), DOWNSTREAM_QUEUE_CAPACITY);
+                    alertCritical("Downstream queue full — dropping events. Queue size=" + downstreamQueue.size());
                 } else if (downstreamQueue.size() > DOWNSTREAM_QUEUE_CAPACITY * 0.75) {
                     log.warn("Downstream queue nearing capacity: {} / {} events — latency risk",
                             downstreamQueue.size(), DOWNSTREAM_QUEUE_CAPACITY);
+                    alertWarning("Downstream queue at " + (downstreamQueue.size() * 100 / DOWNSTREAM_QUEUE_CAPACITY) + "% capacity");
                 }
             };
 
@@ -202,8 +211,9 @@ import java.util.function.Consumer;
             if (!downstreamQueue.offer(event)) {
                 deadLetterQueue.append("reentrant-queue", event,
                         "Re-entrant downstream queue full (capacity=" + DOWNSTREAM_QUEUE_CAPACITY + ")");
-                log.error("RE-ENTRANT DOWNSTREAM QUEUE FULL — dropping event type={} eventId={} — PAGER",
+                log.error("RE-ENTRANT DOWNSTREAM QUEUE FULL — dropping event type={} eventId={} — PAGING",
                         event.getClass().getSimpleName(), event.eventId());
+                alertCritical("Re-entrant queue full — dropping events. Event type=" + event.getClass().getSimpleName());
             }
             return;
         }
@@ -371,6 +381,32 @@ import java.util.function.Consumer;
             case LIVE -> new BusySpinWaitStrategy();
             case REPLAY, BACKTEST -> new YieldingWaitStrategy();
         };
+    }
+
+    /**
+     * Sets optional alert callbacks for paging on critical conditions
+     * (queue saturation, DLQ overflow). Must be called before {@link #start()}.
+     *
+     * @param onCritical called with a human-readable message on critical conditions
+     * @param onWarning  called with a human-readable message on warning conditions
+     */
+    public void setAlertCallback(Consumer<String> onCritical, Consumer<String> onWarning) {
+        this.criticalAlertCallback = onCritical;
+        this.warningAlertCallback = onWarning;
+    }
+
+    private void alertCritical(String message) {
+        Consumer<String> cb = this.criticalAlertCallback;
+        if (cb != null) {
+            cb.accept(message);
+        }
+    }
+
+    private void alertWarning(String message) {
+        Consumer<String> cb = this.warningAlertCallback;
+        if (cb != null) {
+            cb.accept(message);
+        }
     }
 
     private void pruneOldEntries() {

@@ -27,6 +27,7 @@ import com.tradej.cli.command.CliRegressionCommand;
 import com.tradej.cli.command.CliReplayConsoleCommand;
 import com.tradej.cli.config.CliConfig;
 import com.tradej.cli.interactive.InteractiveShell;
+import com.tradej.core.domain.config.DefaultSegments;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
@@ -310,7 +311,7 @@ public class TradeCli implements Callable<Integer> {
     @Command(name = "ltp")
     static final class LtpCmd extends BaseCmd {
         @Parameters(index = "0") String symbol;
-        @Parameters(index = "1", defaultValue = "IDX_I") String segment;
+        @Parameters(index = "1", defaultValue = DefaultSegments.DEFAULT_INDEX_SEGMENT) String segment;
 
         @Override
         void run(CliOperations ops) {
@@ -321,7 +322,7 @@ public class TradeCli implements Callable<Integer> {
     @Command(name = "quote")
     static final class QuoteCmd extends BaseCmd {
         @Parameters(index = "0") String symbol;
-        @Parameters(index = "1", defaultValue = "IDX_I") String segment;
+        @Parameters(index = "1", defaultValue = DefaultSegments.DEFAULT_INDEX_SEGMENT) String segment;
 
         @Override
         void run(CliOperations ops) {
@@ -332,7 +333,7 @@ public class TradeCli implements Callable<Integer> {
     @Command(name = "depth")
     static final class DepthCmd extends BaseCmd {
         @Parameters(index = "0") String symbol;
-        @Parameters(index = "1", defaultValue = "IDX_I") String segment;
+        @Parameters(index = "1", defaultValue = DefaultSegments.DEFAULT_INDEX_SEGMENT) String segment;
 
         @Override
         void run(CliOperations ops) {
@@ -343,7 +344,7 @@ public class TradeCli implements Callable<Integer> {
     @Command(name = "ohlc")
     static final class OhlcCmd extends BaseCmd {
         @Parameters(index = "0") String symbol;
-        @Parameters(index = "1", defaultValue = "IDX_I") String segment;
+        @Parameters(index = "1", defaultValue = DefaultSegments.DEFAULT_INDEX_SEGMENT) String segment;
 
         @Override
         void run(CliOperations ops) {
@@ -354,7 +355,7 @@ public class TradeCli implements Callable<Integer> {
     @Command(name = "candles")
     static final class CandlesCmd extends BaseCmd {
         @Parameters(index = "0") String symbol;
-        @Parameters(index = "1", defaultValue = "IDX_I") String segment;
+        @Parameters(index = "1", defaultValue = DefaultSegments.DEFAULT_INDEX_SEGMENT) String segment;
         @Option(names = "--interval", defaultValue = "5m") String interval;
         @Option(names = "--from") LocalDate from;
         @Option(names = "--to") LocalDate to;
@@ -415,7 +416,7 @@ public class TradeCli implements Callable<Integer> {
     @Command(name = "expiries")
     static final class ExpiriesCmd extends BaseCmd {
         @Parameters(index = "0") String underlying;
-        @Parameters(index = "1", defaultValue = "IDX_I") String segment;
+        @Parameters(index = "1", defaultValue = DefaultSegments.DEFAULT_INDEX_SEGMENT) String segment;
 
         @Override
         void run(CliOperations ops) {
@@ -427,7 +428,7 @@ public class TradeCli implements Callable<Integer> {
     static final class ChainCmd extends BaseCmd {
         @Parameters(index = "0") String underlying;
         @Parameters(index = "1") String expiry;
-        @Parameters(index = "2", defaultValue = "IDX_I") String segment;
+        @Parameters(index = "2", defaultValue = DefaultSegments.DEFAULT_INDEX_SEGMENT) String segment;
 
         @Override
         void run(CliOperations ops) {
@@ -438,7 +439,7 @@ public class TradeCli implements Callable<Integer> {
     @Command(name = "options-scan", description = "Rank option contracts by liquidity (OI, volume, spread)")
     static final class OptionsScanCmd extends BaseCmd {
         @Parameters(index = "0") String underlying;
-        @Parameters(index = "1", defaultValue = "IDX_I") String segment;
+        @Parameters(index = "1", defaultValue = DefaultSegments.DEFAULT_INDEX_SEGMENT) String segment;
         @Option(names = "--expiry", description = "nearest|next|YYYY-MM-DD", defaultValue = "nearest") String expiry;
         @Option(names = "--side", description = "ce|pe|both", defaultValue = "both") String side;
         @Option(names = "--top", description = "Top N contracts", defaultValue = "10") int top;
@@ -474,7 +475,7 @@ public class TradeCli implements Callable<Integer> {
     static final class StrikeCmd extends BaseCmd {
         @Parameters(index = "0") String underlying;
         @Parameters(index = "1", defaultValue = "atm") String kind;
-        @Parameters(index = "2", defaultValue = "IDX_I") String segment;
+        @Parameters(index = "2", defaultValue = DefaultSegments.DEFAULT_INDEX_SEGMENT) String segment;
         @Option(names = "--depth", defaultValue = "0") int depth;
 
         @Override
@@ -486,7 +487,7 @@ public class TradeCli implements Callable<Integer> {
     @Command(name = "margin")
     static final class MarginCmd extends BaseCmd {
         @Parameters(index = "0") String symbol;
-        @Parameters(index = "1", defaultValue = "IDX_I") String segment;
+        @Parameters(index = "1", defaultValue = DefaultSegments.DEFAULT_INDEX_SEGMENT) String segment;
         @Option(names = "--side", defaultValue = "BUY") String side;
         @Option(names = "--qty", defaultValue = "1") long qty;
         @Option(names = "--product", defaultValue = "INTRADAY") String product;
@@ -502,7 +503,7 @@ public class TradeCli implements Callable<Integer> {
     @Command(name = "rolling-option", description = "Expired rolling option history (opt-in via DHAN_ROLLING_OPTION_TEST_ENABLED)")
     static final class RollingOptionCmd extends BaseCmd {
         @Parameters(index = "0") String underlying;
-        @Parameters(index = "1", defaultValue = "IDX_I") String segment;
+        @Parameters(index = "1", defaultValue = DefaultSegments.DEFAULT_INDEX_SEGMENT) String segment;
         @Option(names = "--interval", defaultValue = "5") int intervalMinutes;
         @Option(names = "--expiry-flag", defaultValue = "MONTH") String expiryFlag;
         @Option(names = "--expiry-code", defaultValue = "1") int expiryCode;
@@ -737,7 +738,7 @@ public class TradeCli implements Callable<Integer> {
     @Command(name = "place")
     static final class PlaceCmd extends BaseCmd {
         @Parameters(index = "0") String symbol;
-        @Parameters(index = "1", defaultValue = "IDX_I") String segment;
+        @Parameters(index = "1", defaultValue = DefaultSegments.DEFAULT_INDEX_SEGMENT) String segment;
         @Option(names = "--side", defaultValue = "BUY") String side;
         @Option(names = "--qty", defaultValue = "1") long qty;
         @Option(names = "--type", defaultValue = "LIMIT") String orderType;
@@ -896,7 +897,7 @@ public class TradeCli implements Callable<Integer> {
     @Command(name = "broker-validate", description = "Run broker certification smoke test")
     static final class BrokerValidateCmd extends BaseCmd {
         @Parameters(index = "0", defaultValue = "RELIANCE") String symbol;
-        @Parameters(index = "1", defaultValue = "IDX_I") String segment;
+        @Parameters(index = "1", defaultValue = DefaultSegments.DEFAULT_INDEX_SEGMENT) String segment;
         @Option(names = "--skip-orders", description = "Skip order book check") boolean skipOrders;
 
         @Override
@@ -964,7 +965,7 @@ public class TradeCli implements Callable<Integer> {
         @ParentCommand
         DownloadStartCmd startCmd;
         @Option(names = "--symbols", defaultValue = "NIFTY,BANKNIFTY") String symbols;
-        @Option(names = "--segment", defaultValue = "IDX_I") String segment;
+        @Option(names = "--segment", defaultValue = DefaultSegments.DEFAULT_INDEX_SEGMENT) String segment;
         @Option(names = "--from") LocalDate from;
         @Option(names = "--to") LocalDate to;
         @Option(names = "--intervals", defaultValue = "5") String intervals;
@@ -994,7 +995,7 @@ public class TradeCli implements Callable<Integer> {
         DownloadStartCmd startCmd;
         @Option(names = "--universe", description = "Use nifty500 to load online universe") String universe;
         @Option(names = "--symbols", description = "Comma-separated symbols (ignored when --universe nifty500)") String symbols;
-        @Option(names = "--segment", defaultValue = "NSE_EQ") String segment;
+        @Option(names = "--segment", defaultValue = DefaultSegments.DEFAULT_EQUITY_SEGMENT) String segment;
         @Option(names = "--from") LocalDate from;
         @Option(names = "--to") LocalDate to;
         @Option(names = "--interval", defaultValue = "1m") String interval;
@@ -1302,7 +1303,7 @@ public class TradeCli implements Callable<Integer> {
     @Command(name = "ltp", description = "Last traded price (standalone)")
     static final class DataLtpCmd extends DataNestedCmd {
         @Parameters(index = "0") String symbol;
-        @Parameters(index = "1", defaultValue = "IDX_I") String segment;
+        @Parameters(index = "1", defaultValue = DefaultSegments.DEFAULT_INDEX_SEGMENT) String segment;
         @Override
         void run(CliOperations ops) { ops.dataLtp(symbol, segment); }
     }
@@ -1310,7 +1311,7 @@ public class TradeCli implements Callable<Integer> {
     @Command(name = "quote", description = "Full quote snapshot (standalone)")
     static final class DataQuoteCmd extends DataNestedCmd {
         @Parameters(index = "0") String symbol;
-        @Parameters(index = "1", defaultValue = "IDX_I") String segment;
+        @Parameters(index = "1", defaultValue = DefaultSegments.DEFAULT_INDEX_SEGMENT) String segment;
         @Override
         void run(CliOperations ops) { ops.dataQuote(symbol, segment); }
     }
@@ -1318,7 +1319,7 @@ public class TradeCli implements Callable<Integer> {
     @Command(name = "depth", description = "Market depth (standalone)")
     static final class DataDepthCmd extends DataNestedCmd {
         @Parameters(index = "0") String symbol;
-        @Parameters(index = "1", defaultValue = "IDX_I") String segment;
+        @Parameters(index = "1", defaultValue = DefaultSegments.DEFAULT_INDEX_SEGMENT) String segment;
         @Override
         void run(CliOperations ops) { ops.dataDepth(symbol, segment); }
     }
@@ -1326,7 +1327,7 @@ public class TradeCli implements Callable<Integer> {
     @Command(name = "ohlc", description = "OHLC snapshot (standalone)")
     static final class DataOhlcCmd extends DataNestedCmd {
         @Parameters(index = "0") String symbol;
-        @Parameters(index = "1", defaultValue = "IDX_I") String segment;
+        @Parameters(index = "1", defaultValue = DefaultSegments.DEFAULT_INDEX_SEGMENT) String segment;
         @Override
         void run(CliOperations ops) { ops.dataOhlc(symbol, segment); }
     }
@@ -1334,7 +1335,7 @@ public class TradeCli implements Callable<Integer> {
     @Command(name = "candles", description = "Historical candles via broker REST (standalone)")
     static final class DataCandlesCmd extends DataNestedCmd {
         @Parameters(index = "0") String symbol;
-        @Parameters(index = "1", defaultValue = "IDX_I") String segment;
+        @Parameters(index = "1", defaultValue = DefaultSegments.DEFAULT_INDEX_SEGMENT) String segment;
         @Option(names = "--interval", defaultValue = "5m") String interval;
         @Option(names = "--from") LocalDate from;
         @Option(names = "--to") LocalDate to;
@@ -1382,7 +1383,7 @@ public class TradeCli implements Callable<Integer> {
     static final class BacktestRunCmd extends BacktestNestedCmd {
         @Option(names = "--strategy", required = true, description = "Strategy name (sma-crossover, buy-hold)") String strategy;
         @Option(names = "--symbol", required = true) String symbol;
-        @Option(names = "--segment", defaultValue = "NSE_EQ") String segment;
+        @Option(names = "--segment", defaultValue = DefaultSegments.DEFAULT_EQUITY_SEGMENT) String segment;
         @Option(names = "--from", required = true) LocalDate from;
         @Option(names = "--to", required = true) LocalDate to;
         @Option(names = "--capital", defaultValue = "10000000", description = "Initial capital in paisa") long capital;
@@ -1455,7 +1456,7 @@ public class TradeCli implements Callable<Integer> {
     @Command(name = "preview", description = "Preview order without placing (broker validation + margin estimate)")
     static final class PreviewCmd extends BaseCmd {
         @Parameters(index = "0") String symbol;
-        @Parameters(index = "1", defaultValue = "NSE_EQ") String segment;
+        @Parameters(index = "1", defaultValue = DefaultSegments.DEFAULT_EQUITY_SEGMENT) String segment;
         @Option(names = "--side", defaultValue = "BUY") String side;
         @Option(names = "--qty", defaultValue = "1") long qty;
         @Option(names = "--order-type", defaultValue = "MARKET") String orderType;
@@ -1472,7 +1473,7 @@ public class TradeCli implements Callable<Integer> {
     static final class BatchQuoteCmd extends BaseCmd {
         @Parameters(index = "0") String symbol1;
         @Parameters(index = "1") String symbol2;
-        @Parameters(index = "2", defaultValue = "NSE_EQ") String segment;
+        @Parameters(index = "2", defaultValue = DefaultSegments.DEFAULT_EQUITY_SEGMENT) String segment;
         @Override void run(CliOperations ops) { ops.batchQuote(symbol1, symbol2, segment); }
     }
 
@@ -1489,7 +1490,7 @@ public class TradeCli implements Callable<Integer> {
     @Command(name = "bracket", description = "Place bracket order (target + SL)")
     static final class BracketCmd extends BaseCmd {
         @Parameters(index = "0") String symbol;
-        @Parameters(index = "1", defaultValue = "NSE_EQ") String segment;
+        @Parameters(index = "1", defaultValue = DefaultSegments.DEFAULT_EQUITY_SEGMENT) String segment;
         @Option(names = "--side", defaultValue = "BUY") String side;
         @Option(names = "--qty", defaultValue = "1") long qty;
         @Option(names = "--price", defaultValue = "0") long price;
@@ -1502,7 +1503,7 @@ public class TradeCli implements Callable<Integer> {
     @Command(name = "gtt", description = "Place GTT (Good-Till-Triggered) order")
     static final class GttCmd extends BaseCmd {
         @Parameters(index = "0") String symbol;
-        @Parameters(index = "1", defaultValue = "NSE_EQ") String segment;
+        @Parameters(index = "1", defaultValue = DefaultSegments.DEFAULT_EQUITY_SEGMENT) String segment;
         @Option(names = "--side", defaultValue = "BUY") String side;
         @Option(names = "--qty", defaultValue = "1") long qty;
         @Option(names = "--price", defaultValue = "0") long price;
@@ -1513,7 +1514,7 @@ public class TradeCli implements Callable<Integer> {
     @Command(name = "futures", description = "List futures contracts for underlying")
     static final class FuturesCmd extends BaseCmd {
         @Parameters(index = "0") String underlying;
-        @Parameters(index = "1", defaultValue = "NSE_FNO") String segment;
+        @Parameters(index = "1", defaultValue = DefaultSegments.DEFAULT_FNO_SEGMENT) String segment;
         @Override void run(CliOperations ops) { ops.futuresContracts(underlying, segment); }
     }
 

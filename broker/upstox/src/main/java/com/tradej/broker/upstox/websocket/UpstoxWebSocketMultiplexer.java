@@ -4,6 +4,7 @@ import com.tradej.broker.api.model.MarketSubscriptionRequest;
 import com.tradej.broker.api.port.MarketDataListener;
 import com.tradej.broker.api.port.OrderUpdateListener;
 import com.tradej.broker.api.port.WebSocketMultiplexer;
+import com.tradej.broker.core.reconnect.ReconnectDefaults;
 import com.tradej.broker.core.reconnect.ReconnectListenerRegistry;
 import com.tradej.broker.core.reconnect.ReconnectManager;
 import com.tradej.broker.core.websocket.DefaultWebSocketSupervisor;
@@ -45,8 +46,8 @@ public final class UpstoxWebSocketMultiplexer implements WebSocketMultiplexer {
 
     private static final long STALE_THRESHOLD_MS = 30_000L;
     private static final long HEALTH_CHECK_INTERVAL_MS = 5_000L;
-    private static final int MAX_RECONNECT_ATTEMPTS = 8;
-    private static final long RECONNECT_BASE_DELAY_MS = 1_000L;
+    private static final int MAX_RECONNECT_ATTEMPTS = ReconnectDefaults.DEFAULT_MAX_ATTEMPTS;
+    private static final long RECONNECT_BASE_DELAY_MS = ReconnectDefaults.DEFAULT_BASE_DELAY_MS;
     private static final long RECONNECT_MAX_DELAY_MS = 60_000L;
     private static final long RECONNECT_JITTER_MS = 500L;
 

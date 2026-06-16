@@ -1,5 +1,6 @@
 package com.tradej.core.domain.oms;
 
+import com.tradej.core.testsupport.TestSymbols;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
@@ -49,7 +50,7 @@ class OrderStateMachineTest {
 
     @Test
     void happyPath_submitted_acknowledged_filled() {
-        OrderStateMachine sm = new OrderStateMachine("ORD-1", "RELIANCE", 100);
+        OrderStateMachine sm = new OrderStateMachine("ORD-1", TestSymbols.RELIANCE, 100);
         sm.on(submitted("ORD-1"));
         assertEquals(LifecycleState.PENDING_SUBMIT, sm.toProjection().status());
 
@@ -63,7 +64,7 @@ class OrderStateMachineTest {
 
     @Test
     void cancelBeforeAck_cancelPending_thenCancelled() {
-        OrderStateMachine sm = new OrderStateMachine("ORD-2", "TCS", 50);
+        OrderStateMachine sm = new OrderStateMachine("ORD-2", TestSymbols.TCS, 50);
         sm.on(submitted("ORD-2"));
         sm.on(cancelRequested("ORD-2"));
         assertEquals(LifecycleState.CANCEL_PENDING, sm.toProjection().status());
@@ -74,7 +75,7 @@ class OrderStateMachineTest {
 
     @Test
     void partialFill_accumulatesCorrectly() {
-        OrderStateMachine sm = new OrderStateMachine("ORD-3", "INFY", 100);
+        OrderStateMachine sm = new OrderStateMachine("ORD-3", TestSymbols.INFY, 100);
         sm.on(submitted("ORD-3"));
         sm.on(acknowledged("ORD-3"));
 
@@ -87,7 +88,7 @@ class OrderStateMachineTest {
 
     @Test
     void partialFill_thenFullyFilled() {
-        OrderStateMachine sm = new OrderStateMachine("ORD-4", "SBIN", 100);
+        OrderStateMachine sm = new OrderStateMachine("ORD-4", TestSymbols.SBIN, 100);
         sm.on(submitted("ORD-4"));
         sm.on(acknowledged("ORD-4"));
 
@@ -101,7 +102,7 @@ class OrderStateMachineTest {
 
     @Test
     void invalidTransition_throws() {
-        OrderStateMachine sm = new OrderStateMachine("ORD-5", "RELIANCE", 100);
+        OrderStateMachine sm = new OrderStateMachine("ORD-5", TestSymbols.RELIANCE, 100);
         assertThrows(IllegalStateException.class, () -> sm.on(acknowledged("ORD-5")),
                 "Cannot acknowledge without submitting first");
     }
@@ -138,7 +139,7 @@ class OrderStateMachineTest {
 
     @Test
     void expiredFromSubmitted_validTransition() {
-        OrderStateMachine sm = new OrderStateMachine("ORD-8", "TCS", 50);
+        OrderStateMachine sm = new OrderStateMachine("ORD-8", TestSymbols.TCS, 50);
         sm.on(submitted("ORD-8"));
         sm.on(acknowledged("ORD-8"));
         sm.on(expired("ORD-8"));
@@ -147,7 +148,7 @@ class OrderStateMachineTest {
 
     @Test
     void fillInCancelPending_staysPartiallyFilled() {
-        OrderStateMachine sm = new OrderStateMachine("ORD-9", "INFY", 100);
+        OrderStateMachine sm = new OrderStateMachine("ORD-9", TestSymbols.INFY, 100);
         sm.on(submitted("ORD-9"));
         sm.on(acknowledged("ORD-9"));
         sm.on(partiallyFilled("ORD-9", 30, 1500_00L));
@@ -162,7 +163,7 @@ class OrderStateMachineTest {
 
     @Test
     void rejectedFromPendingSubmit_validTransition() {
-        OrderStateMachine sm = new OrderStateMachine("ORD-10", "SBIN", 100);
+        OrderStateMachine sm = new OrderStateMachine("ORD-10", TestSymbols.SBIN, 100);
         sm.on(submitted("ORD-10"));
         sm.on(rejected("ORD-10"));
         assertEquals(LifecycleState.REJECTED, sm.toProjection().status());
@@ -170,14 +171,14 @@ class OrderStateMachineTest {
 
     @Test
     void wrongOrderId_throws() {
-        OrderStateMachine sm = new OrderStateMachine("ORD-11", "RELIANCE", 100);
+        OrderStateMachine sm = new OrderStateMachine("ORD-11", TestSymbols.RELIANCE, 100);
         assertThrows(IllegalArgumentException.class,
                 () -> sm.on(submitted("WRONG-ID")));
     }
 
     @Test
     void concurrent_sameOrder_synchronized() throws Exception {
-        OrderStateMachine sm = new OrderStateMachine("ORD-12", "RELIANCE", 1000);
+        OrderStateMachine sm = new OrderStateMachine("ORD-12", TestSymbols.RELIANCE, 1000);
         sm.on(submitted("ORD-12"));
         sm.on(acknowledged("ORD-12"));
 

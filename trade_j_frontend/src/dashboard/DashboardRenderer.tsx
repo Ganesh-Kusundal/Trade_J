@@ -114,9 +114,11 @@ registerWidget("positions-table", PositionsTable);
 registerWidget("pnl-summary", PnLSummary);
 registerWidget("signals-table", SignalsTable);
 
-import { DashboardRenderer as _ } from "./types";
 import "./widgetsExtra";
 import "./widgetsStrategy";
+
+// Re-export type for external consumers
+export type { DashboardSpec, WidgetSpec, WidgetProps } from "./types";
 
 export function DashboardRenderer({ spec }: { spec: DashboardSpec }) {
   if (spec.layout.kind === "grid") {

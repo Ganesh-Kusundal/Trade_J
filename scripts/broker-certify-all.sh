@@ -40,6 +40,7 @@ ICICI_STATUS="PENDING"
 DHAN_DETAIL=""
 UPSTOX_DETAIL=""
 ICICI_DETAIL=""
+CHAOS_TEST_RESULT="PENDING"
 
 record_broker() {
     local broker="$1" status="$2" detail="$3"
@@ -161,6 +162,15 @@ else
     echo -e "  ${RED}✗ Upstox URL encoding tests FAILED${NC}"
 fi
 
+echo -e "\n${BOLD}  Running chaos resilience tests...${NC}"
+if ./gradlew :app:test --tests "com.tradej.app.e2e.WebSocketKillMidTradeChaosTest" 2>&1 | tail -3 | grep -q "BUILD SUCCESSFUL"; then
+    echo -e "  ${GREEN}✓ Chaos resilience tests PASS${NC}"
+    CHAOS_TEST_RESULT="PASS"
+else
+    echo -e "  ${RED}✗ Chaos resilience tests FAILED${NC}"
+    CHAOS_TEST_RESULT="FAIL"
+fi
+
 # ────────────────────────────────────────────────────────────────────
 # Phase 5: Payload Capture
 # ────────────────────────────────────────────────────────────────────
@@ -194,6 +204,7 @@ print_status "ICICI" "$ICICI_STATUS" "$ICICI_DETAIL"
 
 echo ""
 echo -e "  WebSocket: $WS_PASS pass / $WS_FAIL fail / $WS_SKIP skip"
+echo -e "  Chaos:    ${CHAOS_TEST_RESULT}"
 echo -e "  Report: ${CYAN}$REPORT_FILE${NC}"
 
 # Write JSON report
@@ -210,7 +221,8 @@ cat > "$REPORT_FILE" <<EOF
     "subscription_certification": "PASS",
     "reconnect_certification": "PASS",
     "upstox_url_encoding": "PASS"
-  }
+  },
+  "chaos": {"status": "$CHAOS_TEST_RESULT"}
 }
 EOF
 

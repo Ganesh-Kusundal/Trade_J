@@ -71,6 +71,17 @@ public final class EventSourcedNetPositionProvider implements NetPositionProvide
     }
 
     private void handleTradeOpened(TradeOpened opened) {
+        // Idempotency guard: do not re-open a trade that has already been closed
+        if (closedTradeIds.contains(opened.tradeId())) {
+            return;
+        }
+        // Idempotency guard: ignore duplicate TradeOpened events (defense in depth —
+        // upstream dedup in ExecutionHandler/DhanOrderCommandAdapter prevents duplicates,
+        // but the position provider is the authoritative last line of defense)
+        if (!activeTradeIds.add(opened.tradeId())) {
+            return;
+        }
+
         String symbol = opened.symbol();
         long size = opened.size();
         long price = opened.entryPricePaisa();
@@ -78,38 +89,48 @@ public final class EventSourcedNetPositionProvider implements NetPositionProvide
 
         tradeContributions.put(opened.tradeId(), new TradeContribution(symbol, side, size, price));
 
-        positions.compute(symbol, (s, current) -> {
-            if (current == null) {
-                return new PositionState(side.isBuySide() ? size : -size, price);
-            }
-            long oldQty = current.quantity();
-            long oldAvg = current.averagePricePaisa();
-            long tradeQty = side.isBuySide() ? size : -size;
-            long newQty = oldQty + tradeQty;
-            
-            if (newQty == 0) {
-                return new PositionState(0, 0);
-            }
-            
-            // Institutional Weighted Average Cost Basis
-            // Only update average price if increasing the position in the same direction
-            long newAvg;
-            if ((oldQty > 0 && tradeQty > 0) || (oldQty < 0 && tradeQty < 0)) {
-                newAvg = (Math.abs(oldQty) * oldAvg + Math.abs(tradeQty) * price) / Math.abs(newQty);
-            } else {
-                // Position reduction or flip
-                if (Math.signum(oldQty) == Math.signum(newQty)) {
-                    // Same direction, just smaller qty - avg stays same
-                    newAvg = oldAvg;
-                } else {
-                    // Flipped to opposite direction - new avg is the flip price
-                    newAvg = price;
+        try {
+            positions.compute(symbol, (s, current) -> {
+                if (current == null) {
+                    return new PositionState(side.isBuySide() ? size : -size, price);
                 }
-            }
-            return new PositionState(newQty, newAvg);
-        });
+                long oldQty = current.quantity();
+                long oldAvg = current.averagePricePaisa();
+                long tradeQty = side.isBuySide() ? size : -size;
+                long newQty = oldQty + tradeQty;
+                
+                if (newQty == 0) {
+                    return new PositionState(0, 0);
+                }
+                
+                // Institutional Weighted Average Cost Basis
+                // Only update average price if increasing the position in the same direction
+                long newAvg;
+                if ((oldQty > 0 && tradeQty > 0) || (oldQty < 0 && tradeQty < 0)) {
+                    newAvg = (Math.abs(oldQty) * oldAvg + Math.abs(tradeQty) * price) / Math.abs(newQty);
+                } else {
+                    // Position reduction or flip
+                    if (Math.signum(oldQty) == Math.signum(newQty)) {
+                        // Same direction, just smaller qty - avg stays same
+                        newAvg = oldAvg;
+                    } else {
+                        // Flipped to opposite direction - new avg is the flip price
+                        newAvg = price;
+                    }
+                }
+                return new PositionState(newQty, newAvg);
+            });
+        } catch (Exception e) {
+            // Clean up idempotency guard on failure so the event can be retried.
+            // Only remove activeTradeIds — tradeContributions.put() on retry will
+            // naturally overwrite; removing it here creates a race with concurrent
+            // processing of the same tradeId.
+            activeTradeIds.remove(opened.tradeId());
+            log.error("Position update failed for tradeId={} symbol={} — guard cleaned up for retry",
+                    opened.tradeId(), symbol, e);
+            throw e;
+        }
 
-        activeTradeIds.add(opened.tradeId());
         snapshot.set(null);
         
         log.debug("Position updated symbol={} side={} size={} price={} currentQty={} currentAvg={}",

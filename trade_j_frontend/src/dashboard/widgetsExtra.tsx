@@ -149,13 +149,37 @@ function ScanHits({ spec }: WidgetProps) {
 // Renders spot price, max pain, PCR, total call/Put OI, and
 // the strikes table (call OI / LTP, strike, put LTP / OI).
 // Empty chain (no strikes) shows a clean "no chain" message.
+interface OptionChainStrike {
+  strikePaisa: number;
+  callOi?: number;
+  callLtpPaisa?: number;
+  putOi?: number;
+  putLtpPaisa?: number;
+}
+
+interface OptionChainData {
+  underlying?: string;
+  spotPricePaisa?: number;
+  maxPainStrikePaisa?: number;
+  putCallRatio?: number;
+  totalCallOi?: number;
+  totalPutOi?: number;
+  strikes?: OptionChainStrike[];
+}
+
+interface OptionChainDataSource {
+  underlying?: string;
+  segment?: string;
+  depth?: number;
+}
+
 function OptionChain({ spec }: WidgetProps) {
-  const ds: any = spec.dataSource ?? {};
+  const ds: OptionChainDataSource = (spec.dataSource as OptionChainDataSource) ?? {};
   const underlying: string = ds.underlying ?? "NIFTY";
   const segment: string = ds.segment ?? "NSE_FNO";
   const depth: number = typeof ds.depth === "number" ? ds.depth : 5;
 
-  const [data, setData] = React.useState<any | null>(null);
+  const [data, setData] = React.useState<OptionChainData | null>(null);
   const [err, setErr] = React.useState<string | null>(null);
 
   React.useEffect(() => {
@@ -163,7 +187,7 @@ function OptionChain({ spec }: WidgetProps) {
     const url = `/api/v1/options/chain?underlying=${encodeURIComponent(underlying)}&segment=${encodeURIComponent(segment)}&depth=${depth}`;
     fetch(url)
       .then((r) => r.json())
-      .then((j) => { if (!cancelled) { setData(j); setErr(null); } })
+      .then((j) => { if (!cancelled) { setData(j as OptionChainData); setErr(null); } })
       .catch((e) => { if (!cancelled) setErr(String(e?.message ?? e)); });
     return () => { cancelled = true; };
   }, [underlying, segment, depth]);
@@ -174,7 +198,7 @@ function OptionChain({ spec }: WidgetProps) {
   if (!data) {
     return <div className="bg-[#0d1117] border border-[#21262d] rounded p-2 text-slate-600 text-[10px]">Loading option chain…</div>;
   }
-  const strikes: any[] = Array.isArray(data.strikes) ? data.strikes : [];
+  const strikes: OptionChainStrike[] = Array.isArray(data.strikes) ? data.strikes : [];
   const spotPaisa: number = data.spotPricePaisa ?? 0;
   const maxPain: number = data.maxPainStrikePaisa ?? 0;
   const pcr: number = data.putCallRatio ?? 0;

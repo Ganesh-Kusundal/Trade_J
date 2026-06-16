@@ -5,6 +5,7 @@ import com.tradej.historical.ingest.canonical.CanonicalBarQuery;
 import com.tradej.historical.ingest.canonical.CanonicalPaths;
 import com.tradej.historical.ingest.canonical.HistoricalDataStore;
 import com.tradej.historical.ingest.canonical.ParquetHistoricalDataStore;
+import com.tradej.core.domain.config.DefaultSegments;
 import com.tradej.core.domain.value.ExchangeSegment;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -116,7 +117,7 @@ public class SyncStatusController {
 
     @GetMapping(value = "/summary", produces = MediaType.APPLICATION_JSON_VALUE)
     ResponseEntity<Map<String, Object>> summary(
-            @RequestParam(defaultValue = "NSE_EQ") String segment) {
+            @RequestParam(defaultValue = DefaultSegments.DEFAULT_EQUITY_SEGMENT) String segment) {
         if (dataRoot.isEmpty()) {
             return ResponseEntity.ok(Map.of("status", "UNAVAILABLE"));
         }
@@ -130,7 +131,7 @@ public class SyncStatusController {
     @GetMapping(value = "/intervals", produces = MediaType.APPLICATION_JSON_VALUE)
     ResponseEntity<Map<String, Object>> intervals(
             @RequestParam String symbol,
-            @RequestParam(defaultValue = "NSE_EQ") String segment) {
+            @RequestParam(defaultValue = DefaultSegments.DEFAULT_EQUITY_SEGMENT) String segment) {
         if (dataRoot.isEmpty()) {
             return ResponseEntity.ok(Map.of("status", "UNAVAILABLE"));
         }
@@ -149,7 +150,7 @@ public class SyncStatusController {
     @PostMapping(value = "/resample", produces = MediaType.APPLICATION_JSON_VALUE)
     ResponseEntity<Map<String, Object>> resample(
             @RequestParam String symbol,
-            @RequestParam(defaultValue = "NSE_EQ") String segment,
+            @RequestParam(defaultValue = DefaultSegments.DEFAULT_EQUITY_SEGMENT) String segment,
             @RequestParam LocalDate from,
             @RequestParam LocalDate to) {
         if (multiIntervalGenerator == null) {
@@ -165,7 +166,7 @@ public class SyncStatusController {
 
     @GetMapping(value = "/gaps", produces = MediaType.APPLICATION_JSON_VALUE)
     ResponseEntity<Map<String, Object>> gapScan(
-            @RequestParam(defaultValue = "NSE_EQ") String segment,
+            @RequestParam(defaultValue = DefaultSegments.DEFAULT_EQUITY_SEGMENT) String segment,
             @RequestParam(defaultValue = "3") int lookbackMonths) {
         if (gapScanService == null) {
             return ResponseEntity.ok(Map.of("status", "UNAVAILABLE"));

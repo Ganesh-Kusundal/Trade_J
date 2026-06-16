@@ -88,6 +88,7 @@ import java.util.concurrent.Executors;
  * analytics, historical downloads, depth analytics, and read models.
  */
 @Configuration
+@EnableScheduling
 public class DataConfiguration {
 
     private static final Logger log = LoggerFactory.getLogger(DataConfiguration.class);
@@ -120,6 +121,49 @@ public class DataConfiguration {
     DeadLetterQueue deadLetterQueue(TradingProperties properties) {
         Path dlqPath = Path.of(properties.storage().chroniclePath()).resolve(DLQ_QUEUE_SUBDIR);
         return new ChronicleDeadLetterQueue(dlqPath);
+    }
+
+    /**
+     * Separate inner config for the @Scheduled retention cleanup — Spring
+     * requires @Scheduled methods to be parameterless, so dependencies are
+     * injected via constructor.
+     */
+    @Configuration
+    static class ChronicleRetentionConfig {
+
+        private static final Logger log = LoggerFactory.getLogger(ChronicleRetentionConfig.class);
+
+        private final ChronicleAuditLogWriter auditLogWriter;
+        private final DeadLetterQueue dlq;
+
+        ChronicleRetentionConfig(
+                ChronicleAuditLogWriter auditLogWriter,
+                @org.springframework.beans.factory.annotation.Qualifier("deadLetterQueue") DeadLetterQueue dlq
+        ) {
+            this.auditLogWriter = auditLogWriter;
+            this.dlq = dlq;
+        }
+
+        @Scheduled(cron = "${tradej.chronicle.retention-cron:0 0 3 * * *}")
+        void chronicleRetentionCleanup() {
+            long retentionDays = 30; // default 30-day retention
+            try {
+                String configuredDays = System.getenv("CHRONICLE_RETENTION_DAYS");
+                if (configuredDays != null && !configuredDays.isBlank()) {
+                    retentionDays = Long.parseLong(configuredDays);
+                }
+            } catch (NumberFormatException e) {
+                log.warn("Invalid CHRONICLE_RETENTION_DAYS value, using default {} days", retentionDays);
+            }
+            int auditDeleted = auditLogWriter.cleanupOldFiles(retentionDays);
+            if (dlq instanceof ChronicleDeadLetterQueue chronicleDlq) {
+                int dlqDeleted = chronicleDlq.cleanupOldFiles(retentionDays);
+                if (auditDeleted > 0 || dlqDeleted > 0) {
+                    log.info("Chronicle retention cleanup: audit={} dlq={} files deleted (retention={} days)",
+                            auditDeleted, dlqDeleted, retentionDays);
+                }
+            }
+        }
     }
 
     @Bean

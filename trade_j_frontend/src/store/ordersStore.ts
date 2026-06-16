@@ -1,5 +1,5 @@
 import { createStore, useStore } from "./createStore";
-import type { Order, Position, Signal } from "./types";
+import type { Order, Position, Signal, ScanResult } from "./types";
 
 interface OrdersState {
   active: Order[];
@@ -53,3 +53,18 @@ export function applySignal(signal: Signal): void {
 }
 
 export const useSignals = <S,>(selector: (s: SignalsState) => S) => useStore(signalsStore, selector);
+
+// ── Scanner ──
+
+interface ScannerState { latest: ScanResult | null; history: ScanResult[]; }
+const EMPTY_SCANNER: ScannerState = { latest: null, history: [] };
+export const scannerStore = createStore<ScannerState>(EMPTY_SCANNER);
+
+export function applyScannerResult(result: ScanResult): void {
+  scannerStore.setState((s) => ({
+    latest: result,
+    history: [result, ...s.history].slice(0, 50),
+  }));
+}
+
+export const useScanner = <S,>(selector: (s: ScannerState) => S) => useStore(scannerStore, selector);

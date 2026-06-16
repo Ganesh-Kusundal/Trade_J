@@ -53,15 +53,17 @@ trade:
   reconciliation:
     interval-seconds: 300
     initial-delay-seconds: 60
-    auto-halt: false
-    mismatch-tolerance-qty: 0
+    auto-halt: true
+    # Allow 1-share tolerance to prevent false halts from timing discrepancies.
+    # Production override via env: TRADE_RECONCILIATION_MISMATCH_TOLERANCE_QTY
+    mismatch-tolerance-qty: ${TRADE_RECONCILIATION_MISMATCH_TOLERANCE_QTY:1}
   risk:
     max-daily-loss-paisa: 500000
     max-consecutive-losses: 3
     max-order-value-paisa: 5000000
     max-open-positions: 3
     max-distinct-open-positions: 10
-    enforce-margin: false
+    enforce-margin: true
     enforce-unrealized-loss: false
     margin-cache-ttl-minutes: 5
   options:
@@ -75,7 +77,7 @@ trade:
     max-net-exposure-paisa: 5000000
   runtime:
     mode: LIVE
-    bus: SIMPLE
+    bus: DISRUPTOR
   hot-path:
     shard-count: ${TRADE_HOTPATH_SHARD_COUNT:0}
   virtual-threads:

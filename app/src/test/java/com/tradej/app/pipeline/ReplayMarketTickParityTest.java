@@ -1,5 +1,6 @@
 package com.tradej.app.pipeline;
 
+import com.tradej.core.testsupport.TestSymbols;
 import com.tradej.core.domain.event.MarketTickEvent;
 import com.tradej.core.domain.port.EventBus;
 import com.tradej.core.domain.value.ExchangeSegment;
@@ -34,7 +35,7 @@ class ReplayMarketTickParityTest {
         var tick = new MarketTickEvent(
                 com.tradej.core.domain.event.EventMetadata.root(),
                 0L,
-                "SBIN",
+                TestSymbols.SBIN,
                 ExchangeSegment.NSE_EQ,
                 FeedMode.TICKER,
                 100_00L,

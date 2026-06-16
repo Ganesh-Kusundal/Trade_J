@@ -13,6 +13,12 @@ public interface DisruptorBusMetrics {
 
     long dispatchDroppedEventCount();
 
+    /**
+     * Number of events waiting in the downstream (re-entrant) queue.
+     * High values indicate subscriber-triggered event storms.
+     */
+    int downstreamQueueDepth();
+
     int subscriberCount();
 
     boolean isStarted();

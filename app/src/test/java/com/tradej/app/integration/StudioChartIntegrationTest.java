@@ -3,6 +3,7 @@ package com.tradej.app.integration;
 import com.tradej.analytics.config.DuckDbAnalyticsConfig;
 import com.tradej.analytics.engine.DuckDbAnalyticsEngine;
 import com.tradej.analytics.repository.FederatedHistoricalBarRepository;
+import com.tradej.app.testsupport.TestPaths;
 import com.tradej.strategy.studio.StudioChartService;
 import com.tradej.core.domain.value.ExchangeSegment;
 import com.tradej.historical.ingest.universe.HistoricalEquityPaths;
@@ -11,6 +12,7 @@ import com.tradej.institutional.InstitutionalScanEngine;
 import com.tradej.institutional.model.InstitutionalScanConfig;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -22,18 +24,22 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 @Tag("integration")
+@EnabledIfSystemProperty(named = "warehouse.integration.enabled", matches = "true",
+        disabledReason = "Set -Dwarehouse.integration.enabled=true and -Dwarehouse.runtime-dir=/path/to/warehouse to enable")
 class StudioChartIntegrationTest {
 
     @Test
     void loadsTwentyDayChartAcrossMonthBoundary() throws Exception {
+        Path runtimeRoot = TestPaths.runtimeDir();
+        Path writeRoot = TestPaths.tempRuntimeDir("studio-chart-runtime");
         Path root = HistoricalEquityPaths.root(Path.of(HistoricalEquityPaths.DEFAULT_ROOT));
         assumeTrue(Files.isDirectory(HistoricalEquityPaths.barsDir(root, "interval=1m")),
                 "Parquet warehouse not present at " + root);
 
         try (DuckDbAnalyticsEngine engine = new DuckDbAnalyticsEngine(new DuckDbAnalyticsConfig(
                 root,
-                Path.of("runtime-dev/historical.duckdb"),
-                Path.of("runtime-dev/trade.duckdb"),
+                runtimeRoot.resolve("historical.duckdb"),
+                writeRoot.resolve("trade.duckdb"),
                 false,
                 true,
                 10_000,

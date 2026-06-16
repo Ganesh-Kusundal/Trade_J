@@ -20,7 +20,7 @@ import java.util.Map;
 public final class WebhookAlertChannel implements AlertChannel {
 
     private static final Logger log = LoggerFactory.getLogger(WebhookAlertChannel.class);
-    private static final Duration TIMEOUT = Duration.ofSeconds(5);
+    private static final Duration TIMEOUT = AlertChannelDefaults.DEFAULT_TIMEOUT;
 
     private final String webhookUrl;
     private final HttpClient httpClient;

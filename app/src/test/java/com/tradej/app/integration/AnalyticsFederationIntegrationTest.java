@@ -4,12 +4,14 @@ import com.tradej.analytics.config.DuckDbAnalyticsConfig;
 import com.tradej.analytics.engine.DuckDbAnalyticsEngine;
 import com.tradej.analytics.repository.DuckDbRollingOptionHistoricalRepository;
 import com.tradej.analytics.repository.FederatedHistoricalBarRepository;
+import com.tradej.app.testsupport.TestPaths;
 import com.tradej.core.domain.model.RollingOptionSeriesRequest;
 import com.tradej.core.domain.value.ExchangeSegment;
 import com.tradej.core.domain.value.OptionType;
 import com.tradej.historical.ingest.universe.HistoricalEquityPaths;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -21,14 +23,18 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 @Tag("integration")
+@EnabledIfSystemProperty(named = "warehouse.integration.enabled", matches = "true",
+        disabledReason = "Set -Dwarehouse.integration.enabled=true and -Dwarehouse.runtime-dir=/path/to/warehouse to enable")
 class AnalyticsFederationIntegrationTest {
 
     private static final ZoneId IST = ZoneId.of("Asia/Kolkata");
 
     @Test
     void federatedEquityAndOptionsQueriesAgainstLocalWarehouse() throws Exception {
+        Path runtimeRoot = TestPaths.runtimeDir();
+        Path writeRoot = TestPaths.tempRuntimeDir("federation-runtime");
         Path equityRoot = HistoricalEquityPaths.root(Path.of(HistoricalEquityPaths.DEFAULT_ROOT));
-        Path optionsWarehouse = Path.of("runtime-dev/historical.duckdb");
+        Path optionsWarehouse = runtimeRoot.resolve("historical.duckdb");
         assumeTrue(Files.isDirectory(HistoricalEquityPaths.barsDir(equityRoot, "interval=1m")),
                 "Equity parquet warehouse not present");
         assumeTrue(Files.isRegularFile(optionsWarehouse), "Options warehouse not present");
@@ -36,7 +42,7 @@ class AnalyticsFederationIntegrationTest {
         try (DuckDbAnalyticsEngine engine = new DuckDbAnalyticsEngine(new DuckDbAnalyticsConfig(
                 equityRoot,
                 optionsWarehouse,
-                Path.of("runtime-dev/trade.duckdb"),
+                writeRoot.resolve("trade.duckdb"),
                 false,
                 true,
                 1000,

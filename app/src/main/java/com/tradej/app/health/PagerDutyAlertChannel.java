@@ -29,7 +29,7 @@ import java.time.Instant;
 public final class PagerDutyAlertChannel implements AlertChannel {
 
     private static final Logger log = LoggerFactory.getLogger(PagerDutyAlertChannel.class);
-    private static final Duration TIMEOUT = Duration.ofSeconds(5);
+    private static final Duration TIMEOUT = AlertChannelDefaults.DEFAULT_TIMEOUT;
     private static final String EVENTS_API = "https://events.pagerduty.com/v2/enqueue";
     private static final ObjectMapper MAPPER = new ObjectMapper();
 

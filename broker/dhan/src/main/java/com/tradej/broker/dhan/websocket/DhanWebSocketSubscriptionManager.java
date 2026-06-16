@@ -25,6 +25,9 @@ import java.util.stream.Collectors;
  */
 public final class DhanWebSocketSubscriptionManager {
 
+    /** Dhan documented limit for 20-level depth instruments. */
+    private static final int MAX_DEPTH_20_INSTRUMENTS = 50;
+
     private final DhanInstrumentResolver resolver;
     private final Map<MarketSubscriptionRequest, FeedMode> subscriptions = new ConcurrentHashMap<>();
     private DhanTwentyDepthWebSocketClient depthClient;
@@ -54,12 +57,36 @@ public final class DhanWebSocketSubscriptionManager {
 
     /** Record a subscription for the given instrument and feed mode. */
     public void add(MarketSubscriptionRequest request, FeedMode mode) {
+        enforceDepthCap(mode);
         subscriptions.put(request, mode);
     }
 
     /** Record subscriptions for multiple instruments with the same feed mode. */
     public void addAll(Collection<MarketSubscriptionRequest> requests, FeedMode mode) {
+        if (mode == FeedMode.DEPTH_20) {
+            int newCount = depthSubscriptionsCount() + requests.size();
+            if (newCount > MAX_DEPTH_20_INSTRUMENTS) {
+                throw new IllegalStateException(
+                        "Dhan 20-level depth limit is " + MAX_DEPTH_20_INSTRUMENTS
+                                + " instruments; adding " + requests.size()
+                                + " would reach " + newCount);
+            }
+        }
         requests.forEach(r -> subscriptions.put(r, mode));
+    }
+
+    private void enforceDepthCap(FeedMode mode) {
+        if (mode == FeedMode.DEPTH_20 && depthSubscriptionsCount() >= MAX_DEPTH_20_INSTRUMENTS) {
+            throw new IllegalStateException(
+                    "Dhan 20-level depth limit of " + MAX_DEPTH_20_INSTRUMENTS + " instruments reached");
+        }
+    }
+
+    /** Count subscriptions currently using DEPTH_20 feed mode. */
+    private int depthSubscriptionsCount() {
+        return (int) subscriptions.values().stream()
+                .filter(mode -> mode == FeedMode.DEPTH_20)
+                .count();
     }
 
     /** Remove the given instruments from the subscription map. */

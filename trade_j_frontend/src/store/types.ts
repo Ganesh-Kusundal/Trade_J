@@ -75,3 +75,20 @@ export interface HealthSnapshot {
   marketDataUp: boolean;
   lastTickMs: number;
 }
+
+export interface ScanResult {
+  profileId: string;
+  runId: string;
+  hitCount: number;
+  startedAtMs: number;
+  finishedAtMs: number;
+  hits: ScanHit[];
+}
+
+export interface ScanHit {
+  symbol: string;
+  exchangeSegment: string;
+  underlying: string;
+  score: number;
+  reasons: string[];
+}

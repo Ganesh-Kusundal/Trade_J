@@ -4,14 +4,19 @@ import com.tradej.app.config.BrokerTransportProfile;
 import com.tradej.app.config.TradingProperties;
 import com.tradej.broker.api.IBrokerConnection;
 import com.tradej.broker.api.model.BrokerCapabilities;
+import com.tradej.broker.api.port.InstrumentResolver;
+import com.tradej.broker.core.routing.LoadBalancedBrokerGateway;
 import com.tradej.broker.core.startup.BrokerLifecycleManager;
 import com.tradej.core.domain.model.InstrumentKey;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
 
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Optional;
 
+@Component
 public final class GatewayStartupStrategy implements BrokerStartupStrategy {
 
     private static final Logger log = LoggerFactory.getLogger(GatewayStartupStrategy.class);
@@ -40,7 +45,23 @@ public final class GatewayStartupStrategy implements BrokerStartupStrategy {
             cacheDirectory = "runtime-prod/instruments";
         }
         Path loadedPath = Path.of(cacheDirectory);
-        lifecycleManager.loadInstrumentCatalog(brokerConnection, loadedPath);
+
+        // Gateway wraps broker-specific connections — try SPI download via
+        // InstrumentResolver.downloadCatalog() instead of instanceof checks.
+        if (instruments != null && instruments.autoDownload()
+                && brokerConnection instanceof LoadBalancedBrokerGateway gateway) {
+            for (IBrokerConnection node : gateway.connections()) {
+                InstrumentResolver resolver = node.instruments();
+                Optional<Path> downloaded = resolver.downloadCatalog(loadedPath);
+                if (downloaded.isPresent()) {
+                    log.info("Gateway auto-downloaded instrument catalog via SPI: {}", downloaded.get());
+                    return downloaded.get();
+                }
+            }
+        }
+
+        // Fallback: skip file-based catalog loading; broker loads from remote or defaults
+        lifecycleManager.loadInstrumentCatalog(brokerConnection, null);
         return loadedPath;
     }
 

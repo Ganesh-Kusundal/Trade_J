@@ -11,6 +11,8 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.env.MockEnvironment;
 
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -35,7 +37,7 @@ class BrokerStartupOrchestratorAnalyticsTest {
         when(brokerConnection.websocket()).thenReturn(multiplexer);
 
         BrokerStartupOrchestrator orchestrator = new BrokerStartupOrchestrator(
-                new MockEnvironment(), tradingProperties(), new BrokerLifecycleManager());
+                new MockEnvironment(), tradingProperties(), new BrokerLifecycleManager(), List.of());
         invokeSetupWebSocketHandlers(
                 orchestrator,
                 brokerConnection,

@@ -1,0 +1,5 @@
+# Sandbox credentials — copy to config/upstox-sandbox.properties (gitignored if secrets)
+upstox.sandbox.clientId=
+upstox.sandbox.clientSecret=
+upstox.sandbox.redirectUri=http://127.0.0.1:18080/callback
+upstox.sandbox.accessToken=

@@ -5,17 +5,20 @@ import com.tradej.app.config.TradingProperties;
 import com.tradej.broker.api.IBrokerConnection;
 import com.tradej.broker.api.model.BrokerCapabilities;
 import com.tradej.broker.api.model.MarketSubscriptionRequest;
+import com.tradej.broker.api.port.InstrumentResolver;
 import com.tradej.broker.core.startup.BrokerLifecycleManager;
-import com.tradej.broker.dhan.DhanBrokerConnection;
 import com.tradej.broker.dhan.config.DhanApiEnvironment;
 import com.tradej.broker.dhan.config.DhanBrokerStartup;
 import com.tradej.core.domain.model.InstrumentKey;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
 
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Optional;
 
+@Component
 public final class DhanStartupStrategy implements BrokerStartupStrategy {
 
     private static final Logger log = LoggerFactory.getLogger(DhanStartupStrategy.class);
@@ -40,14 +43,17 @@ public final class DhanStartupStrategy implements BrokerStartupStrategy {
             return loadedPath;
         }
         if (instruments != null && instruments.autoDownload()) {
-            if (!(brokerConnection instanceof DhanBrokerConnection dhanConnection)) {
-                throw new IllegalStateException("Dhan auto-download requires DhanBrokerConnection");
-            }
             String cacheDirectory = instruments.cacheDirectory();
             if (cacheDirectory == null || cacheDirectory.isBlank()) {
                 throw new IllegalStateException("Dhan runtime requires `trade.instruments.cache-directory` when auto-download is enabled");
             }
-            return dhanConnection.loadDailyInstrumentCatalog(Path.of(cacheDirectory), false);
+            Path cachePath = Path.of(cacheDirectory);
+            InstrumentResolver resolver = brokerConnection.instruments();
+            Optional<Path> downloaded = resolver.downloadCatalog(cachePath);
+            if (downloaded.isPresent()) {
+                return downloaded.get();
+            }
+            throw new IllegalStateException("InstrumentResolver.downloadCatalog() returned empty — install a broker that supports API download");
         }
         if (properties.broker() != null
                 && properties.broker().environment() == DhanApiEnvironment.SANDBOX) {

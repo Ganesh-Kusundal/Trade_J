@@ -12,10 +12,15 @@ import com.tradej.app.health.PlatformHealthIndicator;
 import com.tradej.app.startup.BrokerStartupOrchestrator;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.ApplicationContext;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+
+import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -26,6 +31,9 @@ import static org.junit.jupiter.api.Assertions.*;
  *
  * <p>The {@link BrokerStartupOrchestrator} is mocked to prevent actual broker
  * connection attempts during the test.
+ *
+ * <p>Uses {@link TempDir} for all runtime paths to avoid AccessDeniedException
+ * from hardcoded build/ directories that may not be writable.
  */
 @Tag("component")
 @SpringBootTest(
@@ -39,18 +47,25 @@ import static org.junit.jupiter.api.Assertions.*;
                 "trade.broker.access-token=smoke-token",
                 "trade.broker.environment=SANDBOX",
                 "trade.broker.auth-mode=STATIC",
-                "trade.broker.token-state-file=build/smoke-test-token-state.json",
-                "trade.storage.chroniclePath=build/smoke-chronicle",
-                "trade.storage.duckdbPath=build/smoke-duckdb.duckdb",
-                "trade.storage.historicalWarehousePath=build/smoke-historical.duckdb",
-                "trade.historical-equity.root-path=build/smoke-historical-equity",
-                "trade.instruments.cache-directory=build/smoke-instruments",
                 "trade.subscriptions[0].symbol=NIFTY",
                 "trade.subscriptions[0].exchangeSegment=IDX_I",
                 "trade.subscriptions[0].feedMode=TICKER"
         }
 )
 class StartupSmokeComponentTest {
+
+    @TempDir
+    static Path tempDir;
+
+    @DynamicPropertySource
+    static void registerProperties(DynamicPropertyRegistry registry) {
+        registry.add("trade.broker.token-state-file", () -> tempDir.resolve("token-state.json").toString());
+        registry.add("trade.storage.chroniclePath", () -> tempDir.resolve("chronicle").toString());
+        registry.add("trade.storage.duckdbPath", () -> tempDir.resolve("trade.duckdb").toString());
+        registry.add("trade.storage.historicalWarehousePath", () -> tempDir.resolve("historical.duckdb").toString());
+        registry.add("trade.historical-equity.root-path", () -> tempDir.resolve("historical-equity").toString());
+        registry.add("trade.instruments.cache-directory", () -> tempDir.resolve("instruments").toString());
+    }
 
     @MockitoBean
     private BrokerStartupOrchestrator brokerStartupOrchestrator;

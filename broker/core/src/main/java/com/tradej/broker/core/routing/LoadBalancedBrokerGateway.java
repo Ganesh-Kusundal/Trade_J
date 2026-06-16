@@ -32,6 +32,9 @@ import com.tradej.core.domain.model.OrderRequest;
 import com.tradej.core.domain.model.Quote;
 import com.tradej.core.domain.value.FeedMode;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
@@ -50,6 +53,8 @@ import java.util.function.Function;
  * boundary clear while eliminating the accidental spread across four separate top-level files.
  */
 public final class LoadBalancedBrokerGateway implements IBrokerConnection {
+
+    private static final Logger log = LoggerFactory.getLogger(LoadBalancedBrokerGateway.class);
 
     private final CopyOnWriteArrayList<IBrokerConnection> connections;
     private final AtomicInteger primaryIndex = new AtomicInteger();
@@ -194,6 +199,8 @@ public final class LoadBalancedBrokerGateway implements IBrokerConnection {
                 try {
                     return provider.getLtpPaisa(instrumentKey);
                 } catch (RuntimeException ex) {
+                    log.warn("Market-data LTP failover: provider {} failed for {} (attempt {}/{}): {}",
+                            i, instrumentKey, i + 1, providers.size(), ex.getMessage());
                     last = ex;
                 }
             }
@@ -242,10 +249,12 @@ public final class LoadBalancedBrokerGateway implements IBrokerConnection {
 
         private <T> T withFailover(Function<MarketDataProvider, T> call) {
             RuntimeException last = null;
-            for (MarketDataProvider provider : providers) {
+            for (int i = 0; i < providers.size(); i++) {
                 try {
-                    return call.apply(provider);
+                    return call.apply(providers.get(i));
                 } catch (RuntimeException ex) {
+                    log.warn("Market-data failover: provider {} failed (attempt {}/{}): {}",
+                            i, i + 1, providers.size(), ex.getMessage());
                     last = ex;
                 }
             }
@@ -324,6 +333,8 @@ public final class LoadBalancedBrokerGateway implements IBrokerConnection {
                 try {
                     return action.apply(connection);
                 } catch (RuntimeException ex) {
+                    log.warn("Order failover: broker {} failed (attempt {}/{}): {}",
+                            connection.source(), i + 1, connections.size(), ex.getMessage());
                     last = ex;
                     primaryIndex.incrementAndGet();
                     onRotate.run();

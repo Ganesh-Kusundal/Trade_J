@@ -7,6 +7,7 @@ import com.tradej.core.domain.model.InstrumentKey;
 import com.tradej.core.domain.model.MarketDepth;
 import com.tradej.execution.depth.DepthAnalyticsEvents;
 import com.tradej.execution.depth.DepthAnalyticsPipeline;
+import com.tradej.core.domain.config.DefaultSegments;
 import com.tradej.core.domain.value.ExchangeSegment;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -34,9 +35,9 @@ public class DepthAnalyticsController {
     @GetMapping("/{symbol}")
     public Object getSnapshot(
             @PathVariable String symbol,
-            @RequestParam(defaultValue = "NSE_EQ") String segment,
+            @RequestParam(defaultValue = DefaultSegments.DEFAULT_EQUITY_SEGMENT) ExchangeSegment segment,
             @RequestParam(defaultValue = "20") int levels) {
-        OrderBook book = orderBookEngine.getBook(symbol, ExchangeSegment.valueOf(segment));
+        OrderBook book = orderBookEngine.getBook(symbol, segment);
         if (book != null) {
             OrderBook.OrderBookSnapshot snap = book.toSnapshot(levels);
             if (!snap.bids().isEmpty() || !snap.asks().isEmpty()) {
@@ -44,18 +45,18 @@ public class DepthAnalyticsController {
             }
         }
         if (marketDataProvider != null) {
-            InstrumentKey key = InstrumentKey.of(symbol, ExchangeSegment.valueOf(segment));
+            InstrumentKey key = InstrumentKey.of(symbol, segment);
             MarketDepth depth = marketDataProvider.getDepth(key);
             return depth;
         }
-        return new OrderBook.OrderBookSnapshot(symbol, segment, List.of(), List.of(),
+        return new OrderBook.OrderBookSnapshot(symbol, segment.name(), List.of(), List.of(),
                 0, 0, 0, 0, 0.0, System.currentTimeMillis());
     }
 
     @GetMapping("/{symbol}/heatmap")
     public DepthAnalyticsEvents.HeatmapChunk getHeatmap(
             @PathVariable String symbol,
-            @RequestParam(defaultValue = "NSE_EQ") String segment) {
-        return analyticsPipeline.heatmapRecorder().getWindow(symbol, segment);
+            @RequestParam(defaultValue = DefaultSegments.DEFAULT_EQUITY_SEGMENT) ExchangeSegment segment) {
+        return analyticsPipeline.heatmapRecorder().getWindow(symbol, segment.name());
     }
 }

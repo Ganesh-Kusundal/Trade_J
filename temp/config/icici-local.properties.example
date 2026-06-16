@@ -1,0 +1,15 @@
+icici.appKey=
+icici.secretKey=
+icici.authMode=BROWSER_AUTOMATED
+icici.totpSecretFile=config/icici-totp-secret.txt
+icici.usernameFile=config/icici-username.txt
+icici.passwordFile=config/icici-password.txt
+icici.apiSessionFile=config/icici-api-session.txt
+icici.tokenStateFile=runtime/icici-token-state.json
+icici.ordersEnabled=false
+icici.loginRedirectPort=9080
+icici.loginRedirectPath=/api
+# ICICI usually redirects to https://api.icicidirect.com/?apisession=... (not localhost).
+# loginRedirectPort/Path only matter if your app uses a local callback URL.
+icici.browserHeadless=false
+icici.browserLoginTimeoutSeconds=120

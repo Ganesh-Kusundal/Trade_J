@@ -32,7 +32,16 @@ import java.util.function.Consumer;
  */
 public final class ReadModelStore {
 
-    public record OrderView(String orderId, String symbol, String status, long quantity) {
+    public record OrderView(
+            String orderId,
+            String symbol,
+            String status,
+            long quantity,
+            String side,
+            long pricePaisa,
+            String orderType,
+            long filledQuantity
+    ) {
     }
 
     public record PositionView(String symbol, long netQuantity, long avgPricePaisa) {
@@ -139,7 +148,11 @@ public final class ReadModelStore {
                 order.orderId(),
                 order.symbol(),
                 order.status().name(),
-                order.quantity()
+                order.quantity(),
+                order.side().name(),
+                order.pricePaisa(),
+                order.orderType().name(),
+                order.filledQuantity()
         ));
     }
 

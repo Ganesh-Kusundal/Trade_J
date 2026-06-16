@@ -35,7 +35,7 @@ public class OptionsAnalyticsApplicationService {
         this.brokerConnection = brokerConnection;
     }
 
-    public Map<String, Object> getVolatilitySurface(String underlying, String segment, LocalDate expiry) {
+    public Map<String, Object> getVolatilitySurface(String underlying, ExchangeSegment exchangeSegment, LocalDate expiry) {
         IBrokerConnection conn = brokerConnection.getIfAvailable();
         VolatilitySurfaceBuilder builder = surfaceBuilder.getIfAvailable();
         if (conn == null || builder == null) {
@@ -45,7 +45,6 @@ public class OptionsAnalyticsApplicationService {
         if (provider == null) {
             return Map.of("error", "Options provider unavailable");
         }
-        ExchangeSegment exchangeSegment = ExchangeSegment.valueOf(segment);
         LocalDate expiryDate = expiry != null ? expiry : provider.getExpiries(underlying, exchangeSegment).getFirst();
         var chain = provider.getOptionChain(underlying, exchangeSegment, expiryDate);
         VolatilitySurface surface = builder.build(chain);
@@ -65,7 +64,7 @@ public class OptionsAnalyticsApplicationService {
      * given underlying and expiry, with summary analytics (max-pain,
      * put-call ratio) computed from the chain.
      */
-    public Map<String, Object> getOptionChain(String underlying, String segment, LocalDate expiry, Integer depth) {
+    public Map<String, Object> getOptionChain(String underlying, ExchangeSegment exchangeSegment, LocalDate expiry, Integer depth) {
         IBrokerConnection conn = brokerConnection.getIfAvailable();
         if (conn == null) {
             return Map.of("error", "Broker not connected");
@@ -74,7 +73,6 @@ public class OptionsAnalyticsApplicationService {
         if (provider == null) {
             return Map.of("error", "Options provider unavailable");
         }
-        ExchangeSegment exchangeSegment = ExchangeSegment.valueOf(segment);
         var expiries = provider.getExpiries(underlying, exchangeSegment);
         if (expiries == null || expiries.isEmpty()) {
             return Map.of("error", "No expiries for " + underlying);
@@ -88,8 +86,7 @@ public class OptionsAnalyticsApplicationService {
         double pcr = totalCallOi > 0 ? (double) totalPutOi / (double) totalCallOi : 0.0;
 
         Map<String, Object> body = new LinkedHashMap<>();
-        body.put("underlying", underlying);
-        body.put("segment", segment);
+        body.put("underlying", underlying);            body.put("segment", exchangeSegment.name());
         body.put("expiry", expiryDate.toString());
         body.put("expiries", expiries.stream().map(LocalDate::toString).toList());
         body.put("spotPricePaisa", chain.spotPricePaisa());

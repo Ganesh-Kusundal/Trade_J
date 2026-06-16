@@ -13,6 +13,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.util.concurrent.Executors;
 
 public final class DhanAuthenticatedHttpClient {
     private final HttpClient httpClient;
@@ -21,7 +22,14 @@ public final class DhanAuthenticatedHttpClient {
     private final DhanConnectionSettings settings;
 
     public DhanAuthenticatedHttpClient(DhanTokenProvider tokenProvider, DhanConnectionSettings settings) {
-        this(HttpClient.newHttpClient(), new ObjectMapper(), tokenProvider, settings);
+        this(HttpClient.newBuilder()
+                .executor(Executors.newFixedThreadPool(4, r -> {
+                    Thread t = new Thread(r, "dhan-http");
+                    t.setDaemon(true);
+                    return t;
+                }))
+                .build(),
+                new ObjectMapper(), tokenProvider, settings);
     }
 
     public DhanAuthenticatedHttpClient(

@@ -1,5 +1,6 @@
 package com.tradej.app.pipeline;
 
+import com.tradej.core.testsupport.TestSymbols;
 import com.tradej.core.domain.event.CandleClosed;
 import com.tradej.core.domain.event.DomainEvent;
 import com.tradej.core.domain.event.EventMetadata;
@@ -63,7 +64,7 @@ class DagPipelineIngressTest {
 
         CandleClosed event = new CandleClosed(
                 EventMetadata.root(),
-                new Candle("SBIN", "5m", 1L, 2L, 1L, 2L, 1L, 2L, 10L, true)
+                new Candle(TestSymbols.SBIN, "5m", 1L, 2L, 1L, 2L, 1L, 2L, 10L, true)
         );
         bridge.onEvent(event);
         Thread.sleep(300);
