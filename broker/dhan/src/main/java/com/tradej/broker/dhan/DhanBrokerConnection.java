@@ -31,7 +31,6 @@ import com.tradej.broker.dhan.adapter.InMemoryInstrumentResolver;
 import com.tradej.broker.dhan.adapter.DhanFuturesAdapter;
 import com.tradej.broker.dhan.adapter.DhanBracketOrderAdapter;
 import com.tradej.broker.dhan.adapter.DhanConditionalAlertProvider;
-import com.tradej.broker.dhan.adapter.DhanCoverOrderAdapter;
 import com.tradej.broker.dhan.adapter.DhanGttOrderAdapter;
 import com.tradej.broker.dhan.adapter.DhanMarginProvider;
 import com.tradej.broker.dhan.adapter.DhanSessionRiskProvider;
@@ -222,9 +221,7 @@ public final class DhanBrokerConnection implements IBrokerConnection {
                 settings,
                 restOrderClient
         );
-        this.coverOrderProvider = new DhanCoverOrderAdapter(
-                adapterContext
-        );
+        this.coverOrderProvider = null;
         this.gttOrderProvider = new DhanGttOrderAdapter(
                 adapterContext,
                 settings,

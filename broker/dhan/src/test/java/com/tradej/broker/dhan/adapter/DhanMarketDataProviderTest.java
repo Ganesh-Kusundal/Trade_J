@@ -49,6 +49,7 @@ class DhanMarketDataProviderTest {
     private static final String NSE_SEGMENT_WIRE = "NSE_EQ";
     private static final String LTP_URL = "https://api.dhan.co/v2/marketfeed/ltp";
     private static final String QUOTE_URL = "https://api.dhan.co/v2/marketfeed/quote";
+    private static final String OHLC_URL = "https://api.dhan.co/v2/marketfeed/ohlc";
 
     @Mock private DhanAdapterContext context;
     @Mock private DhanHistoricalDataClient historicalDataClient;
@@ -527,9 +528,9 @@ class DhanMarketDataProviderTest {
         }
 
         @Test
-        void getOhlcBatchDelegatesToGetQuoteBatch() {
+        void getOhlcBatchUsesDedicatedOhlcEndpoint() {
             when(context.resolveDef(key)).thenReturn(def);
-            when(apiUrlResolver.marketFeedQuoteUrl()).thenReturn(QUOTE_URL);
+            when(apiUrlResolver.marketFeedOhlcUrl()).thenReturn(OHLC_URL);
 
             ObjectNode response = MAPPER.createObjectNode();
             ObjectNode segment = MAPPER.createObjectNode();
@@ -546,7 +547,7 @@ class DhanMarketDataProviderTest {
             segment.set(SECURITY_ID, s1);
             response.set(NSE_SEGMENT_WIRE, segment);
 
-            when(httpClient.postJson(eq(QUOTE_URL), any(ObjectNode.class)))
+            when(httpClient.postJson(eq(OHLC_URL), any(ObjectNode.class)))
                     .thenReturn(new DhanJsonResponse(response));
             stubExecuteReturns(new DhanJsonResponse(response));
 

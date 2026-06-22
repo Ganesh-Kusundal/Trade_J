@@ -40,7 +40,7 @@ public final class IncrementalSyncService {
             return new SyncResult(symbol, interval, date, 0, SyncStatus.SKIPPED_NON_TRADING);
         }
         try {
-            InstrumentKey key = new InstrumentKey(symbol, segment);
+            InstrumentKey key = InstrumentKey.of(symbol, segment);
             List<Candle> candles = marketDataProvider.getCandles(
                     new CandleHistoryRequest(key, interval, date, date));
             if (candles.isEmpty()) {

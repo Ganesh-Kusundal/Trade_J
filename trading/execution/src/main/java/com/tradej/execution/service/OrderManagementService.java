@@ -1,7 +1,7 @@
 package com.tradej.execution.service;
 
 import com.tradej.broker.api.IBrokerConnection;
-import com.tradej.core.domain.instrument.ContractSymbolNormalizer;
+import com.tradej.core.domain.instrument.StandardInstrumentIdentityService;
 import com.tradej.core.domain.model.ModifyOrderRequest;
 import com.tradej.core.domain.model.Order;
 import com.tradej.core.domain.model.OrderRequest;
@@ -95,7 +95,7 @@ public final class OrderManagementService {
         if (circuitBreaker != null && !circuitBreaker.allowsRequest()) {
             throw new IllegalStateException("Order placement rejected — trading circuit breaker is open");
         }
-        String canonicalSymbol = ContractSymbolNormalizer.normalize(request.symbol());
+        String canonicalSymbol = StandardInstrumentIdentityService.INSTANCE.canonicalSymbol(request.symbol());
         OrderRequest normalized = new OrderRequest(
                 canonicalSymbol,
                 request.exchangeSegment(),

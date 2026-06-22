@@ -137,7 +137,7 @@ public final class IciciOrderQueryAdapter implements OrderQuery {
     private Order resolveOrder(Order order) {
         try {
             Instrument instrument = instrumentResolver.resolve(
-                    new InstrumentKey(order.symbol(), order.exchangeSegment()));
+                    InstrumentKey.of(order.symbol(), order.exchangeSegment()));
             if (instrument != null) {
                 return new Order(
                         order.orderId(), order.correlationId(),
@@ -160,7 +160,7 @@ public final class IciciOrderQueryAdapter implements OrderQuery {
     private Trade resolveTrade(Trade trade) {
         try {
             Instrument instrument = instrumentResolver.resolve(
-                    new InstrumentKey(trade.symbol(), trade.exchangeSegment()));
+                    InstrumentKey.of(trade.symbol(), trade.exchangeSegment()));
             if (instrument != null) {
                 return new Trade(
                         trade.tradeId(), trade.orderId(),

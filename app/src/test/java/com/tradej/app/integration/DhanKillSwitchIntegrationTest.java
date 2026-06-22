@@ -42,7 +42,11 @@ class DhanKillSwitchIntegrationTest {
 
         assertTrue(brokerConnection.orders().setKillSwitch(true));
         killSwitchEnabled = true;
+        assertTrue(brokerConnection.orders().getKillSwitchStatus().isPresent(),
+                "Kill-switch status should be broker-confirmed after enabling.");
         assertTrue(brokerConnection.orders().setKillSwitch(false));
         killSwitchEnabled = false;
+        assertTrue(brokerConnection.orders().getKillSwitchStatus().isPresent(),
+                "Kill-switch status should be broker-confirmed after disabling.");
     }
 }

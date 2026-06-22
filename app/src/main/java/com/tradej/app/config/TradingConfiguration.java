@@ -1,6 +1,7 @@
 package com.tradej.app.config;
 
 import com.tradej.broker.api.IBrokerConnection;
+import com.tradej.broker.api.capability.BrokerCapabilityRouter;
 import com.tradej.core.domain.event.EventMetadataFactory;
 import com.tradej.core.domain.port.DeadLetterQueue;
 import com.tradej.core.domain.port.FeatureStore;
@@ -96,6 +97,7 @@ public class TradingConfiguration {
                 PositionRiskHandler positionRiskHandler
         ) {
             markToMarketRiskMonitor.setEventBus(eventBus);
+            markToMarketRiskMonitor.registerRiskHandler(positionRiskHandler);
             eventBus.subscribe(MarketTickEvent.class, markToMarketRiskMonitor::onMarketTick);
             eventBus.subscribe(ReconciliationHaltRequired.class, positionRiskHandler::handleReconciliationHalt);
         }
@@ -188,12 +190,15 @@ public class TradingConfiguration {
         }
 
         var connection = brokerConnection.getIfAvailable();
-        var margin = connection == null
+        BrokerCapabilityRouter capabilities = connection == null
                 ? null
-                : connection.getCapability(com.tradej.broker.api.port.MarginProvider.class).orElse(null);
-        var portfolio = connection == null
+                : BrokerCapabilityRouter.forConnection(connection);
+        var margin = capabilities == null
                 ? null
-                : connection.getCapability(com.tradej.broker.api.port.PortfolioProvider.class).orElse(null);
+                : capabilities.find(com.tradej.broker.api.port.MarginProvider.class).orElse(null);
+        var portfolio = capabilities == null
+                ? null
+                : capabilities.find(com.tradej.broker.api.port.PortfolioProvider.class).orElse(null);
 
         return new MarginEnforcementHandler(
                 true,

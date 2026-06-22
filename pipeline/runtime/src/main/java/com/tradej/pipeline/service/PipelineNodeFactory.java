@@ -135,42 +135,17 @@ public final class PipelineNodeFactory {
     }
 
     public PipelineNode create(PipelineNodeDef definition) {
-        return switch (definition.type()) {
-            case PipelineNodeTypes.INGRESS -> new IngressNode();
-            case PipelineNodeTypes.RISK -> new RiskNode(positionRiskHandler);
-            case PipelineNodeTypes.CANDLE -> new CandleNode(candleAggregationService);
-            case PipelineNodeTypes.FEATURE -> {
-                if (hotPathFeatureStore == null) {
-                    log.warn("Feature node requested but no hot-path feature store configured — using no-op node id={}",
-                            definition.id());
-                    yield noopNode("Feature store unavailable");
-                }
-                yield new FeatureNode(hotPathFeatureStore);
-            }
-            case PipelineNodeTypes.STRATEGY -> new StrategyNode(graphStrategySandbox);
-            case PipelineNodeTypes.PORTFOLIO -> new PortfolioNode(portfolioEngine);
-            case PipelineNodeTypes.OMS -> new OmsNode(executionHandler);
-            case PipelineNodeTypes.REACTOR -> reactorBridge;
-            case PipelineNodeTypes.SCAN -> {
-                if (scanEngine == null) {
-                    yield noopNode("Scan engine unavailable");
-                }
-                yield new ScanNode(scanEngine, scanProfilesById);
-            }
-            case PipelineNodeTypes.SCAN_CRITERION -> {
-                String criterionType = stringConfig(definition, "criterionType", "volume-spike");
-                ScanCriterion criterion = resolveCriterion(criterionType);
-                yield new StreamingScanCriterionNode(criterion, dummyAsset(definition), stringConfig(definition, "profileId", "default"));
-            }
-            case PipelineNodeTypes.SCAN_AGGREGATOR -> new ScanAggregatorNode(
-                    stringConfig(definition, "profileId", "default"),
-                    longConfig(definition, "windowMs", 60000L),
-                    (int) longConfig(definition, "maxHits", 20));
-            default -> {
-                log.warn("Unknown pipeline node type '{}' for id={} — using no-op node", definition.type(), definition.id());
-                yield noopNode("Unknown node type: " + definition.type());
-            }
-        };
+        try {
+            NodeTypeDescriptor descriptor = nodeRegistry.get(definition.type());
+            return descriptor.create(definition);
+        } catch (IllegalArgumentException ex) {
+            log.warn("Unknown pipeline node type '{}' for id={} — using no-op node", definition.type(), definition.id());
+            return noopNode("Unknown node type: " + definition.type());
+        } catch (IllegalStateException ex) {
+            log.warn("Pipeline node type '{}' has no factory for id={} — using no-op node",
+                    definition.type(), definition.id());
+            return noopNode("Missing node factory: " + definition.type());
+        }
     }
 
     private static String stringConfig(PipelineNodeDef def, String key, String defaultValue) {

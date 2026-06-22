@@ -1,6 +1,6 @@
 package com.tradej.simulation;
 
-import com.tradej.core.domain.instrument.ContractSymbolNormalizer;
+import com.tradej.core.domain.instrument.StandardInstrumentIdentityService;
 import com.tradej.core.domain.model.OrderRequest;
 
 import java.util.UUID;
@@ -28,7 +28,7 @@ public final class SimulatedOrderService {
      * @return the match result with order and fills
      */
     public MatchingEngine.MatchResult placeOrder(OrderRequest request) {
-        String canonicalSymbol = ContractSymbolNormalizer.normalize(request.symbol());
+        String canonicalSymbol = StandardInstrumentIdentityService.INSTANCE.canonicalSymbol(request.symbol());
         OrderRequest normalizedRequest = new OrderRequest(
                 canonicalSymbol,
                 request.exchangeSegment(),

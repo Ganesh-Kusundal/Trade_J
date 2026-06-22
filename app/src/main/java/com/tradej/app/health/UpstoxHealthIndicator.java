@@ -80,7 +80,7 @@ public class UpstoxHealthIndicator implements HealthIndicator {
         }
         try {
             tokenSource.ensureValid();
-            long ltp = marketDataProvider.getLtpPaisa(new InstrumentKey("SBIN", ExchangeSegment.NSE_EQ));
+            long ltp = marketDataProvider.getLtpPaisa(InstrumentKey.of("SBIN", ExchangeSegment.NSE_EQ));
             return ltp > 0;
         } catch (UpstoxApiException ex) {
             return false;

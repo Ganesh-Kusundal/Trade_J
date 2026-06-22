@@ -3,7 +3,6 @@ package com.tradej.broker.upstox.expired;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.tradej.broker.upstox.instrument.UpstoxInstrumentResolver;
 import com.tradej.broker.upstox.rest.UpstoxExpiredInstrumentRestClient;
-import com.tradej.core.domain.instrument.ContractSymbolNormalizer;
 import com.tradej.core.domain.instrument.ExpiredOptionContractKey;
 import com.tradej.core.domain.model.ExpiredOptionBar;
 import com.tradej.core.domain.model.InstrumentKey;
@@ -34,10 +33,7 @@ public final class UpstoxExpiredOptionService {
     }
 
     public String resolveUnderlyingKey(String symbol, ExchangeSegment segment) {
-        return instrumentResolver.requireInstrumentKey(new InstrumentKey(
-                ContractSymbolNormalizer.normalize(symbol),
-                segment
-        ));
+        return instrumentResolver.requireInstrumentKey(InstrumentKey.of(symbol, segment));
     }
 
     public List<LocalDate> listExpiries(String symbol, ExchangeSegment segment) {

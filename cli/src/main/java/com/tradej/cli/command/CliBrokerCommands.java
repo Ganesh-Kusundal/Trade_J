@@ -3,11 +3,12 @@ package com.tradej.cli.command;
 import com.tradej.cli.CliContext;
 import com.tradej.cli.output.OutputFormatter;
 import com.tradej.cli.output.TablePrinter;
+import com.tradej.broker.api.capability.BrokerCapabilityRouter;
 import com.tradej.broker.api.port.ConditionalAlertProvider;
-import com.tradej.core.domain.instrument.ContractSymbolNormalizer;
 import com.tradej.core.domain.instrument.RollingExpiryKind;
 import com.tradej.core.domain.instrument.RollingExpiryRoll;
 import com.tradej.core.domain.instrument.RollingOptionSeriesKey;
+import com.tradej.core.domain.instrument.StandardInstrumentIdentityService;
 import com.tradej.core.domain.instrument.StrikeOffset;
 import com.tradej.core.domain.model.Balance;
 import com.tradej.core.domain.model.Candle;
@@ -200,13 +201,13 @@ public final class CliBrokerCommands extends CliCommandSupport {
             return;
         }
         List<InstrumentKey> keys = positions.stream()
-                .map(p -> new InstrumentKey(p.symbol(), p.exchangeSegment()))
+                .map(p -> InstrumentKey.of(p.symbol(), p.exchangeSegment()))
                 .toList();
         Map<InstrumentKey, Long> ltps = marketData().getLtpBatch(keys);
         long netPnl = 0L;
         long netQty = 0L;
         for (Position position : positions) {
-            InstrumentKey key = new InstrumentKey(position.symbol(), position.exchangeSegment());
+            InstrumentKey key = InstrumentKey.of(position.symbol(), position.exchangeSegment());
             long last = ltps.getOrDefault(key, position.lastPricePaisa());
             long qty = position.quantity();
             netQty += qty;
@@ -352,7 +353,7 @@ public final class CliBrokerCommands extends CliCommandSupport {
         }
         session().ensureCatalogLoaded();
         var seriesKey = new RollingOptionSeriesKey(
-                ContractSymbolNormalizer.normalize(underlying),
+                StandardInstrumentIdentityService.INSTANCE.canonicalSymbol(underlying),
                 parseSegment(segmentName),
                 new RollingExpiryRoll(RollingExpiryKind.fromCode(expiryFlag), expiryCode),
                 StrikeOffset.parseSpec(strike),
@@ -383,7 +384,7 @@ public final class CliBrokerCommands extends CliCommandSupport {
     }
 
     public void listAlerts() {
-        var alerts = session().connection().getCapability(ConditionalAlertProvider.class);
+        var alerts = BrokerCapabilityRouter.forConnection(session().connection()).find(ConditionalAlertProvider.class);
         if (alerts.isEmpty()) {
             out().println("Alerts not supported by this broker");
             return;
@@ -405,7 +406,8 @@ public final class CliBrokerCommands extends CliCommandSupport {
 
     public void bracketOrder(String symbol, String segmentName, String side, long qty, long price, long target, long sl, long trailing) {
         session().ensureCatalogLoaded();
-        var bracket = session().connection().getCapability(com.tradej.broker.api.port.BracketOrderProvider.class);
+        var bracket = BrokerCapabilityRouter.forConnection(session().connection())
+                .find(com.tradej.broker.api.port.BracketOrderProvider.class);
         if (bracket.isEmpty()) { out().println("Bracket orders not supported by this broker"); return; }
         var request = new OrderRequest(symbol, parseSegment(segmentName),
                 Side.valueOf(side.toUpperCase()), qty,
@@ -418,7 +420,8 @@ public final class CliBrokerCommands extends CliCommandSupport {
 
     public void gttOrder(String symbol, String segmentName, String side, long qty, long price, String flag) {
         session().ensureCatalogLoaded();
-        var gtt = session().connection().getCapability(com.tradej.broker.api.port.GttOrderProvider.class);
+        var gtt = BrokerCapabilityRouter.forConnection(session().connection())
+                .find(com.tradej.broker.api.port.GttOrderProvider.class);
         if (gtt.isEmpty()) { out().println("GTT orders not supported by this broker"); return; }
         var request = new OrderRequest(symbol, parseSegment(segmentName),
                 Side.valueOf(side.toUpperCase()), qty,
@@ -431,7 +434,8 @@ public final class CliBrokerCommands extends CliCommandSupport {
 
     public void futuresContracts(String underlying, String segmentName) {
         session().ensureCatalogLoaded();
-        var futures = session().connection().getCapability(com.tradej.broker.api.port.FuturesProvider.class);
+        var futures = BrokerCapabilityRouter.forConnection(session().connection())
+                .find(com.tradej.broker.api.port.FuturesProvider.class);
         if (futures.isEmpty()) { out().println("Futures not supported by this broker"); return; }
         var contracts = futures.get().getContracts(underlying, parseSegment(segmentName));
         out().println("Futures contracts for " + underlying + ": " + contracts.size());

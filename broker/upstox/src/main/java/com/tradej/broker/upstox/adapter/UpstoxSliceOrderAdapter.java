@@ -55,7 +55,7 @@ public final class UpstoxSliceOrderAdapter implements SliceOrderCommand {
     public List<Order> placeSliceOrder(SliceOrderRequest request) {
         // 1. Resolve instrument key
         String instrumentKey = instrumentResolver.requireInstrumentKey(
-                new InstrumentKey(request.symbol(), request.exchangeSegment()));
+                InstrumentKey.of(request.symbol(), request.exchangeSegment()));
 
         // 2. Split quantity into chunks
         List<Map<String, Object>> payloads = buildChunkPayloads(request, instrumentKey);
@@ -126,7 +126,7 @@ public final class UpstoxSliceOrderAdapter implements SliceOrderCommand {
             );
             Map<String, Object> payload = mapper.toPlaceOrderPayload(chunkRequest, instrumentKey);
             Instrument instrument = instrumentResolver.resolve(
-                    new InstrumentKey(chunkRequest.symbol(), chunkRequest.exchangeSegment()));
+                    InstrumentKey.of(chunkRequest.symbol(), chunkRequest.exchangeSegment()));
             var response = restClient.placeOrder(payload);
             orders.add(mapper.toOrder(response, chunkRequest, instrument));
             remaining -= chunkQty;

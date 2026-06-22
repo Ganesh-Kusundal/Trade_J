@@ -277,6 +277,18 @@ subprojects {
         shouldRunAfter tasks.named('brokerOrderTest')
     }
 
+    tasks.register('executionReadinessRegressionTest', Test) {
+        description = 'Runs real-data scanner-to-portfolio execution readiness regression gates.'
+        group = 'verification'
+        testClassesDirs = sourceSets.test.output.classesDirs
+        classpath = sourceSets.test.runtimeClasspath
+        maxHeapSize = '4g'
+        useJUnitPlatform {
+            includeTags 'execution-readiness'
+        }
+        shouldRunAfter tasks.named('componentTest')
+    }
+
     tasks.register('brokerParityTest') {
         description = 'Runs full Tradehull parity verification suite.'
         group = 'verification'
@@ -286,7 +298,7 @@ subprojects {
         dependsOn tasks.named('runtimeE2eTest')
     }
 
-    tasks.withType(Test).configureEach {
+    tasks.named('test') {
         finalizedBy tasks.named('jacocoTestReport')
     }
 
@@ -346,6 +358,7 @@ tasks.register('fullRegressionTest') {
     dependsOn ':app:brokerOrderTest'
     dependsOn ':app:runtimeE2eTest'
     dependsOn ':app:crossLayerRegressionTest'
+    dependsOn ':app:executionReadinessRegressionTest'
 }
 
 def jacocoProjects = subprojects.findAll { it.plugins.hasPlugin('jacoco') }

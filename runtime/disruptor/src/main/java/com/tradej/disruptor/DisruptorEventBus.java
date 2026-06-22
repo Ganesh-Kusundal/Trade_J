@@ -1,7 +1,6 @@
 package com.tradej.disruptor;
 
 import com.lmax.disruptor.BusySpinWaitStrategy;
-import com.lmax.disruptor.SleepingWaitStrategy;
 import com.lmax.disruptor.WaitStrategy;
 import com.lmax.disruptor.YieldingWaitStrategy;
 import com.lmax.disruptor.dsl.Disruptor;
@@ -10,6 +9,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.tradej.core.domain.event.DomainEvent;
 import com.tradej.core.domain.event.DepthUpdateEvent;
+import com.tradej.core.domain.event.EventDeliveryPolicy;
 import com.tradej.core.domain.event.MarketTickEvent;
 import com.tradej.core.domain.event.OrderAccepted;
 import com.tradej.core.domain.event.OrderFilled;
@@ -18,6 +18,8 @@ import com.tradej.core.domain.port.DeadLetterQueue;
 import com.tradej.core.domain.port.DomainEventHandler;
 import com.tradej.core.domain.port.EventBus;
 import com.tradej.core.domain.port.FeatureStore;
+import com.tradej.core.domain.runtime.ExecutionModePolicy;
+import com.tradej.core.domain.runtime.RuntimeMode;
 import com.tradej.disruptor.config.AsyncDispatchHandler;
 import com.tradej.disruptor.config.DisruptorPipelineConfig;
 import com.tradej.disruptor.config.GraphPipelineDisruptorHandler;
@@ -52,8 +54,6 @@ import java.util.function.Consumer;
         private static final Logger log = LoggerFactory.getLogger(DisruptorEventBus.class);
 
         private static final int MAX_SEEN_EVENTS = 200_000;
-        private static final int DOWNSTREAM_QUEUE_CAPACITY = 4096;
-        static final int DEFAULT_DISPATCH_QUEUE_CAPACITY = 4096;
 
         private final Map<Class<? extends DomainEvent>, List<DomainEventHandler<? extends DomainEvent>>> subscribers = new ConcurrentHashMap<>();
 
@@ -66,7 +66,8 @@ import java.util.function.Consumer;
             return t;
         });
 
-        private final BlockingQueue<DomainEvent> downstreamQueue = new ArrayBlockingQueue<>(DOWNSTREAM_QUEUE_CAPACITY);
+        private final EventDeliveryPolicy deliveryPolicy;
+        private final BlockingQueue<DomainEvent> downstreamQueue;
 
         private final Disruptor<MutableDomainEventEnvelope> disruptor;
         private final ExecutionHandler executionHandler;
@@ -110,9 +111,11 @@ import java.util.function.Consumer;
             this.ringBufferSize = 8192;
             this.deadLetterQueue = config.deadLetterQueue() == null ? DeadLetterQueue.noop() : config.deadLetterQueue();
             this.writeAheadLog = config.writeAheadLog() == null ? com.tradej.core.domain.port.EventWriteAheadLog.noop() : config.writeAheadLog();
+            this.deliveryPolicy = config.deliveryPolicy();
+            this.downstreamQueue = new ArrayBlockingQueue<>(deliveryPolicy.downstreamQueueCapacity());
             this.dispatchStage = new AsyncDispatchHandler(
                     subscribers,
-                    DEFAULT_DISPATCH_QUEUE_CAPACITY,
+                    deliveryPolicy.dispatchQueueCapacity(),
                     config.stageTimings().dispatch(),
                     this.deadLetterQueue
             );
@@ -127,7 +130,7 @@ import java.util.function.Consumer;
             Consumer<DomainEvent> safePublisher = event -> {
                 if (!downstreamQueue.offer(event)) {
                     this.deadLetterQueue.append("downstream-queue", event,
-                            "Downstream event queue full (capacity=" + DOWNSTREAM_QUEUE_CAPACITY + ")");
+                            "Downstream event queue full (capacity=" + deliveryPolicy.downstreamQueueCapacity() + ")");
                     log.warn("Downstream event queue full — dropping event type={} eventId={}",
                             event.getClass().getSimpleName(), event.eventId());
                 }
@@ -158,10 +161,11 @@ import java.util.function.Consumer;
             } else {
                 disruptor.handleEventsWith(graphStage).then(dispatchStage);
             }
-            log.info("DisruptorEventBus initialized ringBufferSize={} pipeline=graph-runtime{}→async-dispatch portfolio={} timing={} mode={} waitStrategy={}",
+            log.info("DisruptorEventBus initialized ringBufferSize={} pipeline=graph-runtime{}→async-dispatch portfolio={} timing={} mode={} waitStrategy={} deliveryPolicy={}",
                     ringBufferSize, graphStrategyStage != null ? "→graph-strategy" : "",
                     config.portfolioEngine() != null, config.stageTimings() != StageTimings.NO_OP,
-                    config.runtimeMode(), selectWaitStrategy(config.runtimeMode()).getClass().getSimpleName());
+                    config.runtimeMode(), selectWaitStrategy(config.runtimeMode()).getClass().getSimpleName(),
+                    deliveryPolicy);
 
             dedupPruner.scheduleAtFixedRate(this::pruneOldEntries, 1, 1, TimeUnit.MINUTES);
         }
@@ -194,7 +198,7 @@ import java.util.function.Consumer;
         if (IN_DISPATCH.get()) {
             if (!downstreamQueue.offer(event)) {
                 deadLetterQueue.append("reentrant-queue", event,
-                        "Re-entrant downstream queue full (capacity=" + DOWNSTREAM_QUEUE_CAPACITY + ")");
+                        "Re-entrant downstream queue full (capacity=" + deliveryPolicy.downstreamQueueCapacity() + ")");
                 log.warn("Re-entrant downstream queue full — dropping event type={} eventId={}",
                         event.getClass().getSimpleName(), event.eventId());
             }
@@ -359,10 +363,10 @@ import java.util.function.Consumer;
      *   <li>Other → {@link SleepingWaitStrategy} (lowest CPU, acceptable for CLI)</li>
      * </ul>
      */
-    private static WaitStrategy selectWaitStrategy(com.tradej.core.domain.runtime.RuntimeMode mode) {
-        return switch (mode) {
-            case LIVE -> new BusySpinWaitStrategy();
-            case REPLAY, BACKTEST -> new YieldingWaitStrategy();
+    private static WaitStrategy selectWaitStrategy(RuntimeMode mode) {
+        return switch (ExecutionModePolicy.forMode(mode).hotPathWaitProfile()) {
+            case LOW_LATENCY -> new BusySpinWaitStrategy();
+            case DETERMINISTIC -> new YieldingWaitStrategy();
         };
     }
 

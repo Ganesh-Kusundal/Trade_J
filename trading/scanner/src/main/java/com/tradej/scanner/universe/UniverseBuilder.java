@@ -86,7 +86,7 @@ public final class UniverseBuilder {
         if (!isEquitySegment(segment)) {
             return;
         }
-        InstrumentKey key = new InstrumentKey(underlying, segment);
+        InstrumentKey key = InstrumentKey.of(underlying, segment);
         try {
             Instrument instrument = instrumentResolver.getBySymbol(key);
             if (instrument == null) {
@@ -120,7 +120,7 @@ public final class UniverseBuilder {
         if (!isFnoSegment(segment)) {
             return;
         }
-        InstrumentKey indexKey = new InstrumentKey(underlying, segment);
+        InstrumentKey indexKey = InstrumentKey.of(underlying, segment);
         try {
             Instrument indexOrUnderlying = instrumentResolver.getBySymbol(indexKey);
             if (indexOrUnderlying == null) {

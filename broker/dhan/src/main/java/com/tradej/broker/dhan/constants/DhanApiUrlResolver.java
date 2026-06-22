@@ -14,39 +14,39 @@ public final class DhanApiUrlResolver {
     }
 
     public String optionChainUrl() {
-        return baseUrl + "/optionchain";
+        return baseUrl + DhanApiEndpoints.PATH_OPTION_CHAIN;
     }
 
     public String optionChainExpiryListUrl() {
-        return baseUrl + "/optionchain/expirylist";
+        return baseUrl + DhanApiEndpoints.PATH_OPTION_CHAIN_EXPIRY_LIST;
     }
 
     public String historicalDailyUrl() {
-        return baseUrl + "/charts/historical";
+        return baseUrl + DhanApiEndpoints.PATH_HISTORICAL_DAILY;
     }
 
     public String historicalIntradayUrl() {
-        return baseUrl + "/charts/intraday";
+        return baseUrl + DhanApiEndpoints.PATH_HISTORICAL_INTRADAY;
     }
 
     public String rollingOptionUrl() {
-        return baseUrl + "/charts/rollingoption";
+        return baseUrl + DhanApiEndpoints.PATH_ROLLING_OPTION;
     }
 
     public String marginCalculatorUrl() {
-        return baseUrl + "/margincalculator";
+        return baseUrl + DhanApiEndpoints.PATH_MARGIN_CALCULATOR;
     }
 
     public String pnlExitUrl() {
-        return baseUrl + "/pnlExit";
+        return baseUrl + DhanApiEndpoints.PATH_PNL_EXIT;
     }
 
     public String alertOrdersUrl() {
-        return baseUrl + "/alerts/orders";
+        return baseUrl + DhanApiEndpoints.PATH_ALERT_ORDERS;
     }
 
     public String ordersUrl() {
-        return baseUrl + "/orders";
+        return baseUrl + DhanApiEndpoints.PATH_ORDERS;
     }
 
     public String orderUrl(String orderId) {
@@ -54,15 +54,17 @@ public final class DhanApiUrlResolver {
     }
 
     public String tradesUrl() {
-        return baseUrl + "/trades";
+        return baseUrl + DhanApiEndpoints.PATH_TRADES;
     }
 
     public String superOrderUrl() {
-        return baseUrl + "/super-order";
+        return baseUrl + DhanApiEndpoints.PATH_SUPER_ORDER_SANDBOX;
     }
 
     public String foreverOrdersUrl() {
-        return baseUrl + (sandboxBaseUrl() ? "/forever-orders" : "/forever/orders");
+        return baseUrl + (sandboxBaseUrl()
+                ? DhanApiEndpoints.PATH_FOREVER_ORDERS_SANDBOX
+                : DhanApiEndpoints.PATH_FOREVER_ORDERS_LIVE);
     }
 
     public String foreverOrderUrl(String orderId) {
@@ -70,7 +72,9 @@ public final class DhanApiUrlResolver {
     }
 
     public String foreverOrdersAllUrl() {
-        return baseUrl + (sandboxBaseUrl() ? "/forever-orders" : "/forever/all");
+        return baseUrl + (sandboxBaseUrl()
+                ? DhanApiEndpoints.PATH_FOREVER_ORDERS_SANDBOX
+                : DhanApiEndpoints.PATH_FOREVER_ORDERS_ALL_LIVE);
     }
 
     public String orderByCorrelationIdUrl(String correlationId) {
@@ -82,7 +86,9 @@ public final class DhanApiUrlResolver {
     }
 
     public String superOrdersListUrl() {
-        return baseUrl + (sandboxBaseUrl() ? "/super-order" : "/super/orders");
+        return baseUrl + (sandboxBaseUrl()
+                ? DhanApiEndpoints.PATH_SUPER_ORDER_SANDBOX
+                : DhanApiEndpoints.PATH_SUPER_ORDERS_LIVE);
     }
 
     public String superOrderByIdUrl(String orderId) {
@@ -94,27 +100,27 @@ public final class DhanApiUrlResolver {
     }
 
     public String killSwitchUrl() {
-        return baseUrl + "/killswitch";
+        return baseUrl + DhanApiEndpoints.PATH_KILL_SWITCH;
     }
 
     public String ledgerUrl() {
-        return baseUrl + "/ledger";
+        return baseUrl + DhanApiEndpoints.PATH_LEDGER;
     }
 
     public String edisTpinUrl() {
-        return baseUrl + "/edis/tpin";
+        return baseUrl + DhanApiEndpoints.PATH_EDIS_TPIN;
     }
 
     public String edisFormUrl() {
-        return baseUrl + "/edis/form";
+        return baseUrl + DhanApiEndpoints.PATH_EDIS_FORM;
     }
 
     public String edisInquiryUrl(String isin) {
-        return baseUrl + "/edis/inquire/" + isin;
+        return baseUrl + DhanApiEndpoints.PATH_EDIS_INQUIRE + "/" + isin;
     }
 
     public String profileUrl() {
-        return baseUrl + "/fundlimit/userprofile";
+        return baseUrl + DhanApiEndpoints.PATH_PROFILE;
     }
 
     private boolean sandboxBaseUrl() {
@@ -122,26 +128,30 @@ public final class DhanApiUrlResolver {
     }
 
     public String sliceOrderUrl() {
-        return baseUrl + "/orders/slicing";
+        return baseUrl + DhanApiEndpoints.PATH_SLICE_ORDER;
     }
 
     public String fundLimitUrl() {
-        return baseUrl + "/fundlimit";
+        return baseUrl + DhanApiEndpoints.PATH_FUND_LIMIT;
     }
 
     public String positionsUrl() {
-        return baseUrl + "/positions";
+        return baseUrl + DhanApiEndpoints.PATH_POSITIONS;
     }
 
     public String holdingsUrl() {
-        return baseUrl + "/holdings";
+        return baseUrl + DhanApiEndpoints.PATH_HOLDINGS;
     }
 
     public String marketFeedLtpUrl() {
-        return baseUrl + "/marketfeed/ltp";
+        return baseUrl + DhanApiEndpoints.PATH_MARKET_FEED_LTP;
+    }
+
+    public String marketFeedOhlcUrl() {
+        return baseUrl + DhanApiEndpoints.PATH_MARKET_FEED_OHLC;
     }
 
     public String marketFeedQuoteUrl() {
-        return baseUrl + "/marketfeed/quote";
+        return baseUrl + DhanApiEndpoints.PATH_MARKET_FEED_QUOTE;
     }
 }

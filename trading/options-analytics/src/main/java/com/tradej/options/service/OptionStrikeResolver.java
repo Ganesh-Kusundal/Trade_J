@@ -51,8 +51,8 @@ public final class OptionStrikeResolver {
         return new OptionStrikeSelection(
                 expiry,
                 strike,
-                new InstrumentKey(call.canonicalSymbol(), call.exchangeSegment()),
-                new InstrumentKey(put.canonicalSymbol(), put.exchangeSegment())
+                InstrumentKey.of(call.canonicalSymbol(), call.exchangeSegment()),
+                InstrumentKey.of(put.canonicalSymbol(), put.exchangeSegment())
         );
     }
 }

@@ -22,7 +22,7 @@ public final class IciciFuturesProvider implements FuturesProvider {
     public List<Instrument> getContracts(String underlying, ExchangeSegment exchangeSegment) {
         try {
             BreezeInstrumentDefinition definition = instrumentResolver.requireBreezeDefinition(
-                    new InstrumentKey(underlying, exchangeSegment));
+                    InstrumentKey.of(underlying, exchangeSegment));
             return List.of(definition.toInstrument());
         } catch (IllegalArgumentException ex) {
             return List.of();

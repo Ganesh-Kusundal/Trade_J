@@ -6,6 +6,7 @@ import com.tradej.broker.core.resilience.CircuitBreaker;
 import com.tradej.broker.core.resilience.CircuitBreakerConfig;
 import com.tradej.broker.core.resilience.RetryExecutor;
 import com.tradej.broker.core.resilience.RetryPolicy;
+import com.tradej.broker.dhan.auth.DhanAuthRejectedException;
 import com.tradej.broker.dhan.auth.DhanAuthenticationException;
 import com.tradej.broker.dhan.constants.DhanProtocolConstants;
 import com.tradej.broker.dhan.rate.ApiCategory;
@@ -48,13 +49,18 @@ public final class DhanRetryExecutor extends RetryExecutor {
         if (ex instanceof DhanAuthenticationException) {
             return BrokerErrorCategory.AUTH_REVOKED;
         }
+        if (ex instanceof DhanAuthRejectedException rejected && rejected.rateLimited()) {
+            return BrokerErrorCategory.RATE_LIMITED;
+        }
         return super.classify(ex);
     }
 
     private static RetryPolicy policyFor(ApiCategory category) {
-        int maxAttempts = category == ApiCategory.ORDER
-                ? DhanProtocolConstants.RETRY_COUNT_ORDER
-                : DhanProtocolConstants.RETRY_COUNT_DEFAULT;
+        int maxAttempts = switch (category) {
+            case AUTH -> DhanProtocolConstants.RETRY_COUNT_AUTH;
+            case ORDER -> DhanProtocolConstants.RETRY_COUNT_ORDER;
+            default -> DhanProtocolConstants.RETRY_COUNT_DEFAULT;
+        };
         return new RetryPolicy(
                 maxAttempts,
                 DhanProtocolConstants.RETRY_BASE_DELAY_MS,

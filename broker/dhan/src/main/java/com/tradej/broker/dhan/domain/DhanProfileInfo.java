@@ -1,7 +1,7 @@
 package com.tradej.broker.dhan.domain;
 
 /**
- * User profile information from Dhan ({@code GET /fundlimit/userprofile}).
+ * User profile information from Dhan ({@code GET /profile}).
  *
  * @param clientId      Dhan client ID
  * @param activeSegment Active trading segments

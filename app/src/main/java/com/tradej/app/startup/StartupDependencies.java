@@ -8,9 +8,10 @@ import com.tradej.composition.config.ScanProperties;
 import com.tradej.app.config.TradingProperties;
 import com.tradej.core.domain.port.EventBus;
 import com.tradej.execution.position.EventSourcedNetPositionProvider;
-import com.tradej.execution.reconcile.OrderReconciler;
 import com.tradej.execution.reconcile.ReconciliationAlertLogger;
+import com.tradej.execution.reconcile.ReconciliationUseCase;
 import com.tradej.execution.readmodel.ReadModelStore;
+import com.tradej.execution.risk.PositionRiskHandler;
 import com.tradej.execution.service.OrderManagementService;
 import com.tradej.feature.store.AsyncDuckDbWriter;
 import com.tradej.hotpath.MarketDataPipeline;
@@ -40,8 +41,9 @@ public record StartupDependencies(
         BrokerErrorTracker brokerErrorTracker,
         ReadModelStore readModelStore,
         EventSourcedNetPositionProvider netPositionProvider,
+        PositionRiskHandler positionRiskHandler,
         DagPipelineIngressBridge dagPipelineIngressBridge,
         PositionStateRebuilder positionStateRebuilder,
         OrderManagementService orderManagementService,
-        OrderReconciler orderReconciler
+        ReconciliationUseCase reconciliationUseCase
 ) {}

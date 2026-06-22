@@ -53,7 +53,7 @@ public class BrokerLifecycleManager {
             }
             brokerCapabilities.validateFeedMode(subscription.exchangeSegment(), subscription.feedMode());
             brokerConnection.instruments().resolve(
-                    new InstrumentKey(subscription.symbol(), subscription.exchangeSegment()));
+                    InstrumentKey.of(subscription.symbol(), subscription.exchangeSegment()));
         }
         return requests;
     }

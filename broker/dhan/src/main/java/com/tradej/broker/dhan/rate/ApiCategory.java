@@ -1,6 +1,7 @@
 package com.tradej.broker.dhan.rate;
 
 public enum ApiCategory {
+    AUTH,
     ORDER,
     DATA,
     QUOTE,

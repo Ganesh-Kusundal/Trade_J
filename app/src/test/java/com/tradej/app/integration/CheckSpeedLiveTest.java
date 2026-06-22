@@ -18,6 +18,7 @@ import com.tradej.core.domain.model.CandleHistoryRequest;
 import com.tradej.core.domain.model.InstrumentKey;
 import com.tradej.core.domain.value.ExchangeSegment;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
@@ -29,6 +30,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import com.tradej.broker.icici.config.IciciAuthMode;
 
+@Tag("integration")
 public class CheckSpeedLiveTest {
     
     @Test

@@ -1,12 +1,22 @@
 package com.tradej.execution.service;
 
-import com.github.benmanes.caffeine.cache.Cache;
+import com.tradej.core.domain.event.DomainEvent;
+import com.tradej.core.domain.event.EventMetadata;
+import com.tradej.core.domain.event.OrderFilled;
+import com.tradej.core.domain.event.TradeOpened;
+import com.tradej.core.domain.model.Order;
+import com.tradej.core.domain.model.Trade;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import com.tradej.core.domain.port.DeadLetterQueue;
 import com.tradej.core.domain.runtime.RuntimeModeHolder;
+import com.tradej.core.domain.value.ExchangeSegment;
+import com.tradej.core.domain.value.OrderStatus;
+import com.tradej.core.domain.value.OrderType;
+import com.tradej.core.domain.value.ProductType;
+import com.tradej.core.domain.value.Side;
 import com.tradej.core.testing.ConcurrentStressTester;
 import com.tradej.execution.identity.OrderIdentityRegistry;
 
@@ -48,51 +58,72 @@ class ExecutionHandlerStressTest {
 
     @Test
     void tradeOpenedEmittedCacheIsThreadSafe() throws Exception {
-        handler.start();
-
-        var tradeOpenedField = ExecutionHandler.class.getDeclaredField("tradeOpenedEmitted");
-        tradeOpenedField.setAccessible(true);
-        @SuppressWarnings("unchecked")
-        Cache<String, Boolean> cache = (Cache<String, Boolean>) tradeOpenedField.get(handler);
+        TradeEventEmissionService service = new TradeEventEmissionService();
+        Order order = order("ORD-STRESS");
+        OrderFilled filled = filled(order);
 
         int workers = 10;
         int addsPerWorker = 100;
 
         var result = ConcurrentStressTester.run(workers, addsPerWorker, threadIndex -> {
             for (int i = 0; i < addsPerWorker; i++) {
-                String orderId = "ORD-" + (i % 10);
-                cache.asMap().putIfAbsent(orderId, Boolean.TRUE);
+                service.emit(order.orderId(), order, filled, emitted::add);
             }
         });
 
         result.assertAllPassed().requireNoExceptions();
-        assertEquals(10, cache.asMap().size(),
-                "tradeOpenedEmitted cache should contain exactly 10 unique order IDs");
+        long openedCount = emitted.stream().filter(TradeOpened.class::isInstance).count();
+        assertEquals(1, openedCount, "duplicate fill emission must open a trade only once");
     }
 
     @Test
     void emitTradeOpenedGuardAtomicity() throws Exception {
-        handler.start();
-
-        var tradeOpenedField = ExecutionHandler.class.getDeclaredField("tradeOpenedEmitted");
-        tradeOpenedField.setAccessible(true);
-        @SuppressWarnings("unchecked")
-        Cache<String, Boolean> cache = (Cache<String, Boolean>) tradeOpenedField.get(handler);
+        TradeEventEmissionService service = new TradeEventEmissionService();
+        Order order = order("ORD-ATOMIC");
+        OrderFilled filled = filled(order);
 
         int workers = 10;
         int attemptsPerWorker = 50;
-        java.util.concurrent.atomic.AtomicInteger firstAddWins = new java.util.concurrent.atomic.AtomicInteger();
 
         var result = ConcurrentStressTester.run(workers, attemptsPerWorker, threadIndex -> {
             for (int i = 0; i < attemptsPerWorker; i++) {
-                if (cache.asMap().putIfAbsent("ORD-ATOMIC", Boolean.TRUE) == null) {
-                    firstAddWins.incrementAndGet();
-                }
+                service.emit(order.orderId(), order, filled, emitted::add);
             }
         });
 
         result.assertAllPassed().requireNoExceptions();
-        assertEquals(1, firstAddWins.get(), "Exactly one thread should win the putIfAbsent race");
-        assertEquals(1, cache.asMap().size());
+        long openedCount = emitted.stream().filter(TradeOpened.class::isInstance).count();
+        assertEquals(1, openedCount, "Exactly one thread should win the TradeOpened race");
+    }
+
+    private static Order order(String orderId) {
+        return new Order(
+                orderId,
+                "sig-stress",
+                "SBIN",
+                ExchangeSegment.NSE_EQ,
+                Side.BUY,
+                ProductType.INTRADAY,
+                OrderType.LIMIT,
+                OrderStatus.TRADED,
+                100,
+                100,
+                150_00L,
+                0L,
+                1_000L,
+                "");
+    }
+
+    private static OrderFilled filled(Order order) {
+        Trade fill = new Trade(
+                "T-" + order.orderId(),
+                order.orderId(),
+                order.symbol(),
+                order.exchangeSegment(),
+                order.side(),
+                order.filledQuantity(),
+                order.pricePaisa(),
+                order.exchangeTimeMs());
+        return new OrderFilled(EventMetadata.correlated(order.correlationId(), 1L), order, java.util.List.of(fill));
     }
 }

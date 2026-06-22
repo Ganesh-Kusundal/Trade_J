@@ -9,7 +9,8 @@ public record ReconciliationHaltRequired(
         long expectedQuantity,
         long brokerQuantity,
         String engineKey,
-        long mismatchQuantity
+        long mismatchQuantity,
+        String reason
 ) implements DomainEvent {
     @Override
     public EventPriority priority() {

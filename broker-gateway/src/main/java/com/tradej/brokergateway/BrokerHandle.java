@@ -344,13 +344,13 @@ public final class BrokerHandle {
 
     public GatewayResult<com.tradej.broker.core.depth.OrderBook.OrderBookSnapshot> orderBookSnapshot(
             String symbol, ExchangeSegment segment, int levels) {
-        return support.timed(() -> support.connection().getCapability(OrderBookSnapshotProvider.class)
+        return support.timed(() -> support.capabilityRouter().find(OrderBookSnapshotProvider.class)
                 .map(provider -> (com.tradej.broker.core.depth.OrderBook.OrderBookSnapshot) provider.snapshot(symbol, segment, levels))
                 .orElse(null));
     }
 
     public GatewayResult<List<com.tradej.broker.core.depth.OrderBook.OrderBookSnapshot>> allOrderBookSnapshots(int levels) {
-        return support.timed(() -> support.connection().getCapability(OrderBookSnapshotProvider.class)
+        return support.timed(() -> support.capabilityRouter().find(OrderBookSnapshotProvider.class)
                 .map(provider -> provider.snapshotAll(levels).stream()
                         .map(s -> (com.tradej.broker.core.depth.OrderBook.OrderBookSnapshot) s)
                         .toList())
@@ -358,7 +358,7 @@ public final class BrokerHandle {
     }
 
     public GatewayResult<Map<String, ExchangeSegment>> activeOrderBookKeys() {
-        return support.timed(() -> support.connection().getCapability(OrderBookSnapshotProvider.class)
+        return support.timed(() -> support.capabilityRouter().find(OrderBookSnapshotProvider.class)
                 .map(OrderBookSnapshotProvider::activeBooks)
                 .orElse(Map.of()));
     }
@@ -366,7 +366,7 @@ public final class BrokerHandle {
     // ── Capabilities ────────────────────────────────────────────────
 
     public boolean supports(Class<?> capability) {
-        return support.connection().getCapability(capability).isPresent();
+        return support.capabilityRouter().supports(capability);
     }
 
     public IBrokerConnection connection() {

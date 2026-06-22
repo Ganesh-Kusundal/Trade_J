@@ -322,7 +322,7 @@ public final class BreezeWebSocketMultiplexer implements WebSocketMultiplexer {
             try {
                 String code = scriptCodeCache.computeIfAbsent(request, req ->
                         instrumentResolver.requireBreezeDefinition(
-                                new InstrumentKey(req.symbol(), req.exchangeSegment())).scriptCode());
+                                InstrumentKey.of(req.symbol(), req.exchangeSegment())).scriptCode());
                 tokens.add(code);
             } catch (Exception ex) {
                 log.warn("Skipping ICICI subscription for {}: {}", request, ex.getMessage());

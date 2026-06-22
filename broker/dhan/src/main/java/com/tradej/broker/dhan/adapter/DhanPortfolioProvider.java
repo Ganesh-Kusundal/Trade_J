@@ -183,7 +183,7 @@ public final class DhanPortfolioProvider implements PortfolioProvider {
     }
 
     /**
-     * Fetch user profile information ({@code GET /fundlimit/userprofile}).
+     * Fetch user profile information ({@code GET /profile}).
      *
      * @return profile information including token validity, data plan, and segment access
      */
@@ -192,7 +192,7 @@ public final class DhanPortfolioProvider implements PortfolioProvider {
             var response = httpClient.getJson(apiUrlResolver.profileUrl());
             var data = response.has("data") ? response.path("data") : response;
             return new DhanProfileInfo(
-                    data.string("dhanClientId"),
+                    data.string("dhanClientId", "clientId"),
                     data.string("activeSegment"),
                     data.string("dataPlan"),
                     data.string("dataValidity"),

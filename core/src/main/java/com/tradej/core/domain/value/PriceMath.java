@@ -23,6 +23,10 @@ public final class PriceMath {
         return toPaisa(new BigDecimal(price));
     }
 
+    public static long toPaisa(double price) {
+        return toPaisa(BigDecimal.valueOf(price));
+    }
+
     public static BigDecimal fromPaisa(long paisa) {
         return BigDecimal.valueOf(paisa, 2);
     }

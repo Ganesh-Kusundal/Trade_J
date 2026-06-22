@@ -48,7 +48,7 @@ public final class BackfillService {
         log.info("Detected {} gaps for {} {} {} from {} to {}",
                 gaps.size(), symbol, segment, interval, from, to);
         try {
-            InstrumentKey key = new InstrumentKey(symbol, segment);
+            InstrumentKey key = InstrumentKey.of(symbol, segment);
             List<Candle> candles = marketDataProvider.getCandles(
                     new CandleHistoryRequest(key, interval, from, to));
 

@@ -230,7 +230,8 @@ class ReconciliationSchedulerComponentTest {
     private FakeEventBus runScheduler(OrderReconciler targetReconciler, Map<String, NetPositionProvider.Position> expectedPositions) {
         FakeEventBus eventBus = new FakeEventBus();
         NetPositionProvider provider = () -> expectedPositions;
-        ReconciliationScheduler scheduler = new ReconciliationScheduler(targetReconciler, eventBus, provider);
+        ReconciliationScheduler scheduler = new ReconciliationScheduler(
+                new ReconciliationUseCase(targetReconciler, eventBus, provider));
         scheduler.reconcilePeriodically();
         return eventBus;
     }

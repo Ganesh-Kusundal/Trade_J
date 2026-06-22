@@ -1,6 +1,7 @@
 package com.tradej.app.service;
 
 import com.tradej.broker.api.IBrokerConnection;
+import com.tradej.broker.api.capability.BrokerCapabilityRouter;
 import com.tradej.broker.api.port.OptionsProvider;
 import com.tradej.core.domain.model.VolatilitySurface;
 import com.tradej.core.domain.value.ExchangeSegment;
@@ -41,7 +42,9 @@ public class OptionsAnalyticsApplicationService {
         if (conn == null || builder == null) {
             return Map.of("error", "Options analytics not enabled");
         }
-        OptionsProvider provider = conn.getCapability(OptionsProvider.class).orElse(null);
+        OptionsProvider provider = BrokerCapabilityRouter.forConnection(conn)
+                .find(OptionsProvider.class)
+                .orElse(null);
         if (provider == null) {
             return Map.of("error", "Options provider unavailable");
         }

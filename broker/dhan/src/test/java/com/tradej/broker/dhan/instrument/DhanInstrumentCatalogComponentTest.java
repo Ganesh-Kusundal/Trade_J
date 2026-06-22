@@ -70,16 +70,18 @@ class DhanInstrumentCatalogComponentTest {
     @Test
     void resolvesNearestMcxContractExplicitly() {
         DhanInstrumentCatalog catalog = new DhanInstrumentCatalog();
+        LocalDate frontExpiry = LocalDate.now().plusMonths(1);
+        LocalDate nextExpiry = LocalDate.now().plusMonths(2);
         catalog.replaceAll(List.of(
-                future("CRUDEOIL-18Jun2026-FUT", "CRUDEOIL", LocalDate.of(2026, 6, 18),
+                future("CRUDEOIL-" + frontExpiry + "-FUT", "CRUDEOIL", frontExpiry,
                         Exchange.MCX, ExchangeSegment.MCX_COMM, "499095"),
-                future("CRUDEOIL-20Jul2026-FUT", "CRUDEOIL", LocalDate.of(2026, 7, 20),
+                future("CRUDEOIL-" + nextExpiry + "-FUT", "CRUDEOIL", nextExpiry,
                         Exchange.MCX, ExchangeSegment.MCX_COMM, "520702")
         ));
 
         Instrument instrument = catalog.resolve(new InstrumentKey("CRUDEOIL", ExchangeSegment.MCX_COMM));
 
-        assertEquals("CRUDEOIL 18 JUN FUT", instrument.canonicalSymbol());
+        assertEquals(DhanSymbolNormalizer.canonicalFutureSymbol("CRUDEOIL", frontExpiry), instrument.canonicalSymbol());
         assertEquals(Exchange.MCX, instrument.exchange());
     }
 

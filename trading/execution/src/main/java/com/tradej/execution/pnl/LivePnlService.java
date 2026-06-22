@@ -36,7 +36,7 @@ public final class LivePnlService {
                 .map(position -> {
                     InstrumentKey key = instrumentResolver.resolveNormalized(
                             position.symbol(), position.exchangeSegment()).key();
-                    positionKeys.put(new InstrumentKey(position.symbol(), position.exchangeSegment()), key);
+                    positionKeys.put(InstrumentKey.of(position.symbol(), position.exchangeSegment()), key);
                     return key;
                 })
                 .toList();
@@ -44,7 +44,7 @@ public final class LivePnlService {
         long netPnl = 0L;
         long netQty = 0L;
         for (Position position : positions) {
-            InstrumentKey rawKey = new InstrumentKey(position.symbol(), position.exchangeSegment());
+            InstrumentKey rawKey = InstrumentKey.of(position.symbol(), position.exchangeSegment());
             InstrumentKey key = positionKeys.getOrDefault(rawKey, rawKey);
             long last = ltp.getOrDefault(key, position.lastPricePaisa());
             long qty = position.quantity();

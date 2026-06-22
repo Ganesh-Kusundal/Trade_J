@@ -16,36 +16,30 @@ import static org.mockito.Mockito.*;
 class ReconciliationSchedulerUnitTest {
 
     @Mock
-    private OrderReconciler orderReconciler;
-
-    @Mock
-    private EventBus eventBus;
+    private ReconciliationUseCase reconciliationUseCase;
 
     private ReconciliationScheduler scheduler;
 
     @BeforeEach
     void setUp() {
-        scheduler = new ReconciliationScheduler(orderReconciler, eventBus, NetPositionProvider.empty());
+        scheduler = new ReconciliationScheduler(reconciliationUseCase);
     }
 
     @Test
     void triggersBothReconcileAndReconcileAllOnSchedule() {
         scheduler.reconcilePeriodically();
 
-        verify(orderReconciler).reconcile(anyMap(), any());
-        verify(orderReconciler).reconcileAll(any());
+        verify(reconciliationUseCase).reconcileAllSources();
     }
 
     @Test
     void handlesReconcilerExceptionGracefully() {
         doThrow(new RuntimeException("Broker connection lost"))
-                .when(orderReconciler).reconcileAll(any());
+                .when(reconciliationUseCase).reconcileAllSources();
 
-        // Should not propagate the exception
-        scheduler.reconcilePeriodically();
+        org.junit.jupiter.api.Assertions.assertThrows(RuntimeException.class, scheduler::reconcilePeriodically);
 
-        verify(orderReconciler).reconcile(anyMap(), any());
-        verify(orderReconciler).reconcileAll(any());
+        verify(reconciliationUseCase).reconcileAllSources();
     }
 
     @Test
@@ -54,7 +48,6 @@ class ReconciliationSchedulerUnitTest {
         scheduler.reconcilePeriodically();
         scheduler.reconcilePeriodically();
 
-        verify(orderReconciler, times(3)).reconcile(anyMap(), any());
-        verify(orderReconciler, times(3)).reconcileAll(any());
+        verify(reconciliationUseCase, times(3)).reconcileAllSources();
     }
 }

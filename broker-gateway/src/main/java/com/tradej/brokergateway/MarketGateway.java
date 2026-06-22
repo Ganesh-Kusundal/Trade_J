@@ -137,7 +137,9 @@ public final class MarketGateway {
      */
     public GatewayResult<com.tradej.broker.api.model.BrokerCapabilities> capabilities() {
         BrokerHandle active = router.active();
-        var caps = active.connection().getCapability(com.tradej.broker.api.model.BrokerCapabilities.class);
+        var caps = com.tradej.broker.api.capability.BrokerCapabilityRouter
+                .named(active.source().name(), active.connection())
+                .find(com.tradej.broker.api.model.BrokerCapabilities.class);
         var metadata = new ResultMetadata(
                 java.time.Duration.ZERO, java.time.Instant.now(), "capabilities", java.util.Map.of());
         return caps.map(c -> GatewayResult.success(c, active.source(), metadata))

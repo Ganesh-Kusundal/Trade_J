@@ -88,7 +88,12 @@ public final class DhanMarketDataProvider implements MarketDataProvider {
 
     @Override
     public Quote getOhlcSnapshot(InstrumentKey instrumentKey) {
-        return getQuote(instrumentKey);
+        DhanInstrumentDefinition definition = context.resolveDef(instrumentKey);
+        return context.execute(ApiCategory.QUOTE, "quote-ohlc", () -> {
+            DhanJsonResponse response = fetchMarketFeed(definition, apiUrlResolver.marketFeedOhlcUrl());
+            DhanJsonResponse payload = extractQuotePayload(response, definition);
+            return DhanJsonMapper.toQuote(payload, definition.toInstrument());
+        });
     }
 
     @Override
@@ -187,7 +192,33 @@ public final class DhanMarketDataProvider implements MarketDataProvider {
 
     @Override
     public Map<InstrumentKey, Quote> getOhlcBatch(Collection<InstrumentKey> instrumentKeys) {
-        return getQuoteBatch(instrumentKeys);
+        if (instrumentKeys == null || instrumentKeys.isEmpty()) {
+            return Map.of();
+        }
+        return context.execute(ApiCategory.QUOTE, "quote-ohlc-batch", () -> {
+            Map<InstrumentKey, DhanInstrumentDefinition> defs = new HashMap<>();
+            Map<String, List<String>> segmentSecurityIds = new HashMap<>();
+            for (InstrumentKey key : instrumentKeys) {
+                DhanInstrumentDefinition def = context.resolveDef(key);
+                defs.put(key, def);
+                segmentSecurityIds
+                        .computeIfAbsent(DhanSegmentMapper.toWireValue(def.exchangeSegment()), ignored -> new ArrayList<>())
+                        .add(def.securityId());
+            }
+            ObjectNode body = buildMarketFeedRequestBody(segmentSecurityIds);
+            DhanJsonResponse response = httpClient.postJson(apiUrlResolver.marketFeedOhlcUrl(), body);
+            Map<InstrumentKey, Quote> out = new HashMap<>();
+            for (InstrumentKey key : instrumentKeys) {
+                DhanInstrumentDefinition def = defs.get(key);
+                try {
+                    DhanJsonResponse nested = extractQuotePayload(response, def);
+                    out.put(key, DhanJsonMapper.toQuote(nested, def.toInstrument()));
+                } catch (RuntimeException ex) {
+                    log.warn("Failed to extract OHLC for {}:{}: {}", def.exchangeSegment(), def.securityId(), ex.getMessage());
+                }
+            }
+            return Map.copyOf(out);
+        });
     }
 
     private DhanJsonResponse fetchMarketFeed(DhanInstrumentDefinition definition, String url) {

@@ -1,8 +1,8 @@
 package com.tradej.app.admin;
 
 import com.tradej.app.config.TradingProperties;
-import com.tradej.core.domain.instrument.ContractSymbolNormalizer;
 import com.tradej.core.domain.instrument.RollingExpiryRoll;
+import com.tradej.core.domain.instrument.StandardInstrumentIdentityService;
 import com.tradej.core.domain.instrument.StrikeOffset;
 import com.tradej.core.domain.model.Candle;
 import com.tradej.core.domain.model.CandleHistoryRequest;
@@ -47,6 +47,9 @@ import java.util.concurrent.ExecutorService;
 @RestController
 @RequestMapping("/admin")
 public class HistoricalDownloadController {
+
+    private static final StandardInstrumentIdentityService INSTRUMENT_IDENTITY =
+            StandardInstrumentIdentityService.INSTANCE;
 
     private final DownloadJobService downloadJobService;
     private final ObjectProvider<EquityDownloadJobService> equityDownloadJobService;
@@ -201,7 +204,7 @@ public class HistoricalDownloadController {
             @RequestParam long to,
             @RequestParam(defaultValue = "1000") int limit
     ) throws Exception {
-        String normalizedUnderlying = ContractSymbolNormalizer.normalize(underlying);
+        String normalizedUnderlying = StandardInstrumentIdentityService.INSTANCE.canonicalSymbol(underlying);
         List<RollingOptionBar> bars = historicalAnalyticsService.queryOptionBars(new RollingOptionSeriesRequest(
                 normalizedUnderlying,
                 expiryKind,
@@ -268,12 +271,12 @@ public class HistoricalDownloadController {
             @RequestParam long to,
             @RequestParam(defaultValue = "5000") int limit
     ) throws Exception {
-        String normalized = ContractSymbolNormalizer.normalize(symbol);
+        InstrumentKey key = InstrumentKey.of(symbol, ExchangeSegment.NSE_EQ);
         ZoneId ist = ZoneId.of("Asia/Kolkata");
         LocalDate fromDate = Instant.ofEpochMilli(from).atZone(ist).toLocalDate();
         LocalDate toDate = Instant.ofEpochMilli(to).atZone(ist).toLocalDate();
         List<Candle> candles = historicalAnalyticsService.queryEquityCandles(new CandleHistoryRequest(
-                InstrumentKey.of(normalized, ExchangeSegment.NSE_EQ),
+                key,
                 "1m",
                 fromDate,
                 toDate
@@ -283,7 +286,7 @@ public class HistoricalDownloadController {
         }
         List<Map<String, Object>> payload = candles.stream().map(this::toCandleMap).toList();
         return ResponseEntity.ok(Map.of(
-                "symbol", normalized,
+                "symbol", key.symbol(),
                 "from", from,
                 "to", to,
                 "count", payload.size(),
@@ -391,7 +394,7 @@ public class HistoricalDownloadController {
                 ? ExchangeSegment.IDX_I
                 : ExchangeSegment.valueOf(request.exchangeSegment());
         return new RollingOptionDownloadConfig(
-                symbols.stream().map(String::trim).map(ContractSymbolNormalizer::normalize).toList(),
+                symbols.stream().map(String::trim).map(INSTRUMENT_IDENTITY::canonicalSymbol).toList(),
                 segment,
                 from,
                 to,
@@ -413,7 +416,7 @@ public class HistoricalDownloadController {
         } else {
             symbols = java.util.Arrays.stream(request.symbols().split(","))
                     .map(String::trim)
-                    .map(ContractSymbolNormalizer::normalize)
+                    .map(INSTRUMENT_IDENTITY::canonicalSymbol)
                     .toList();
         }
         LocalDate to = request.to() == null ? LocalDate.now() : request.to();
@@ -461,7 +464,7 @@ public class HistoricalDownloadController {
                 : java.util.Arrays.stream(request.symbols().split(","))
                         .map(String::trim)
                         .filter(s -> !s.isBlank())
-                        .map(ContractSymbolNormalizer::normalize)
+                        .map(INSTRUMENT_IDENTITY::canonicalSymbol)
                         .toList();
         return new HiveCacheImportConfig(
                 Path.of(sourceHive),

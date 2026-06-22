@@ -142,10 +142,22 @@ public final class DhanProtocolConstants {
     /** Retry count for ORDER-category operations (lower than default to fail fast). */
     public static final int RETRY_COUNT_ORDER = 2;
 
+    /** Retry count for AUTH token minting. Dhan auth rejects must not be retried in a burst. */
+    public static final int RETRY_COUNT_AUTH = 1;
+
     // ---- Rate limit constants (from MultiBucketRateLimiter) ----
 
     /** Token-bucket fill rate (tokens/s) for ORDER-category operations. */
     public static final double RATE_LIMIT_ORDER_RATE = 7.0d;
+
+    /** Dhan allows token generation only at a very low frequency. */
+    public static final long TOKEN_ACQUISITION_COOLDOWN_MS = 130_000L;
+
+    /** Token-bucket fill rate (tokens/s) for AUTH token minting. */
+    public static final double RATE_LIMIT_AUTH_RATE = 1.0d / (TOKEN_ACQUISITION_COOLDOWN_MS / 1_000.0d);
+
+    /** Token-bucket capacity for AUTH token minting. */
+    public static final int RATE_LIMIT_AUTH_CAPACITY = 1;
 
     /** Token-bucket capacity for ORDER-category operations. */
     public static final int RATE_LIMIT_ORDER_CAPACITY = 10;
@@ -186,6 +198,7 @@ public final class DhanProtocolConstants {
      */
     public static MultiBucketRateLimiter defaultRateLimiter() {
         return new MultiBucketRateLimiter(Map.of(
+                "AUTH", new RateLimitConfig("AUTH", RATE_LIMIT_AUTH_RATE, RATE_LIMIT_AUTH_CAPACITY),
                 "ORDER", new RateLimitConfig("ORDER", RATE_LIMIT_ORDER_RATE, RATE_LIMIT_ORDER_CAPACITY),
                 "DATA", new RateLimitConfig("DATA", RATE_LIMIT_DATA_RATE, RATE_LIMIT_DATA_CAPACITY),
                 "QUOTE", new RateLimitConfig("QUOTE", RATE_LIMIT_QUOTE_RATE, RATE_LIMIT_QUOTE_CAPACITY),

@@ -221,7 +221,7 @@ public final class EquityDownloadJobService implements AutoCloseable {
     ) throws Exception {
         try {
             delayBetweenCalls.run();
-            InstrumentKey key = new InstrumentKey(task.underlying(), config.exchangeSegment());
+            InstrumentKey key = InstrumentKey.of(task.underlying(), config.exchangeSegment());
             var candles = marketDataProvider.getCandles(new CandleHistoryRequest(
                     key,
                     config.interval(),

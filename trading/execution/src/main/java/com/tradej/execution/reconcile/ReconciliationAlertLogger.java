@@ -5,6 +5,8 @@ import com.tradej.core.domain.event.PositionMismatch;
 import com.tradej.core.domain.event.ReconciliationHaltRequired;
 import com.tradej.core.domain.port.DomainEventHandler;
 import com.tradej.core.domain.port.EventBus;
+import com.tradej.core.domain.reconcile.ReconciliationDecision;
+import com.tradej.core.domain.reconcile.ReconciliationPolicy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -16,38 +18,37 @@ public class ReconciliationAlertLogger implements DomainEventHandler<PositionMis
     private static final Logger log = LoggerFactory.getLogger(ReconciliationAlertLogger.class);
 
     private final EventBus eventBus;
-    private final boolean autoHalt;
-    private final long mismatchToleranceQty;
+    private final ReconciliationPolicy policy;
 
     public ReconciliationAlertLogger(
             EventBus eventBus,
-            boolean autoHalt,
-            long mismatchToleranceQty
+            ReconciliationPolicy policy
     ) {
         this.eventBus = eventBus;
-        this.autoHalt = autoHalt;
-        this.mismatchToleranceQty = mismatchToleranceQty;
+        this.policy = policy;
     }
 
     @Override
     public void onEvent(PositionMismatch event) {
-        long mismatch = Math.abs(event.paperQuantity() - event.brokerQuantity());
+        ReconciliationDecision decision = policy.evaluate(event);
         log.warn(
-                "Position mismatch detected [engineKey={}] symbol={} expectedQuantity={} brokerQuantity={} mismatch={} eventId={}",
+                "Position mismatch detected [engineKey={}] symbol={} expectedQuantity={} brokerQuantity={} mismatch={} haltRequired={} eventId={}",
                 event.engineKey(),
                 event.symbol(),
                 event.paperQuantity(),
                 event.brokerQuantity(),
-                mismatch,
+                decision.mismatchQuantity(),
+                decision.haltRequired(),
                 event.metadata().eventId());
-        if (autoHalt && mismatch > mismatchToleranceQty && eventBus != null) {
+        if (decision.haltRequired() && eventBus != null) {
             eventBus.publish(new ReconciliationHaltRequired(
                     EventMetadata.root(),
                     event.symbol(),
                     event.paperQuantity(),
                     event.brokerQuantity(),
                     event.engineKey(),
-                    mismatch));
+                    decision.mismatchQuantity(),
+                    decision.reason()));
         }
     }
 }

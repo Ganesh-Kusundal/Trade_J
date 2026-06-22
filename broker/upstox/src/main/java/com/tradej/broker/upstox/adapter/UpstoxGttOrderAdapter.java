@@ -47,7 +47,7 @@ public final class UpstoxGttOrderAdapter implements ConditionalAlertProvider, Gt
     @Override
     public String placeAlert(ConditionalAlertRequest request) {
         String instrumentToken = instrumentResolver.requireInstrumentKey(
-                new InstrumentKey(request.symbol(), request.exchangeSegment()));
+                InstrumentKey.of(request.symbol(), request.exchangeSegment()));
         String transactionType = request.side() == com.tradej.core.domain.value.Side.BUY ? "BUY" : "SELL";
         String product = mapProduct(request.productType());
         double triggerPrice = PriceMath.fromPaisa(request.triggerPricePaisa()).doubleValue();
@@ -176,7 +176,7 @@ public final class UpstoxGttOrderAdapter implements ConditionalAlertProvider, Gt
     @Override
     public Order placeForeverOrder(OrderRequest request, String orderFlag, Long quantity2, Long price2Paisa, Long trigger2Paisa) {
         String instrumentToken = instrumentResolver.requireInstrumentKey(
-                new InstrumentKey(request.symbol(), request.exchangeSegment()));
+                InstrumentKey.of(request.symbol(), request.exchangeSegment()));
         String transactionType = request.side() == Side.BUY ? "BUY" : "SELL";
         String product = mapProduct(request.productType());
 
@@ -263,7 +263,7 @@ public final class UpstoxGttOrderAdapter implements ConditionalAlertProvider, Gt
 
     private Order toGttOrder(String gttOrderId, OrderRequest request, List<UpstoxGttRule> rules) {
         Instrument resolved = instrumentResolver.resolve(
-                new InstrumentKey(request.symbol(), request.exchangeSegment()));
+                InstrumentKey.of(request.symbol(), request.exchangeSegment()));
         String symbol = resolved != null ? resolved.canonicalSymbol() : request.symbol();
         return new Order(
                 gttOrderId,
@@ -304,7 +304,7 @@ public final class UpstoxGttOrderAdapter implements ConditionalAlertProvider, Gt
         }
 
         Instrument resolved = instrumentResolver.resolve(
-                new InstrumentKey(gtt.tradingSymbol(), gtt.exchangeSegment()));
+                InstrumentKey.of(gtt.tradingSymbol(), gtt.exchangeSegment()));
         String symbol = resolved != null ? resolved.canonicalSymbol() : gtt.tradingSymbol();
         return new Order(
                 gtt.gttOrderId(),

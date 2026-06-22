@@ -5,6 +5,7 @@ import com.tradej.broker.dhan.config.DhanAuthMode;
 import com.tradej.composition.config.BrokerProfile;
 import com.tradej.composition.config.RiskProfile;
 import com.tradej.composition.config.StorageProfile;
+import com.tradej.core.domain.time.MarketTime;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
@@ -49,5 +50,12 @@ class FullCompositionTest {
         assertNotNull(system.broker(), "Broker composition should be wired");
         assertNotNull(system.data(), "Data composition should be wired");
         assertNull(system.execution(), "Legacy create() should not wire execution (backward compat)");
+    }
+
+    @Test
+    void liveClockCompositionUsesMarketTimezone() {
+        ClockComposition composition = ClockComposition.live();
+
+        assertEquals(MarketTime.IST, composition.clock().getZone());
     }
 }

@@ -44,7 +44,7 @@ public final class IciciOrderCommandAdapter implements OrderCommand {
         if (request.orderType() == OrderType.MARKET || request.orderType() == OrderType.STOP_LOSS_MARKET) {
             throw new UnsupportedOperationException("ICICI Breeze API does not permit market orders");
         }
-        InstrumentKey key = new InstrumentKey(request.symbol(), request.exchangeSegment());
+        InstrumentKey key = InstrumentKey.of(request.symbol(), request.exchangeSegment());
         BreezeInstrumentDefinition definition = instrumentResolver.requireBreezeDefinition(key);
         Instrument instrument = definition.toInstrument();
         ObjectNode payload = mapper.toPlaceOrderPayload(request, definition);
@@ -55,7 +55,7 @@ public final class IciciOrderCommandAdapter implements OrderCommand {
     @Override
     public Order modifyOrder(ModifyOrderRequest request) {
         ensureOrdersEnabled();
-        InstrumentKey key = new InstrumentKey(request.symbol(), request.exchangeSegment());
+        InstrumentKey key = InstrumentKey.of(request.symbol(), request.exchangeSegment());
         Instrument instrument = instrumentResolver.resolve(key);
         String exchangeCode = exchangeResolver.resolveExchangeCode(request.orderId());
         ObjectNode payload = mapper.toModifyOrderPayload(request, exchangeCode);

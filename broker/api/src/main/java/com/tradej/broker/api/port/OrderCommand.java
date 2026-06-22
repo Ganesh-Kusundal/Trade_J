@@ -6,6 +6,7 @@ import com.tradej.core.domain.model.OrderPreview;
 import com.tradej.core.domain.model.OrderRequest;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface OrderCommand {
     Order placeOrder(OrderRequest request);
@@ -19,6 +20,10 @@ public interface OrderCommand {
     List<String> cancelAndSquareOffIntradayPositions();
 
     boolean setKillSwitch(boolean enabled);
+
+    default Optional<String> getKillSwitchStatus() {
+        return Optional.empty();
+    }
 
     /**
      * Preview an order without placing it. Returns estimated notional, margin,

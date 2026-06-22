@@ -283,7 +283,7 @@ public final class DhanInstrumentCatalog implements com.tradej.broker.dhan.adapt
 
     @Override
     public DhanInstrumentDefinition requireDhanDefinition(String symbol, ExchangeSegment exchangeSegment) {
-        return requireDhanDefinition(new InstrumentKey(symbol, exchangeSegment));
+        return requireDhanDefinition(InstrumentKey.of(symbol, exchangeSegment));
     }
 
     @Override

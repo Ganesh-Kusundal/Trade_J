@@ -1,9 +1,11 @@
 package com.tradej.app.integration;
 
 import com.tradej.broker.dhan.auth.DhanAuthRejectedException;
+import com.tradej.broker.dhan.auth.DhanTokenAcquisitionGate;
 import com.tradej.broker.dhan.auth.DhanTokenManager;
 import com.tradej.broker.dhan.config.DhanAuthMode;
 import com.tradej.broker.dhan.config.DhanConnectionSettings;
+import org.junit.jupiter.api.Assumptions;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -46,6 +48,7 @@ final class LiveDhanAuthSession {
         LOCK.lock();
         try {
             String fundLimitUrl = settings.restBaseUrl() + "/fundlimit";
+            assumeNoAuthCooldown(settings);
 
             if (!forceRefresh
                     && cachedAccessToken != null
@@ -63,6 +66,7 @@ final class LiveDhanAuthSession {
                         && LiveDhanTestSupport.preflightAuth(settings.clientId(), cachedAccessToken, fundLimitUrl)) {
                     return cachedAccessToken;
                 }
+                abortOnCooldown(ex);
                 throw ex;
             }
 
@@ -95,6 +99,7 @@ final class LiveDhanAuthSession {
                         && LiveDhanTestSupport.preflightAuth(settings.clientId(), cachedAccessToken, fundLimitUrl)) {
                     return cachedAccessToken;
                 }
+                abortOnCooldown(ex);
                 throw ex;
             }
 
@@ -120,6 +125,21 @@ final class LiveDhanAuthSession {
             long waitSec = (MINT_COOLDOWN_MS - elapsed + 999L) / 1000L;
             throw new IllegalStateException(
                     "Dhan TOTP mint cooldown active — wait " + waitSec + "s before forcing another token generation.");
+        }
+    }
+
+    private static void assumeNoAuthCooldown(DhanConnectionSettings settings) {
+        try {
+            new DhanTokenAcquisitionGate(settings).assertNotCoolingDown();
+        } catch (DhanAuthRejectedException ex) {
+            abortOnCooldown(ex);
+        }
+    }
+
+    private static void abortOnCooldown(DhanAuthRejectedException ex) {
+        if (ex.rateLimited()) {
+            Assumptions.assumeTrue(false, ex.getMessage());
+            throw new AssertionError("unreachable");
         }
     }
 }

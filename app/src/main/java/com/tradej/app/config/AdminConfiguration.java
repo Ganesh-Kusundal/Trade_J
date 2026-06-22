@@ -6,9 +6,11 @@ import com.tradej.core.domain.port.EventBus;
 import com.tradej.core.domain.port.NetPositionProvider;
 import com.tradej.core.domain.runtime.RuntimeMode;
 import com.tradej.core.domain.runtime.RuntimeModeHolder;
+import com.tradej.core.domain.reconcile.ReconciliationPolicy;
 import com.tradej.execution.reconcile.OrderReconciler;
 import com.tradej.execution.reconcile.ReconciliationAlertLogger;
 import com.tradej.execution.reconcile.ReconciliationScheduler;
+import com.tradej.execution.reconcile.ReconciliationUseCase;
 import com.tradej.execution.risk.DailyRiskResetScheduler;
 import com.tradej.execution.risk.PositionRiskHandler;
 import com.tradej.persistence.oms.EventSourcedOrderRepository;
@@ -72,17 +74,21 @@ public class AdminConfiguration {
         TradingProperties.ReconciliationProperties reconf = properties.reconciliation();
         return new ReconciliationAlertLogger(
                 eventBus,
-                reconf.autoHalt(),
-                reconf.mismatchToleranceQty());
+                new ReconciliationPolicy(reconf.autoHalt(), reconf.mismatchToleranceQty()));
     }
 
     @Bean
-    ReconciliationScheduler reconciliationScheduler(
+    ReconciliationUseCase reconciliationUseCase(
             OrderReconciler orderReconciler,
             EventBus eventBus,
             NetPositionProvider netPositionProvider
     ) {
-        return new ReconciliationScheduler(orderReconciler, eventBus, netPositionProvider);
+        return new ReconciliationUseCase(orderReconciler, eventBus, netPositionProvider);
+    }
+
+    @Bean
+    ReconciliationScheduler reconciliationScheduler(ReconciliationUseCase reconciliationUseCase) {
+        return new ReconciliationScheduler(reconciliationUseCase);
     }
 
     @Bean

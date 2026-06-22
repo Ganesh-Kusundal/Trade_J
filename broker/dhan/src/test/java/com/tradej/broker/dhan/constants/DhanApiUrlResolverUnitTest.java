@@ -18,7 +18,10 @@ class DhanApiUrlResolverUnitTest {
         assertEquals("https://api.dhan.co/v2/orders/ord-1", resolver.orderUrl("ord-1"));
         assertEquals("https://api.dhan.co/v2/trades", resolver.tradesUrl());
         assertEquals("https://api.dhan.co/v2/fundlimit", resolver.fundLimitUrl());
+        assertEquals("https://api.dhan.co/v2/profile", resolver.profileUrl());
         assertEquals("https://api.dhan.co/v2/optionchain", resolver.optionChainUrl());
+        assertEquals("https://api.dhan.co/v2/marketfeed/ohlc", resolver.marketFeedOhlcUrl());
+        assertEquals("https://api.dhan.co/v2/margincalculator", resolver.marginCalculatorUrl());
     }
 
     @Test

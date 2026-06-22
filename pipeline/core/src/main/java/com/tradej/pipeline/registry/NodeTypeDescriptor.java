@@ -26,6 +26,13 @@ public record NodeTypeDescriptor(
         Function<PipelineNodeDef, PipelineNode> factory
 ) {
 
+    public PipelineNode create(PipelineNodeDef definition) {
+        if (factory == null) {
+            throw new IllegalStateException("Node type '" + typeId + "' has no factory");
+        }
+        return factory.apply(definition);
+    }
+
     public record EventType(Class<? extends DomainEvent> type, String description) {
     }
 

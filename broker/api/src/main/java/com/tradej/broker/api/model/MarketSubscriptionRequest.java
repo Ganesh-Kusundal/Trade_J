@@ -8,6 +8,6 @@ public record MarketSubscriptionRequest(
         ExchangeSegment exchangeSegment
 ) {
     public InstrumentKey key() {
-        return new InstrumentKey(symbol, exchangeSegment);
+        return InstrumentKey.of(symbol, exchangeSegment);
     }
 }

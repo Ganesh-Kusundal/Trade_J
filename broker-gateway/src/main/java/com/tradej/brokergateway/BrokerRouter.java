@@ -102,7 +102,7 @@ public final class BrokerRouter {
                             "ICICI: 1s/1m/5m/30m/1d",
                             "Upstox: 1m/30m/1d/week/month"));
         }
-        InstrumentKey key = new InstrumentKey(symbol, segment);
+        InstrumentKey key = InstrumentKey.of(symbol, segment);
         CandleHistoryRequest request = new CandleHistoryRequest(key, interval, from, to);
         Exception lastError = null;
         for (BrokerSource source : candidates) {

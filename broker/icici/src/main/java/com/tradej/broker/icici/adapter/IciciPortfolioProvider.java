@@ -117,7 +117,7 @@ public final class IciciPortfolioProvider implements PortfolioProvider {
     private Position resolvePosition(Position pos) {
         try {
             Instrument instrument = instrumentResolver.resolve(
-                    new InstrumentKey(pos.symbol(), pos.exchangeSegment()));
+                    InstrumentKey.of(pos.symbol(), pos.exchangeSegment()));
             if (instrument != null) {
                 return new Position(
                         instrument.canonicalSymbol(), instrument.exchangeSegment(),
@@ -132,7 +132,7 @@ public final class IciciPortfolioProvider implements PortfolioProvider {
     private Holding resolveHolding(Holding h) {
         try {
             Instrument instrument = instrumentResolver.resolve(
-                    new InstrumentKey(h.symbol(), h.exchangeSegment()));
+                    InstrumentKey.of(h.symbol(), h.exchangeSegment()));
             if (instrument != null) {
                 return new Holding(
                         instrument.canonicalSymbol(), instrument.exchangeSegment(),

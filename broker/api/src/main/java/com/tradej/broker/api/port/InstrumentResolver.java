@@ -1,7 +1,7 @@
 package com.tradej.broker.api.port;
 
 import com.tradej.broker.api.annotation.BrokerInternal;
-import com.tradej.core.domain.instrument.ContractSymbolNormalizer;
+import com.tradej.core.domain.instrument.StandardInstrumentIdentityService;
 import com.tradej.core.domain.model.Instrument;
 import com.tradej.core.domain.model.InstrumentKey;
 import com.tradej.core.domain.value.ExchangeSegment;
@@ -27,7 +27,7 @@ public interface InstrumentResolver {
         if (instrument != null) {
             return instrument.canonicalSymbol();
         }
-        return ContractSymbolNormalizer.normalize(symbol);
+        return StandardInstrumentIdentityService.INSTANCE.canonicalSymbol(symbol);
     }
 
     List<Instrument> allInstruments();

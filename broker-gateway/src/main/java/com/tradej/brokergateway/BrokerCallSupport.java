@@ -1,6 +1,7 @@
 package com.tradej.brokergateway;
 
 import com.tradej.broker.api.IBrokerConnection;
+import com.tradej.broker.api.capability.BrokerCapabilityRouter;
 import com.tradej.broker.api.port.InstrumentResolver;
 import com.tradej.brokergateway.result.BrokerSource;
 import com.tradej.brokergateway.result.GatewayResult;
@@ -25,23 +26,22 @@ import java.util.function.Supplier;
 public final class BrokerCallSupport {
 
     private final BrokerSource source;
-    private final IBrokerConnection connection;
+    private final BrokerCapabilityRouter capabilityRouter;
     private final InstrumentResolver instruments;
 
     public BrokerCallSupport(BrokerSource source, IBrokerConnection connection) {
         this.source = source;
-        this.connection = connection;
+        this.capabilityRouter = BrokerCapabilityRouter.named(source.name(), connection);
         this.instruments = connection.instruments();
     }
 
     public BrokerSource source() { return source; }
-    public IBrokerConnection connection() { return connection; }
+    public IBrokerConnection connection() { return capabilityRouter.connection(); }
+    public BrokerCapabilityRouter capabilityRouter() { return capabilityRouter; }
     public InstrumentResolver instruments() { return instruments; }
 
     public <T> T requireCapability(Class<T> capabilityClass, String featureName) {
-        return connection.getCapability(capabilityClass)
-                .orElseThrow(() -> new UnsupportedOperationException(
-                        source + " does not support " + featureName));
+        return capabilityRouter.require(capabilityClass, featureName);
     }
 
     public InstrumentKey resolveKey(String symbol, ExchangeSegment segment) {

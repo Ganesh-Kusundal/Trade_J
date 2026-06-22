@@ -73,9 +73,20 @@ public final class DhanOrderQueryAdapter implements OrderQuery {
 
     @Override
     public List<Order> getOrderBook() {
-        return context.execute(ApiCategory.ORDER, "get-order-book",
-                () -> restOrderClient.getOrders().stream().map(this::resolveOrder).toList()
-        );
+        return context.execute(ApiCategory.ORDER, "get-order-book", () -> {
+            if (settings.isSandbox()) {
+                return restOrderClient.getOrders().stream().map(this::resolveOrder).toList();
+            }
+            List<Object> rawOrders = restOrderClient.fetchOrdersViaApi(settings);
+            return rawOrders.stream()
+                    .map(raw -> {
+                        DhanJsonResponse response = DhanJsonMapper.wrap(raw);
+                        DhanInstrumentDefinition definition = context.resolvePayload(response.raw());
+                        return DhanJsonMapper.toOrder(response, definition.toInstrument());
+                    })
+                    .map(this::resolveOrder)
+                    .toList();
+        });
     }
 
     @Override

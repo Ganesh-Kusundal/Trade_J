@@ -7,8 +7,10 @@ import com.tradej.core.domain.model.OrderRequest;
  * Cover order — an intraday order with a mandatory stop-loss leg.
  * The stop-loss is placed automatically when the primary order is executed.
  *
- * <p>Supported by: Dhan (as "Super Order"), some other Indian brokers.
- * Not supported by: Upstox, ICICI.
+ * <p>Supported only by brokers that expose a true cover-order API.
+ * Dhan super orders are exposed through {@link BracketOrderProvider} instead
+ * because they require target-leg semantics that do not match this contract.
+ * Not supported by: Dhan, Upstox, ICICI.
  */
 public interface CoverOrderProvider {
 

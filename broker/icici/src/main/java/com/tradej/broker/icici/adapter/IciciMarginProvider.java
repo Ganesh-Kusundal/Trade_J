@@ -29,7 +29,7 @@ public final class IciciMarginProvider implements MarginProvider {
     @Override
     public MarginEstimate estimateMargin(MarginEstimateRequest request) {
         BreezeInstrumentDefinition definition = instrumentResolver.requireBreezeDefinition(
-                new InstrumentKey(request.symbol(), request.exchangeSegment()));
+                InstrumentKey.of(request.symbol(), request.exchangeSegment()));
         ObjectNode payload = mapper.toPlaceOrderPayload(
                 new com.tradej.core.domain.model.OrderRequest(
                         request.symbol(),

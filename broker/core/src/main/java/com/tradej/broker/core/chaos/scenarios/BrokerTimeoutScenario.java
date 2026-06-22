@@ -24,7 +24,7 @@ public final class BrokerTimeoutScenario implements ChaosScenario {
 
     @Override
     public void apply(IBrokerConnection connection, ChaosContext context) {
-        InstrumentKey key = new InstrumentKey("RELIANCE", ExchangeSegment.NSE_EQ);
+        InstrumentKey key = InstrumentKey.of("RELIANCE", ExchangeSegment.NSE_EQ);
         for (int i = 0; i < requestCount; i++) {
             long start = System.currentTimeMillis();
             try {

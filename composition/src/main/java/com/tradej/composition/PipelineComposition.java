@@ -1,6 +1,9 @@
 package com.tradej.composition;
 
 import com.tradej.core.domain.port.FeatureStore;
+import com.tradej.core.domain.config.TradeDefaults;
+import com.tradej.core.domain.runtime.ExecutionModePolicy;
+import com.tradej.core.domain.runtime.RuntimeMode;
 import com.tradej.execution.risk.PositionRiskHandler;
 import com.tradej.execution.service.ExecutionHandler;
 import com.tradej.persistence.pipeline.DuckDbPipelineGraphStore;
@@ -56,7 +59,28 @@ public final class PipelineComposition {
             ScanEngine scanEngine,
             Map<String, ScanProfile> scanProfilesById
     ) {
-        VirtualClock virtualClock = new VirtualClock(VirtualClock.Mode.LIVE);
+        return create(positionRiskHandler, candleAggregationService, graphStrategySandbox,
+                executionHandler, portfolioEngine, hotPathFeatureStore,
+                pipelineGraphStore, scanEngine, scanProfilesById, TradeDefaults.RUNTIME_MODE);
+    }
+
+    public static PipelineComposition create(
+            PositionRiskHandler positionRiskHandler,
+            CandleAggregationService candleAggregationService,
+            GraphStrategySandbox graphStrategySandbox,
+            ExecutionHandler executionHandler,
+            PortfolioEngine portfolioEngine,
+            FeatureStore hotPathFeatureStore,
+            DuckDbPipelineGraphStore pipelineGraphStore,
+            ScanEngine scanEngine,
+            Map<String, ScanProfile> scanProfilesById,
+            RuntimeMode runtimeMode
+    ) {
+        ExecutionModePolicy policy = ExecutionModePolicy.forMode(runtimeMode);
+        VirtualClock.Mode clockMode = policy.usesDeterministicClock()
+                ? VirtualClock.Mode.REPLAY
+                : VirtualClock.Mode.LIVE;
+        VirtualClock virtualClock = new VirtualClock(clockMode);
         ReactorBridge reactorBridge = new ReactorBridge();
         ReactorBridgeMetrics reactorBridgeMetrics = new ReactorBridgeMetrics();
         NodeRegistry nodeRegistry = new NodeRegistry();

@@ -169,6 +169,13 @@ public final class DhanOrderCommandAdapter implements OrderCommand {
     }
 
     @Override
+    public Optional<String> getKillSwitchStatus() {
+        return context.execute(ApiCategory.ORDER, "kill-switch-status",
+                () -> Optional.ofNullable(restOrderClient.getKillSwitchStatusViaApi(settings))
+                        .filter(status -> !status.isBlank()));
+    }
+
+    @Override
     public OrderPreview previewOrder(OrderRequest request) {
         return validator.previewOrder(request);
     }

@@ -40,11 +40,13 @@ public final class DhanBracketOrderAdapter implements BracketOrderProvider {
 
     @Override
     public Order modifySuperOrder(String orderId, String legName, long quantity, long pricePaisa, long triggerPricePaisa) {
-        Object raw = restOrderClient.modifySuperOrderViaApi(orderId, quantity, pricePaisa, triggerPricePaisa, settings);
-        DhanJsonResponse response = DhanJsonMapper.wrap(raw);
-        DhanJsonResponse data = response.has("data") ? response.path("data") : response;
-        DhanInstrumentDefinition definition = context.resolvePayload(data.raw());
-        return DhanJsonMapper.toOrder(data, definition.toInstrument());
+        return context.execute(ApiCategory.ORDER, "modify-super-order", () -> {
+            Object raw = restOrderClient.modifySuperOrderViaApi(orderId, quantity, pricePaisa, triggerPricePaisa, settings);
+            DhanJsonResponse response = DhanJsonMapper.wrap(raw);
+            DhanJsonResponse data = response.has("data") ? response.path("data") : response;
+            DhanInstrumentDefinition definition = context.resolvePayload(data.raw());
+            return DhanJsonMapper.toOrder(data, definition.toInstrument());
+        });
     }
 
     @Override

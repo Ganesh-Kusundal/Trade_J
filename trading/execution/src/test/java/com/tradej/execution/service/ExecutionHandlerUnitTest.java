@@ -541,17 +541,26 @@ class ExecutionHandlerUnitTest {
     // ── Order ID format ───────────────────────────────────────────────────
 
     @Test
-    void generatedOrderIdUsesClockAndSequenceFormat() throws Exception {
-        var method = ExecutionHandler.class.getDeclaredMethod("generateOrderId");
-        method.setAccessible(true);
-        String orderId = (String) method.invoke(handler);
-        String orderId2 = (String) method.invoke(handler);
+    void generatedOrderIdUsesClockAndSequenceFormat() {
+        when(circuitBreaker.allowsRequest()).thenReturn(true);
+        when(orderManagementService.placeOrder(any())).thenReturn(createOrder("EX-001", OrderStatus.OPEN));
 
-        assertTrue(orderId.startsWith("ORD-"),
-                "Order ID must start with ORD-");
-        assertTrue(orderId.matches("ORD-\\d+-\\d+"),
-                "Order ID must be ORD-<epochMs>-<sequence>, got: " + orderId);
-        assertTrue(!orderId.equals(orderId2), "Sequential order IDs must differ");
+        CountDownLatch firstLatch = new CountDownLatch(1);
+        handler.setProcessingLatch(firstLatch);
+        handler.start();
+        handler.onDomainEvent(createSignal("sig-id-1", "SBIN", 100));
+        assertTrue(awaitLatch(firstLatch), "First order did not complete in time");
+
+        CountDownLatch secondLatch = new CountDownLatch(1);
+        handler.setProcessingLatch(secondLatch);
+        handler.onDomainEvent(createSignal("sig-id-2", "SBIN", 100));
+        assertTrue(awaitLatch(secondLatch), "Second order did not complete in time");
+
+        List<String> orderIds = omsRepo.knownOrderIds();
+        assertEquals(2, orderIds.size());
+        assertTrue(orderIds.stream().allMatch(id -> id.matches("ORD-\\d+-\\d+")),
+                "Order IDs must be ORD-<epochMs>-<sequence>, got: " + orderIds);
+        assertTrue(!orderIds.get(0).equals(orderIds.get(1)), "Sequential order IDs must differ");
     }
 
     // ── Lifecycle ───────────────────────────────────────────────────────────

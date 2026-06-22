@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @Tag("unit")
 class CliTradingCommandsTest {
@@ -17,8 +18,8 @@ class CliTradingCommandsTest {
     }
 
     @Test
-    void orderBookReturnsEmptySafely() {
+    void orderBookRequiresConfiguredBrokerCredentials() {
         var cmd = new CliTradingCommands(TestCliContext.create(), new OutputFormatter(false));
-        assertDoesNotThrow(cmd::orderBook);
+        assertThrows(IllegalStateException.class, cmd::orderBook);
     }
 }

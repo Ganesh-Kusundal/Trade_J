@@ -141,8 +141,11 @@ public class DhanAuthClient {
         String status = body.path("status").asText("");
         if ("error".equalsIgnoreCase(status)) {
             String message = body.path("message").asText("unknown error");
-            boolean rateLimited = message.toLowerCase().contains("2 minutes")
-                    || message.toLowerCase().contains("once every");
+            String normalized = message.toLowerCase();
+            boolean rateLimited = normalized.contains("2 minutes")
+                    || normalized.contains("once every")
+                    || normalized.contains("too many attempts")
+                    || normalized.contains("try again after");
             throw new DhanAuthRejectedException("Dhan " + action + " rejected: " + message, rateLimited);
         }
     }

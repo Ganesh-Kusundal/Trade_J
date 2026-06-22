@@ -8,6 +8,7 @@ import com.tradej.analytics.repository.DuckDbRollingOptionHistoricalRepository;
 import com.tradej.analytics.repository.FederatedHistoricalBarRepository;
 import com.tradej.analytics.service.DefaultHistoricalAnalyticsService;
 import com.tradej.broker.api.IBrokerConnection;
+import com.tradej.broker.api.capability.BrokerCapabilityRouter;
 import com.tradej.broker.api.port.InstrumentResolver;
 import com.tradej.broker.api.port.MarketDataProvider;
 import com.tradej.broker.api.port.OptionsProvider;
@@ -361,7 +362,7 @@ public class DataConfiguration {
 
             @Scheduled(fixedDelayString = "${trade.options.chain-poll-interval-ms:60000}")
             public void pollNiftyChain() {
-                brokerConnection.getCapability(OptionsProvider.class).ifPresent(provider -> {
+                BrokerCapabilityRouter.forConnection(brokerConnection).find(OptionsProvider.class).ifPresent(provider -> {
                     try {
                         List<LocalDate> expiries = provider.getExpiries("NIFTY", ExchangeSegment.NSE_FNO);
                         if (expiries.isEmpty()) {

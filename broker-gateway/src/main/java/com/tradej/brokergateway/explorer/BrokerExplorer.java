@@ -1,6 +1,7 @@
 package com.tradej.brokergateway.explorer;
 
 import com.tradej.broker.api.IBrokerConnection;
+import com.tradej.broker.api.capability.BrokerCapabilityRouter;
 import com.tradej.broker.api.port.BracketOrderProvider;
 import com.tradej.broker.api.port.ConditionalAlertProvider;
 import com.tradej.broker.api.port.CoverOrderProvider;
@@ -39,37 +40,38 @@ public final class BrokerExplorer {
      */
     public static BrokerInspectionReport inspect(BrokerHandle broker) {
         IBrokerConnection conn = broker.connection();
+        BrokerCapabilityRouter capabilityRouter = BrokerCapabilityRouter.named(broker.source().name(), conn);
 
         // ── 18 Port Interfaces ──
         Map<String, Boolean> capabilities = new LinkedHashMap<>();
-        capabilities.put("MarketDataProvider", conn.getCapability(MarketDataProvider.class).isPresent());
-        capabilities.put("OptionsProvider", conn.getCapability(OptionsProvider.class).isPresent());
-        capabilities.put("OrderCommand", conn.getCapability(OrderCommand.class).isPresent());
-        capabilities.put("OrderQuery", conn.getCapability(OrderQuery.class).isPresent());
-        capabilities.put("PortfolioProvider", conn.getCapability(PortfolioProvider.class).isPresent());
-        capabilities.put("MarginProvider", conn.getCapability(MarginProvider.class).isPresent());
-        capabilities.put("InstrumentResolver", conn.getCapability(InstrumentResolver.class).isPresent());
-        capabilities.put("WebSocketMultiplexer", conn.getCapability(WebSocketMultiplexer.class).isPresent());
-        capabilities.put("FuturesProvider", conn.getCapability(FuturesProvider.class).isPresent());
-        capabilities.put("BracketOrderProvider", conn.getCapability(BracketOrderProvider.class).isPresent());
-        capabilities.put("CoverOrderProvider", conn.getCapability(CoverOrderProvider.class).isPresent());
-        capabilities.put("GttOrderProvider", conn.getCapability(GttOrderProvider.class).isPresent());
-        capabilities.put("SliceOrderCommand", conn.getCapability(SliceOrderCommand.class).isPresent());
-        capabilities.put("SessionRiskProvider", conn.getCapability(SessionRiskProvider.class).isPresent());
-        capabilities.put("ConditionalAlertProvider", conn.getCapability(ConditionalAlertProvider.class).isPresent());
-        capabilities.put("NewsProvider", conn.getCapability(NewsProvider.class).isPresent());
-        capabilities.put("MarketStatusProvider", conn.getCapability(MarketStatusProvider.class).isPresent());
+        capabilities.put("MarketDataProvider", capabilityRouter.supports(MarketDataProvider.class));
+        capabilities.put("OptionsProvider", capabilityRouter.supports(OptionsProvider.class));
+        capabilities.put("OrderCommand", capabilityRouter.supports(OrderCommand.class));
+        capabilities.put("OrderQuery", capabilityRouter.supports(OrderQuery.class));
+        capabilities.put("PortfolioProvider", capabilityRouter.supports(PortfolioProvider.class));
+        capabilities.put("MarginProvider", capabilityRouter.supports(MarginProvider.class));
+        capabilities.put("InstrumentResolver", capabilityRouter.supports(InstrumentResolver.class));
+        capabilities.put("WebSocketMultiplexer", capabilityRouter.supports(WebSocketMultiplexer.class));
+        capabilities.put("FuturesProvider", capabilityRouter.supports(FuturesProvider.class));
+        capabilities.put("BracketOrderProvider", capabilityRouter.supports(BracketOrderProvider.class));
+        capabilities.put("CoverOrderProvider", capabilityRouter.supports(CoverOrderProvider.class));
+        capabilities.put("GttOrderProvider", capabilityRouter.supports(GttOrderProvider.class));
+        capabilities.put("SliceOrderCommand", capabilityRouter.supports(SliceOrderCommand.class));
+        capabilities.put("SessionRiskProvider", capabilityRouter.supports(SessionRiskProvider.class));
+        capabilities.put("ConditionalAlertProvider", capabilityRouter.supports(ConditionalAlertProvider.class));
+        capabilities.put("NewsProvider", capabilityRouter.supports(NewsProvider.class));
+        capabilities.put("MarketStatusProvider", capabilityRouter.supports(MarketStatusProvider.class));
 
         // ── 6 Capability Marker Interfaces ──
-        capabilities.put("OptionsCapable", conn.getCapability(OptionsProvider.class).isPresent());
-        capabilities.put("FuturesCapable", conn.getCapability(FuturesProvider.class).isPresent());
-        capabilities.put("MarginCapable", conn.getCapability(MarginProvider.class).isPresent());
-        capabilities.put("AlertCapable", conn.getCapability(ConditionalAlertProvider.class).isPresent());
-        capabilities.put("AdvancedOrderCapable", conn.getCapability(BracketOrderProvider.class).isPresent()
-                || conn.getCapability(CoverOrderProvider.class).isPresent()
-                || conn.getCapability(GttOrderProvider.class).isPresent()
-                || conn.getCapability(SliceOrderCommand.class).isPresent());
-        capabilities.put("NewsCapable", conn.getCapability(NewsProvider.class).isPresent());
+        capabilities.put("OptionsCapable", capabilityRouter.supports(OptionsProvider.class));
+        capabilities.put("FuturesCapable", capabilityRouter.supports(FuturesProvider.class));
+        capabilities.put("MarginCapable", capabilityRouter.supports(MarginProvider.class));
+        capabilities.put("AlertCapable", capabilityRouter.supports(ConditionalAlertProvider.class));
+        capabilities.put("AdvancedOrderCapable", capabilityRouter.supports(BracketOrderProvider.class)
+                || capabilityRouter.supports(CoverOrderProvider.class)
+                || capabilityRouter.supports(GttOrderProvider.class)
+                || capabilityRouter.supports(SliceOrderCommand.class));
+        capabilities.put("NewsCapable", capabilityRouter.supports(NewsProvider.class));
 
         Map<String, String> metadata = new LinkedHashMap<>();
         metadata.put("broker", broker.source().name());

@@ -151,14 +151,14 @@ public final class BacktestBrokerConnection implements IBrokerConnection {
 
         @Override
         public Instrument resolveNormalized(String symbol, ExchangeSegment seg) {
-            return toInstrument(new InstrumentKey(symbol, seg));
+            return toInstrument(InstrumentKey.of(symbol, seg));
         }
 
         @Override public List<Instrument> allInstruments() { return List.of(); }
 
         @Override
         public Instrument resolveBySecurityId(String id) {
-            return toInstrument(new InstrumentKey(id, ExchangeSegment.NSE_EQ));
+            return toInstrument(InstrumentKey.of(id, ExchangeSegment.NSE_EQ));
         }
 
         @Override public Instrument requireDefinition(InstrumentKey key) { return toInstrument(key); }
@@ -180,7 +180,7 @@ public final class BacktestBrokerConnection implements IBrokerConnection {
             String id = "BT-" + orderSeq.incrementAndGet();
             long fillPrice = request.pricePaisa() > 0
                     ? request.pricePaisa()
-                    : marketData.getLtpPaisa(new InstrumentKey(request.symbol(), request.exchangeSegment()));
+                    : marketData.getLtpPaisa(InstrumentKey.of(request.symbol(), request.exchangeSegment()));
 
             tradeHistory.add(new TradeRecord(
                     id, request.symbol(), request.side().name(),

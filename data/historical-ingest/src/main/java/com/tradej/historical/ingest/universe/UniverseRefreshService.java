@@ -1,7 +1,7 @@
 package com.tradej.historical.ingest.universe;
 
 import com.tradej.broker.api.port.InstrumentResolver;
-import com.tradej.core.domain.instrument.ContractSymbolNormalizer;
+import com.tradej.core.domain.instrument.StandardInstrumentIdentityService;
 import com.tradej.core.domain.model.InstrumentKey;
 import com.tradej.core.domain.value.ExchangeSegment;
 import org.slf4j.Logger;
@@ -34,8 +34,8 @@ public final class UniverseRefreshService {
         List<String> unresolved = new ArrayList<>();
         List<Nifty500Constituent> resolved = new ArrayList<>();
         for (Nifty500Constituent constituent : fetched) {
-            String symbol = ContractSymbolNormalizer.normalize(constituent.symbol());
-            InstrumentKey key = new InstrumentKey(symbol, ExchangeSegment.NSE_EQ);
+            InstrumentKey key = StandardInstrumentIdentityService.INSTANCE.equity(constituent.symbol());
+            String symbol = key.symbol();
             if (instrumentResolver.resolve(key) == null) {
                 unresolved.add(symbol);
                 continue;

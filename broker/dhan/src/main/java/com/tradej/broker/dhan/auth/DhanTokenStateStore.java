@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.Optional;
 
 public class DhanTokenStateStore {
@@ -47,7 +48,13 @@ public class DhanTokenStateStore {
             if (parent != null) {
                 Files.createDirectories(parent);
             }
-            objectMapper.writerWithDefaultPrettyPrinter().writeValue(path.toFile(), state);
+            Path tempFile = path.resolveSibling(path.getFileName() + ".tmp");
+            Files.writeString(tempFile, objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(state));
+            try {
+                Files.move(tempFile, path, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+            } catch (IOException ex) {
+                Files.move(tempFile, path, StandardCopyOption.REPLACE_EXISTING);
+            }
         } catch (IOException ex) {
             throw new IllegalStateException("Failed to persist Dhan token state to " + path, ex);
         }

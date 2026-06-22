@@ -6,6 +6,7 @@ import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import com.tradej.core.domain.event.EventMetadata;
 import com.tradej.core.domain.event.PositionMismatch;
+import com.tradej.core.domain.reconcile.ReconciliationPolicy;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -25,7 +26,7 @@ class ReconciliationAlertLoggerUnitTest {
 
     @BeforeEach
     void setUp() {
-        handler = new ReconciliationAlertLogger(null, false, 0L);
+        handler = new ReconciliationAlertLogger(null, new ReconciliationPolicy(false, 0L));
 
         // Capture log output from the handler's logger
         logger = (Logger) LoggerFactory.getLogger(ReconciliationAlertLogger.class);

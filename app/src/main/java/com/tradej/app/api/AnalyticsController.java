@@ -1,7 +1,7 @@
 package com.tradej.app.api;
 
 import com.tradej.app.config.TradingProperties;
-import com.tradej.core.domain.instrument.ContractSymbolNormalizer;
+import com.tradej.core.domain.instrument.StandardInstrumentIdentityService;
 import com.tradej.core.domain.model.AnalyticsCatalogSnapshot;
 import com.tradej.core.domain.model.AnalyticsQueryResult;
 import com.tradej.core.domain.model.Candle;
@@ -58,9 +58,9 @@ public class AnalyticsController {
             @RequestParam LocalDate to,
             @RequestParam(defaultValue = "5000") int limit
     ) {
-        String normalized = ContractSymbolNormalizer.normalize(symbol);
+        InstrumentKey key = InstrumentKey.of(symbol, exchangeSegment);
         List<Candle> candles = analyticsService.queryEquityCandles(new CandleHistoryRequest(
-                InstrumentKey.of(normalized, exchangeSegment),
+                key,
                 interval,
                 from,
                 to
@@ -69,7 +69,7 @@ public class AnalyticsController {
             candles = candles.subList(0, limit);
         }
         return ResponseEntity.ok(Map.of(
-                "symbol", normalized,
+                "symbol", key.symbol(),
                 "exchangeSegment", exchangeSegment.name(),
                 "interval", interval,
                 "from", from.toString(),
@@ -100,8 +100,9 @@ public class AnalyticsController {
             @RequestParam long to,
             @RequestParam(defaultValue = "1000") int limit
     ) {
+        String canonicalUnderlying = StandardInstrumentIdentityService.INSTANCE.canonicalSymbol(underlying);
         List<RollingOptionBar> bars = analyticsService.queryOptionBars(new RollingOptionSeriesRequest(
-                ContractSymbolNormalizer.normalize(underlying),
+                canonicalUnderlying,
                 expiryKind,
                 expiryCode,
                 strikeOffset,
@@ -112,7 +113,7 @@ public class AnalyticsController {
                 limit
         ));
         return ResponseEntity.ok(Map.of(
-                "underlying", underlying,
+                "underlying", canonicalUnderlying,
                 "expiryKind", expiryKind,
                 "expiryCode", expiryCode,
                 "strikeOffset", strikeOffset,

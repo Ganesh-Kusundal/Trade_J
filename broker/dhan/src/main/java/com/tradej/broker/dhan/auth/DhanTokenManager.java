@@ -20,7 +20,6 @@ import java.util.concurrent.locks.ReentrantLock;
 
 public class DhanTokenManager implements DhanTokenProvider, TokenLifecycleService {
     private static final Logger log = LoggerFactory.getLogger(DhanTokenManager.class);
-    private static final long TOKEN_ACQUISITION_COOLDOWN_MS = 130_000L;
     /** Clock skew tolerance in milliseconds (30 seconds) */
     private static final long CLOCK_SKEW_TOLERANCE_MS = 30_000L;
 
@@ -28,9 +27,9 @@ public class DhanTokenManager implements DhanTokenProvider, TokenLifecycleServic
     private final DhanAuthClient authClient;
     private final DhanTotpGenerator totpGenerator;
     private final DhanTokenStateStore stateStore;
+    private final DhanTokenAcquisitionGate acquisitionGate;
     private final Clock clock;
     private final ReentrantLock refreshLock = new ReentrantLock();
-    private final AtomicLong lastAcquisitionAttemptMs = new AtomicLong(0L);
     private final AtomicLong tokenGeneration = new AtomicLong(0);
 
     private volatile DhanTokenState currentState;
@@ -41,6 +40,7 @@ public class DhanTokenManager implements DhanTokenProvider, TokenLifecycleServic
                 new DhanAuthClient(),
                 new DhanTotpGenerator(),
                 new DhanTokenStateStore(settings.tokenStateFile()),
+                new DhanTokenAcquisitionGate(settings),
                 Clock.systemDefaultZone()
         );
     }
@@ -50,14 +50,26 @@ public class DhanTokenManager implements DhanTokenProvider, TokenLifecycleServic
             DhanAuthClient authClient,
             DhanTotpGenerator totpGenerator,
             DhanTokenStateStore stateStore,
+            DhanTokenAcquisitionGate acquisitionGate,
             Clock clock
     ) {
         this.settings = settings;
         this.authClient = authClient;
         this.totpGenerator = totpGenerator;
         this.stateStore = stateStore;
+        this.acquisitionGate = acquisitionGate;
         this.clock = clock;
         this.currentState = stateStore.load().orElse(null);
+    }
+
+    DhanTokenManager(
+            DhanConnectionSettings settings,
+            DhanAuthClient authClient,
+            DhanTotpGenerator totpGenerator,
+            DhanTokenStateStore stateStore,
+            Clock clock
+    ) {
+        this(settings, authClient, totpGenerator, stateStore, new DhanTokenAcquisitionGate(settings), clock);
     }
 
     @Override
@@ -214,6 +226,15 @@ public class DhanTokenManager implements DhanTokenProvider, TokenLifecycleServic
             }
         }
 
+        DhanTokenState storedState = stateStore.load().orElse(null);
+        if (storedState != null && !sameToken(storedState, currentState)) {
+            DhanTokenState confirmed = confirmExistingState(storedState, now);
+            if (confirmed != null) {
+                currentState = confirmed;
+                return persist(confirmed);
+            }
+        }
+
         DhanTokenState adoptedBootstrap = adoptBootstrapToken(now);
         if (adoptedBootstrap != null) {
             return persist(adoptedBootstrap);
@@ -263,28 +284,50 @@ public class DhanTokenManager implements DhanTokenProvider, TokenLifecycleServic
     }
 
     private DhanTokenState generateFreshToken(long now) {
-        long lastAttempt = lastAcquisitionAttemptMs.get();
-        if (lastAttempt > 0 && now - lastAttempt < TOKEN_ACQUISITION_COOLDOWN_MS) {
-            throw new DhanAuthRejectedException(
-                    "Dhan token generation cooldown active; retry after "
-                            + ((TOKEN_ACQUISITION_COOLDOWN_MS - (now - lastAttempt)) / 1000) + "s",
-                    true);
-        }
-        lastAcquisitionAttemptMs.set(now);
         return switch (settings.authMode()) {
-            case TOTP_GENERATED -> authClient.generateViaTotp(
-                    settings.clientId(),
-                    readSecret(settings.pinFile(), "pin"),
-                    totpGenerator.currentCode(readSecret(settings.totpSecretFile(), "totp secret"))
-            );
+            case TOTP_GENERATED -> acquisitionGate.acquire("generate-dhan-token", () -> {
+                DhanTokenState reusableState = loadReusableStoredState(now);
+                if (reusableState != null) {
+                    return reusableState;
+                }
+                DhanTokenState generated = authClient.generateViaTotp(
+                        settings.clientId(),
+                        readSecret(settings.pinFile(), "pin"),
+                        totpGenerator.currentCode(readSecret(settings.totpSecretFile(), "totp secret"))
+                );
+                currentState = generated;
+                stateStore.save(generated);
+                return generated;
+            });
             case WEB_RENEWABLE -> {
                 if (currentState == null || currentState.accessToken() == null || currentState.accessToken().isBlank()) {
                     throw new IllegalStateException("Cannot renew Dhan token without an active current token");
                 }
-                yield authClient.renewToken(settings.clientId(), currentState.accessToken());
+                yield acquisitionGate.acquire("renew-dhan-token", () -> {
+                    DhanTokenState reusableState = loadReusableStoredState(now);
+                    if (reusableState != null) {
+                        return reusableState;
+                    }
+                    DhanTokenState renewed = authClient.renewToken(settings.clientId(), currentState.accessToken());
+                    currentState = renewed;
+                    stateStore.save(renewed);
+                    return renewed;
+                });
             }
             case STATIC -> new DhanTokenState(requireBootstrapToken(), Long.MAX_VALUE, now, "STATIC");
         };
+    }
+
+    private DhanTokenState loadReusableStoredState(long now) {
+        DhanTokenState storedState = stateStore.load().orElse(null);
+        if (storedState == null) {
+            return null;
+        }
+        DhanTokenState confirmed = confirmExistingState(storedState, now);
+        if (confirmed != null) {
+            currentState = confirmed;
+        }
+        return confirmed;
     }
 
     private DhanTokenState persist(DhanTokenState state) {
@@ -303,6 +346,13 @@ public class DhanTokenManager implements DhanTokenProvider, TokenLifecycleServic
                 && state.accessToken() != null
                 && !state.accessToken().isBlank()
                 && state.expiryEpochMs() > now + settings.refreshBufferMillis() + CLOCK_SKEW_TOLERANCE_MS;
+    }
+
+    private boolean sameToken(DhanTokenState left, DhanTokenState right) {
+        if (left == null || right == null) {
+            return false;
+        }
+        return left.accessToken() != null && left.accessToken().equals(right.accessToken());
     }
 
     private String requireBootstrapToken() {

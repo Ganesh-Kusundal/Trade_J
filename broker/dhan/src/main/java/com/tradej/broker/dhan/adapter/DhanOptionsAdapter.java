@@ -242,7 +242,7 @@ public final class DhanOptionsAdapter implements OptionsProvider {
         }
         for (ExchangeSegment candidate : lookupSegments(exchangeSegment)) {
             try {
-                return resolver.requireDhanDefinition(new InstrumentKey(underlying, candidate));
+                return resolver.requireDhanDefinition(InstrumentKey.of(underlying, candidate));
             } catch (IllegalArgumentException ignored) {
                 // try next venue
             }

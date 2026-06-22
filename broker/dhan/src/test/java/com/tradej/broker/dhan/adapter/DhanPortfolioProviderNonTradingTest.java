@@ -215,7 +215,7 @@ class DhanPortfolioProviderNonTradingTest {
         @Test
         @DisplayName("returns profile info")
         void returnsProfileInfo() {
-            when(apiUrlResolver.profileUrl()).thenReturn("https://api.dhan.co/v2/fundlimit/userprofile");
+            when(apiUrlResolver.profileUrl()).thenReturn("https://api.dhan.co/v2/profile");
 
             ObjectNode data = MAPPER.createObjectNode();
             data.put("dhanClientId", "2505162156");
@@ -238,13 +238,13 @@ class DhanPortfolioProviderNonTradingTest {
             assertEquals("Valid", profile.tokenValidity());
             assertEquals("500000", profile.ddpi());
             assertEquals("100000", profile.mtf());
-            verify(httpClient, times(1)).getJson("https://api.dhan.co/v2/fundlimit/userprofile");
+            verify(httpClient, times(1)).getJson("https://api.dhan.co/v2/profile");
         }
 
         @Test
         @DisplayName("handles minimal profile response with missing fields")
         void handlesMinimalResponse() {
-            when(apiUrlResolver.profileUrl()).thenReturn("https://api.dhan.co/v2/fundlimit/userprofile");
+            when(apiUrlResolver.profileUrl()).thenReturn("https://api.dhan.co/v2/profile");
 
             ObjectNode data = MAPPER.createObjectNode();
             data.put("dhanClientId", "2505162156");

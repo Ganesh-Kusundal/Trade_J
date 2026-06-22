@@ -51,10 +51,9 @@ public final class UpstoxOrderCommandAdapter implements OrderCommand {
 
     @Override
     public Order placeOrder(OrderRequest request) {
-        Instrument instrument = instrumentResolver.resolve(
-                new InstrumentKey(request.symbol(), request.exchangeSegment()));
-        String instrumentKey = instrumentResolver.requireInstrumentKey(
-                new InstrumentKey(request.symbol(), request.exchangeSegment()));
+        InstrumentKey key = InstrumentKey.of(request.symbol(), request.exchangeSegment());
+        Instrument instrument = instrumentResolver.resolve(key);
+        String instrumentKey = instrumentResolver.requireInstrumentKey(key);
         Map<String, Object> payload = mapper.toPlaceOrderPayload(request, instrumentKey);
         var response = restClient.placeOrder(payload);
         return mapper.toOrder(response, request, instrument);
@@ -63,7 +62,7 @@ public final class UpstoxOrderCommandAdapter implements OrderCommand {
     @Override
     public Order modifyOrder(ModifyOrderRequest request) {
         Instrument instrument = instrumentResolver.resolve(
-                new InstrumentKey(request.symbol(), request.exchangeSegment()));
+                InstrumentKey.of(request.symbol(), request.exchangeSegment()));
         Map<String, Object> payload = mapper.toModifyOrderPayload(request);
         var response = restClient.modifyOrder(payload);
         return mapper.toOrder(response, null, instrument);
@@ -119,7 +118,7 @@ public final class UpstoxOrderCommandAdapter implements OrderCommand {
                     ExchangeSegment segment = UpstoxDomainMapper.parseSegment(pos);
                     String instrumentKey;
                     try {
-                        instrumentKey = instrumentResolver.requireInstrumentKey(new InstrumentKey(symbol, segment));
+                        instrumentKey = instrumentResolver.requireInstrumentKey(InstrumentKey.of(symbol, segment));
                     } catch (Exception e) {
                         continue;
                     }

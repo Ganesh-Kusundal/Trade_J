@@ -2,7 +2,6 @@ package com.tradej.broker.upstox.adapter;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.tradej.broker.api.port.OptionsProvider;
-import com.tradej.core.domain.instrument.ContractSymbolNormalizer;
 import com.tradej.core.domain.model.Instrument;
 import com.tradej.core.domain.model.InstrumentKey;
 import com.tradej.core.domain.model.OptionChainEntry;
@@ -37,10 +36,7 @@ public final class UpstoxOptionsProvider implements OptionsProvider {
 
     @Override
     public List<LocalDate> getExpiries(String underlying, ExchangeSegment segment) {
-        String instrumentKey = instrumentResolver.requireInstrumentKey(new InstrumentKey(
-                ContractSymbolNormalizer.normalize(underlying),
-                segment
-        ));
+        String instrumentKey = instrumentResolver.requireInstrumentKey(InstrumentKey.of(underlying, segment));
         JsonNode root = restClient.getExpiries(instrumentKey);
         List<LocalDate> expiries = new ArrayList<>();
         JsonNode data = root.get("data");
@@ -64,10 +60,7 @@ public final class UpstoxOptionsProvider implements OptionsProvider {
 
     @Override
     public OptionChainSnapshot getOptionChain(String underlying, ExchangeSegment segment, LocalDate expiry) {
-        String instrumentKey = instrumentResolver.requireInstrumentKey(new InstrumentKey(
-                ContractSymbolNormalizer.normalize(underlying),
-                segment
-        ));
+        String instrumentKey = instrumentResolver.requireInstrumentKey(InstrumentKey.of(underlying, segment));
         JsonNode root = restClient.getOptionChain(instrumentKey, expiry.format(DATE_FMT));
         JsonNode data = root.get("data");
         if (data == null) {
@@ -118,7 +111,7 @@ public final class UpstoxOptionsProvider implements OptionsProvider {
     }
 
     private Instrument resolveUnderlying(String underlying, ExchangeSegment segment) {
-        var resolved = instrumentResolver.resolve(new InstrumentKey(underlying, segment));
+        var resolved = instrumentResolver.resolve(InstrumentKey.of(underlying, segment));
         if (resolved != null) {
             return resolved;
         }

@@ -36,6 +36,11 @@ class PriceMathTest {
     }
 
     @Test
+    void toPaisa_doubleUsesCanonicalHalfUpRounding() {
+        assertEquals(100_01L, PriceMath.toPaisa(100.005d));
+    }
+
+    @Test
     void toPaisa_nullString_returnsZero() {
         assertEquals(0L, PriceMath.toPaisa((String) null));
         assertEquals(0L, PriceMath.toPaisa(""));

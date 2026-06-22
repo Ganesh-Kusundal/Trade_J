@@ -61,7 +61,7 @@ public final class IciciOptionsProvider implements OptionsProvider {
     @Override
     public OptionChainSnapshot getOptionChain(String underlying, ExchangeSegment exchangeSegment, LocalDate expiry) {
         BreezeInstrumentDefinition definition = instrumentResolver.requireBreezeDefinition(
-                new InstrumentKey(underlying, exchangeSegment));
+                InstrumentKey.of(underlying, exchangeSegment));
         JsonNode chain = restClient.getOptionChain(mapper.toOptionChainPayload(definition, expiry));
         Instrument underlyingInst = definition.toInstrument();
         List<OptionChainEntry> strikes = new ArrayList<>();

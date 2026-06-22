@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tradej.composition.config.ScanProperties;
 import com.tradej.core.domain.model.InstrumentKey;
 import com.tradej.core.domain.port.HistoricalBarRepository;
+import com.tradej.core.domain.runtime.RuntimeModeHolder;
 import com.tradej.core.domain.value.ExchangeSegment;
 import com.tradej.institutional.InstitutionalScanEngine;
 import com.tradej.institutional.model.InstitutionalScanResult;
@@ -50,17 +51,51 @@ public final class ScanService {
             GatewayTopicRouter gatewayRouter,
             ObjectMapper objectMapper,
             InstitutionalScanEngine institutionalScanEngine,
-            HistoricalBarRepository historicalBarRepository
+            HistoricalBarRepository historicalBarRepository,
+            RuntimeModeHolder runtimeModeHolder
     ) {
         this.scanProperties = scanProperties;
         this.scanEngine = new ScanEngine(scanDependencies);
         this.optionLiquidityScanner = new OptionLiquidityScanner(scanDependencies.optionsProvider());
-        this.institutionalScanEngine = institutionalScanEngine != null ? institutionalScanEngine : new com.tradej.institutional.NoOpInstitutionalScanEngine();
-        this.historicalBarRepository = historicalBarRepository != null ? historicalBarRepository : new com.tradej.core.domain.port.NoOpHistoricalBarRepository();
+        this.institutionalScanEngine = resolveInstitutionalScanEngine(institutionalScanEngine, scanProperties, runtimeModeHolder);
+        this.historicalBarRepository = resolveHistoricalBarRepository(historicalBarRepository, scanProperties, runtimeModeHolder);
         this.scanStore = scanStore;
         this.subscriptionManager = subscriptionManager;
         this.gatewayRouter = gatewayRouter != null ? gatewayRouter : new com.tradej.gateway.router.NoOpGatewayTopicRouter();
         this.objectMapper = objectMapper;
+    }
+
+    private static InstitutionalScanEngine resolveInstitutionalScanEngine(
+            InstitutionalScanEngine institutionalScanEngine,
+            ScanProperties scanProperties,
+            RuntimeModeHolder runtimeModeHolder
+    ) {
+        if (institutionalScanEngine != null) {
+            return institutionalScanEngine;
+        }
+        if (requiresHistoricalScan(scanProperties) && !runtimeModeHolder.policy().permitsFallbackInfrastructure()) {
+            throw new IllegalStateException("LIVE mode requires InstitutionalScanEngine for PARQUET_HISTORICAL scan profiles");
+        }
+        return new com.tradej.institutional.NoOpInstitutionalScanEngine();
+    }
+
+    private static HistoricalBarRepository resolveHistoricalBarRepository(
+            HistoricalBarRepository historicalBarRepository,
+            ScanProperties scanProperties,
+            RuntimeModeHolder runtimeModeHolder
+    ) {
+        if (historicalBarRepository != null) {
+            return historicalBarRepository;
+        }
+        if (requiresHistoricalScan(scanProperties) && !runtimeModeHolder.policy().permitsFallbackInfrastructure()) {
+            throw new IllegalStateException("LIVE mode requires HistoricalBarRepository for PARQUET_HISTORICAL scan profiles");
+        }
+        return new com.tradej.core.domain.port.NoOpHistoricalBarRepository();
+    }
+
+    private static boolean requiresHistoricalScan(ScanProperties scanProperties) {
+        return scanProperties.profiles().stream()
+                .anyMatch(profile -> profile.mode() == ScanMode.PARQUET_HISTORICAL);
     }
 
     public ScanResult runProfile(String profileId) {

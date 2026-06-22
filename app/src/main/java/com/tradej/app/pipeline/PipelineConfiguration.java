@@ -1,6 +1,7 @@
 package com.tradej.app.pipeline;
 
 import com.tradej.core.domain.port.FeatureStore;
+import com.tradej.core.domain.runtime.RuntimeModeHolder;
 import com.tradej.core.domain.time.TradingClock;
 import com.tradej.execution.risk.PositionRiskHandler;
 import com.tradej.execution.service.ExecutionHandler;
@@ -44,8 +45,11 @@ public class PipelineConfiguration {
     private static final List<String> DEFAULT_DAG_GRAPH_IDS = List.of("scanner-default", "scanner-tick-default");
 
     @Bean
-    VirtualClock virtualClock() {
-        return new VirtualClock(VirtualClock.Mode.LIVE);
+    VirtualClock virtualClock(RuntimeModeHolder runtimeModeHolder) {
+        VirtualClock.Mode clockMode = runtimeModeHolder.policy().usesDeterministicClock()
+                ? VirtualClock.Mode.REPLAY
+                : VirtualClock.Mode.LIVE;
+        return new VirtualClock(clockMode);
     }
 
     @Bean

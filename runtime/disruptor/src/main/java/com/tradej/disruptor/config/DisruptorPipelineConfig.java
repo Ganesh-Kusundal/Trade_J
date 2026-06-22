@@ -1,5 +1,7 @@
 package com.tradej.disruptor.config;
 
+import com.tradej.core.domain.config.TradeDefaults;
+import com.tradej.core.domain.event.EventDeliveryPolicy;
 import com.tradej.core.domain.port.DeadLetterQueue;
 import com.tradej.core.domain.port.FeatureStore;
 import com.tradej.disruptor.DisruptorEventBus;
@@ -28,7 +30,8 @@ public record DisruptorPipelineConfig(
         PipelineRuntimeBridge pipelineRuntimeBridge,
         boolean compileGraphOnInit,
         com.tradej.core.domain.runtime.RuntimeMode runtimeMode,
-        com.tradej.core.domain.port.EventWriteAheadLog writeAheadLog
+        com.tradej.core.domain.port.EventWriteAheadLog writeAheadLog,
+        EventDeliveryPolicy deliveryPolicy
 ) {
     public DisruptorPipelineConfig {
         if (positionRiskHandler == null) {
@@ -42,7 +45,8 @@ public record DisruptorPipelineConfig(
         }
         if (stageTimings == null) stageTimings = StageTimings.NO_OP;
         if (deadLetterQueue == null) deadLetterQueue = DeadLetterQueue.noop();
-        if (runtimeMode == null) runtimeMode = com.tradej.core.domain.runtime.RuntimeMode.LIVE;
+        if (runtimeMode == null) runtimeMode = TradeDefaults.RUNTIME_MODE;
         if (writeAheadLog == null) writeAheadLog = com.tradej.core.domain.port.EventWriteAheadLog.noop();
+        if (deliveryPolicy == null) deliveryPolicy = EventDeliveryPolicy.defaults();
     }
 }

@@ -13,8 +13,9 @@ import com.tradej.composition.config.ScanProperties;
 import com.tradej.core.domain.port.EventBus;
 import com.tradej.execution.position.EventSourcedNetPositionProvider;
 import com.tradej.execution.readmodel.ReadModelStore;
-import com.tradej.execution.reconcile.OrderReconciler;
 import com.tradej.execution.reconcile.ReconciliationAlertLogger;
+import com.tradej.execution.reconcile.ReconciliationUseCase;
+import com.tradej.execution.risk.PositionRiskHandler;
 import com.tradej.execution.service.OrderManagementService;
 import com.tradej.execution.subscription.SubscriptionCoordinator;
 import com.tradej.app.scanner.RuntimeSubscriptionManager;
@@ -65,10 +66,11 @@ public class StartupConfiguration {
             BrokerErrorTracker brokerErrorTracker,
             ReadModelStore readModelStore,
             EventSourcedNetPositionProvider netPositionProvider,
+            PositionRiskHandler positionRiskHandler,
             DagPipelineIngressBridge dagPipelineIngressBridge,
             PositionStateRebuilder positionStateRebuilder,
             OrderManagementService orderManagementService,
-            OrderReconciler orderReconciler
+            ReconciliationUseCase reconciliationUseCase
     ) {
         return new StartupDependencies(
                 properties,
@@ -86,10 +88,11 @@ public class StartupConfiguration {
                 brokerErrorTracker,
                 readModelStore,
                 netPositionProvider,
+                positionRiskHandler,
                 dagPipelineIngressBridge,
                 positionStateRebuilder,
                 orderManagementService,
-                orderReconciler
+                reconciliationUseCase
         );
     }
 

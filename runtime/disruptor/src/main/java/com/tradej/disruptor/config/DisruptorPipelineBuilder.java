@@ -1,5 +1,7 @@
 package com.tradej.disruptor.config;
 
+import com.tradej.core.domain.config.TradeDefaults;
+import com.tradej.core.domain.event.EventDeliveryPolicy;
 import com.tradej.core.domain.port.DeadLetterQueue;
 import com.tradej.core.domain.port.FeatureStore;
 import com.tradej.disruptor.DisruptorEventBus;
@@ -34,8 +36,9 @@ public final class DisruptorPipelineBuilder {
     private DeadLetterQueue deadLetterQueue = DeadLetterQueue.noop();
     private PipelineRuntimeBridge pipelineRuntimeBridge;
     private boolean compileGraphOnInit = true;
-    private com.tradej.core.domain.runtime.RuntimeMode runtimeMode = com.tradej.core.domain.runtime.RuntimeMode.LIVE;
+    private com.tradej.core.domain.runtime.RuntimeMode runtimeMode = TradeDefaults.RUNTIME_MODE;
     private com.tradej.core.domain.port.EventWriteAheadLog writeAheadLog = com.tradej.core.domain.port.EventWriteAheadLog.noop();
+    private EventDeliveryPolicy deliveryPolicy = EventDeliveryPolicy.defaults();
 
     public DisruptorPipelineBuilder positionRiskHandler(PositionRiskHandler positionRiskHandler) {
         this.positionRiskHandler = positionRiskHandler;
@@ -97,6 +100,11 @@ public final class DisruptorPipelineBuilder {
         return this;
     }
 
+    public DisruptorPipelineBuilder deliveryPolicy(EventDeliveryPolicy deliveryPolicy) {
+        this.deliveryPolicy = deliveryPolicy;
+        return this;
+    }
+
     public DisruptorPipelineConfig build() {
         return new DisruptorPipelineConfig(
                 positionRiskHandler,
@@ -110,7 +118,8 @@ public final class DisruptorPipelineBuilder {
                 pipelineRuntimeBridge,
                 compileGraphOnInit,
                 runtimeMode,
-                writeAheadLog
+                writeAheadLog,
+                deliveryPolicy
         );
     }
 

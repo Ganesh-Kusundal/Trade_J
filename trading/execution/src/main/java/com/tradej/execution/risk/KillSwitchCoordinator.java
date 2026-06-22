@@ -1,6 +1,7 @@
 package com.tradej.execution.risk;
 
 import com.tradej.broker.api.IBrokerConnection;
+import com.tradej.broker.api.capability.BrokerCapabilityRouter;
 import com.tradej.broker.api.port.OrderCommand;
 import com.tradej.execution.service.OrderManagementService;
 import org.slf4j.Logger;
@@ -35,7 +36,7 @@ public final class KillSwitchCoordinator {
                 log.warn("Broker kill switch via OMS failed: {}", e.getMessage());
             }
         } else if (brokerConnection != null) {
-            brokerConnection.getCapability(OrderCommand.class).ifPresent(cmd -> {
+            BrokerCapabilityRouter.forConnection(brokerConnection).find(OrderCommand.class).ifPresent(cmd -> {
                 try {
                     cmd.setKillSwitch(true);
                     brokerKillSwitchEngaged = true;
@@ -55,7 +56,7 @@ public final class KillSwitchCoordinator {
                 log.warn("Broker kill switch disengage via OMS failed: {}", e.getMessage());
             }
         } else if (brokerConnection != null && brokerKillSwitchEngaged) {
-            brokerConnection.getCapability(OrderCommand.class).ifPresent(cmd -> {
+            BrokerCapabilityRouter.forConnection(brokerConnection).find(OrderCommand.class).ifPresent(cmd -> {
                 try {
                     cmd.setKillSwitch(false);
                 } catch (Exception e) {

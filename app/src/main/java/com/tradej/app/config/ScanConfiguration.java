@@ -9,6 +9,7 @@ import com.tradej.broker.api.port.WebSocketMultiplexer;
 import com.tradej.broker.core.reconnect.ReconnectListenerRegistry;
 import com.tradej.composition.config.ScanProperties;
 import com.tradej.core.domain.port.HistoricalBarRepository;
+import com.tradej.core.domain.runtime.RuntimeModeHolder;
 import com.tradej.execution.subscription.SubscriptionCoordinator;
 import com.tradej.execution.subscription.SubscriptionManager;
 import com.tradej.execution.subscription.SubscriptionRecoveryManager;
@@ -168,7 +169,8 @@ public class ScanConfiguration {
             @Autowired(required = false) GatewayTopicRouter gatewayRouter,
             ObjectMapper objectMapper,
             @Autowired(required = false) InstitutionalScanEngine institutionalScanEngine,
-            @Autowired(required = false) HistoricalBarRepository historicalBarRepository
+            @Autowired(required = false) HistoricalBarRepository historicalBarRepository,
+            RuntimeModeHolder runtimeModeHolder
     ) {
         return new ScanService(
                 scanProperties,
@@ -178,7 +180,8 @@ public class ScanConfiguration {
                 gatewayRouter,
                 objectMapper,
                 institutionalScanEngine,
-                historicalBarRepository
+                historicalBarRepository,
+                runtimeModeHolder
         );
     }
 }

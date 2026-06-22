@@ -119,13 +119,14 @@ public final class PositionRiskHandler implements DomainEventVisitor {
 
     public void handleReconciliationHalt(ReconciliationHaltRequired halt) {
         reconciliationHalt.set(true);
-        activateKillSwitch("reconciliation_mismatch:" + halt.symbol());
+        activateKillSwitch(halt.reason() + ":" + halt.symbol());
         log.error(
-                "Reconciliation halt symbol={} expected={} broker={} mismatch={}",
+                "Reconciliation halt symbol={} expected={} broker={} mismatch={} reason={}",
                 halt.symbol(),
                 halt.expectedQuantity(),
                 halt.brokerQuantity(),
-                halt.mismatchQuantity());
+                halt.mismatchQuantity(),
+                halt.reason());
     }
 
     public void acknowledgeReconciliationHalt() {

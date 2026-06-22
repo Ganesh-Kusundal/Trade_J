@@ -2,6 +2,7 @@ package com.tradej.composition;
 
 import com.tradej.core.domain.event.EventMetadataFactory;
 import com.tradej.core.domain.time.LiveTradingClock;
+import com.tradej.core.domain.time.MarketTime;
 import com.tradej.core.domain.time.ReplayTradingClock;
 import com.tradej.core.domain.time.TradingClock;
 
@@ -26,13 +27,13 @@ public final class ClockComposition {
     }
 
     public static ClockComposition live() {
-        Clock clock = Clock.systemDefaultZone();
+        Clock clock = Clock.system(MarketTime.IST);
         TradingClock tradingClock = new LiveTradingClock(clock);
         return new ClockComposition(clock, tradingClock, new EventMetadataFactory(tradingClock));
     }
 
     public static ClockComposition replay() {
-        Clock clock = Clock.fixed(Instant.EPOCH, java.time.ZoneId.of("Asia/Kolkata"));
+        Clock clock = Clock.fixed(Instant.EPOCH, MarketTime.IST);
         TradingClock tradingClock = new ReplayTradingClock(Instant.EPOCH);
         return new ClockComposition(clock, tradingClock, new EventMetadataFactory(tradingClock));
     }

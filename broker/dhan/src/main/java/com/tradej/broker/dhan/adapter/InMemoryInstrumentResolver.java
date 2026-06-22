@@ -52,7 +52,7 @@ public final class InMemoryInstrumentResolver implements DhanInstrumentResolver 
 
     @Override
     public DhanInstrumentDefinition requireDhanDefinition(String symbol, ExchangeSegment exchangeSegment) {
-        return catalog.requireDhanDefinition(new InstrumentKey(symbol, exchangeSegment));
+        return catalog.requireDhanDefinition(InstrumentKey.of(symbol, exchangeSegment));
     }
 
     // ---- InstrumentResolver (generic) ----

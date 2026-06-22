@@ -158,7 +158,7 @@ public final class PaperBrokerConnection implements IBrokerConnection {
         @Override
         public OptionChainSnapshot getOptionChain(String underlying, ExchangeSegment segment, LocalDate expiry) {
             long spot = basePrice(underlying);
-            Instrument inst = toInstrument(new InstrumentKey(underlying, segment));
+            Instrument inst = toInstrument(InstrumentKey.of(underlying, segment));
             return new OptionChainSnapshot(inst, expiry, spot, List.of());
         }
 
@@ -307,7 +307,7 @@ public final class PaperBrokerConnection implements IBrokerConnection {
 
         @Override
         public Instrument resolveNormalized(String symbol, ExchangeSegment segment) {
-            return toInstrument(new InstrumentKey(symbol, segment));
+            return toInstrument(InstrumentKey.of(symbol, segment));
         }
 
         @Override
@@ -315,7 +315,7 @@ public final class PaperBrokerConnection implements IBrokerConnection {
 
         @Override
         public Instrument resolveBySecurityId(String securityId) {
-            return toInstrument(new InstrumentKey(securityId, ExchangeSegment.NSE_EQ));
+            return toInstrument(InstrumentKey.of(securityId, ExchangeSegment.NSE_EQ));
         }
 
         @Override
@@ -338,12 +338,12 @@ public final class PaperBrokerConnection implements IBrokerConnection {
     private final FuturesProvider futuresProvider = new FuturesProvider() {
         @Override
         public List<Instrument> getContracts(String underlying, ExchangeSegment segment) {
-            return List.of(toInstrument(new InstrumentKey(underlying + "-FUT", segment)));
+            return List.of(toInstrument(InstrumentKey.of(underlying + "-FUT", segment)));
         }
 
         @Override
         public Instrument getNearestContract(String underlying, ExchangeSegment segment) {
-            return toInstrument(new InstrumentKey(underlying + "-FUT", segment));
+            return toInstrument(InstrumentKey.of(underlying + "-FUT", segment));
         }
 
         @Override

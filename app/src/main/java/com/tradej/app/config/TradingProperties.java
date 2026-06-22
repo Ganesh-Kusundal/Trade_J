@@ -3,11 +3,10 @@ package com.tradej.app.config;
 import com.tradej.broker.dhan.config.DhanAuthMode;
 import com.tradej.broker.icici.config.IciciAuthMode;
 import com.tradej.broker.dhan.config.DhanApiEnvironment;
+import com.tradej.core.domain.config.TradeDefaults;
 import com.tradej.core.domain.runtime.RuntimeMode;
 import com.tradej.core.domain.value.ExchangeSegment;
 import com.tradej.core.domain.value.FeedMode;
-import com.tradej.historical.ingest.importing.HiveCacheImportConfig;
-import com.tradej.historical.ingest.universe.Nifty500UniverseFetcher;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -42,47 +41,49 @@ public record TradingProperties(
 ) {
     public TradingProperties {
         if (runtime == null) {
-            runtime = new RuntimeProperties(RuntimeMode.LIVE);
+            runtime = new RuntimeProperties(TradeDefaults.RUNTIME_MODE);
         }
         if (hotPath == null) {
-            hotPath = new HotPathProperties(0);
+            hotPath = new HotPathProperties(TradeDefaults.HOT_PATH_SHARD_COUNT_AUTO);
         }
         if (universe == null) {
-            universe = new UniverseProperties(0);
+            universe = new UniverseProperties(TradeDefaults.UNIVERSE_MAX_SUBSCRIPTIONS_PER_BATCH_AUTO);
         }
         if (candles == null) {
             candles = new CandleProperties(null);
         }
         if (download == null) {
-            download = new DownloadProperties(0L, 2);
+            download = new DownloadProperties(TradeDefaults.DOWNLOAD_DELAY_MS, TradeDefaults.DOWNLOAD_WORKERS);
         }
         if (sync == null) {
-            sync = new SyncProperties(true, "0 0 16 * * MON-FRI", 3, "NSE_EQ", 50, 500L, false, true);
+            sync = new SyncProperties(true, TradeDefaults.SYNC_CRON_AFTER_MARKET_CLOSE,
+                    TradeDefaults.SYNC_LOOKBACK_MONTHS, TradeDefaults.SYNC_SEGMENT,
+                    TradeDefaults.SYNC_BATCH_SIZE, TradeDefaults.SYNC_DELAY_MS, false, true);
         }
         if (historicalEquity == null) {
             historicalEquity = new HistoricalEquityProperties(
-                    "data/historical-equity",
-                    Nifty500UniverseFetcher.DEFAULT_UNIVERSE_URL,
+                    TradeDefaults.HISTORICAL_EQUITY_ROOT,
+                    TradeDefaults.HISTORICAL_UNIVERSE_URL,
                     true,
                     8,
                     200L,
                     "",
                     "",
                     "",
-                    HiveCacheImportConfig.DEFAULT_FROM_MONTH,
+                    TradeDefaults.HIVE_CACHE_IMPORT_FROM_MONTH,
                     ""
             );
         }
         if (analytics == null) {
             analytics = new AnalyticsProperties(
-                    "duckdb",
-                    "data/historical-equity",
-                    "runtime-dev/historical.duckdb",
+                    TradeDefaults.ANALYTICS_ENGINE_DUCKDB,
+                    TradeDefaults.HISTORICAL_EQUITY_ROOT,
+                    TradeDefaults.HISTORICAL_WAREHOUSE_PATH,
                     "",
                     false,
                     true,
-                    10_000,
-                    30_000L
+                    TradeDefaults.ANALYTICS_SQL_MAX_ROWS,
+                    TradeDefaults.ANALYTICS_SQL_MAX_RUNTIME_MS
             );
         }
     }
@@ -108,7 +109,7 @@ public record TradingProperties(
     ) {
         public CandleProperties {
             if (intervals == null || intervals.isEmpty()) {
-                intervals = List.of("1s", "5m");
+                intervals = List.of(TradeDefaults.CANDLE_INTERVAL_1S, TradeDefaults.CANDLE_INTERVAL_5M);
             }
         }
     }
@@ -184,7 +185,7 @@ public record TradingProperties(
     public record StorageProperties(
             @NotBlank String chroniclePath,
             @NotBlank String duckdbPath,
-            @DefaultValue("runtime-dev/historical.duckdb") String historicalWarehousePath
+            @DefaultValue(TradeDefaults.HISTORICAL_WAREHOUSE_PATH) String historicalWarehousePath
     ) {
     }
 
@@ -195,23 +196,23 @@ public record TradingProperties(
     }
 
     public record HistoricalEquityProperties(
-            @DefaultValue("data/historical-equity") String rootPath,
-            @DefaultValue(Nifty500UniverseFetcher.DEFAULT_UNIVERSE_URL) String universeUrl,
+            @DefaultValue(TradeDefaults.HISTORICAL_EQUITY_ROOT) String rootPath,
+            @DefaultValue(TradeDefaults.HISTORICAL_UNIVERSE_URL) String universeUrl,
             @DefaultValue("true") boolean refreshUniverseOnJobStart,
             @DefaultValue("8") int workers,
             @DefaultValue("200") long delayMs,
             @DefaultValue("") String sourceHivePath,
             @DefaultValue("") String sourceUniverseCsv,
             @DefaultValue("") String sourceIndustryParquet,
-            @DefaultValue(HiveCacheImportConfig.DEFAULT_FROM_MONTH) String importFromMonth,
+            @DefaultValue(TradeDefaults.HIVE_CACHE_IMPORT_FROM_MONTH) String importFromMonth,
             @DefaultValue("") String importToMonth
     ) {
     }
 
     public record AnalyticsProperties(
-            @DefaultValue("duckdb") String engine,
-            @DefaultValue("data/historical-equity") String equityRoot,
-            @DefaultValue("runtime-dev/historical.duckdb") String optionsWarehouse,
+            @DefaultValue(TradeDefaults.ANALYTICS_ENGINE_DUCKDB) String engine,
+            @DefaultValue(TradeDefaults.HISTORICAL_EQUITY_ROOT) String equityRoot,
+            @DefaultValue(TradeDefaults.HISTORICAL_WAREHOUSE_PATH) String optionsWarehouse,
             @DefaultValue("") String runtimeDbPath,
             @DefaultValue("false") boolean attachRuntimeDb,
             @DefaultValue("true") boolean sqlEnabled,
@@ -286,9 +287,9 @@ public record TradingProperties(
 
     public record SyncProperties(
             @DefaultValue("true") boolean enabled,
-            @DefaultValue("0 0 16 * * MON-FRI") String cron,
+            @DefaultValue(TradeDefaults.SYNC_CRON_AFTER_MARKET_CLOSE) String cron,
             @DefaultValue("3") int lookbackMonths,
-            @DefaultValue("NSE_EQ") String segment,
+            @DefaultValue(TradeDefaults.SYNC_SEGMENT) String segment,
             @DefaultValue("50") int batchSize,
             @DefaultValue("500") long delayMs,
             @DefaultValue("false") boolean autoResample,

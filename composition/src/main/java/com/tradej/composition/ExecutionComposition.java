@@ -9,6 +9,7 @@ import com.tradej.execution.risk.PositionRiskHandler;
 import com.tradej.execution.service.CaffeineIdempotencyCache;
 import com.tradej.execution.service.OrderManagementService;
 import com.tradej.broker.api.IBrokerConnection;
+import com.tradej.broker.api.capability.BrokerCapabilityRouter;
 import com.tradej.broker.api.port.IdempotencyCachePort;
 import com.tradej.broker.api.port.MarginProvider;
 import com.tradej.broker.api.port.PortfolioProvider;
@@ -48,10 +49,13 @@ public final class ExecutionComposition {
         EventSourcedNetPositionProvider netPositionProvider = new EventSourcedNetPositionProvider();
         IdempotencyCachePort idempotencyCache = new CaffeineIdempotencyCache();
 
-        MarginProvider margin = brokerConnection == null ? null
-                : brokerConnection.getCapability(MarginProvider.class).orElse(null);
-        PortfolioProvider portfolio = brokerConnection == null ? null
-                : brokerConnection.getCapability(PortfolioProvider.class).orElse(null);
+        BrokerCapabilityRouter capabilities = brokerConnection == null
+                ? null
+                : BrokerCapabilityRouter.forConnection(brokerConnection);
+        MarginProvider margin = capabilities == null ? null
+                : capabilities.find(MarginProvider.class).orElse(null);
+        PortfolioProvider portfolio = capabilities == null ? null
+                : capabilities.find(PortfolioProvider.class).orElse(null);
 
         MarginEnforcementHandler marginHandler = new MarginEnforcementHandler(
                 riskProfile.enforceMargin(),

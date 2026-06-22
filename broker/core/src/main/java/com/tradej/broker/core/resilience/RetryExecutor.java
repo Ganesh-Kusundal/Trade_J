@@ -75,6 +75,9 @@ public class RetryExecutor {
             }
         }
         circuitBreaker.onFailure(operation, policy.circuitBreakAfterFailures(), policy.circuitOpenMs());
+        if (policy.maxAttempts() == 1 && lastFailure != null) {
+            throw lastFailure;
+        }
         throw new RuntimeException("Operation failed after " + policy.maxAttempts() + " attempts: " + operation, lastFailure);
     }
 

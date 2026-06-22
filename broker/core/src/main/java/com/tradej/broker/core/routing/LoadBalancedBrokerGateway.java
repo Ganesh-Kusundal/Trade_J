@@ -1,6 +1,7 @@
 package com.tradej.broker.core.routing;
 
 import com.tradej.broker.api.IBrokerConnection;
+import com.tradej.broker.api.capability.BrokerCapabilityRouter;
 import com.tradej.broker.api.model.HistoricalDataCapabilities;
 import com.tradej.broker.api.model.MarketSubscriptionRequest;
 import com.tradej.broker.api.port.BracketOrderProvider;
@@ -111,7 +112,7 @@ public final class LoadBalancedBrokerGateway implements IBrokerConnection {
     @Override
     public OptionsProvider options() {
         for (IBrokerConnection connection : connections) {
-            if (connection.getCapability(OptionsProvider.class).isPresent()) {
+            if (BrokerCapabilityRouter.forConnection(connection).supports(OptionsProvider.class)) {
                 return connection.options();
             }
         }
@@ -121,7 +122,7 @@ public final class LoadBalancedBrokerGateway implements IBrokerConnection {
     @Override
     public NewsProvider news() {
         for (IBrokerConnection connection : connections) {
-            if (connection.getCapability(NewsProvider.class).isPresent()) {
+            if (BrokerCapabilityRouter.forConnection(connection).supports(NewsProvider.class)) {
                 return connection.news();
             }
         }
@@ -150,7 +151,7 @@ public final class LoadBalancedBrokerGateway implements IBrokerConnection {
             return Optional.of(capabilityClass.cast(this));
         }
         for (IBrokerConnection connection : connections) {
-            Optional<T> capability = connection.getCapability(capabilityClass);
+            Optional<T> capability = BrokerCapabilityRouter.forConnection(connection).find(capabilityClass);
             if (capability.isPresent()) return capability;
         }
         return Optional.empty();
